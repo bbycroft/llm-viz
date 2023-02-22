@@ -2,7 +2,7 @@
     "name": "llm-viz",
     "private": true,
     "scripts": {
-        "dev": "next dev --turbo -p 4000",
+        "dev": "next dev -p 3002",
         "build": "next build",
         "start": "next start"
     },

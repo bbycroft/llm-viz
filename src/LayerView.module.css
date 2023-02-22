@@ -1,5 +1,17 @@
 @import '@/styles/variables.css';
 
 .view {
-    max-width: 800px;
+    display: flex;
+    flex-direction: row;
+}
+
+.sidebar {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+}
+
+.canvas {
+    flex: 5;
 }
