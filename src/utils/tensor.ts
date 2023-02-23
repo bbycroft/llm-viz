@@ -16,6 +16,8 @@ export interface IGptModelConfig {
 
     vocab_size: number;
     block_size: number;
+
+    B?: number;
 }
 
 // Just support float32 for now, cuz we're lazy
