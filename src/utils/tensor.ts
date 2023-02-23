@@ -145,11 +145,25 @@ export class TensorF32 {
         if (this.isContiguous) {
             array.set(this.buffer);
         } else {
-            let i = 0;
-            // TODO: this is slow, but it's not a bottleneck for now
-            // Can inline the iterator, and use the stride's directly to calculate the offset
-            for (let index of this.indexIterator()) {
-                array[i++] = this.g(index);
+            let index = new Array(this.shape.length).fill(0);
+            let destIdx = 0;
+            let offset = 0;
+            while (true) {
+                array[destIdx++] = this.buffer[offset];
+                let i = this.shape.length - 1;
+                while (i >= 0) {
+                    index[i]++;
+                    offset += this.stride[i];
+                    if (index[i] < this.shape[i]) {
+                        break;
+                    }
+                    offset -= index[i] * this.stride[i];
+                    index[i] = 0;
+                    i--;
+                }
+                if (i < 0) {
+                    break;
+                }
             }
         }
         return array;
