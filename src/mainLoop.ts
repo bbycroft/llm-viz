@@ -90,16 +90,19 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
     let tProjWeight = model[head0Prefix + 'c_proj.weight'];
     let tProjBias = model[head0Prefix + 'c_proj.bias'];
 
-    let residualInput     = createBufferTex(gl, C, B * T, 1);
+    // weights
     let qkvWeight         = createBufferTex(gl, C, nHeads * A, 3);
     let qkvBias           = createBufferTex(gl, 1, nHeads * A, 3);
+    let projWeight        = createBufferTex(gl, C, C, 1);
+    let projBias          = createBufferTex(gl, 1, C, 1);
+
+    // inputs; buffers; outputs
+    let residualInput     = createBufferTex(gl, C, B * T, 1);
     let qkvOutput         = createBufferTex(gl, A, B * nHeads * T, 4); // 4 channels required for color-renderable
     let attnMatrix        = createBufferTex(gl, T, B * nHeads * T, 1);
     let attnMatrixAgg     = createBufferTex(gl, 1, B * nHeads * T, 2);
     let attnMatrixSoftmax = createBufferTex(gl, T, B * nHeads * T, 1);
     let scaledVectors     = createBufferTex(gl, C, B * T, 1);
-    let projWeight        = createBufferTex(gl, C, C, 1);
-    let projBias          = createBufferTex(gl, 1, C, 1);
     let projOutput        = createBufferTex(gl, C, B * T, 1);
 
     writeToBufferTex(gl, qkvWeight, tAttnWeight.toFloat32Array());
@@ -133,9 +136,9 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
 
             vec3 a = texelFetch(qkvBias, ivec2(0, headIdx * ${A} + pos.x), 0).rgb;
             for (int i = 0; i < ${C}; i++) {
-                float inVal = texelFetch(residualInput, ivec2(i, tIdx                  ), 0).r;
-                vec3 qkvVal = texelFetch(qkvWeight,     ivec2(i, headIdx * ${A} + pos.x), 0).rgb;
-                a += inVal * qkvVal;
+                float inVal = texelFetch(residualInput, ivec2(i, tIdx + bIdx * ${T}    ), 0).r;
+                vec3 qkvW   = texelFetch(qkvWeight,     ivec2(i, headIdx * ${A} + pos.x), 0).rgb;
+                a += inVal * qkvW;
             }
 
             qkvOutput = vec4(a, 1);
@@ -156,12 +159,9 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
             // qkvOutput pos is (B, nHeads, T) (A)
             // attnMatrix    is (B, nHeads, T) (T)
 
-            int headIdx = pos.y / ${T};
-            int tIdxQ = pos.y % ${T};
-            int bIdx = headIdx / ${nHeads};
-            headIdx = headIdx % ${nHeads};
-
             int tIdxK = pos.x;
+            int tIdxQ = pos.y % ${T};
+            int yOffset = pos.y - tIdxQ;
 
             if (tIdxK > tIdxQ) { // # forward attention only
                 discard;
@@ -169,8 +169,8 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
 
             float a = 0.0;
             for (int i = 0; i < ${A}; i++) {
-                float q = texelFetch(qkvOutput, ivec2(i, headIdx * ${T} + tIdxQ), 0).r;
-                float k = texelFetch(qkvOutput, ivec2(i, headIdx * ${T} + tIdxK), 0).g;
+                float q = texelFetch(qkvOutput, ivec2(i, yOffset + tIdxQ), 0).r;
+                float k = texelFetch(qkvOutput, ivec2(i, yOffset + tIdxK), 0).g;
                 a += q * k;
             }
 
@@ -261,8 +261,6 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
             ivec2 pos = ivec2(gl_FragCoord.xy);
 
             // qkvOutput         is (B, nHeads, T) (A)
-            // attnMatrix        is (B, nHeads, T) (T)
-            // attnMatrixAgg     is (B, nHeads, T) (1) [2]
             // attnMatrixSoftmax is (B, nHeads, T) (T)
             // scaledVectors     is (B, T)         (A * nHeads)
 
@@ -270,11 +268,14 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
             int headIdx = pos.x / ${A};
 
             int tIdxY = pos.y % ${T};
+            int bIdx = pos.y / ${T};
+
+            int yOffset = bIdx * ${T} * ${nHeads} + headIdx * ${T};
 
             float res = 0.0;
             for (int i = 0; i <= tIdxY; i++) {
-                float sm = texelFetch(attnMatrixSoftmax, ivec2(i, headIdx * ${T} + tIdxY), 0).r;
-                float v = texelFetch(qkvOutput, ivec2(aIdx, headIdx * ${T} + i), 0).b;
+                float sm = texelFetch(attnMatrixSoftmax, ivec2(i, yOffset + tIdxY), 0).r;
+                float v = texelFetch(qkvOutput, ivec2(aIdx, yOffset + i), 0).b;
                 res += sm * v;
             }
 
@@ -379,7 +380,7 @@ function runModel(state: IProgramState) {
     writeToBufferTex(gl, residualInput, tX.buffer);
     runRenderPhase(gl, quadVao, qkvPhase);
 
-    /*
+
     let array = new Float32Array(B * nHeads * T * A * 4);
 
     let qActual = new Float32Array(B * nHeads * T * A);
@@ -396,7 +397,7 @@ function runModel(state: IProgramState) {
     console.log('qEqual', arraysEqual(qActual, tQ.toFloat32Array()));
     console.log('kEqual', arraysEqual(kActual, tK.toFloat32Array()));
     console.log('vEqual', arraysEqual(vActual, tV.toFloat32Array()));
-    */
+
 
     runRenderPhase(gl, quadVao, selfAttendPhase);
 
