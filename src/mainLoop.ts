@@ -1,5 +1,5 @@
 import { createGptLayer } from "./SelfAttentionLayer";
-import { arraysEqual, readFromRenderPhase, runRenderPhase, writeToBufferTex } from "./utils/renderPhases";
+import { arraysEqual, logArr, readFromRenderPhase, runRenderPhase, writeToBufferTex } from "./utils/renderPhases";
 import { createShaderProgram } from "./utils/shader";
 import { ITensorSet } from "./utils/tensor";
 
@@ -10,8 +10,23 @@ export interface IDataAndModel {
 
 export type IProgramState = ReturnType<typeof initialize>;
 
+/* TODO: think about how to handle working computation buffers.
+
+For each layer, we're typically abe to re-use the working memory buffers (provided they're the same dims, or smaller).
+But the layers each have different weights.
+However, for debugging etc, we also want to keep all the working buffers around.
+We also want to re-use programs and shader objects where possible. Can just do a string compare on the shader source.
+Baking in the constants remains a good idea I think, since the div/mod's can be flattened since they're often powers of 2 (& constant).
+
+Also have the issue of passing input/output buffers between stages, where we can often re-use those buffers
+(not always, e.g. layerNorm). However, the (B, T, C) buffers can sometimes allow for a ping-pong process.
+
+We might as well build the nested structure of the real model, with each chunk having create + execute methods.
+*/
+
 export function initialize(canvasEl: HTMLCanvasElement, dataAndModel: IDataAndModel) {
 
+    console.clear();
     let gl = canvasEl.getContext("webgl2")!;
 
     let ext = {
@@ -80,11 +95,14 @@ function runModel(state: IProgramState) {
         llmLayer: {
             residualInput,
             qkvPhase,
+            ln_1,
             selfAttendPhase,
             attnMatrixAggPhase,
             attnMatrixSoftmaxPhase,
             scaledVectorsPhase,
             projPhase,
+            ln_2,
+            mlp,
         },
         quadVao,
         dataAndModel,
@@ -100,17 +118,31 @@ function runModel(state: IProgramState) {
     let A = C / nHeads; // n elements in each Q, K, V vector, i.e. what we project down to
 
     let tX = dataAndModel.data.x; // (B, T, C)
+    let tLn1 = dataAndModel.data.ln1; // (B, T, C)
     let tQ = dataAndModel.data.q; // (B, nHeads, T, A)
     let tK = dataAndModel.data.k; // (B, nHeads, T, A)
     let tV = dataAndModel.data.v; // (B, nHeads, T, A)
-    let tAttn = dataAndModel.data.att; // (B, nHeads, T, T)
     let tAttnSm = dataAndModel.data.attSm; // (B, nHeads, T, T)
     let tY = dataAndModel.data.y; // (B, T, C)
-    let tYProj = dataAndModel.data.yProj; // (B, T, C)
+    let tAttnResid = dataAndModel.data.attnResid; // (B, T, C)
+    // let tYProj = dataAndModel.data.yProj; // (B, T, C)
+    let tLn2 = dataAndModel.data.ln2; // (B, T, C)
+    let tFc = dataAndModel.data.fc; // (B, T, C * 4)
+    let tGelu = dataAndModel.data.gelu; // (B, T, C * 4)
+    let tMlpProj = dataAndModel.data.mlp; // (B, T, C)
+    let tMlpResid = dataAndModel.data.mlpResid; // (B, T, C)
 
     gl.bindVertexArray(quadVao);
 
     writeToBufferTex(gl, residualInput, tX.buffer);
+
+    runRenderPhase(gl, ln_1.normAggPhase);
+    runRenderPhase(gl, ln_1.normApplyPhase);
+
+    let ln1 = new Float32Array(B * T * C);
+    readFromRenderPhase(gl, ln_1.normApplyPhase, 0, ln1);
+    console.log('ln1Equal', arraysEqual(ln1, tLn1.toFloat32Array()));
+
     runRenderPhase(gl, qkvPhase);
 
     let array = new Float32Array(B * nHeads * T * A * 4);
@@ -143,10 +175,31 @@ function runModel(state: IProgramState) {
     console.log('tequal', arraysEqual(scaledVectors, tY.toFloat32Array()));
 
     runRenderPhase(gl, projPhase);
-    let proj = new Float32Array(B * T * C);
-    readFromRenderPhase(gl, projPhase, 0, proj);
+    let attnResid = new Float32Array(B * T * C);
+    readFromRenderPhase(gl, projPhase, 0, attnResid);
+    console.log('attnResidEqual', arraysEqual(attnResid, tAttnResid.toFloat32Array()));
 
-    console.log('projEqual', arraysEqual(proj, tYProj.toFloat32Array()));
+    runRenderPhase(gl, ln_2.normAggPhase);
+    runRenderPhase(gl, ln_2.normApplyPhase);
+
+    let ln2 = new Float32Array(B * T * C);
+    readFromRenderPhase(gl, ln_2.normApplyPhase, 0, ln2);
+    console.log('ln2Equal', arraysEqual(ln2, tLn2.toFloat32Array()));
+
+    runRenderPhase(gl, mlp.fcLayer.linearPhase);
+    let fc = new Float32Array(B * T * C * 4);
+    readFromRenderPhase(gl, mlp.fcLayer.linearPhase, 0, fc);
+    console.log('fcEqual', arraysEqual(fc, tFc.toFloat32Array()));
+
+    runRenderPhase(gl, mlp.geluPhase);
+    let gelu = new Float32Array(B * T * C * 4);
+    readFromRenderPhase(gl, mlp.geluPhase, 0, gelu);
+    console.log('geluEqual', arraysEqual(gelu, tGelu.toFloat32Array()));
+
+    runRenderPhase(gl, mlp.projLayer.linearPhase);
+    let mlpProj = new Float32Array(B * T * C);
+    readFromRenderPhase(gl, mlp.projLayer.linearPhase, 0, mlpProj);
+    console.log('mlpProjEqual', arraysEqual(mlpProj, tMlpProj.toFloat32Array()));
 }
 
 export function mainLoop(state: IProgramState, time: DOMHighResTimeStamp, dt: number) {
@@ -166,4 +219,23 @@ export function mainLoop(state: IProgramState, time: DOMHighResTimeStamp, dt: nu
     gl.useProgram(state.prog0.program);
     gl.bindVertexArray(state.quadVao);
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+}
+
+function computeMeanStdDev(data: Float32Array) {
+
+    // Use the Welford algorithm to compute the mean and variance
+
+    let mean = 0;
+    let M2 = 0;
+    for (let i = 0; i < data.length; i++) {
+        let x = data[i];
+        let delta = x - mean;
+        mean += delta / (i + 1);
+        M2 += delta * (x - mean);
+    }
+
+    return {
+        mean,
+        stdDev: Math.sqrt(M2 / data.length + 1e-5),
+    };
 }

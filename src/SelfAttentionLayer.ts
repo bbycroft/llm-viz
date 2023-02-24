@@ -1,5 +1,5 @@
 import { IDataAndModel } from "./mainLoop";
-import { createBufferTex, writeToBufferTex, setProgramTexUniforms, createRenderPhase } from "./utils/renderPhases";
+import { createBufferTex, writeToBufferTex, setProgramTexUniforms, createRenderPhase, IBufferTex } from "./utils/renderPhases";
 import { createShaderProgram } from "./utils/shader";
 
 export interface IModelShape {
@@ -60,10 +60,10 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
 
     let qkvProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
-        uniform sampler2D residualInput; // (B, T)         (C)
-        uniform sampler2D qkvWeight;     // (nHeads, A)    (C) [3]
-        uniform sampler2D qkvBias;       // (nHeads, A)    (1) [3]
-        out vec4 qkvOutput;              // (B, nHeads, T) (A)
+        uniform sampler2D attnInput; // (B, T)         (C)
+        uniform sampler2D qkvWeight; // (nHeads, A)    (C) [3]
+        uniform sampler2D qkvBias;   // (nHeads, A)    (1) [3]
+        out vec4 qkvOutput;          // (B, nHeads, T) (A)
 
         void main() {
             ivec2 pos = ivec2(gl_FragCoord.xy);
@@ -75,8 +75,8 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
 
             vec3 a = texelFetch(qkvBias, ivec2(0, headIdx * ${A} + pos.x), 0).rgb;
             for (int i = 0; i < ${C}; i++) {
-                float inVal = texelFetch(residualInput, ivec2(i, tIdx + bIdx * ${T}    ), 0).r;
-                vec3 qkvW   = texelFetch(qkvWeight,     ivec2(i, headIdx * ${A} + pos.x), 0).rgb;
+                float inVal = texelFetch(attnInput, ivec2(i, tIdx + bIdx * ${T}    ), 0).r;
+                vec3 qkvW   = texelFetch(qkvWeight,  ivec2(i, headIdx * ${A} + pos.x), 0).rgb;
                 a += inVal * qkvW;
             }
 
@@ -195,6 +195,7 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
         uniform sampler2D scaledVectors; // (B, T) (C)
         uniform sampler2D projWeight;    // (C)    (C)
         uniform sampler2D projBias;      // (C)    (1)
+        uniform sampler2D residualInput; // (B, T) (C)
         out float projOutput;            // (B, T) (C)
 
         void main() {
@@ -207,7 +208,7 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
                 res += w * a;
             }
 
-            projOutput = res;
+            projOutput = res + texelFetch(residualInput, pos, 0).r;
         }
     `);
 
@@ -215,8 +216,10 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
         throw new Error("Failed to create shader program");
     }
 
-    setProgramTexUniforms(gl, qkvProg, ["residualInput", "qkvWeight", "qkvBias"]);
-    let qkvPhase = createRenderPhase(gl, qkvProg, [residualInput, qkvWeight, qkvBias], [qkvOutput]);
+    let ln_1 = createLayerNorm(gl, dataAndModel, modelShape, 'transformer.h.0.ln_1', residualInput);
+
+    setProgramTexUniforms(gl, qkvProg, ["attnInput", "qkvWeight", "qkvBias"]);
+    let qkvPhase = createRenderPhase(gl, qkvProg, [ln_1.normOutput, qkvWeight, qkvBias], [qkvOutput]);
 
     setProgramTexUniforms(gl, selfAttendProg, ["qkvOutput"]);
     let selfAttendPhase = createRenderPhase(gl, selfAttendProg, [qkvOutput], [attnMatrix]);
@@ -231,10 +234,12 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
     setProgramTexUniforms(gl, scaledVectorsProg, ["qkvOutput", "attnMatrixSoftmax"]);
     let scaledVectorsPhase = createRenderPhase(gl, scaledVectorsProg, [qkvOutput, attnMatrixSoftmax], [scaledVectors]);
 
-    setProgramTexUniforms(gl, projProg, ["scaledVectors", "projWeight", "projBias"]);
-    let projPhase = createRenderPhase(gl, projProg, [scaledVectors, projWeight, projBias], [projOutput]);
+    setProgramTexUniforms(gl, projProg, ["scaledVectors", "projWeight", "projBias", "residualInput"]);
+    let projPhase = createRenderPhase(gl, projProg, [scaledVectors, projWeight, projBias, residualInput], [projOutput]);
 
-    let ln_2 = createLayerNorm(gl, dataAndModel, modelShape, 'transformer.h.0.ln_2');
+    let ln_2 = createLayerNorm(gl, dataAndModel, modelShape, 'transformer.h.0.ln_2', projOutput);
+
+    let mlp = createMLP(gl, dataAndModel, modelShape, 'transformer.h.0.mlp', ln_2.normOutput);
 
     return {
         residualInput,
@@ -244,10 +249,13 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
         attnMatrixSoftmaxPhase,
         scaledVectorsPhase,
         projPhase,
+        ln_1,
+        ln_2,
+        mlp,
     };
 }
 
-export function createLayerNorm(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string) {
+export function createLayerNorm(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string, input: IBufferTex) {
     let { B, T, C } = shape;
     let model = dataAndModel.model;
 
@@ -281,13 +289,12 @@ export function createLayerNorm(gl: WebGL2RenderingContext, dataAndModel: IDataA
                 float x = texelFetch(normInput, ivec2(i, pos.y), 0).r;
                 float delta = x - mean;
                 mean += delta / float(i + 1);
-                float delta2 = x - mean;
-                M2 += delta * delta2;
+                M2 += delta * (x - mean);
             }
 
             normAgg = vec2(mean, 1.0 / sqrt(M2 / float(${C}) + ${normEps}));
         }
-    `);
+    `)!;
 
     let normApply = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
@@ -311,5 +318,101 @@ export function createLayerNorm(gl: WebGL2RenderingContext, dataAndModel: IDataA
 
             normOutput = (x - mean) * stdInv * weight + bias;
         }
-    `);
+    `)!;
+
+    setProgramTexUniforms(gl, normAggProg, ["normInput"]);
+    let normAggPhase = createRenderPhase(gl, normAggProg, [input], [normAgg]);
+
+    setProgramTexUniforms(gl, normApply, ["normInput", "normAgg", "normWeight", "normBias"]);
+    let normApplyPhase = createRenderPhase(gl, normApply, [input, normAgg, normWeight, normBias], [normOutput]);
+
+    return {
+        normAggPhase,
+        normApplyPhase,
+        normOutput,
+    };
+}
+
+export function createMLP(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string, input: IBufferTex) {
+    let { B, T, C } = shape;
+    let model = dataAndModel.model;
+
+    // weights
+    let mlpWeight = createBufferTex(gl, C, C * 4, 1); // (C, 4C) (1)
+    let mlpBias   = createBufferTex(gl, 1, C * 4, 1); // (4C) (1)
+
+    // operating memory
+    let mlpGelu = createBufferTex(gl, C * 4, B * T, 1); // (B, T) (4C)
+
+    let fcLayer = createLinearLayer(gl, dataAndModel, shape, layerPrefix + '.c_fc', C, C * 4, input);
+
+    let geluProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+        precision highp float;
+        uniform sampler2D geluInput;  // (B, T) (C * 4)
+        out float geluOutput; // (B, T) (C * 4)
+
+        void main() {
+            ivec2 pos = ivec2(gl_FragCoord.xy);
+            float x = texelFetch(geluInput, pos, 0).r;
+            geluOutput = x * 0.5 * (1.0 + tanh(sqrt(2.0 / 3.14159265358) * (x + 0.044715 * x * x * x)));
+        }
+    `)!;
+
+    setProgramTexUniforms(gl, geluProg, ["geluInput"]);
+    let geluPhase = createRenderPhase(gl, geluProg, [fcLayer.linearOutput], [mlpGelu]);
+
+    let projLayer = createLinearLayer(gl, dataAndModel, shape, layerPrefix + '.c_proj', C * 4, C, mlpGelu);
+
+    return {
+        fcLayer,
+        geluPhase,
+        projLayer,
+    };
+}
+
+export function createLinearLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string, nIn: number, nOut: number, input: IBufferTex) {
+    let { B, T } = shape;
+    let model = dataAndModel.model;
+
+    let tWeight = model[layerPrefix + '.weight'];
+    let tBias = model[layerPrefix + '.bias'];
+
+    // weights
+    let linearWeight = createBufferTex(gl, nIn, nOut, 1); // (nOut) (nIn)
+    let linearBias   = createBufferTex(gl, 1, nOut, 1); // (nOut) (1)
+
+    // operating memory
+    let linearOutput = createBufferTex(gl, nOut, B * T, 1); // (B, T) (nOut)
+
+    writeToBufferTex(gl, linearWeight, tWeight.toFloat32Array());
+    writeToBufferTex(gl, linearBias, tBias.toFloat32Array());
+
+    let linearProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+        precision highp float;          //    y     x
+        uniform sampler2D linearInput;  // (B, T) (nIn)
+        uniform sampler2D linearWeight; // (nOut) (nIn)
+        uniform sampler2D linearBias;   // (nOut) (1)
+        out float linearOutput;         // (B, T) (nOut)
+
+        void main() {
+            ivec2 pos = ivec2(gl_FragCoord.xy);
+
+            float res = texelFetch(linearBias, ivec2(0, pos.x), 0).r;
+            for (int i = 0; i < ${nIn}; i++) {
+                float x = texelFetch(linearInput, ivec2(i, pos.y), 0).r;
+                float w = texelFetch(linearWeight, ivec2(i, pos.x), 0).r;
+                res += x * w;
+            }
+
+            linearOutput = res;
+        }
+    `)!;
+
+    setProgramTexUniforms(gl, linearProg, ["linearInput", "linearWeight", "linearBias"]);
+    let linearPhase = createRenderPhase(gl, linearProg, [input, linearWeight, linearBias], [linearOutput]);
+
+    return {
+        linearPhase,
+        linearOutput,
+    };
 }
