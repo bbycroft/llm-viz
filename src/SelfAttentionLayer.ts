@@ -5,6 +5,8 @@ import { createShaderProgram } from "./utils/shader";
 
 export interface IModelShape {
     B: number;
+    vocabSize: number;
+    nBlocks: number;
     C: number;
     nHeads: number;
     T: number;
@@ -27,7 +29,7 @@ void main() {
 
 export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel) {
     let model = dataAndModel.model;
-    let prefix = "transformer.h.0";
+    let prefix = 'transformer.h';
 
     let config = model.config;
 
@@ -35,13 +37,31 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
     let C = config.n_embd;
     let nHeads = config.n_head;
     let T = config.block_size;
+    let nBlocks = config.n_layer;
+    let vocabSize = config.vocab_size;
     let A = C / nHeads; // n elements in each Q, K, V vector, i.e. what we project down to
 
-    let shape: IModelShape = { B, C, nHeads, T, A, };
+    let shape: IModelShape = { B, C, nHeads, T, A, nBlocks, vocabSize };
     let layerBuilder: ILayerBuilder = { gl, dataAndModel, shape };
 
     let input = createBufferTex(gl, C, B * T, 1);
+    let blocks = [];
 
+    let blockInput = input;
+    for (let i = 0; i < nBlocks; i++) {
+        let block = createBlockLayer(layerBuilder, prefix + '.' + i, blockInput);
+        blocks.push(block);
+        blockInput = block.output;
+    }
+
+    return {
+        input,
+        blocks,
+        output: blockInput,
+    };
+}
+
+export function createBlockLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex) {
     let ln_1 = createLayerNorm(layerBuilder, prefix + '.ln_1', input);
     let attn = createAttnLayer(layerBuilder, prefix + '.attn', ln_1.output, input);
     let ln_2 = createLayerNorm(layerBuilder, prefix + '.ln_2', attn.output);
