@@ -93,14 +93,9 @@ function runModel(state: IProgramState) {
     let {
         gl,
         llmLayer: {
-            residualInput,
-            qkvPhase,
+            input,
             ln_1,
-            selfAttendPhase,
-            attnMatrixAggPhase,
-            attnMatrixSoftmaxPhase,
-            scaledVectorsPhase,
-            proj,
+            attn,
             ln_2,
             mlp,
         },
@@ -134,7 +129,7 @@ function runModel(state: IProgramState) {
 
     gl.bindVertexArray(quadVao);
 
-    writeToBufferTex(gl, residualInput, tX.buffer);
+    writeToBufferTex(gl, input, tX.buffer);
 
     runRenderPhase(gl, ln_1.normAggPhase);
     runRenderPhase(gl, ln_1.normApplyPhase);
@@ -143,14 +138,14 @@ function runModel(state: IProgramState) {
     readFromRenderPhase(gl, ln_1.normApplyPhase, 0, ln1);
     console.log('ln1Equal', arraysEqual(ln1, tLn1.toFloat32Array()));
 
-    runRenderPhase(gl, qkvPhase);
+    runRenderPhase(gl, attn.qkvPhase);
 
     let array = new Float32Array(B * nHeads * T * A * 4);
     let qActual = new Float32Array(B * nHeads * T * A);
     let kActual = new Float32Array(B * nHeads * T * A);
     let vActual = new Float32Array(B * nHeads * T * A);
 
-    readFromRenderPhase(gl, qkvPhase, 0, array);
+    readFromRenderPhase(gl, attn.qkvPhase, 0, array);
 
     for (let i = 0; i < B * nHeads * T * A; i++) {
         qActual[i] = array[i * 4 + 0];
@@ -161,22 +156,22 @@ function runModel(state: IProgramState) {
     console.log('kEqual', arraysEqual(kActual, tK.toFloat32Array()));
     console.log('vEqual', arraysEqual(vActual, tV.toFloat32Array()));
 
-    runRenderPhase(gl, selfAttendPhase);
-    runRenderPhase(gl, attnMatrixAggPhase);
-    runRenderPhase(gl, attnMatrixSoftmaxPhase);
+    runRenderPhase(gl, attn.selfAttendPhase);
+    runRenderPhase(gl, attn.attnMatrixAggPhase);
+    runRenderPhase(gl, attn.attnMatrixSoftmaxPhase);
 
     let attnMatrixSoftmax = new Float32Array(B * nHeads * T * T);
-    readFromRenderPhase(gl, attnMatrixSoftmaxPhase, 0, attnMatrixSoftmax);
+    readFromRenderPhase(gl, attn.attnMatrixSoftmaxPhase, 0, attnMatrixSoftmax);
     console.log('smEqual', arraysEqual(attnMatrixSoftmax, tAttnSm.toFloat32Array()));
 
-    runRenderPhase(gl, scaledVectorsPhase);
+    runRenderPhase(gl, attn.scaledVectorsPhase);
     let scaledVectors = new Float32Array(B * T * C);
-    readFromRenderPhase(gl, scaledVectorsPhase, 0, scaledVectors);
+    readFromRenderPhase(gl, attn.scaledVectorsPhase, 0, scaledVectors);
     console.log('tequal', arraysEqual(scaledVectors, tY.toFloat32Array()));
 
-    runRenderPhase(gl, proj.linearPhase);
+    runRenderPhase(gl, attn.proj.linearPhase);
     let attnResid = new Float32Array(B * T * C);
-    readFromRenderPhase(gl, proj.linearPhase, 0, attnResid);
+    readFromRenderPhase(gl, attn.proj.linearPhase, 0, attnResid);
     console.log('attnResidEqual', arraysEqual(attnResid, tAttnResid.toFloat32Array()));
 
     runRenderPhase(gl, ln_2.normAggPhase);
@@ -197,9 +192,9 @@ function runModel(state: IProgramState) {
     console.log('geluEqual', arraysEqual(gelu, tGelu.toFloat32Array()));
 
     runRenderPhase(gl, mlp.projLayer.linearPhase);
-    let mlpProj = new Float32Array(B * T * C);
-    readFromRenderPhase(gl, mlp.projLayer.linearPhase, 0, mlpProj);
-    console.log('mlpProjEqual', arraysEqual(mlpProj, tMlpProj.toFloat32Array()));
+    let mlpResid = new Float32Array(B * T * C);
+    readFromRenderPhase(gl, mlp.projLayer.linearPhase, 0, mlpResid);
+    console.log('mlpResidEqual', arraysEqual(mlpResid, tMlpResid.toFloat32Array()));
 }
 
 export function mainLoop(state: IProgramState, time: DOMHighResTimeStamp, dt: number) {

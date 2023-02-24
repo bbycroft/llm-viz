@@ -1,6 +1,6 @@
 import { IDataAndModel } from "./mainLoop";
 import { nonNil } from "./utils/basic";
-import { createBufferTex, writeToBufferTex, setProgramTexUniforms, createRenderPhase, IBufferTex } from "./utils/renderPhases";
+import { createBufferTex, writeToBufferTex, createRenderPhase, IBufferTex } from "./utils/renderPhases";
 import { createShaderProgram } from "./utils/shader";
 
 export interface IModelShape {
@@ -27,7 +27,7 @@ void main() {
 
 export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel) {
     let model = dataAndModel.model;
-    let head0Prefix = "transformer.h.0.attn.";
+    let prefix = "transformer.h.0";
 
     let config = model.config;
 
@@ -37,33 +37,46 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
     let T = config.block_size;
     let A = C / nHeads; // n elements in each Q, K, V vector, i.e. what we project down to
 
-    let modelShape = { B, C, nHeads, T, A, };
+    let shape: IModelShape = { B, C, nHeads, T, A, };
+    let layerBuilder: ILayerBuilder = { gl, dataAndModel, shape };
+
+    let input = createBufferTex(gl, C, B * T, 1);
+
+    let ln_1 = createLayerNorm(layerBuilder, prefix + '.ln_1', input);
+    let attn = createAttnLayer(layerBuilder, prefix + '.attn', ln_1.output, input);
+    let ln_2 = createLayerNorm(layerBuilder, prefix + '.ln_2', attn.output);
+    let mlp = createMLP(layerBuilder, prefix + '.mlp', ln_2.output, attn.output);
+
+    return {
+        input,
+        attn,
+        ln_1,
+        ln_2,
+        mlp,
+        output: mlp.output,
+    };
+}
+
+export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex) {
+    let { gl, dataAndModel: { model }, shape: { B, T, C, nHeads, A } } = layerBuilder;
 
     // move the 1st dim to the end, i.e. the QKV split will be packed into RGB tex channels
-    let tAttnWeight = model[head0Prefix + 'c_attn.weight'].view([3, nHeads, A, C]).permute(1, 2, 3, 0);
-    let tAttnBias = model[head0Prefix + 'c_attn.bias'].view([3, nHeads, A]).permute(1, 2, 0);
-    let tProjWeight = model[head0Prefix + 'c_proj.weight'];
-    let tProjBias = model[head0Prefix + 'c_proj.bias'];
+    let tAttnWeight = model[prefix + '.c_attn.weight'].view([3, nHeads, A, C]).permute(1, 2, 3, 0);
+    let tAttnBias = model[prefix + '.c_attn.bias'].view([3, nHeads, A]).permute(1, 2, 0);
 
     // weights
     let qkvWeight         = createBufferTex(gl, C, nHeads * A, 3);
     let qkvBias           = createBufferTex(gl, 1, nHeads * A, 3);
-    let projWeight        = createBufferTex(gl, C, C, 1);
-    let projBias          = createBufferTex(gl, 1, C, 1);
 
     // inputs; buffers; outputs
-    let residualInput     = createBufferTex(gl, C, B * T, 1);
     let qkvOutput         = createBufferTex(gl, A, B * nHeads * T, 4); // 4 channels required for color-renderable
     let attnMatrix        = createBufferTex(gl, T, B * nHeads * T, 1);
     let attnMatrixAgg     = createBufferTex(gl, 1, B * nHeads * T, 2);
     let attnMatrixSoftmax = createBufferTex(gl, T, B * nHeads * T, 1);
     let scaledVectors     = createBufferTex(gl, C, B * T, 1);
-    let projOutput        = createBufferTex(gl, C, B * T, 1);
 
     writeToBufferTex(gl, qkvWeight, tAttnWeight.toFloat32Array());
     writeToBufferTex(gl, qkvBias, tAttnBias.toFloat32Array());
-    writeToBufferTex(gl, projWeight, tProjWeight.toFloat32Array());
-    writeToBufferTex(gl, projBias, tProjBias.toFloat32Array());
 
     let qkvProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
@@ -201,34 +214,26 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
         throw new Error("Failed to create shader program");
     }
 
-    let ln_1 = createLayerNorm(gl, dataAndModel, modelShape, 'transformer.h.0.ln_1', residualInput);
-
-    let qkvPhase = createRenderPhase(gl, qkvProg, [qkvOutput], [ln_1.normOutput, qkvWeight, qkvBias], ['attnInput', 'qkvWeight', 'qkvBias']);
+    let qkvPhase = createRenderPhase(gl, qkvProg, [qkvOutput], [input, qkvWeight, qkvBias], ['attnInput', 'qkvWeight', 'qkvBias']);
     let selfAttendPhase = createRenderPhase(gl, selfAttendProg, [attnMatrix], [qkvOutput], ['qkvOutput']);
     let attnMatrixAggPhase = createRenderPhase(gl, attnMatrixAggProg, [attnMatrixAgg], [attnMatrix], ['attnMatrix']);
     let attnMatrixSoftmaxPhase = createRenderPhase(gl, attnMatrixSoftmaxProg, [attnMatrixSoftmax], [attnMatrix, attnMatrixAgg], ['attnMatrix', 'attnMatrixAgg']); // Could skip?
     let scaledVectorsPhase = createRenderPhase(gl, scaledVectorsProg, [scaledVectors], [qkvOutput, attnMatrixSoftmax], ['qkvOutput', 'attnMatrixSoftmax']);
-    let proj = createLinearLayer(gl, dataAndModel, modelShape, 'transformer.h.0.attn.c_proj', C, C, scaledVectors, residualInput);
-    let ln_2 = createLayerNorm(gl, dataAndModel, modelShape, 'transformer.h.0.ln_2', proj.linearOutput);
-    let mlp = createMLP(gl, dataAndModel, modelShape, 'transformer.h.0.mlp', ln_2.normOutput);
+    let proj = createLinearLayer(layerBuilder, prefix + '.c_proj', C, C, scaledVectors, residual);
 
     return {
-        residualInput,
         qkvPhase,
         selfAttendPhase,
         attnMatrixAggPhase,
         attnMatrixSoftmaxPhase,
         scaledVectorsPhase,
         proj,
-        ln_1,
-        ln_2,
-        mlp,
+        output: proj.output,
     };
 }
 
-export function createLayerNorm(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string, input: IBufferTex) {
-    let { B, T, C } = shape;
-    let model = dataAndModel.model;
+export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string, input: IBufferTex) {
+    let { gl, dataAndModel: { model }, shape: { B, T, C } } = layerBuilder;
 
     let tWeight = model[layerPrefix + '.weight'];
     let tBias = model[layerPrefix + '.bias'];
@@ -238,8 +243,8 @@ export function createLayerNorm(gl: WebGL2RenderingContext, dataAndModel: IDataA
     let normBias   = createBufferTex(gl, 1, C, 1); // (C) (1)
 
     // operating memory
-    let normAgg    = createBufferTex(gl, 1, B * T, 2); // (B, T) (1) [2]
-    let normOutput = createBufferTex(gl, C, B * T, 1); // (B, T) (C)
+    let normAgg = createBufferTex(gl, 1, B * T, 2); // (B, T) (1) [2]
+    let output  = createBufferTex(gl, C, B * T, 1); // (B, T) (C)
 
     writeToBufferTex(gl, normWeight, tWeight.toFloat32Array());
     writeToBufferTex(gl, normBias, tBias.toFloat32Array());
@@ -292,24 +297,22 @@ export function createLayerNorm(gl: WebGL2RenderingContext, dataAndModel: IDataA
     `)!;
 
     let normAggPhase = createRenderPhase(gl, normAggProg, [normAgg], [input], ['normInput']);
-    let normApplyPhase = createRenderPhase(gl, normApply, [normOutput],
+    let normApplyPhase = createRenderPhase(gl, normApply, [output],
         [input, normAgg, normWeight, normBias],
         ['normInput', 'normAgg', 'normWeight', 'normBias']);
 
     return {
         normAggPhase,
         normApplyPhase,
-        normOutput,
+        output,
     };
 }
 
-export function createMLP(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string, input: IBufferTex) {
-    let { B, T, C } = shape;
+export function createMLP(layerBuilder: ILayerBuilder, layerPrefix: string, input: IBufferTex, residual?: IBufferTex) {
+    let { gl, shape: { B, T, C } } = layerBuilder;
 
     // operating memory
     let mlpGelu = createBufferTex(gl, C * 4, B * T, 1); // (B, T) (4C)
-
-    let fcLayer = createLinearLayer(gl, dataAndModel, shape, layerPrefix + '.c_fc', C, C * 4, input);
 
     let geluProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
@@ -323,20 +326,20 @@ export function createMLP(gl: WebGL2RenderingContext, dataAndModel: IDataAndMode
         }
     `)!;
 
-    let geluPhase = createRenderPhase(gl, geluProg, [mlpGelu], [fcLayer.linearOutput], ['geluInput']);
-
-    let projLayer = createLinearLayer(gl, dataAndModel, shape, layerPrefix + '.c_proj', C * 4, C, mlpGelu);
+    let fcLayer = createLinearLayer(layerBuilder, layerPrefix + '.c_fc', C, C * 4, input);
+    let geluPhase = createRenderPhase(gl, geluProg, [mlpGelu], [fcLayer.output], ['geluInput']);
+    let projLayer = createLinearLayer(layerBuilder, layerPrefix + '.c_proj', C * 4, C, mlpGelu, residual);
 
     return {
         fcLayer,
         geluPhase,
         projLayer,
+        output: projLayer.output,
     };
 }
 
-export function createLinearLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex) {
-    let { B, T } = shape;
-    let model = dataAndModel.model;
+export function createLinearLayer(layerBuilder: ILayerBuilder, layerPrefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex) {
+    let { gl, dataAndModel: { model }, shape: { B, T } } = layerBuilder;
 
     let tWeight = model[layerPrefix + '.weight'];
     let tBias = model[layerPrefix + '.bias'];
@@ -346,7 +349,7 @@ export function createLinearLayer(gl: WebGL2RenderingContext, dataAndModel: IDat
     let linearBias   = createBufferTex(gl, 1, nOut, 1); // (nOut) (1)
 
     // operating memory
-    let linearOutput = createBufferTex(gl, nOut, B * T, 1); // (B, T) (nOut)
+    let output = createBufferTex(gl, nOut, B * T, 1); // (B, T) (nOut)
 
     writeToBufferTex(gl, linearWeight, tWeight.toFloat32Array());
     writeToBufferTex(gl, linearBias, tBias.toFloat32Array());
@@ -374,12 +377,12 @@ export function createLinearLayer(gl: WebGL2RenderingContext, dataAndModel: IDat
         }
     `)!;
 
-    let linearPhase = createRenderPhase(gl, linearProg, [linearOutput],
+    let linearPhase = createRenderPhase(gl, linearProg, [output],
         [input, linearWeight, linearBias, residual].filter(nonNil),
         ['linearInput', 'linearWeight', 'linearBias', residual ? 'linearResidual' : null].filter(nonNil));
 
     return {
         linearPhase,
-        linearOutput,
+        output,
     };
 }
