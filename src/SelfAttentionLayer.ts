@@ -29,7 +29,7 @@ void main() {
 
 export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel) {
     let model = dataAndModel.model;
-    let prefix = 'transformer.h';
+    let prefix = 'transformer';
 
     let config = model.config;
 
@@ -44,20 +44,45 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
     let shape: IModelShape = { B, C, nHeads, T, A, nBlocks, vocabSize };
     let layerBuilder: ILayerBuilder = { gl, dataAndModel, shape };
 
-    let input = createBufferTex(gl, C, B * T, 1);
-    let blocks = [];
+    let inputTokens = createBufferTex(gl, 1, B * T, 1);
 
-    let blockInput = input;
+    // let blockInput0 = createBufferTex(gl, C, B * T, 1);
+
+    // not ideal to have to create one for each batch, but works for now
+    let posArr = new Float32Array(B * T);
+    for (let i = 0; i < B; i++) {
+        for (let j = 0; j < T; j++) {
+            posArr[i * T + j] = j;
+        }
+    }
+    let pos = createBufferTex(gl, 1, B * T, 1);
+    writeToBufferTex(gl, pos, posArr);
+
+    let vocabEmbed = createEmbeddingLayer(layerBuilder, prefix + '.wte', vocabSize, C, inputTokens);
+    let posEmbed = createEmbeddingLayer(layerBuilder, prefix + '.wpe', T, C, pos);
+    let add = createAddLayer(layerBuilder, vocabEmbed.output, posEmbed.output);
+
+    let blocks = [];
+    let x = add.output;
     for (let i = 0; i < nBlocks; i++) {
-        let block = createBlockLayer(layerBuilder, prefix + '.' + i, blockInput);
+        let block = createBlockLayer(layerBuilder, prefix + '.h.' + i, x);
         blocks.push(block);
-        blockInput = block.output;
+        x = block.output;
     }
 
+    let ln_f = createLayerNorm(layerBuilder, prefix + '.ln_f', x);
+    let lm_head = createLinearLayer(layerBuilder, 'lm_head', C, vocabSize, ln_f.output, undefined, false);
+
     return {
-        input,
+        inputTokens,
+        // blockInput0,
+        vocabEmbed,
+        posEmbed,
+        add,
         blocks,
-        output: blockInput,
+        ln_f,
+        lm_head,
+        output: lm_head.output,
     };
 }
 
@@ -328,7 +353,7 @@ export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string
     };
 }
 
-export function createMLP(layerBuilder: ILayerBuilder, layerPrefix: string, input: IBufferTex, residual?: IBufferTex) {
+export function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual?: IBufferTex) {
     let { gl, shape: { B, T, C } } = layerBuilder;
 
     // operating memory
@@ -346,9 +371,9 @@ export function createMLP(layerBuilder: ILayerBuilder, layerPrefix: string, inpu
         }
     `)!;
 
-    let fcLayer = createLinearLayer(layerBuilder, layerPrefix + '.c_fc', C, C * 4, input);
+    let fcLayer = createLinearLayer(layerBuilder, prefix + '.c_fc', C, C * 4, input);
     let geluPhase = createRenderPhase(gl, geluProg, [mlpGelu], [fcLayer.output], ['geluInput']);
-    let projLayer = createLinearLayer(layerBuilder, layerPrefix + '.c_proj', C * 4, C, mlpGelu, residual);
+    let projLayer = createLinearLayer(layerBuilder, prefix + '.c_proj', C * 4, C, mlpGelu, residual);
 
     return {
         fcLayer,
@@ -358,34 +383,36 @@ export function createMLP(layerBuilder: ILayerBuilder, layerPrefix: string, inpu
     };
 }
 
-export function createLinearLayer(layerBuilder: ILayerBuilder, layerPrefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex) {
+export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex, bias?: boolean) {
     let { gl, dataAndModel: { model }, shape: { B, T } } = layerBuilder;
 
-    let tWeight = model[layerPrefix + '.weight'];
-    let tBias = model[layerPrefix + '.bias'];
+    bias = bias ?? true;
+
+    let tWeight = model[prefix + '.weight'];
+    let tBias = bias ? model[prefix + '.bias'] : null;
 
     // weights
     let linearWeight = createBufferTex(gl, nIn, nOut, 1); // (nOut) (nIn)
-    let linearBias   = createBufferTex(gl, 1, nOut, 1); // (nOut) (1)
+    let linearBias   = bias ? createBufferTex(gl, 1, nOut, 1) : null; // (nOut) (1)
 
     // operating memory
     let output = createBufferTex(gl, nOut, B * T, 1); // (B, T) (nOut)
 
     writeToBufferTex(gl, linearWeight, tWeight.toFloat32Array());
-    writeToBufferTex(gl, linearBias, tBias.toFloat32Array());
+    tBias && linearBias && writeToBufferTex(gl, linearBias, tBias.toFloat32Array());
 
     let linearProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;          //    y     x
         uniform sampler2D linearInput;  // (B, T) (nIn)
         uniform sampler2D linearWeight; // (nOut) (nIn)
-        uniform sampler2D linearBias;   // (nOut) (1)
+        ${bias ? 'uniform sampler2D linearBias;' : ''}   // (nOut) (1)
         ${residual ? 'uniform sampler2D linearResidual;' : ''}
         out float linearOutput;         // (B, T) (nOut)
 
         void main() {
             ivec2 pos = ivec2(gl_FragCoord.xy);
 
-            float res = texelFetch(linearBias, ivec2(0, pos.x), 0).r;
+            float res = ${bias ? 'texelFetch(linearBias, ivec2(0, pos.x), 0).r' : '0.0'};
             for (int i = 0; i < ${nIn}; i++) {
                 float x = texelFetch(linearInput, ivec2(i, pos.y), 0).r;
                 float w = texelFetch(linearWeight, ivec2(i, pos.x), 0).r;
@@ -399,10 +426,76 @@ export function createLinearLayer(layerBuilder: ILayerBuilder, layerPrefix: stri
 
     let linearPhase = createRenderPhase(gl, linearProg, [output],
         [input, linearWeight, linearBias, residual].filter(nonNil),
-        ['linearInput', 'linearWeight', 'linearBias', residual ? 'linearResidual' : null].filter(nonNil));
+        ['linearInput', 'linearWeight', bias ? 'linearBias' : null, residual ? 'linearResidual' : null].filter(nonNil));
 
     return {
         linearPhase,
+        output,
+    };
+}
+
+export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string, nEmbed: number, nDims: number, input: IBufferTex) {
+    let { gl, dataAndModel: { model }, shape: { B, T } } = layerBuilder;
+
+    let tWeight = model[prefix + '.weight'];
+
+    // weights
+    let embedWeight = createBufferTex(gl, nDims, nEmbed, 1); // (nEmbed) (nDims)
+
+    // operating memory
+    let output = createBufferTex(gl, nDims, B * T, 1); // (B, T) (nDims)
+
+    writeToBufferTex(gl, embedWeight, tWeight.toFloat32Array());
+
+    let embedProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+        precision highp float;          //    y     x
+        uniform sampler2D embedInput;  // (B, T)   (1)
+        uniform sampler2D embedWeight; // (nEmbed) (nDims)
+        out float embedOutput;         // (B, T)   (nDims)
+
+        void main() {
+            ivec2 pos = ivec2(gl_FragCoord.xy);
+
+            int y = int(texelFetch(embedInput, ivec2(0, pos.y), 0).r);
+            float res = texelFetch(embedWeight, ivec2(pos.x, y), 0).r;
+
+            embedOutput = res;
+        }
+    `)!;
+
+    let embedPhase = createRenderPhase(gl, embedProg, [output], [input, embedWeight], ['embedInput', 'embedWeight']);
+
+    return {
+        embedPhase,
+        output,
+    };
+}
+
+export function createAddLayer(layerBuilder: ILayerBuilder, inputA: IBufferTex, inputB: IBufferTex) {
+    let { gl, shape: { B, T, C } } = layerBuilder;
+
+    // operating memory
+    let output = createBufferTex(gl, C, B * T, 1); // (B, T) (C)
+
+    let addProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+        precision highp float;     //    y    x
+        uniform sampler2D inputA;  // (B, T) (C)
+        uniform sampler2D inputB;  // (B, T) (C)
+        out float addOutput;       // (B, T) (C)
+
+        void main() {
+            ivec2 pos = ivec2(gl_FragCoord.xy);
+
+            float a = texelFetch(inputA, pos, 0).r;
+            float b = texelFetch(inputB, pos, 0).r;
+            addOutput = a + b;
+        }
+    `)!;
+
+    let addPhase = createRenderPhase(gl, addProg, [output], [inputA, inputB], ['inputA', 'inputB']);
+
+    return {
+        addPhase,
         output,
     };
 }

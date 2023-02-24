@@ -93,8 +93,14 @@ function runModel(state: IProgramState) {
     let {
         gl,
         llmLayer: {
-            input,
+            inputTokens,
+            add,
+            posEmbed,
+            vocabEmbed,
+            // blockInput0,
             blocks,
+            ln_f,
+            lm_head,
             output,
         },
         quadVao,
@@ -108,11 +114,16 @@ function runModel(state: IProgramState) {
     let C = config.n_embd;
     let T = config.block_size;
 
-    let tX = dataAndModel.data.x; // (B, T, C)
+    let tIdx = dataAndModel.data.idx; // (B, T)
+    let tLmHead = dataAndModel.data.lm_head; // (B, T, V)
 
     gl.bindVertexArray(quadVao);
 
-    writeToBufferTex(gl, input, tX.buffer);
+    writeToBufferTex(gl, inputTokens, tIdx.buffer);
+
+    runRenderPhase(gl, vocabEmbed.embedPhase);
+    runRenderPhase(gl, posEmbed.embedPhase);
+    runRenderPhase(gl, add.addPhase);
 
     for (let blockId = 0; blockId < blocks.length; blockId++) {
         let { ln_1, attn, ln_2, mlp } = blocks[blockId];
@@ -136,6 +147,14 @@ function runModel(state: IProgramState) {
         readFromRenderPhase(gl, mlp.projLayer.linearPhase, 0, blockOutput);
         console.log(`block${blockId}Equal`, arraysEqual(blockOutput, tBlockRes.toFloat32Array()));
     }
+
+    runRenderPhase(gl, ln_f.normAggPhase);
+    runRenderPhase(gl, ln_f.normApplyPhase);
+    runRenderPhase(gl, lm_head.linearPhase);
+
+    let lmHead = new Float32Array(B * T * config.vocab_size);
+    readFromRenderPhase(gl, lm_head.linearPhase, 0, lmHead);
+    console.log('lmHeadEqual', arraysEqual(lmHead, tLmHead.toFloat32Array()));
 }
 
 export function mainLoop(state: IProgramState, time: DOMHighResTimeStamp, dt: number) {
