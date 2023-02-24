@@ -1,5 +1,5 @@
 import { createGptLayer } from "./SelfAttentionLayer";
-import { arraysEqual, logArr, readFromRenderPhase, runRenderPhase, writeToBufferTex } from "./utils/renderPhases";
+import { arraysEqual, readFromRenderPhase, runRenderPhase, writeToBufferTex } from "./utils/renderPhases";
 import { createShaderProgram } from "./utils/shader";
 import { ITensorSet } from "./utils/tensor";
 
@@ -100,7 +100,7 @@ function runModel(state: IProgramState) {
             attnMatrixAggPhase,
             attnMatrixSoftmaxPhase,
             scaledVectorsPhase,
-            projPhase,
+            proj,
             ln_2,
             mlp,
         },
@@ -174,9 +174,9 @@ function runModel(state: IProgramState) {
     readFromRenderPhase(gl, scaledVectorsPhase, 0, scaledVectors);
     console.log('tequal', arraysEqual(scaledVectors, tY.toFloat32Array()));
 
-    runRenderPhase(gl, projPhase);
+    runRenderPhase(gl, proj.linearPhase);
     let attnResid = new Float32Array(B * T * C);
-    readFromRenderPhase(gl, projPhase, 0, attnResid);
+    readFromRenderPhase(gl, proj.linearPhase, 0, attnResid);
     console.log('attnResidEqual', arraysEqual(attnResid, tAttnResid.toFloat32Array()));
 
     runRenderPhase(gl, ln_2.normAggPhase);

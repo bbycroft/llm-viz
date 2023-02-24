@@ -41,7 +41,14 @@ export interface IRenderPhase {
     program: IProgram;
 }
 
-export function createRenderPhase(gl: WebGL2RenderingContext, program: IProgram, src: IBufferTex[], dest: IBufferTex[]): IRenderPhase {
+export function createRenderPhase(gl: WebGL2RenderingContext, program: IProgram, dest: IBufferTex[], src: IBufferTex[], names?: string[]): IRenderPhase {
+    if (names) {
+        if (names.length !== src.length) {
+            throw new Error(`Number of texture names (${names.length}) does not match number of src textures (${src.length})`);
+        }
+        setProgramTexUniforms(gl, program, names);
+    }
+
     let fbo = gl.createFramebuffer()!;
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
 

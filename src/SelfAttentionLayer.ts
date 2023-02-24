@@ -1,4 +1,5 @@
 import { IDataAndModel } from "./mainLoop";
+import { nonNil } from "./utils/basic";
 import { createBufferTex, writeToBufferTex, setProgramTexUniforms, createRenderPhase, IBufferTex } from "./utils/renderPhases";
 import { createShaderProgram } from "./utils/shader";
 
@@ -8,6 +9,12 @@ export interface IModelShape {
     nHeads: number;
     T: number;
     A: number;
+}
+
+export interface ILayerBuilder {
+    gl: WebGL2RenderingContext;
+    dataAndModel: IDataAndModel;
+    shape: IModelShape;
 }
 
 export const basicVertexShader = /*glsl*/`#version 300 es
@@ -190,55 +197,19 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
         }
     `);
 
-    let projProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
-        precision highp float;
-        uniform sampler2D scaledVectors; // (B, T) (C)
-        uniform sampler2D projWeight;    // (C)    (C)
-        uniform sampler2D projBias;      // (C)    (1)
-        uniform sampler2D residualInput; // (B, T) (C)
-        out float projOutput;            // (B, T) (C)
-
-        void main() {
-            ivec2 pos = ivec2(gl_FragCoord.xy);
-
-            float res = texelFetch(projBias, ivec2(0, pos.x), 0).r;
-            for (int i = 0; i < ${C}; i++) {
-                float w = texelFetch(projWeight, ivec2(i, pos.x), 0).r;
-                float a = texelFetch(scaledVectors, ivec2(i, pos.y), 0).r;
-                res += w * a;
-            }
-
-            projOutput = res + texelFetch(residualInput, pos, 0).r;
-        }
-    `);
-
-    if (!qkvProg || !selfAttendProg || !attnMatrixAggProg || !attnMatrixSoftmaxProg || !scaledVectorsProg || !projProg) {
+    if (!qkvProg || !selfAttendProg || !attnMatrixAggProg || !attnMatrixSoftmaxProg || !scaledVectorsProg) {
         throw new Error("Failed to create shader program");
     }
 
     let ln_1 = createLayerNorm(gl, dataAndModel, modelShape, 'transformer.h.0.ln_1', residualInput);
 
-    setProgramTexUniforms(gl, qkvProg, ["attnInput", "qkvWeight", "qkvBias"]);
-    let qkvPhase = createRenderPhase(gl, qkvProg, [ln_1.normOutput, qkvWeight, qkvBias], [qkvOutput]);
-
-    setProgramTexUniforms(gl, selfAttendProg, ["qkvOutput"]);
-    let selfAttendPhase = createRenderPhase(gl, selfAttendProg, [qkvOutput], [attnMatrix]);
-
-    setProgramTexUniforms(gl, attnMatrixAggProg, ["attnMatrix"]);
-    let attnMatrixAggPhase = createRenderPhase(gl, attnMatrixAggProg, [attnMatrix], [attnMatrixAgg]);
-
-    /* Could potentially skip this phase, but will duplicate a bunch of sub, exp, mul's (overall relative cost unknown) */
-    setProgramTexUniforms(gl, attnMatrixSoftmaxProg, ["attnMatrix", "attnMatrixAgg"]);
-    let attnMatrixSoftmaxPhase = createRenderPhase(gl, attnMatrixSoftmaxProg, [attnMatrix, attnMatrixAgg], [attnMatrixSoftmax]);
-
-    setProgramTexUniforms(gl, scaledVectorsProg, ["qkvOutput", "attnMatrixSoftmax"]);
-    let scaledVectorsPhase = createRenderPhase(gl, scaledVectorsProg, [qkvOutput, attnMatrixSoftmax], [scaledVectors]);
-
-    setProgramTexUniforms(gl, projProg, ["scaledVectors", "projWeight", "projBias", "residualInput"]);
-    let projPhase = createRenderPhase(gl, projProg, [scaledVectors, projWeight, projBias, residualInput], [projOutput]);
-
-    let ln_2 = createLayerNorm(gl, dataAndModel, modelShape, 'transformer.h.0.ln_2', projOutput);
-
+    let qkvPhase = createRenderPhase(gl, qkvProg, [qkvOutput], [ln_1.normOutput, qkvWeight, qkvBias], ['attnInput', 'qkvWeight', 'qkvBias']);
+    let selfAttendPhase = createRenderPhase(gl, selfAttendProg, [attnMatrix], [qkvOutput], ['qkvOutput']);
+    let attnMatrixAggPhase = createRenderPhase(gl, attnMatrixAggProg, [attnMatrixAgg], [attnMatrix], ['attnMatrix']);
+    let attnMatrixSoftmaxPhase = createRenderPhase(gl, attnMatrixSoftmaxProg, [attnMatrixSoftmax], [attnMatrix, attnMatrixAgg], ['attnMatrix', 'attnMatrixAgg']); // Could skip?
+    let scaledVectorsPhase = createRenderPhase(gl, scaledVectorsProg, [scaledVectors], [qkvOutput, attnMatrixSoftmax], ['qkvOutput', 'attnMatrixSoftmax']);
+    let proj = createLinearLayer(gl, dataAndModel, modelShape, 'transformer.h.0.attn.c_proj', C, C, scaledVectors, residualInput);
+    let ln_2 = createLayerNorm(gl, dataAndModel, modelShape, 'transformer.h.0.ln_2', proj.linearOutput);
     let mlp = createMLP(gl, dataAndModel, modelShape, 'transformer.h.0.mlp', ln_2.normOutput);
 
     return {
@@ -248,7 +219,7 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
         attnMatrixAggPhase,
         attnMatrixSoftmaxPhase,
         scaledVectorsPhase,
-        projPhase,
+        proj,
         ln_1,
         ln_2,
         mlp,
@@ -320,11 +291,10 @@ export function createLayerNorm(gl: WebGL2RenderingContext, dataAndModel: IDataA
         }
     `)!;
 
-    setProgramTexUniforms(gl, normAggProg, ["normInput"]);
-    let normAggPhase = createRenderPhase(gl, normAggProg, [input], [normAgg]);
-
-    setProgramTexUniforms(gl, normApply, ["normInput", "normAgg", "normWeight", "normBias"]);
-    let normApplyPhase = createRenderPhase(gl, normApply, [input, normAgg, normWeight, normBias], [normOutput]);
+    let normAggPhase = createRenderPhase(gl, normAggProg, [normAgg], [input], ['normInput']);
+    let normApplyPhase = createRenderPhase(gl, normApply, [normOutput],
+        [input, normAgg, normWeight, normBias],
+        ['normInput', 'normAgg', 'normWeight', 'normBias']);
 
     return {
         normAggPhase,
@@ -335,11 +305,6 @@ export function createLayerNorm(gl: WebGL2RenderingContext, dataAndModel: IDataA
 
 export function createMLP(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string, input: IBufferTex) {
     let { B, T, C } = shape;
-    let model = dataAndModel.model;
-
-    // weights
-    let mlpWeight = createBufferTex(gl, C, C * 4, 1); // (C, 4C) (1)
-    let mlpBias   = createBufferTex(gl, 1, C * 4, 1); // (4C) (1)
 
     // operating memory
     let mlpGelu = createBufferTex(gl, C * 4, B * T, 1); // (B, T) (4C)
@@ -358,8 +323,7 @@ export function createMLP(gl: WebGL2RenderingContext, dataAndModel: IDataAndMode
         }
     `)!;
 
-    setProgramTexUniforms(gl, geluProg, ["geluInput"]);
-    let geluPhase = createRenderPhase(gl, geluProg, [fcLayer.linearOutput], [mlpGelu]);
+    let geluPhase = createRenderPhase(gl, geluProg, [mlpGelu], [fcLayer.linearOutput], ['geluInput']);
 
     let projLayer = createLinearLayer(gl, dataAndModel, shape, layerPrefix + '.c_proj', C * 4, C, mlpGelu);
 
@@ -370,7 +334,7 @@ export function createMLP(gl: WebGL2RenderingContext, dataAndModel: IDataAndMode
     };
 }
 
-export function createLinearLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string, nIn: number, nOut: number, input: IBufferTex) {
+export function createLinearLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel, shape: IModelShape, layerPrefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex) {
     let { B, T } = shape;
     let model = dataAndModel.model;
 
@@ -392,6 +356,7 @@ export function createLinearLayer(gl: WebGL2RenderingContext, dataAndModel: IDat
         uniform sampler2D linearInput;  // (B, T) (nIn)
         uniform sampler2D linearWeight; // (nOut) (nIn)
         uniform sampler2D linearBias;   // (nOut) (1)
+        ${residual ? 'uniform sampler2D linearResidual;' : ''}
         out float linearOutput;         // (B, T) (nOut)
 
         void main() {
@@ -404,12 +369,14 @@ export function createLinearLayer(gl: WebGL2RenderingContext, dataAndModel: IDat
                 res += x * w;
             }
 
+            ${residual ? 'res += texelFetch(linearResidual, pos, 0).r;' : ''}
             linearOutput = res;
         }
     `)!;
 
-    setProgramTexUniforms(gl, linearProg, ["linearInput", "linearWeight", "linearBias"]);
-    let linearPhase = createRenderPhase(gl, linearProg, [input, linearWeight, linearBias], [linearOutput]);
+    let linearPhase = createRenderPhase(gl, linearProg, [linearOutput],
+        [input, linearWeight, linearBias, residual].filter(nonNil),
+        ['linearInput', 'linearWeight', 'linearBias', residual ? 'linearResidual' : null].filter(nonNil));
 
     return {
         linearPhase,
