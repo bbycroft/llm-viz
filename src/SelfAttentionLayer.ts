@@ -2,6 +2,7 @@ import { IDataAndModel } from "./mainLoop";
 import { nonNil } from "./utils/basic";
 import { createBufferTex, writeToBufferTex, createRenderPhase, IBufferTex } from "./utils/renderPhases";
 import { createShaderProgram } from "./utils/shader";
+import { ITensorSet } from "./utils/tensor";
 
 export interface IModelShape {
     B: number;
@@ -15,7 +16,7 @@ export interface IModelShape {
 
 export interface ILayerBuilder {
     gl: WebGL2RenderingContext;
-    dataAndModel: IDataAndModel;
+    model: ITensorSet;
     shape: IModelShape;
 }
 
@@ -42,7 +43,7 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
     let A = C / nHeads; // n elements in each Q, K, V vector, i.e. what we project down to
 
     let shape: IModelShape = { B, C, nHeads, T, A, nBlocks, vocabSize };
-    let layerBuilder: ILayerBuilder = { gl, dataAndModel, shape };
+    let layerBuilder: ILayerBuilder = { gl, model: dataAndModel.model, shape };
 
     let inputTokens = createBufferTex(gl, 1, B * T, 1);
 
@@ -103,7 +104,7 @@ export function createBlockLayer(layerBuilder: ILayerBuilder, prefix: string, in
 }
 
 export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex) {
-    let { gl, dataAndModel: { model }, shape: { B, T, C, nHeads, A } } = layerBuilder;
+    let { gl, model, shape: { B, T, C, nHeads, A } } = layerBuilder;
 
     // move the 1st dim to the end, i.e. the QKV split will be packed into RGB tex channels
     let tAttnWeight = model[prefix + '.c_attn.weight'].view([3, nHeads, A, C]).permute(1, 2, 3, 0);
@@ -278,7 +279,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
 }
 
 export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string, input: IBufferTex) {
-    let { gl, dataAndModel: { model }, shape: { B, T, C } } = layerBuilder;
+    let { gl, model, shape: { B, T, C } } = layerBuilder;
 
     let tWeight = model[layerPrefix + '.weight'];
     let tBias = model[layerPrefix + '.bias'];
@@ -384,7 +385,7 @@ export function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IB
 }
 
 export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex, bias?: boolean) {
-    let { gl, dataAndModel: { model }, shape: { B, T } } = layerBuilder;
+    let { gl, model, shape: { B, T } } = layerBuilder;
 
     bias = bias ?? true;
 
@@ -435,7 +436,7 @@ export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, n
 }
 
 export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string, nEmbed: number, nDims: number, input: IBufferTex) {
-    let { gl, dataAndModel: { model }, shape: { B, T } } = layerBuilder;
+    let { gl, model, shape: { B, T } } = layerBuilder;
 
     let tWeight = model[prefix + '.weight'];
 
