@@ -83,6 +83,7 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
         blocks,
         ln_f,
         lm_head,
+        shape,
         output: lm_head.output,
     };
 }
@@ -124,7 +125,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
     writeToBufferTex(gl, qkvWeight, tAttnWeight.toFloat32Array());
     writeToBufferTex(gl, qkvBias, tAttnBias.toFloat32Array());
 
-    let qkvProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let qkvProg = createShaderProgram(gl, 'qkv', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D attnInput; // (B, T)         (C)
         uniform sampler2D qkvWeight; // (nHeads, A)    (C) [3]
@@ -150,7 +151,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
         }
     `);
 
-    let selfAttendProg = createShaderProgram(gl, basicVertexShader, /* glsl */`#version 300 es
+    let selfAttendProg = createShaderProgram(gl, 'selfAttend', basicVertexShader, /* glsl */`#version 300 es
         precision highp float;
         uniform sampler2D qkvOutput; // (B, nHeads, T) (A)
         out float attnMatrix;        // (B, nHeads, T) (T)
@@ -176,7 +177,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
         }
     `);
 
-    let attnMatrixAggProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let attnMatrixAggProg = createShaderProgram(gl, 'attnMatrixAgg', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D attnMatrix; // (B, nHeads, T) (T)
         out vec2 attnMatrixAgg;       // (B, nHeads, T) (1) [2]
@@ -204,7 +205,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
         }
     `);
 
-    let attnMatrixSoftmaxProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let attnMatrixSoftmaxProg = createShaderProgram(gl, 'attnMatrixSoftmax', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D attnMatrix;    // (B, nHeads, T) (T)
         uniform sampler2D attnMatrixAgg; // (B, nHeads, T) (1) [2]
@@ -229,7 +230,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
         }
     `);
 
-    let scaledVectorsProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let scaledVectorsProg = createShaderProgram(gl, 'scaledVectors', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D qkvOutput;         // (B, nHeads, T) (A)
         uniform sampler2D attnMatrixSoftmax; // (B, nHeads, T) (T)
@@ -297,7 +298,7 @@ export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string
 
     let normEps = 1e-5;
 
-    let normAggProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let normAggProg = createShaderProgram(gl, 'normAgg', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D normInput; // (B, T) (C)
         out vec2 normAgg;            // (B, T) (1) [2]
@@ -318,7 +319,7 @@ export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string
         }
     `)!;
 
-    let normApply = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let normApply = createShaderProgram(gl, 'normApply', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D normInput;  // (B, T) (C)
         uniform sampler2D normAgg;    // (B, T) (1) [2]
@@ -360,7 +361,7 @@ export function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IB
     // operating memory
     let mlpGelu = createBufferTex(gl, C * 4, B * T, 1); // (B, T) (4C)
 
-    let geluProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let geluProg = createShaderProgram(gl, 'mlpGelu', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D geluInput;  // (B, T) (C * 4)
         out float geluOutput; // (B, T) (C * 4)
@@ -402,7 +403,7 @@ export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, n
     writeToBufferTex(gl, linearWeight, tWeight.toFloat32Array());
     tBias && linearBias && writeToBufferTex(gl, linearBias, tBias.toFloat32Array());
 
-    let linearProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let linearProg = createShaderProgram(gl, 'linear', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;          //    y     x
         uniform sampler2D linearInput;  // (B, T) (nIn)
         uniform sampler2D linearWeight; // (nOut) (nIn)
@@ -448,7 +449,7 @@ export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string
 
     writeToBufferTex(gl, embedWeight, tWeight.toFloat32Array());
 
-    let embedProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let embedProg = createShaderProgram(gl, 'embed', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;          //    y     x
         uniform sampler2D embedInput;  // (B, T)   (1)
         uniform sampler2D embedWeight; // (nEmbed) (nDims)
@@ -478,7 +479,7 @@ export function createAddLayer(layerBuilder: ILayerBuilder, inputA: IBufferTex, 
     // operating memory
     let output = createBufferTex(gl, C, B * T, 1); // (B, T) (C)
 
-    let addProg = createShaderProgram(gl, basicVertexShader, /*glsl*/`#version 300 es
+    let addProg = createShaderProgram(gl, 'add', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;     //    y    x
         uniform sampler2D inputA;  // (B, T) (C)
         uniform sampler2D inputB;  // (B, T) (C)

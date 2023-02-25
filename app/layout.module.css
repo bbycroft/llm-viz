@@ -11,6 +11,11 @@
     font-family: sans-serif;
 }
 
+.body {
+    display: flex;
+    flex-direction: column;
+}
+
 .header {
     font-size: 1.5em;
     padding: 4px 8px;
