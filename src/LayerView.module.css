@@ -2,21 +2,27 @@
 
 .view {
     flex: 1;
+    position: relative;
     display: flex;
     flex-direction: row;
     align-items: stretch;
     background-color: #e4edff;
+    z-index: 0;
 }
 
 .sidebar {
     flex: 1;
+    z-index: 1;
     min-width: 200px;
+    max-width: 300px;;
     display: flex;
     flex-direction: column;
 }
 
 .canvasWrap {
-    position: relative;
+    position: absolute;
+    width: 100%;
+    height: 100%;
     flex: 5;
     overflow: hidden;
 }

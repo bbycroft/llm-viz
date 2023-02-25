@@ -193,7 +193,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
                 m = max(m, p);
             }
 
-            // Pass 2 finds the sum (shifted by max)
+            // Pass 2 finds the exp sum (shifted by max)
             float a = 0.0;
             for (int i = 0; i <= tIdxY; i++) {
                 float p = texelFetch(attnMatrix, ivec2(i, pos.y), 0).r;

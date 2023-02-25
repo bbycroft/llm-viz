@@ -45,27 +45,40 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         uniform mat4 u_model;
         uniform vec3 u_size;
         uniform vec3 u_offset;
+        uniform vec3 u_nCells;
         layout(location = 0) in vec3 a_position;
         layout(location = 1) in vec3 a_normal;
         out vec3 v_normal;
         out vec3 v_modelPos;
+        out vec3 v_blockPos;
         void main() {
-            vec3 model_pos = a_position * u_size + u_offset;
+            vec3 pos = a_position * 0.5 + 0.5;
+            vec3 model_pos = pos * u_size + u_offset;
             gl_Position = u_view * u_model * vec4(model_pos, 1);
             v_normal = a_normal;
             v_modelPos = model_pos;
+            v_blockPos = pos * u_nCells;
         }
     `, /*glsl*/`#version 300 es
         precision highp float;
         in vec3 v_normal;
         out vec4 o_color;
+        in vec3 v_blockPos;
         in vec3 v_modelPos;
         uniform vec3 u_lightPos[3]; // in model space
         uniform vec3 u_lightColor[3]; // in model space
         uniform vec3 u_camPos; // in model space
+        uniform vec3 u_baseColor;
 
         void main() {
-            vec3 baseColor = vec3(0.3, 0.3, 0.6);
+            ivec3 blockPos = ivec3(v_blockPos - v_normal * 0.2);
+
+            bool cellDark = (blockPos.x + blockPos.y + blockPos.z) % 2 == 0;
+
+            vec3 baseColor = u_baseColor;
+            if (cellDark) {
+                baseColor *= 0.9;
+            }
             vec3 color = baseColor * 0.5;
 
             for (int i = 0; i < 3; i++) {
@@ -81,7 +94,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
 
             o_color = vec4(color, 1);
         }
-    `, ['u_view', 'u_model', 'u_size', 'u_offset', 'u_lightPos', 'u_camPos', 'u_lightColor'])!;
+    `, ['u_view', 'u_model', 'u_size', 'u_offset', 'u_baseColor', 'u_nCells', 'u_lightPos', 'u_camPos', 'u_lightColor'])!;
 
     let lightShader = createShaderProgram(gl, 'light', /*glsl*/`#version 300 es
         precision highp float;
@@ -200,7 +213,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     let camPos = new Vec3(camX, camY, camZ).add(camLookat);
 
     let lookAt = Mat4f.fromLookAt(camPos, camLookat, new Vec3(0, 0, 1));
-    let persp = Mat4f.fromPersp(40, view.canvasEl.height / view.canvasEl.width, 20, 10000);
+    let persp = Mat4f.fromPersp(40, view.canvasEl.height / view.canvasEl.width, dist / 100, Math.max(dist * 2, 10000));
     let viewMtx = persp.mul(lookAt);
     let modelMtx = new Mat4f();
 
@@ -230,7 +243,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         gl.uniform3fv(locs.u_offset, light);
         gl.uniform3fv(locs.u_size, new Vec3(1, 1, 1).mul(3));
         gl.bindVertexArray(geom.vao);
-        gl.drawArrays(geom.type, 0, geom.numVerts);
+        // gl.drawArrays(geom.type, 0, geom.numVerts);
     }
 
     {
@@ -245,14 +258,16 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         gl.uniform3fv(locs.u_lightPos, lightPosArr);
         gl.uniform3fv(locs.u_lightColor, lightColorArr);
 
-        for (let block of layout.blocks) {
+        for (let block of layout.cubes) {
             // using uniforms is just a quick & easy way to sort this out
             let pos = new Vec3(block.x, block.y, - block.z - block.cz * cell + layout.height);
             let size = new Vec3(block.cx * cell, block.cy * cell, block.cz * cell);
 
-            // * 0.5 etc is to change the cube from [-1, 1] to [0, 1], and then can use pos & size
-            gl.uniform3fv(locs.u_size, size.mul(0.5));
-            gl.uniform3fv(locs.u_offset, pos.add(size.mul(0.5)));
+            gl.uniform3fv(locs.u_nCells, new Vec3(block.cx, block.cy, block.cz));
+            gl.uniform3fv(locs.u_size, size);
+            gl.uniform3fv(locs.u_offset, pos);
+            let baseColor = block.t === 'w' ? new Vec3(0.4, 0.4, 0.8) : new Vec3(0.4, 0.8, 0.4);
+            gl.uniform3fv(locs.u_baseColor, baseColor);
 
             gl.bindVertexArray(geom.vao);
             gl.drawArrays(geom.type, 0, geom.numVerts);

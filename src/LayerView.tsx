@@ -33,7 +33,7 @@ export function LayerView() {
 
         if (ev.shiftKey || ds.button === 1) {
             let target = ds.data.camTarget.clone();
-            target.z = clamp(target.z + dy * 0.1, 0, 1000); // @TODO: clamp to the bounding box of the model
+            target.z = target.z + dy * 0.1 * camAngle.z; // @TODO: clamp to the bounding box of the model
             setCamTarget(target);
 
         } else {
@@ -52,7 +52,7 @@ export function LayerView() {
     }
 
     function handleWheel(ev: React.WheelEvent) {
-        let zoom = clamp(camAngle.z * Math.pow(1.0012, ev.deltaY), 0.01, 10);
+        let zoom = clamp(camAngle.z * Math.pow(1.0012, ev.deltaY), 0.01, 200);
         setCamAngle(new Vec3(camAngle.x, camAngle.y, zoom));
     }
 
@@ -171,12 +171,12 @@ class CanvasRender {
 
         let shape: IModelShape = {
             B: 1,
-            T: 11,
-            C: 16,
-            nHeads: 4,
-            A: 4,
+            T: 22,
+            C: 48,
+            nHeads: 3,
+            A: 48 / 3,
             nBlocks: 3,
-            vocabSize: 8,
+            vocabSize: 32,
         };
 
         renderModel({ canvasEl: canvasEl!, ...this.canvasData }, this.renderState, shape);
