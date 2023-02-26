@@ -1,4 +1,4 @@
-import { createGptLayer } from "./GptModel";
+import { createGptModel } from "./GptModel";
 import { IRenderState as IRenderState } from "./modelRender";
 import { arraysEqual, readFromRenderPhase, runRenderPhase, writeToBufferTex } from "./utils/renderPhases";
 import { ITensorSet } from "./utils/tensor";
@@ -26,7 +26,7 @@ We might as well build the nested structure of the real model, with each chunk h
 
 export function initModel(renderState: IRenderState, dataAndModel: IDataAndModel) {
 
-    let gptLayer = createGptLayer(renderState.gl, dataAndModel);
+    let gptLayer = createGptModel(renderState.gl, dataAndModel);
     let modelState = {
         gptLayer,
         dataAndModel,
@@ -70,28 +70,30 @@ export function runModel(renderState: IRenderState, modelState: IModelState) {
     for (let blockId = 0; blockId < blocks.length; blockId++) {
         let { ln_1, attn, ln_2, mlp } = blocks[blockId];
 
-        runRenderPhase(gl, ln_1.normAggPhase);
-        runRenderPhase(gl, ln_1.normApplyPhase);
+        runRenderPhase(gl, ln_1.aggPhase);
+        runRenderPhase(gl, ln_1.applyPhase);
         runRenderPhase(gl, attn.qkvPhase);
         runRenderPhase(gl, attn.selfAttendPhase);
         runRenderPhase(gl, attn.attnMatrixAggPhase);
         runRenderPhase(gl, attn.attnMatrixSoftmaxPhase);
         runRenderPhase(gl, attn.scaledVectorsPhase);
         runRenderPhase(gl, attn.proj.linearPhase);
-        runRenderPhase(gl, ln_2.normAggPhase);
-        runRenderPhase(gl, ln_2.normApplyPhase);
+        runRenderPhase(gl, attn.add.addPhase);
+        runRenderPhase(gl, ln_2.aggPhase);
+        runRenderPhase(gl, ln_2.applyPhase);
         runRenderPhase(gl, mlp.fcLayer.linearPhase);
         runRenderPhase(gl, mlp.geluPhase);
         runRenderPhase(gl, mlp.projLayer.linearPhase);
+        runRenderPhase(gl, mlp.addLayer.addPhase);
 
         let tBlockRes = dataAndModel.data[`block${blockId}`];
         let blockOutput = new Float32Array(B * T * C);
-        readFromRenderPhase(gl, mlp.projLayer.linearPhase, 0, blockOutput);
+        readFromRenderPhase(gl, mlp.addLayer.addPhase, 0, blockOutput);
         console.log(`block${blockId}Equal`, arraysEqual(blockOutput, tBlockRes.toFloat32Array()));
     }
 
-    runRenderPhase(gl, ln_f.normAggPhase);
-    runRenderPhase(gl, ln_f.normApplyPhase);
+    runRenderPhase(gl, ln_f.aggPhase);
+    runRenderPhase(gl, ln_f.applyPhase);
     runRenderPhase(gl, lm_head.linearPhase);
 
     let lmHead = new Float32Array(B * T * config.vocab_size);

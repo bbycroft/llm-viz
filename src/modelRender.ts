@@ -58,7 +58,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
             gl_Position = u_view * u_model * vec4(model_pos, 1);
             v_normal = a_normal;
             v_modelPos = model_pos;
-            v_blockPos = pos * u_nCells;
+            v_blockPos = vec3(pos.x, pos.y, 1.0 - pos.z) * u_nCells;
         }
     `, /*glsl*/`#version 300 es
         precision highp float;
@@ -72,10 +72,11 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         uniform vec3 u_baseColor;
         uniform float u_accessTexScale;
         uniform sampler2D u_accessSampler;
-        uniform mat3x2 u_accessMtx;
+        uniform mat4x2 u_accessMtx;
+        uniform int u_channel;
 
         void main() {
-            ivec3 blockPos = ivec3(v_blockPos - v_normal * 0.2);
+            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, 1.0 - v_normal.z) * 0.2);
 
             bool cellDark = (blockPos.x + blockPos.y + blockPos.z) % 2 == 0;
 
@@ -95,13 +96,14 @@ export function initRender(canvasEl: HTMLCanvasElement) {
                 bool insideAny = insideX || insideY || insideZ;
 
                 if (insideAny) {
-                    ivec2 accessPos = ivec2(u_accessMtx * vec3(blockPos));
-                    float val = texelFetch(u_accessSampler, accessPos, 0).r * u_accessTexScale;
+                    ivec2 accessPos = ivec2(u_accessMtx * vec4(blockPos, 1.0));
+                    vec4 valVec = texelFetch(u_accessSampler, accessPos, 0) * u_accessTexScale;
+                    float val = u_channel == 0 ? valVec.r : u_channel == 1 ? valVec.g : valVec.b;
 
                     float weight = clamp(abs(val), 0.0, 1.0);
 
                     vec3 negColor = vec3(0.0, 0.0, 0.0);
-                    vec3 posColor = vec3(0.0, 1.0, 0.0);
+                    vec3 posColor = u_baseColor; // vec3(0.0, 1.0, 0.0);
                     vec3 zeroColor = vec3(0.5, 0.5, 0.5);
                     baseColor = mix(mix(zeroColor, negColor, weight), mix(zeroColor, posColor, weight), step(0.0, val));
                 }
@@ -126,7 +128,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         'u_view', 'u_model', 'u_size', 'u_offset',
         'u_baseColor', 'u_nCells',
         'u_lightPos', 'u_camPos', 'u_lightColor',
-        'u_accessTexScale', 'u_accessSampler', 'u_accessMtx',
+        'u_channel', 'u_accessTexScale', 'u_accessSampler', 'u_accessMtx',
     ])!;
 
     let lightShader = createShaderProgram(gl, 'light', /*glsl*/`#version 300 es
@@ -303,8 +305,9 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             let baseColor = block.t === 'w' ? new Vec3(0.4, 0.4, 0.8) : new Vec3(0.4, 0.8, 0.4);
             gl.uniform3fv(locs.u_baseColor, baseColor);
             if (block.access) {
-                gl.uniformMatrix3x2fv(locs.u_accessMtx, true, block.access.mat, 0, 6);
-                // gl.uniformMatrix3x2fv(locs.u_accessMtx, true, [0, 0, 1, 1, 0, 0]);
+                gl.uniformMatrix4x2fv(locs.u_accessMtx, true, block.access.mat, 0, 8);
+                let c = block.access.channel;
+                gl.uniform1i(locs.u_channel, c === 'r' ? 0 : c === 'g' ? 1 : c === 'b' ? 2 : 3);
             }
             gl.uniform1f(locs.u_accessTexScale, block.access ? block.access.scale : 0);
             gl.activeTexture(gl.TEXTURE0);

@@ -28,9 +28,9 @@ void main() {
 }
 `;
 
-export type IGptGpuModel = ReturnType<typeof createGptLayer>;
+export type IGpuGptModel = ReturnType<typeof createGptModel>;
 
-export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel) {
+export function createGptModel(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel) {
     let model = dataAndModel.model;
     let prefix = 'transformer';
 
@@ -48,8 +48,6 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
     let layerBuilder: ILayerBuilder = { gl, model: dataAndModel.model, shape };
 
     let inputTokens = createBufferTex(gl, 1, B * T, 1);
-
-    // let blockInput0 = createBufferTex(gl, C, B * T, 1);
 
     // not ideal to have to create one for each batch, but works for now
     let posArr = new Float32Array(B * T);
@@ -76,6 +74,8 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
     let ln_f = createLayerNorm(layerBuilder, prefix + '.ln_f', x);
     let lm_head = createLinearLayer(layerBuilder, 'lm_head', C, vocabSize, ln_f.output, undefined, false);
 
+    // @TODO: softmax layer
+
     return {
         inputTokens,
         // blockInput0,
@@ -89,6 +89,8 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
         output: lm_head.output,
     };
 }
+
+export type IGpuGptBlockLayer = ReturnType<typeof createBlockLayer>;
 
 export function createBlockLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex) {
     let ln_1 = createLayerNorm(layerBuilder, prefix + '.ln_1', input);
@@ -106,6 +108,8 @@ export function createBlockLayer(layerBuilder: ILayerBuilder, prefix: string, in
     };
 }
 
+export type IGpuAttnLayer = ReturnType<typeof createAttnLayer>;
+
 export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex) {
     let { gl, model, shape: { B, T, C, nHeads, A } } = layerBuilder;
 
@@ -122,7 +126,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
     let attnMatrix        = createBufferTex(gl, T, B * nHeads * T, 1);
     let attnMatrixAgg     = createBufferTex(gl, 1, B * nHeads * T, 2);
     let attnMatrixSoftmax = createBufferTex(gl, T, B * nHeads * T, 1);
-    let scaledVectors     = createBufferTex(gl, C, B * T, 1);
+    let scaledVectors     = createBufferTex(gl, nHeads * A, B * T, 1);
 
     writeToBufferTex(gl, qkvWeight, tAttnWeight.toFloat32Array());
     writeToBufferTex(gl, qkvBias, tAttnBias.toFloat32Array());
@@ -268,18 +272,29 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
     let attnMatrixAggPhase = createRenderPhase(gl, attnMatrixAggProg, [attnMatrixAgg], [attnMatrix], ['attnMatrix']);
     let attnMatrixSoftmaxPhase = createRenderPhase(gl, attnMatrixSoftmaxProg, [attnMatrixSoftmax], [attnMatrix, attnMatrixAgg], ['attnMatrix', 'attnMatrixAgg']); // Could skip?
     let scaledVectorsPhase = createRenderPhase(gl, scaledVectorsProg, [scaledVectors], [qkvOutput, attnMatrixSoftmax], ['qkvOutput', 'attnMatrixSoftmax']);
-    let proj = createLinearLayer(layerBuilder, prefix + '.c_proj', C, C, scaledVectors, residual);
+    let proj = createLinearLayer(layerBuilder, prefix + '.c_proj', C, C, scaledVectors);
+    let add = createAddLayer(layerBuilder, proj.output, residual);
 
     return {
+        qkvWeight,
+        qkvBias,
+        qkvOutput,
+        attnMatrix,
+        attnMatrixAgg,
+        attnMatrixSoftmax,
+        scaledVectors,
         qkvPhase,
         selfAttendPhase,
         attnMatrixAggPhase,
         attnMatrixSoftmaxPhase,
         scaledVectorsPhase,
         proj,
-        output: proj.output,
+        add,
+        output: add.output,
     };
 }
+
+export type IGpuLayerNormLayer = ReturnType<typeof createLayerNorm>;
 
 export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string, input: IBufferTex) {
     let { gl, model, shape: { B, T, C } } = layerBuilder;
@@ -345,19 +360,24 @@ export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string
         }
     `)!;
 
-    let normAggPhase = createRenderPhase(gl, normAggProg, [normAgg], [input], ['normInput']);
-    let normApplyPhase = createRenderPhase(gl, normApply, [output],
+    let aggPhase = createRenderPhase(gl, normAggProg, [normAgg], [input], ['normInput']);
+    let applyPhase = createRenderPhase(gl, normApply, [output],
         [input, normAgg, normWeight, normBias],
         ['normInput', 'normAgg', 'normWeight', 'normBias']);
 
     return {
-        normAggPhase,
-        normApplyPhase,
+        normAgg,
+        normWeight,
+        normBias,
+        aggPhase,
+        applyPhase,
         output,
     };
 }
 
-export function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual?: IBufferTex) {
+export type IGpuMLPLayer = ReturnType<typeof createMLP>;
+
+export function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex) {
     let { gl, shape: { B, T, C } } = layerBuilder;
 
     // operating memory
@@ -377,15 +397,20 @@ export function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IB
 
     let fcLayer = createLinearLayer(layerBuilder, prefix + '.c_fc', C, C * 4, input);
     let geluPhase = createRenderPhase(gl, geluProg, [mlpGelu], [fcLayer.output], ['geluInput']);
-    let projLayer = createLinearLayer(layerBuilder, prefix + '.c_proj', C * 4, C, mlpGelu, residual);
+    let projLayer = createLinearLayer(layerBuilder, prefix + '.c_proj', C * 4, C, mlpGelu);
+    let addLayer = createAddLayer(layerBuilder, projLayer.output, residual);
 
     return {
         fcLayer,
+        mlpGelu,
         geluPhase,
         projLayer,
-        output: projLayer.output,
+        addLayer,
+        output: addLayer.output,
     };
 }
+
+export type IGpuLinearLayer = ReturnType<typeof createLinearLayer>;
 
 export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex, bias?: boolean) {
     let { gl, model, shape: { B, T } } = layerBuilder;
@@ -433,10 +458,14 @@ export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, n
         ['linearInput', 'linearWeight', bias ? 'linearBias' : null, residual ? 'linearResidual' : null].filter(nonNil));
 
     return {
+        weight: linearWeight,
+        bias: linearBias,
         linearPhase,
         output,
     };
 }
+
+export type IGpuEmbeddingLayer = ReturnType<typeof createEmbeddingLayer>;
 
 export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string, nEmbed: number, nDims: number, input: IBufferTex) {
     let { gl, model, shape: { B, T } } = layerBuilder;
