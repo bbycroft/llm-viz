@@ -61,7 +61,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     let z = 0;
 
     let cell = 1.5;
-    let margin = 4;
+    let margin = Math.max(4, C / 8);
 
     function mk(args: IBlkDefArgs): IBlkDef {
         let xDef = [args.xL, args.xR, args.xM].map(a => +!isNil(a)).reduce((a, b) => a + b, 0);
@@ -167,8 +167,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     function createBlock(target?: IGpuGptBlockLayer) {
         let ln1 = createLn(0, target?.ln_1);
 
-        let interHeadMargin = 3 * margin;
-        let qkvMargin = 1 * margin;
+        let interHeadMargin = 3 * margin + (C * cell) / 16;
+        let qkvMargin = 1 * margin + (C * cell) / 16;
 
         let headWidth = 3 * B * cell + qkvMargin * 2 + interHeadMargin;
 
@@ -362,39 +362,45 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     }
 
     z += blockHalfMargin;
-    let ln_f = createLn(T * cell + margin, gptGpuModel?.ln_f);
+    let ln_f = createLn(0, gptGpuModel?.ln_f);
+
+
+    let lmHeadWeight = mk({
+        t: 'w', cx: vocabSize, cy: 1, cz: C, z: z,
+        xR: lnLeftX, yM: 0,
+        access: { src: gptGpuModel?.lm_head.weight, x: [0, 0, 1], y: [1, 0, 0], scale: 5.0 },
+    });
 
     z += C * cell + margin;
 
-    let lmHeadWeight = mk({
-        t: 'w', cx: C, cy: 1, cz: vocabSize, z: z,
-        xR: leftX, yM: 0,
-        access: { src: gptGpuModel?.lm_head.weight, x: [1, 0, 0], y: [0, 0, 1], scale: 5.0 },
-    });
-
     let logits = mk({
-        t: 'i', cx: T, cy: B, cz: vocabSize, z: z,
-        xM: 0, yM: 0,
-        access: { src: gptGpuModel?.lm_head.output, x: [0, 0, 1], y: [1, T, 0] },
+        t: 'i', cx: vocabSize, cy: B, cz: T, z: z,
+        xR: lnLeftX, yM: 0,
+        access: { src: gptGpuModel?.lm_head.output, x: [1, 0, 0], y: [0, T, 1] },
     });
 
-    z += vocabSize * cell + margin;
+    // z += vocabSize * cell + margin;
 
     let logitsAgg = mk({
-        t: 'i', cx: T, cy: B, cz: 2, z: z,
-        xM: 0, yM: 0,
+        t: 'i', cx: 2, cy: B, cz: T, z: z,
+        xL: lnLeftX + margin, yM: 0,
         // @TODO: link up
     });
 
-    z += 2 * cell + margin;
+    z += T * cell + margin;
 
     let logitsSoftmax = mk({
-        t: 'i', cx: T, cy: B, cz: vocabSize, z: z,
-        xM: 0, yM: 0,
+        t: 'i', cx: vocabSize, cy: B, cz: T, z: z,
+        xR: lnLeftX, yM: 0,
         // @TODO: link up
     });
 
-    cubes.push(lmHeadWeight, logits, logitsAgg, logitsSoftmax);
+    let logitsSoftmaxTopN = mk({
+        t: 'i', cx: T, cy: B, cz: Math.min(32, vocabSize), z: z,
+        xM: 0, yM: 0,
+    });
+
+    cubes.push(lmHeadWeight, logits, logitsAgg, logitsSoftmax, logitsSoftmaxTopN);
 
     return {
         cubes,

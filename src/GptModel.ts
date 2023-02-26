@@ -1,6 +1,8 @@
-import { IDataAndModel } from "./mainLoop";
+import exp from "constants";
+import { IRenderState } from "./modelRender";
 import { nonNil } from "./utils/basic";
-import { createBufferTex, writeToBufferTex, createRenderPhase, IBufferTex } from "./utils/renderPhases";
+import { Random } from "./utils/random";
+import { createBufferTex, writeToBufferTex, createRenderPhase, IBufferTex, runRenderPhase, readFromRenderPhase, arraysEqual, IRenderPhase, logArr } from "./utils/renderPhases";
 import { createShaderProgram } from "./utils/shader";
 import { ITensorSet } from "./utils/tensor";
 
@@ -20,6 +22,138 @@ export interface ILayerBuilder {
     shape: IModelShape;
 }
 
+
+export interface IDataAndModel {
+    data: ITensorSet;
+    model: ITensorSet;
+}
+
+export type IModelState = ReturnType<typeof initModel>;
+
+/* TODO: think about how to handle working computation buffers.
+
+For each layer, we're typically abe to re-use the working memory buffers (provided they're the same dims, or smaller).
+But the layers each have different weights.
+However, for debugging etc, we also want to keep all the working buffers around.
+We also want to re-use programs and shader objects where possible. Can just do a string compare on the shader source.
+Baking in the constants remains a good idea I think, since the div/mod's can be flattened since they're often powers of 2 (& constant).
+
+Also have the issue of passing input/output buffers between stages, where we can often re-use those buffers
+(not always, e.g. layerNorm). However, the (B, T, C) buffers can sometimes allow for a ping-pong process.
+
+We might as well build the nested structure of the real model, with each chunk having create + execute methods.
+*/
+
+export function initModel(renderState: IRenderState, dataAndModel: IDataAndModel, B: number) {
+    let gptLayerTest = createGptModel(renderState.gl, dataAndModel.model, dataAndModel.data.config.B!);
+    runModel(renderState, gptLayerTest, dataAndModel.data);
+    cleanupGptModel(renderState.gl, gptLayerTest);
+
+    return createGptModel(renderState.gl, dataAndModel.model, B);
+}
+
+export function setModelInputData(renderState: IRenderState, gptModel: IGpuGptModel, rand: Random) {
+    let { gl, quadVao } = renderState;
+    let { inputTokens, shape: { B, T } } = gptModel;
+
+    let buf = new Float32Array(B * T);
+    for (let i = 0; i < buf.length; i++) {
+        buf[i] = rand.randint(0, 3);
+    }
+
+    writeToBufferTex(gl, inputTokens, buf);
+}
+
+export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, validationData?: ITensorSet) {
+    let { gl, quadVao } = renderState;
+    let {
+        inputTokens,
+        add,
+        posEmbed,
+        vocabEmbed,
+        blocks,
+        ln_f,
+        lm_head,
+        shape,
+    } = gptModel;
+
+    let { B, C, T, nBlocks } = shape;
+
+    console.log(`---- running GPT model B=${B} C=${C} T=${T} layers=${nBlocks} ----`);
+
+    let allValid = true;
+
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(quadVao);
+
+    if (validationData) {
+        let tIdx = validationData.idx; // (B, T)
+        writeToBufferTex(gl, inputTokens, tIdx.buffer);
+    }
+
+    runRenderPhase(gl, vocabEmbed.phase);
+    runRenderPhase(gl, posEmbed.phase);
+    runRenderPhase(gl, add.addPhase);
+
+    validate('x', add.addPhase);
+
+    for (let blockId = 0; blockId < blocks.length; blockId++) {
+        let { ln_1, attn, ln_2, mlp } = blocks[blockId];
+
+        runRenderPhase(gl, ln_1.aggPhase);
+        runRenderPhase(gl, ln_1.applyPhase);
+        runRenderPhase(gl, attn.qkvPhase);
+        runRenderPhase(gl, attn.selfAttendPhase);
+        runRenderPhase(gl, attn.attnMatrixAggPhase);
+        runRenderPhase(gl, attn.attnMatrixSoftmaxPhase);
+        runRenderPhase(gl, attn.scaledVectorsPhase);
+        runRenderPhase(gl, attn.proj.linearPhase);
+        runRenderPhase(gl, attn.add.addPhase);
+        runRenderPhase(gl, ln_2.aggPhase);
+        runRenderPhase(gl, ln_2.applyPhase);
+        runRenderPhase(gl, mlp.fcLayer.linearPhase);
+        runRenderPhase(gl, mlp.geluPhase);
+        runRenderPhase(gl, mlp.projLayer.linearPhase);
+        runRenderPhase(gl, mlp.addLayer.addPhase);
+
+        validate(`block${blockId}`, mlp.addLayer.addPhase);
+    }
+
+    runRenderPhase(gl, ln_f.aggPhase);
+    runRenderPhase(gl, ln_f.applyPhase);
+    runRenderPhase(gl, lm_head.linearPhase);
+
+    function validate(name: string, phase: IRenderPhase) {
+        if (!validationData) {
+            return;
+        }
+        let expected = validationData[name].toFloat32Array();
+        let dataFromGpu = new Float32Array(expected.length);
+        readFromRenderPhase(gl, phase, 0, dataFromGpu);
+        let isEqual = arraysEqual(dataFromGpu, expected);
+        if (!isEqual) {
+            logArr('expected', expected);
+            logArr('actual', dataFromGpu);
+        }
+        allValid = allValid && isEqual;
+        console.log(name, isEqual);
+    }
+
+    validate('lm_head', lm_head.linearPhase);
+
+    if (!allValid) {
+        console.error('VALIDATION FAILED');
+    }
+}
+
+function cleanupGptModel(gl: WebGL2RenderingContext, model: IGpuGptModel) {
+    // @TODO: need a way of collecting all resources:
+    // - texture buffers
+    // - render phases
+}
+
 export const basicVertexShader = /*glsl*/`#version 300 es
 precision highp float;
 layout(location = 0) in vec2 a_position;
@@ -30,13 +164,11 @@ void main() {
 
 export type IGpuGptModel = ReturnType<typeof createGptModel>;
 
-export function createGptModel(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel) {
-    let model = dataAndModel.model;
+export function createGptModel(gl: WebGL2RenderingContext, model: ITensorSet, B: number) {
     let prefix = 'transformer';
 
     let config = model.config;
 
-    let B = dataAndModel.data.config.B!;
     let C = config.n_embd;
     let nHeads = config.n_head;
     let T = config.block_size;
@@ -45,7 +177,7 @@ export function createGptModel(gl: WebGL2RenderingContext, dataAndModel: IDataAn
     let A = C / nHeads; // n elements in each Q, K, V vector, i.e. what we project down to
 
     let shape: IModelShape = { B, C, nHeads, T, A, nBlocks, vocabSize };
-    let layerBuilder: ILayerBuilder = { gl, model: dataAndModel.model, shape };
+    let layerBuilder: ILayerBuilder = { gl, model, shape };
 
     let inputTokens = createBufferTex(gl, 1, B * T, 1);
 
@@ -78,7 +210,6 @@ export function createGptModel(gl: WebGL2RenderingContext, dataAndModel: IDataAn
 
     return {
         inputTokens,
-        // blockInput0,
         vocabEmbed,
         posEmbed,
         add,

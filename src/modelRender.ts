@@ -1,9 +1,8 @@
-import { IModelShape } from "./GptModel";
+import { IGpuGptModel, IModelShape } from "./GptModel";
 import { genGptModelLayout } from "./GptModelLayout";
-import { IModelState } from "./mainLoop";
 import { Mat4f } from "./utils/matrix";
 import { createShaderProgram } from "./utils/shader";
-import { Vec3 } from "./utils/vector";
+import { BoundingBox3d, Vec3 } from "./utils/vector";
 
 export interface IRenderView {
     canvasEl: HTMLCanvasElement;
@@ -126,16 +125,20 @@ export function initRender(canvasEl: HTMLCanvasElement) {
 
             if (true) {
                 // draw a line at 16 block intervals (edges?)
+
+                // vec3 block16 = v_blockPos / 16.0;
+                // vec3 block16Grid = abs(fract(block16 - 0.5) - 0.5) / fwidth(block16);
+                // float line16 = min(min(block16Grid.x, block16Grid.y), block16Grid.z);
+
+                vec3 block256 = v_blockPos / 256.0;
+                vec3 block256Grid = abs(fract(block256 - 0.5) - 0.5) / fwidth(block256);
+                float line256 = min(min(block256Grid.x, block256Grid.y), block256Grid.z);
+
                 vec3 cube = v_cubePos;
-                vec3 block16 = v_blockPos / 16.0;
-
-                vec3 block16Grid = abs(fract(block16 - 0.5) - 0.5) / fwidth(block16);
-                float line16 = min(min(block16Grid.x, block16Grid.y), block16Grid.z);
-
                 vec3 cubeGrid = abs(fract(cube - 0.5) - 0.5) / fwidth(cube);
                 float lineCube = min(min(cubeGrid.x, cubeGrid.y), cubeGrid.z);
 
-                float edgeWeight = smoothstep(0.0, 1.0, min(line16, lineCube));
+                float edgeWeight = smoothstep(0.0, 1.0, min(min(lineCube, line256), line256));
                 baseColor = mix(baseColor, vec3(1.0, 1.0, 1.0), 1.0 - edgeWeight);
             }
 
@@ -249,9 +252,9 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
     return { name: 'cube', vao, vbo, type: gl.TRIANGLES, numVerts: 36 };
 }
 
-export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape, model?: IModelState) {
+export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape, gptGpuModel?: IGpuGptModel) {
     let { gl, blockShader, lightShader, canvasEl } = args;
-    let layout = genGptModelLayout(shape, model?.gptLayer);
+    let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -264,6 +267,17 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
     gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.FRONT);
+
+    let bb = new BoundingBox3d();
+    for (let c of layout.cubes) {
+        let tl = new Vec3(c.x, c.y, c.z);
+        let br = new Vec3(c.x + c.cx * cell, c.y + c.cy * cell, c.z + c.cz * cell);
+        bb.addInPlace(tl);
+        bb.addInPlace(br);
+    }
+    let localDist = bb.size().len();
 
     let camZoom = view.camAngle.z;
     let angleX = view.camAngle.x * Math.PI / 180;
@@ -278,7 +292,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     let camPos = new Vec3(camX, camY, camZ).add(camLookat);
 
     let lookAt = Mat4f.fromLookAt(camPos, camLookat, new Vec3(0, 0, 1));
-    let persp = Mat4f.fromPersp(40, view.canvasEl.height / view.canvasEl.width, dist / 100, Math.max(dist * 2, 10000));
+    let persp = Mat4f.fromPersp(40, view.canvasEl.height / view.canvasEl.width, dist / 100, localDist + Math.max(dist * 2, 10000));
     let viewMtx = persp.mul(lookAt);
     let modelMtx = new Mat4f();
 

@@ -1,3 +1,4 @@
+import { clamp } from "./data";
 
 function xmur3(str: string) {
     for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)
@@ -42,6 +43,10 @@ export class Random {
         let x = this.random();
         let y = this.random();
         return Math.sqrt(-2 * Math.log(x)) * Math.cos(2 * Math.PI * y);
+    }
+
+    randint(min: number, max: number): number {
+        return clamp(this.random() * (max - min) + min, min, max - 1);
     }
 }
 

@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { IModelShape } from './GptModel';
+import { IDataAndModel, IModelShape, IModelState, initModel, runModel, setModelInputData } from './GptModel';
 import s from './LayerView.module.css';
-import { IDataAndModel, initModel, IModelState, runModel } from './mainLoop';
 import { initRender, IRenderState, renderModel } from './modelRender';
 import { clamp, useGlobalDrag } from './utils/data';
+import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
 
@@ -41,7 +41,7 @@ export function LayerView() {
 
             let initial = ds.data.camAngle;
             let x = initial.x - dx * degPerPixel;
-            let y = clamp(initial.y + dy * degPerPixel, -90, 90);
+            let y = clamp(initial.y + dy * degPerPixel, -87, 87);
 
             setCamAngle(new Vec3(x, y, camAngle.z));
         }
@@ -52,7 +52,7 @@ export function LayerView() {
     }
 
     function handleWheel(ev: React.WheelEvent) {
-        let zoom = clamp(camAngle.z * Math.pow(1.0012, ev.deltaY), 0.01, 200);
+        let zoom = clamp(camAngle.z * Math.pow(1.0012, ev.deltaY), 0.01, 10000);
         setCamAngle(new Vec3(camAngle.x, camAngle.y, zoom));
     }
 
@@ -114,9 +114,11 @@ interface ICanvasData {
 class CanvasRender {
     renderState: IRenderState;
     modelState: IModelState | null = null;
+    random: Random;
 
     constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData) {
         this.renderState = initRender(canvasEl);
+        this.random = new Random(4);
     }
 
     modelInitRun = false;
@@ -126,7 +128,8 @@ class CanvasRender {
 
         if (data.dataAndModel && !this.modelInitRun) {
             this.modelInitRun = true;
-            this.modelState = initModel(this.renderState, data.dataAndModel);
+            this.modelState = initModel(this.renderState, data.dataAndModel, 1);
+            setModelInputData(this.renderState, this.modelState, this.random);
             runModel(this.renderState, this.modelState);
         }
         this.markDirty();
@@ -170,14 +173,25 @@ class CanvasRender {
         canvasEl.height = bcr.height;
 
         let shape: IModelShape = {
-            B: 3,
+            B: 1,
             T: 11,
             C: 48,
             nHeads: 3,
             A: 48 / 3,
             nBlocks: 3,
             vocabSize: 3,
+            // vocabSize: 128,
         };
+
+        // let shapeGpt1: IModelShape = {
+        //     B: 1,
+        //     nBlocks: 12,
+        //     nHeads: 12,
+        //     C: 768,
+        //     A: 768 / 12,
+        //     vocabSize: 50257,
+        //     T: 1024,
+        // };
 
         renderModel({ canvasEl: canvasEl!, ...this.canvasData }, this.renderState, shape, this.modelState || undefined);
     }
