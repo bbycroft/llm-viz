@@ -43,7 +43,7 @@ t0Attn = t0.get_submodule('attn')
 n_head = model_config.n_head
 n_embd = model_config.n_embd
 
-B = 1
+B = 3
 T = model_config.block_size
 C = n_embd
 
@@ -119,7 +119,16 @@ def gpt_forward_with_capture(model, idx):
 
     return x, partials
 
+
 idx = torch.tensor([[0, 0, 2, 1, 0, 1, 0, 0, 0, 0, 0]], dtype=torch.long)
+extraIdx = torch.cat([
+    torch.randint(0, 3, (B - 1, 6), dtype=torch.long),
+    torch.zeros((B - 1, 5), dtype=torch.long),
+], dim=1)
+extraIdx[1, 0] = 1
+idx = torch.cat([idx, extraIdx], dim=0)
+print(idx)
+
 transformer_input, partials0 = gpt_forward_with_capture(model, idx)
 
 res, partials = block_forward_with_capture(t0, transformer_input)

@@ -63,8 +63,8 @@ export function runModel(renderState: IRenderState, modelState: IModelState) {
 
     writeToBufferTex(gl, inputTokens, tIdx.buffer);
 
-    runRenderPhase(gl, vocabEmbed.embedPhase);
-    runRenderPhase(gl, posEmbed.embedPhase);
+    runRenderPhase(gl, vocabEmbed.phase);
+    runRenderPhase(gl, posEmbed.phase);
     runRenderPhase(gl, add.addPhase);
 
     for (let blockId = 0; blockId < blocks.length; blockId++) {

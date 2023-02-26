@@ -28,6 +28,8 @@ void main() {
 }
 `;
 
+export type IGptGpuModel = ReturnType<typeof createGptLayer>;
+
 export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAndModel) {
     let model = dataAndModel.model;
     let prefix = 'transformer';
@@ -61,7 +63,7 @@ export function createGptLayer(gl: WebGL2RenderingContext, dataAndModel: IDataAn
 
     let vocabEmbed = createEmbeddingLayer(layerBuilder, prefix + '.wte', vocabSize, C, inputTokens);
     let posEmbed = createEmbeddingLayer(layerBuilder, prefix + '.wpe', T, C, pos);
-    let add = createAddLayer(layerBuilder, vocabEmbed.output, posEmbed.output);
+    let add = createAddLayer(layerBuilder, vocabEmbed.output, posEmbed.output); // add has shape (C, B * T)
 
     let blocks = [];
     let x = add.output;
@@ -442,12 +444,12 @@ export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string
     let tWeight = model[prefix + '.weight'];
 
     // weights
-    let embedWeight = createBufferTex(gl, nDims, nEmbed, 1); // (nEmbed) (nDims)
+    let weight = createBufferTex(gl, nDims, nEmbed, 1); // (nEmbed) (nDims)
 
     // operating memory
     let output = createBufferTex(gl, nDims, B * T, 1); // (B, T) (nDims)
 
-    writeToBufferTex(gl, embedWeight, tWeight.toFloat32Array());
+    writeToBufferTex(gl, weight, tWeight.toFloat32Array());
 
     let embedProg = createShaderProgram(gl, 'embed', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;          //    y     x
@@ -465,10 +467,12 @@ export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string
         }
     `)!;
 
-    let embedPhase = createRenderPhase(gl, embedProg, [output], [input, embedWeight], ['embedInput', 'embedWeight']);
+    let phase = createRenderPhase(gl, embedProg, [output], [input, weight], ['embedInput', 'embedWeight']);
 
     return {
-        embedPhase,
+        weight,
+        phase,
+        input,
         output,
     };
 }

@@ -1,5 +1,7 @@
-import { IModelShape } from "./GptModel";
+import { IGptGpuModel, IModelShape } from "./GptModel";
 import { isNil } from "./utils/data";
+import { Mat3f } from "./utils/matrix";
+import { IBufferTex } from "./utils/renderPhases";
 
 interface IBlkDef {
     t: 'w' | 'i', // weights; intermediate value
@@ -9,6 +11,22 @@ interface IBlkDef {
     cx: number; // units: number of cells
     cy: number;
     cz: number;
+    access?: IBlkAccess;
+}
+
+interface IBlkAccess {
+    src: IBufferTex;
+    channel: 'r' | 'g' | 'b';
+    scale: number;
+    mat: Mat3f; // actually using the first two columns for a 3x2 matrix: mapping (x, y, z) integer cell coord to (x, y) src tex coord
+}
+
+interface IBlkAccessDefArgs {
+    src?: IBufferTex;
+    channel?: 'r' | 'g' | 'b';
+    scale?: number;
+    x: number[];
+    y: number[];
 }
 
 interface IBlkDefArgs {
@@ -23,10 +41,11 @@ interface IBlkDefArgs {
     cx: number; // units: number of cells
     cy: number;
     cz: number;
+    access?: IBlkAccessDefArgs;
 }
 
 
-export function genModelStructure(shape: IModelShape) {
+export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptGpuModel | null = null) {
     let { B, T, C, vocabSize, nHeads, A, nBlocks } = shape;
 
     // work our way downwards from the top
@@ -63,19 +82,21 @@ export function genModelStructure(shape: IModelShape) {
             cx: args.cx,
             cy: args.cy,
             cz: args.cz,
+            access: args.access?.src ? {
+                channel: args.access.channel ?? 'r',
+                src: args.access.src,
+                scale: args.access.scale ?? 10.0,
+                mat: Mat3f.fromColMajor([...args.access.x, ...args.access.y, 0, 0, 0]),
+            } : undefined,
         };
     }
 
     let cubes: IBlkDef[] = [];
 
     let idxObj = mk({
-        t: 'i',
-        xM: 0,
-        yM: 0,
-        z: z,
-        cx: T,
-        cy: B,
-        cz: 1,
+        t: 'i', cx: T, cy: B, cz: 1, z: z,
+        xM: 0, yM: 0,
+        access: { src: gptGpuModel?.inputTokens, x: [0, 0, 1], y: [1, T, 0], scale: 1 / vocabSize}
     });
 
     let leftX = -T * cell / 2 - margin;
@@ -86,19 +107,22 @@ export function genModelStructure(shape: IModelShape) {
     let tokEmbedObj = mk({
         t: 'w',
         xR: leftX, yM: 0, z: z,
-        cx: vocabSize, cy: 1, cz: C,
+        cx: vocabSize, cy: 1, cz: C, // src has shape [vocabSize, C]
+        access: { src: gptGpuModel?.vocabEmbed.weight, x: [0, 0, 1], y: [1, 0, 0] },
     });
 
     let posEmbedObj = mk({
         t: 'w',
         xL: rightX, yM: 0, z: z,
         cx: T, cy: 1, cz: C,
+        access: { src: gptGpuModel?.posEmbed.weight, x: [0, 0, 1], y: [1, 0, 0] },
     });
 
     let residual0 = mk({
         t: 'i',
         xM: 0, yM: 0, z: z,
         cx: T, cy: B, cz: C,
+        access: { src: gptGpuModel?.add.output, x: [0, 0, 1], y: [1, T, 0] },
     });
     cubes.push(idxObj, tokEmbedObj, posEmbedObj, residual0);
 
@@ -351,4 +375,4 @@ export function genModelStructure(shape: IModelShape) {
     };
 }
 
-export type IModelLayout = ReturnType<typeof genModelStructure>;
+export type IModelLayout = ReturnType<typeof genGptModelLayout>;

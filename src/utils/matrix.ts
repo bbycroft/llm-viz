@@ -104,51 +104,14 @@ export class Mat4f extends Float32Array {
     }
 
     static fromAxisAngle(axis: Vec3, angleRad: number) {
-        let u = axis.normalize();
-        let c = Math.cos(angleRad);
-        let s = Math.sin(angleRad)
-        let x = u.x;
-        let y = u.y;
-        let z = u.z;
-        let c2 = 1 - c;
-
         let res = new Mat4f();
-        res[0] = x*x*c2 + c;
-        res[1] = y*x*c2 + z*s;
-        res[2] = z*x*c2 - y*s;
-
-        res[4] = x*y*c2 - z*s;
-        res[5] = y*y*c2 + c;
-        res[6] = z*y*c2 + x*s;
-
-        res[8] = x*z*c2 + y*s;
-        res[9] = y*z*c2 - x*s;
-        res[10] = z*z*c2 + c;
-
+        fromAxisAngle(axis, angleRad, res, 4);
         return res;
     }
 
     static fromQuat(q: Vec4) {
-        let n = q.lenSq();
-        let s = n === 0.0 ? 0.0 : 2.0 / n;
-        let x = q.x;
-        let y = q.y;
-        let z = q.z;
-        let w = q.w;
-
         let res = new Mat4f();
-        res[0] = 1 - s*(y*y + z*z);
-        res[1] = s*(x*y + w*z);
-        res[2] = s*(x*z - w*y);
-
-        res[4] = s*(x*y - w*z);
-        res[5] = 1 - s*(x*x + z*z);
-        res[6] = s*(y*z + w*x);
-
-        res[8] = s*(x*z + w*y);
-        res[9] = s*(y*z - w*x);
-        res[10] = 1 - s*(x*x + y*y);
-
+        fromQuat(q, res, 4);
         return res;
     }
 
@@ -310,6 +273,197 @@ export class Mat4f extends Float32Array {
     }
 }
 
+/** Column-major, 9-element float32 matrix, extending a Float32Array.
+Methods will return a copy unless otherwise noted.
+*/
+export class Mat3f extends Float32Array {
+    constructor(
+    ) {
+        super(9);
+        this[0] = this[4] = this[8] = 1.0;
+    }
+
+    g(r: number, c: number) { return this[c * 3 + r]; }
+    s(r: number, c: number, v: number) { this[c * 3 + r] = v; }
+
+    add(a: Mat3f): Mat3f {
+        let res = new Mat3f();
+        for (let i = 0; i < 9; i++) {
+            res[i] = this[i] + a[i];
+        }
+        return res;
+    }
+
+    sub(a: Mat3f): Mat3f {
+        let res = new Mat3f();
+        for (let i = 0; i < 9; i++) {
+            res[i] = this[i] - a[i];
+        }
+        return res;
+    }
+
+    mul(a: Mat3f): Mat3f {
+        let res = new Mat3f();
+        for (let x = 0; x < 3; x++) {
+            for (let y = 0; y < 3; y++) {
+                let v = 0.0;
+                for (let k = 0; k < 3; k++) {
+                     v += this[k * 3 + y] * a[x * 3 + k];
+                }
+                res[x * 3 + y] = v;
+            }
+        }
+        return res;
+    }
+
+    mulVec3(a: Vec3): Vec3 {
+        let x = this[0] * a[0] + this[3] * a[1] + this[6] * a[2];
+        let y = this[1] * a[0] + this[4] * a[1] + this[7] * a[2];
+        let z = this[2] * a[0] + this[5] * a[1] + this[8] * a[2];
+        return new Vec3(x, y, z);
+    }
+
+    transpose(): Mat3f {
+        let res = new Mat3f();
+        res[0] = this[0];
+        res[1] = this[3];
+        res[2] = this[6];
+        res[3] = this[1];
+        res[4] = this[4];
+        res[5] = this[7];
+        res[6] = this[2];
+        res[7] = this[5];
+        res[8] = this[8];
+        return res;
+    }
+
+    static fromRowMajor(a: ArrayLike<number> | number[][]) {
+        if (a.length > 0 && Array.isArray(a[0])) {
+            a = (a as number[][]).flatMap(x => x);
+        }
+        let flatArr = a as ArrayLike<number>;
+        if (flatArr.length !== 9) {
+            console.log('need 9 elements');
+        }
+
+        let res = new Mat3f();
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                res[i * 3 + j] = flatArr[j * 3 + i];
+            }
+        }
+        return res;
+    }
+
+    static fromColMajor(flatArr: ArrayLike<number>, offset: number = 0) {
+        if (flatArr.length - offset < 9) {
+            console.log('need 9 elements');
+        }
+        let res = new Mat3f();
+        for (let i = 0; i < 9; i++) {
+            res[i] = flatArr[offset + i];
+        }
+        return res;
+    }
+
+    static fromAxisAngle(axis: Vec3, angleRad: number) {
+        let res = new Mat3f();
+        fromAxisAngle(axis, angleRad, res, 3);
+        return res;
+    }
+
+    static fromQuat(q: Vec4) {
+        let res = new Mat3f();
+        fromQuat(q, res, 3);
+        return res;
+    }
+
+    static fromScale(s: Vec3) {
+        let res = new Mat4f();
+        res[0] = s.x;
+        res[4] = s.y;
+        res[8] = s.z;
+        return res;
+    }
+
+    determinant(): number {
+        let A = new Float64Array(this);
+        let P = new Int32Array(4);
+        luDecomp(A, P, 3);
+        return luDeterminant(A, P, 3);
+    }
+
+    invert(): Mat3f {
+        let A = new Float64Array(this);
+        let P = new Int32Array(4);
+        luDecomp(A, P, 3);
+        let res = new Mat3f();
+        luInvert(A, P, 3, res);
+        return res;
+    }
+
+    toString(): string {
+        let s = '\n';
+        for (let i = 0; i < 3; i++) {
+            s += i === 0 ? '[[' : ' [';
+            for (let j = 0; j < 3; j++) {
+                let v = this.g(i, j);
+                s += (v < 0 ? '' : ' ') + v.toFixed(3) + (j === 2 ? ']' : ', ');
+            }
+            s += i === 2 ? ']' : '\n';
+        }
+        return s;
+    }
+}
+
+function fromQuat(q: Vec4, res: Float32Array, stride: number) {
+    let n = q.lenSq();
+    let s = n === 0.0 ? 0.0 : 2.0 / n;
+    let x = q.x;
+    let y = q.y;
+    let z = q.z;
+    let w = q.w;
+
+    let o = 0;
+    res[o+0] = 1 - s*(y*y + z*z);
+    res[o+1] = s*(x*y + w*z);
+    res[o+2] = s*(x*z - w*y);
+
+    o = stride;
+    res[o+0] = s*(x*y - w*z);
+    res[o+1] = 1 - s*(x*x + z*z);
+    res[o+2] = s*(y*z + w*x);
+
+    o = stride * 2;
+    res[o+0] = s*(x*z + w*y);
+    res[o+1] = s*(y*z - w*x);
+    res[o+2] = 1 - s*(x*x + y*y);
+}
+
+function fromAxisAngle(axis: Vec3, angleRad: number, res: Float32Array, stride: number) {
+    let u = axis.normalize();
+    let c = Math.cos(angleRad);
+    let s = Math.sin(angleRad)
+    let x = u.x;
+    let y = u.y;
+    let z = u.z;
+    let c2 = 1 - c;
+
+    let o = 0;
+    res[o+0] = x*x*c2 + c;
+    res[o+1] = y*x*c2 + z*s;
+    res[o+2] = z*x*c2 - y*s;
+
+    o = stride;
+    res[o+0] = x*y*c2 - z*s;
+    res[o+1] = y*y*c2 + c;
+    res[o+2] = z*y*c2 + x*s;
+
+    o = stride * 2;
+    res[o+0] = x*z*c2 + y*s;
+    res[o+1] = y*z*c2 - x*s;
+    res[o+2] = z*z*c2 + c;
+}
 
 /** From https://en.wikipedia.org/wiki/LU_decomposition */
 

@@ -170,16 +170,16 @@ class CanvasRender {
         canvasEl.height = bcr.height;
 
         let shape: IModelShape = {
-            B: 1,
-            T: 22,
+            B: 3,
+            T: 11,
             C: 48,
             nHeads: 3,
             A: 48 / 3,
             nBlocks: 3,
-            vocabSize: 32,
+            vocabSize: 3,
         };
 
-        renderModel({ canvasEl: canvasEl!, ...this.canvasData }, this.renderState, shape);
+        renderModel({ canvasEl: canvasEl!, ...this.canvasData }, this.renderState, shape, this.modelState || undefined);
     }
 
 }

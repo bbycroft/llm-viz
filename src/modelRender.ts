@@ -1,5 +1,6 @@
 import { IModelShape } from "./GptModel";
-import { genModelStructure } from "./GptModelLayout";
+import { genGptModelLayout } from "./GptModelLayout";
+import { IModelState } from "./mainLoop";
 import { Mat4f } from "./utils/matrix";
 import { createShaderProgram } from "./utils/shader";
 import { Vec3 } from "./utils/vector";
@@ -69,6 +70,9 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         uniform vec3 u_lightColor[3]; // in model space
         uniform vec3 u_camPos; // in model space
         uniform vec3 u_baseColor;
+        uniform float u_accessTexScale;
+        uniform sampler2D u_accessSampler;
+        uniform mat3x2 u_accessMtx;
 
         void main() {
             ivec3 blockPos = ivec3(v_blockPos - v_normal * 0.2);
@@ -79,7 +83,31 @@ export function initRender(canvasEl: HTMLCanvasElement) {
             if (cellDark) {
                 baseColor *= 0.9;
             }
-            vec3 color = baseColor * 0.5;
+
+            if (u_accessTexScale > 0.0) { // have access texture
+                baseColor = mix(baseColor, vec3(0.5, 0.5, 0.5), 0.9);
+
+                vec3 d = fract(v_blockPos) - 0.5;
+                float r2 = 0.3*0.3;
+                bool insideX = d.y * d.y + d.z * d.z < r2;
+                bool insideY = d.x * d.x + d.z * d.z < r2;
+                bool insideZ = d.x * d.x + d.y * d.y < r2;
+                bool insideAny = insideX || insideY || insideZ;
+
+                if (insideAny) {
+                    ivec2 accessPos = ivec2(u_accessMtx * vec3(blockPos));
+                    float val = texelFetch(u_accessSampler, accessPos, 0).r * u_accessTexScale;
+
+                    float weight = clamp(abs(val), 0.0, 1.0);
+
+                    vec3 negColor = vec3(0.0, 0.0, 0.0);
+                    vec3 posColor = vec3(0.0, 1.0, 0.0);
+                    vec3 zeroColor = vec3(0.5, 0.5, 0.5);
+                    baseColor = mix(mix(zeroColor, negColor, weight), mix(zeroColor, posColor, weight), step(0.0, val));
+                }
+            }
+
+            vec3 color = baseColor * 0.7;
 
             for (int i = 0; i < 3; i++) {
                 vec3 light_dir = normalize(u_lightPos[i] - v_modelPos);
@@ -94,7 +122,12 @@ export function initRender(canvasEl: HTMLCanvasElement) {
 
             o_color = vec4(color, 1);
         }
-    `, ['u_view', 'u_model', 'u_size', 'u_offset', 'u_baseColor', 'u_nCells', 'u_lightPos', 'u_camPos', 'u_lightColor'])!;
+    `, [
+        'u_view', 'u_model', 'u_size', 'u_offset',
+        'u_baseColor', 'u_nCells',
+        'u_lightPos', 'u_camPos', 'u_lightColor',
+        'u_accessTexScale', 'u_accessSampler', 'u_accessMtx',
+    ])!;
 
     let lightShader = createShaderProgram(gl, 'light', /*glsl*/`#version 300 es
         precision highp float;
@@ -184,9 +217,9 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
     return { name: 'cube', vao, vbo, type: gl.TRIANGLES, numVerts: 36 };
 }
 
-export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape) {
+export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape, model?: IModelState) {
     let { gl, blockShader, lightShader, canvasEl } = args;
-    let layout = genModelStructure(shape);
+    let layout = genGptModelLayout(shape, model?.gptLayer);
     let cell = layout.cell;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -257,6 +290,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
 
         gl.uniform3fv(locs.u_lightPos, lightPosArr);
         gl.uniform3fv(locs.u_lightColor, lightColorArr);
+        gl.uniform1i(locs.u_accessSampler, 0);
 
         for (let block of layout.cubes) {
             // using uniforms is just a quick & easy way to sort this out
@@ -268,6 +302,13 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             gl.uniform3fv(locs.u_offset, pos);
             let baseColor = block.t === 'w' ? new Vec3(0.4, 0.4, 0.8) : new Vec3(0.4, 0.8, 0.4);
             gl.uniform3fv(locs.u_baseColor, baseColor);
+            if (block.access) {
+                gl.uniformMatrix3x2fv(locs.u_accessMtx, true, block.access.mat, 0, 6);
+                // gl.uniformMatrix3x2fv(locs.u_accessMtx, true, [0, 0, 1, 1, 0, 0]);
+            }
+            gl.uniform1f(locs.u_accessTexScale, block.access ? block.access.scale : 0);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, block.access ? block.access.src.texture : null);
 
             gl.bindVertexArray(geom.vao);
             gl.drawArrays(geom.type, 0, geom.numVerts);
