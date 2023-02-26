@@ -52,6 +52,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         out vec3 v_normal;
         out vec3 v_modelPos;
         out vec3 v_blockPos;
+        out vec3 v_cubePos;
         void main() {
             vec3 pos = a_position * 0.5 + 0.5;
             vec3 model_pos = pos * u_size + u_offset;
@@ -59,12 +60,14 @@ export function initRender(canvasEl: HTMLCanvasElement) {
             v_normal = a_normal;
             v_modelPos = model_pos;
             v_blockPos = vec3(pos.x, pos.y, 1.0 - pos.z) * u_nCells;
+            v_cubePos = pos;
         }
     `, /*glsl*/`#version 300 es
         precision highp float;
         in vec3 v_normal;
         out vec4 o_color;
         in vec3 v_blockPos;
+        in vec3 v_cubePos;
         in vec3 v_modelPos;
         uniform vec3 u_lightPos[3]; // in model space
         uniform vec3 u_lightColor[3]; // in model space
@@ -76,7 +79,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         uniform int u_channel;
 
         void main() {
-            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, 1.0 - v_normal.z) * 0.2);
+            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, -v_normal.z) * 0.1);
 
             bool cellDark = (blockPos.x + blockPos.y + blockPos.z) % 2 == 0;
 
@@ -91,11 +94,12 @@ export function initRender(canvasEl: HTMLCanvasElement) {
 
             vec3 baseColor = mix(u_baseColor, vec3(0.5, 0.5, 0.5), 0.5);
             if (cellDark) {
-                baseColor *= 0.9;
+                baseColor *= mix(0.9, 1.0, t);
+
             }
 
             if (u_accessTexScale > 0.0 && dist < maxDist) { // have access texture
-                vec3 texBaseColor = mix(u_baseColor, vec3(0.5, 0.5, 0.5), 0.9);
+                vec3 texBaseColor = mix(baseColor, vec3(0.5, 0.5, 0.5), 0.8);
 
                 vec3 d = fract(v_blockPos) - 0.5;
                 float r2 = 0.3*0.3;
@@ -117,7 +121,22 @@ export function initRender(canvasEl: HTMLCanvasElement) {
                     texBaseColor = mix(mix(zeroColor, negColor, weight), mix(zeroColor, posColor, weight), step(0.0, val));
                 }
 
-                baseColor = mix(baseColor, texBaseColor, 1.0 - t);
+                baseColor = mix(texBaseColor, baseColor, t);
+            }
+
+            if (true) {
+                // draw a line at 16 block intervals (edges?)
+                vec3 cube = v_cubePos;
+                vec3 block16 = v_blockPos / 16.0;
+
+                vec3 block16Grid = abs(fract(block16 - 0.5) - 0.5) / fwidth(block16);
+                float line16 = min(min(block16Grid.x, block16Grid.y), block16Grid.z);
+
+                vec3 cubeGrid = abs(fract(cube - 0.5) - 0.5) / fwidth(cube);
+                float lineCube = min(min(cubeGrid.x, cubeGrid.y), cubeGrid.z);
+
+                float edgeWeight = smoothstep(0.0, 1.0, min(line16, lineCube));
+                baseColor = mix(baseColor, vec3(1.0, 1.0, 1.0), 1.0 - edgeWeight);
             }
 
             vec3 color = baseColor * 0.7;
