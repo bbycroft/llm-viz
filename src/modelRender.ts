@@ -80,13 +80,22 @@ export function initRender(canvasEl: HTMLCanvasElement) {
 
             bool cellDark = (blockPos.x + blockPos.y + blockPos.z) % 2 == 0;
 
-            vec3 baseColor = u_baseColor;
+            vec3 pxPerCell = 1.0 / fwidth(v_blockPos);
+            float maxPxPerCell = max(max(pxPerCell.x, pxPerCell.y), pxPerCell.z);
+
+
+            float maxDist = 2000.0;
+            float minDist = 600.0;
+            float dist = distance(u_camPos, v_modelPos);
+            float t = clamp((dist - minDist) / (maxDist - minDist), 0.0, 1.0);
+
+            vec3 baseColor = mix(u_baseColor, vec3(0.5, 0.5, 0.5), 0.5);
             if (cellDark) {
                 baseColor *= 0.9;
             }
 
-            if (u_accessTexScale > 0.0) { // have access texture
-                baseColor = mix(baseColor, vec3(0.5, 0.5, 0.5), 0.9);
+            if (u_accessTexScale > 0.0 && dist < maxDist) { // have access texture
+                vec3 texBaseColor = mix(u_baseColor, vec3(0.5, 0.5, 0.5), 0.9);
 
                 vec3 d = fract(v_blockPos) - 0.5;
                 float r2 = 0.3*0.3;
@@ -105,8 +114,10 @@ export function initRender(canvasEl: HTMLCanvasElement) {
                     vec3 negColor = vec3(0.0, 0.0, 0.0);
                     vec3 posColor = u_baseColor; // vec3(0.0, 1.0, 0.0);
                     vec3 zeroColor = vec3(0.5, 0.5, 0.5);
-                    baseColor = mix(mix(zeroColor, negColor, weight), mix(zeroColor, posColor, weight), step(0.0, val));
+                    texBaseColor = mix(mix(zeroColor, negColor, weight), mix(zeroColor, posColor, weight), step(0.0, val));
                 }
+
+                baseColor = mix(baseColor, texBaseColor, 1.0 - t);
             }
 
             vec3 color = baseColor * 0.7;
@@ -302,7 +313,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             gl.uniform3fv(locs.u_nCells, new Vec3(block.cx, block.cy, block.cz));
             gl.uniform3fv(locs.u_size, size);
             gl.uniform3fv(locs.u_offset, pos);
-            let baseColor = block.t === 'w' ? new Vec3(0.4, 0.4, 0.8) : new Vec3(0.4, 0.8, 0.4);
+            let baseColor = block.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
             gl.uniform3fv(locs.u_baseColor, baseColor);
             if (block.access) {
                 gl.uniformMatrix4x2fv(locs.u_accessMtx, true, block.access.mat, 0, 8);
