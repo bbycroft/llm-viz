@@ -148,3 +148,13 @@ export interface IMouseLocation {
     clientX: number;
     clientY: number;
 }
+
+export function base64ToArrayBuffer(base64: string) {
+    let binaryString = window.atob(base64);
+    let len = binaryString.length;
+    let bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+}

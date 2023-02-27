@@ -3,8 +3,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { IDataAndModel, IModelShape, IModelState, initModel, runModel, setModelInputData } from './GptModel';
 import s from './LayerView.module.css';
-import { initRender, IRenderState, renderModel } from './modelRender';
+import { initRender, IRenderState, IRenderView, renderModel } from './modelRender';
 import { clamp, useGlobalDrag } from './utils/data';
+import { IFontAtlas, setupFontAtlas } from './utils/font';
 import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
@@ -24,7 +25,7 @@ export function LayerView() {
     let [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
     let [dataAndModel, setDataAndModel] = useState<IDataAndModel | null>(null);
     let [camAngle, setCamAngle] = useState(new Vec3(290, 20, 30)); // degrees about z axis, and above the x-y plane; zoom
-    let [camTarget, setCamTarget] = useState(new Vec3(0, 0, 1000)); // where the camera is looking
+    let [camTarget, setCamTarget] = useState(new Vec3(0, 0, 0)); // where the camera is looking
     let [canvasRender, setCanvasRender] = useState<CanvasRender | null>(null);
 
     let [dragStart, setDragStart] = useGlobalDrag<{ camAngle: Vec3, camTarget: Vec3 }>(function handleMove(ev, ds) {
@@ -114,11 +115,16 @@ interface ICanvasData {
 class CanvasRender {
     renderState: IRenderState;
     modelState: IModelState | null = null;
+    fontAtlas: IFontAtlas | null = null;
     random: Random;
 
     constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData) {
         this.renderState = initRender(canvasEl);
         this.random = new Random(4);
+        setupFontAtlas(this.renderState.gl).then((fa) => {
+            this.fontAtlas = fa;
+            this.markDirty();
+        });
     }
 
     modelInitRun = false;
@@ -193,7 +199,13 @@ class CanvasRender {
         //     T: 1024,
         // };
 
-        renderModel({ canvasEl: canvasEl!, ...this.canvasData }, this.renderState, shape, this.modelState || undefined);
+        let view: IRenderView = {
+            ...this.canvasData,
+            canvasEl: canvasEl!,
+            fontAtlas: this.fontAtlas,
+        }
+
+        renderModel(view, this.renderState, shape, this.modelState || undefined);
     }
 
 }

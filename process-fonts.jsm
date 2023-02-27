@@ -11,23 +11,35 @@ let fileContents = fs.readFileSync('fonts/Roboto-Regular.json', { encoding: 'utf
 let font = JSON.parse(fileContents);
 
 {
-    let charArr = new Int32Array(font.chars.length * 12);
+    let charArr = new Int16Array(font.chars.length * 12);
 
     let index = 0;
     for (let c of font.chars) {
-        for (let x of [c.id, c.index, c.char.codePointAt(0), c.x, c.y, c.width, c.height, c.xoffset, c.yoffset, c.xadvance, c.page, c.chnl]) {
+        let order = [c.id,
+            c.index,
+            c.char.codePointAt(0),
+            c.x,
+            c.y,
+            c.width,
+            c.height,
+            c.xoffset,
+            c.yoffset,
+            c.xadvance,
+            c.page,
+            c.chnl];
+
+        for (let x of order) {
             charArr[index++] = x;
         }
     }
 
-    // font.chars = [...charArr];
-    font.chars = Buffer.from(charArr).toString('base64');
+    font.chars = Buffer.from(charArr.buffer).toString('base64');
 }
 
 font.info.charset = font.info.charset.join('');
 
 {
-    let kerningArr = new Int32Array(font.kernings.length * 3);
+    let kerningArr = new Int16Array(font.kernings.length * 3);
     idx = 0;
     let nonZeroCount = 0;
 
@@ -42,8 +54,7 @@ font.info.charset = font.info.charset.join('');
     }
     kerningArr = kerningArr.slice(0, nonZeroCount * 3);
 
-    // font.kernings = [...kerningArr];
-    font.kernings = Buffer.from(kerningArr).toString('base64');
+    font.kernings = Buffer.from(kerningArr.buffer).toString('base64');
 }
 
 let result = JSON.stringify(font);

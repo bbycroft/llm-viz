@@ -1,3 +1,4 @@
+import { base64ToArrayBuffer } from "./data";
 
 export interface ITensorJson {
     shape: number[];
@@ -180,12 +181,8 @@ export class TensorF32 {
             console.error('Invalid tensor dtype', obj);
             throw new Error('Invalid tensor dtype');
         }
-        let byteStr = window.atob(obj.data);
-        let array = new Float32Array(byteStr.length / 4);
-        let uint8View = new Uint8Array(array.buffer);
-        for (let i = 0; i < byteStr.length; i++) {
-            uint8View[i] = byteStr.charCodeAt(i);
-        }
+        let buf = base64ToArrayBuffer(obj.data);
+        let array = new Float32Array(buf);
         return new TensorF32(obj.shape, array);
     }
 }

@@ -1,5 +1,6 @@
 import { IGpuGptModel, IModelShape } from "./GptModel";
-import { genGptModelLayout } from "./GptModelLayout";
+import { genGptModelLayout, IGptModelLayout } from "./GptModelLayout";
+import { IFontAtlas, measureTextWidth, renderAllText, writeTextToBuffer } from "./utils/font";
 import { Mat4f } from "./utils/matrix";
 import { createShaderProgram } from "./utils/shader";
 import { BoundingBox3d, Vec3 } from "./utils/vector";
@@ -8,8 +9,7 @@ export interface IRenderView {
     canvasEl: HTMLCanvasElement;
     camAngle: Vec3; // degrees about z axis, and above the x-y plane
     camTarget: Vec3;
-    // where is the camera etc
-    // what's the time
+    fontAtlas: IFontAtlas | null;
 }
 
 export type IRenderState = ReturnType<typeof initRender>;
@@ -257,6 +257,10 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
 
+    if (view.fontAtlas) {
+        addSomeText(view.fontAtlas, layout);
+    }
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvasEl.width, canvasEl.height);
 
@@ -361,4 +365,25 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             gl.drawArrays(geom.type, 0, geom.numVerts);
         }
     }
+
+    {
+        if (view.fontAtlas) {
+            renderAllText(gl, view.fontAtlas, viewMtx, modelMtx);
+        }
+    }
+}
+
+export function addSomeText(fontAtlas: IFontAtlas, layout: IGptModelLayout) {
+
+    fontAtlas.glState.glyphsUsed = 0;
+    fontAtlas.glState.segmentsUsed = 0;
+    let text = 'nano-gpt (~9k params)';
+    let target = layout.idxObj;
+
+    let width = measureTextWidth(fontAtlas, text);
+
+    let mtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(2.8));
+    let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
+    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + layout.height));
+    writeTextToBuffer(fontAtlas, text, - width / 2, -fontAtlas.common.lineHeight, mtx2.mul(mtx.mul(mtx3)));
 }

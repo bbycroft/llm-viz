@@ -44,6 +44,7 @@ interface IBlkDefArgs {
     access?: IBlkAccessDefArgs;
 }
 
+export type IGptModelLayout = ReturnType<typeof genGptModelLayout>;
 
 export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel | null = null) {
     let { B, T, C, vocabSize, nHeads, A, nBlocks } = shape;
@@ -178,6 +179,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         let attnLeftX = lnLeftX; // leftX - ((T + 2) * cell + 3 * margin);
         let qkvValLeftX = attnLeftX - T * cell - margin;
+        let qkvBiasLeftX = qkvValLeftX - C * cell - margin;
         let stepPerHeadZ = 0; // A * cell;
 
         let attnTarget = target?.attn;
@@ -188,8 +190,6 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             let qMid = headYMid - B * cell - qkvMargin;
             let kMid = headYMid;
             let vMid = headYMid + B * cell + qkvMargin;
-            let attnMid = (qMid + kMid) / 2;
-            let attn2Mid = (kMid + vMid) / 2;
 
             let qBlock = mk({
                 t: 'i', cx: T, cy: B, cz: A, z: z,
@@ -227,36 +227,59 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.qkvWeight, x: [1, 0, 0], y: [0, 0, 1, A * i], channel: 'b' },
             });
 
+            let qBiasBlock = mk({
+                t: 'w', cx: 1, cy: 1, cz: A, z: z,
+                xR: qkvBiasLeftX, yM: qMid,
+                access: { src: attnTarget?.qkvBias, x: [1, 0, 0], y: [0, 0, 1, A * i], channel: 'r' },
+            });
+
+            let kBiasBlock = mk({
+                t: 'w', cx: 1, cy: 1, cz: A, z: z,
+                xR: qkvBiasLeftX, yM: kMid,
+                access: { src: attnTarget?.qkvBias, x: [1, 0, 0], y: [0, 0, 1, A * i], channel: 'g' },
+            });
+
+            let vBiasBlock = mk({
+                t: 'w', cx: 1, cy: 1, cz: A, z: z,
+                xR: qkvBiasLeftX, yM: vMid,
+                access: { src: attnTarget?.qkvBias, x: [1, 0, 0], y: [0, 0, 1, A * i], channel: 'b' },
+            });
+
+            let attn2LeftX = attnLeftX - (T + 2) * cell - 2 * margin;
+
             let attnMtx = mk({
                 t: 'i', cx: T, cy: B, cz: T, z: attn1Z,
-                xR: attnLeftX, yM: attnMid,
+                xR: attnLeftX, yM: headYMid,
                 access: { src: attnTarget?.attnMatrix, x: [1, 0, 0], y: [0, nHeads * T, 1, T * i], scale: 1.0 },
             });
 
             let attnMtxAgg = mk({
                 t: 'i', cx: 2, cy: B, cz: T, z: attn1Z,
-                xR: attnLeftX - T * cell - margin, yM: attnMid,
+                xR: attnLeftX - T * cell - margin, yM: headYMid,
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, nHeads * T, 1, T * i], scale: 1.0 },
             });
 
             let attnMtxSm = mk({
-                t: 'i', cx: T, cy: B, cz: T, z: attn2Z,
-                xR: attnLeftX, yM: attn2Mid,
+                t: 'i', cx: T, cy: B, cz: T, z: attn1Z,
+                xR: attn2LeftX, yM: headYMid,
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [1, 0, 0], y: [0, nHeads * T, 1, T * i], scale: 1.0 },
             });
 
             let vOutBlock = mk({
                 t: 'i', cx: T, cy: B, cz: A, z: vOutZ + i * stepPerHeadZ,
-                xR: attnLeftX, yM: vMid,
+                xR: attnLeftX, yM: headYMid,
                 access: { src: attnTarget?.scaledVectors, x: [0, 0, 1, i * A], y: [1, T, 0] },
             });
 
             let head = {
-                qBlock, kBlock, vBlock, qWeightBlock, kWeightBlock, vWeightBlock, attnMtx,
+                qBlock, kBlock, vBlock,
+                qWeightBlock, kWeightBlock, vWeightBlock,
+                qBiasBlock, kBiasBlock, vBiasBlock,
+                attnMtx, attnMtxAgg, attnMtxSm, vOutBlock,
             };
             heads.push(head);
             cubes.push(qBlock, kBlock, vBlock, qWeightBlock, kWeightBlock, vWeightBlock,
-                attnMtx, attnMtxAgg, attnMtxSm, vOutBlock);
+                attnMtx, attnMtxAgg, attnMtxSm, vOutBlock, qBiasBlock, kBiasBlock, vBiasBlock);
 
         }
 
@@ -294,10 +317,16 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         let ln2 = createLn(0, target?.ln_2);
 
-        let mplFCWeight = mk({
+        let mlpFcWeight = mk({
             t: 'w', cx: C * 4, cy: 1, cz: C, z: z,
             xR: attnLeftX, yM: 0,
             access: { src: target?.mlp.fcLayer.weight, x: [0, 0, 1], y: [1, 0, 0], scale: C * 0.5 },
+        });
+
+        let mlpFcBias = mk({
+            t: 'w', cx: C * 4, cy: 1, cz: 1, z: z - 1 * cell - margin,
+            xR: attnLeftX, yM: 0,
+            access: { src: target?.mlp.fcLayer.bias!, x: [0, 0, 1], y: [1, 0, 0], scale: C * 0.5 },
         });
 
         z += C * cell + margin;
@@ -324,6 +353,12 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.mlp.projLayer.weight, x: [1, 0, 0], y: [0, 0, 1], scale: C * 0.5 },
         });
 
+        let mlpProjBias = mk({
+            t: 'w', cx: 1, cy: 1, cz: C, z: z,
+            xR: attnLeftX - C * 4 * cell - margin, yM: 0,
+            access: { src: target?.mlp.projLayer.bias!, x: [1, 0, 0], y: [0, 0, 1], scale: C * 0.5 },
+        });
+
         let mlpResult = mk({
             t: 'i', cx: T, cy: B, cz: C, z: z,
             xL: attnLeftX + margin, yM: 0,
@@ -338,18 +373,25 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         z += C * cell + margin;
 
-        cubes.push(mlpFc, mplFCWeight, mlpAct, mlpProjWeight, mlpResult, mlpResidual);
+        cubes.push(mlpFc, mlpFcWeight, mlpFcBias, mlpAct, mlpProjWeight, mlpProjBias, mlpResult, mlpResidual);
 
         return {
             ln1,
             heads,
             projWeight,
             attnOut,
+            attnResidual,
+            mlpFc,
+            mplFCWeight: mlpFcWeight,
+            mlpAct,
+            mlpProjWeight,
+            mlpResult,
+            mlpResidual,
             ln2,
         };
     }
 
-    let blockHalfMargin = 4 * margin;
+    let blockHalfMargin = 2 * margin;
 
     z += blockHalfMargin;
 
@@ -410,9 +452,12 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         posEmbedObj,
         residual0,
         ln_f,
+        lmHeadWeight,
+        logits,
+        logitsAgg,
+        logitsSoftmax,
+        logitsSoftmaxTopN,
         blocks,
-        height: z,
+        height: z + 4,
     };
 }
-
-export type IModelLayout = ReturnType<typeof genGptModelLayout>;
