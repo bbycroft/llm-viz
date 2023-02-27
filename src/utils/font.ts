@@ -1,6 +1,6 @@
 import { base64ToArrayBuffer } from "./data";
 import { Mat4f } from "./matrix";
-import { createShaderProgram } from "./shader";
+import { createShaderProgram, ensureShadersReady, IShaderManager } from "./shader";
 
 export type IFontAtlas = ReturnType<typeof setupFontAtlas> extends Promise<infer T> ? T : never;
 
@@ -42,7 +42,8 @@ const floatsPerGlyph = floatsPerVert * 6;
 const bytesPerVert = floatsPerVert * 4;
 const bytesPerGlyph = floatsPerGlyph * 4;
 
-export async function setupFontAtlas(gl: WebGL2RenderingContext) {
+export async function setupFontAtlas(shaderManager: IShaderManager) {
+    let gl = shaderManager.gl;
     let imgEl = document.createElement('img');
     let imgP = new Promise<HTMLImageElement>((resolve, reject) => {
         imgEl.onload = () => resolve(imgEl);
@@ -79,7 +80,7 @@ export async function setupFontAtlas(gl: WebGL2RenderingContext) {
 
     // See https://github.com/Chlumsky/msdfgen for information on how to implement (this is the format the font atlas is in)
 
-    let shader = createShaderProgram(gl, 'font', /*glsl*/`#version 300 es
+    let shader = createShaderProgram(shaderManager, 'font', /*glsl*/`#version 300 es
         precision highp float;
         uniform mat4 u_view;
         uniform mat4 u_model;
@@ -135,6 +136,8 @@ export async function setupFontAtlas(gl: WebGL2RenderingContext) {
             color = mix(v_bgColor, v_fgColor, opacity);
         }
     `, ['u_view', 'u_model', 'u_tex', 'u_transformTex', 'pxRange'])!;
+
+    ensureShadersReady(shaderManager);
 
     let locs = shader.locs;
     gl.useProgram(shader.program);

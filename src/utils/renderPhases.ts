@@ -39,6 +39,8 @@ export interface IRenderPhase {
     srcBuffers: IBufferTex[];
     fbo: WebGLFramebuffer;
     program: IProgram;
+    uniformsSet: boolean;
+    uniformNames?: string[];
 }
 
 export function createRenderPhase(gl: WebGL2RenderingContext, program: IProgram, dest: IBufferTex[], src: IBufferTex[], names?: string[]): IRenderPhase {
@@ -46,7 +48,6 @@ export function createRenderPhase(gl: WebGL2RenderingContext, program: IProgram,
         if (names.length !== src.length) {
             throw new Error(`Number of texture names (${names.length}) does not match number of src textures (${src.length})`);
         }
-        setProgramTexUniforms(gl, program, names);
     }
 
     let fbo = gl.createFramebuffer()!;
@@ -63,11 +64,19 @@ export function createRenderPhase(gl: WebGL2RenderingContext, program: IProgram,
         srcBuffers: src,
         fbo,
         program,
+        uniformNames: names,
+        uniformsSet: false,
     };
 }
 
 export function runRenderPhase(gl: WebGL2RenderingContext, phase: IRenderPhase) {
     gl.useProgram(phase.program.program);
+
+    if (!phase.uniformsSet) {
+        phase.uniformNames && setProgramTexUniforms(gl, phase.program, phase.uniformNames!);
+        phase.uniformsSet = true;
+    }
+
     for (let i = 0; i < phase.srcBuffers.length; i++) {
         gl.activeTexture(gl.TEXTURE0 + i);
         gl.bindTexture(gl.TEXTURE_2D, phase.srcBuffers[i].texture);

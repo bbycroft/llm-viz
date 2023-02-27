@@ -25,7 +25,7 @@ export function LayerView() {
     let [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
     let [dataAndModel, setDataAndModel] = useState<IDataAndModel | null>(null);
     let [camAngle, setCamAngle] = useState(new Vec3(290, 20, 30)); // degrees about z axis, and above the x-y plane; zoom
-    let [camTarget, setCamTarget] = useState(new Vec3(0, 0, 0)); // where the camera is looking
+    let [camTarget, setCamTarget] = useState(new Vec3(0, 0, 1000)); // where the camera is looking
     let [canvasRender, setCanvasRender] = useState<CanvasRender | null>(null);
 
     let [dragStart, setDragStart] = useGlobalDrag<{ camAngle: Vec3, camTarget: Vec3 }>(function handleMove(ev, ds) {
@@ -121,7 +121,7 @@ class CanvasRender {
     constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData) {
         this.renderState = initRender(canvasEl);
         this.random = new Random(4);
-        setupFontAtlas(this.renderState.gl).then((fa) => {
+        setupFontAtlas(this.renderState.shaderManager).then((fa) => {
             this.fontAtlas = fa;
             this.markDirty();
         });

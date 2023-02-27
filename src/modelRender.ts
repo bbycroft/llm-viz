@@ -2,7 +2,7 @@ import { IGpuGptModel, IModelShape } from "./GptModel";
 import { genGptModelLayout, IGptModelLayout } from "./GptModelLayout";
 import { IFontAtlas, measureTextWidth, renderAllText, writeTextToBuffer } from "./utils/font";
 import { Mat4f } from "./utils/matrix";
-import { createShaderProgram } from "./utils/shader";
+import { createShaderManager, createShaderProgram, ensureShadersReady, IShaderManager } from "./utils/shader";
 import { BoundingBox3d, Vec3 } from "./utils/vector";
 
 export interface IRenderView {
@@ -24,6 +24,8 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         extColorBufferFloat: gl.getExtension("EXT_color_buffer_float"),
     };
 
+    let shaderManager = createShaderManager(gl);
+
     let quadVbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -39,7 +41,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
 
-    let blockShader = createShaderProgram(gl, 'block', /*glsl*/`#version 300 es
+    let blockShader = createShaderProgram(shaderManager, 'block', /*glsl*/`#version 300 es
         precision highp float;
         uniform mat4 u_view;
         uniform mat4 u_model;
@@ -164,7 +166,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         'u_channel', 'u_accessTexScale', 'u_accessSampler', 'u_accessMtx',
     ])!;
 
-    let lightShader = createShaderProgram(gl, 'light', /*glsl*/`#version 300 es
+    let lightShader = createShaderProgram(shaderManager, 'light', /*glsl*/`#version 300 es
         precision highp float;
         uniform mat4 u_view;
         uniform mat4 u_model;
@@ -193,6 +195,8 @@ export function initRender(canvasEl: HTMLCanvasElement) {
 
     let cubeGeom = genCubeGeom(gl);
 
+    ensureShadersReady(shaderManager);
+
     return {
         canvasEl,
         gl,
@@ -201,6 +205,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         quadVbo,
         blockShader,
         lightShader,
+        shaderManager,
     };
 }
 

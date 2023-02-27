@@ -3,7 +3,7 @@ import { IRenderState } from "./modelRender";
 import { nonNil } from "./utils/basic";
 import { Random } from "./utils/random";
 import { createBufferTex, writeToBufferTex, createRenderPhase, IBufferTex, runRenderPhase, readFromRenderPhase, arraysEqual, IRenderPhase, logArr } from "./utils/renderPhases";
-import { createShaderProgram } from "./utils/shader";
+import { createShaderProgram, ensureShadersReady, IShaderManager } from "./utils/shader";
 import { ITensorSet } from "./utils/tensor";
 
 export interface IModelShape {
@@ -20,6 +20,7 @@ export interface ILayerBuilder {
     gl: WebGL2RenderingContext;
     model: ITensorSet;
     shape: IModelShape;
+    shaderManager: IShaderManager;
 }
 
 
@@ -45,11 +46,11 @@ We might as well build the nested structure of the real model, with each chunk h
 */
 
 export function initModel(renderState: IRenderState, dataAndModel: IDataAndModel, B: number) {
-    let gptLayerTest = createGptModel(renderState.gl, dataAndModel.model, dataAndModel.data.config.B!);
+    let gptLayerTest = createGptModel(renderState.shaderManager, dataAndModel.model, dataAndModel.data.config.B!);
     runModel(renderState, gptLayerTest, dataAndModel.data);
     cleanupGptModel(renderState.gl, gptLayerTest);
 
-    return createGptModel(renderState.gl, dataAndModel.model, B);
+    return createGptModel(renderState.shaderManager, dataAndModel.model, B);
 }
 
 export function setModelInputData(renderState: IRenderState, gptModel: IGpuGptModel, rand: Random) {
@@ -97,7 +98,7 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
     runRenderPhase(gl, posEmbed.phase);
     runRenderPhase(gl, add.addPhase);
 
-    validate('x', add.addPhase);
+    // validate('x', add.addPhase);
 
     for (let blockId = 0; blockId < blocks.length; blockId++) {
         let { ln_1, attn, ln_2, mlp } = blocks[blockId];
@@ -118,7 +119,7 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
         runRenderPhase(gl, mlp.projLayer.linearPhase);
         runRenderPhase(gl, mlp.addLayer.addPhase);
 
-        validate(`block${blockId}`, mlp.addLayer.addPhase);
+        // validate(`block${blockId}`, mlp.addLayer.addPhase);
     }
 
     runRenderPhase(gl, ln_f.aggPhase);
@@ -141,10 +142,20 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
         console.log(name, isEqual);
     }
 
-    validate('lm_head', lm_head.linearPhase);
+    if (validationData) {
+        setTimeout(() => {
+            validate('x', add.addPhase);
 
-    if (!allValid) {
-        console.error('VALIDATION FAILED');
+            for (let blockId = 0; blockId < blocks.length; blockId++) {
+                validate(`block${blockId}`, blocks[blockId].mlp.addLayer.addPhase);
+            }
+
+            validate('lm_head', lm_head.linearPhase);
+
+            if (!allValid) {
+                console.error('VALIDATION FAILED');
+            }
+        }, 200);
     }
 }
 
@@ -164,7 +175,8 @@ void main() {
 
 export type IGpuGptModel = ReturnType<typeof createGptModel>;
 
-export function createGptModel(gl: WebGL2RenderingContext, model: ITensorSet, B: number) {
+export function createGptModel(shaderManager: IShaderManager, model: ITensorSet, B: number) {
+    let gl = shaderManager.gl;
     let prefix = 'transformer';
 
     let config = model.config;
@@ -177,7 +189,7 @@ export function createGptModel(gl: WebGL2RenderingContext, model: ITensorSet, B:
     let A = C / nHeads; // n elements in each Q, K, V vector, i.e. what we project down to
 
     let shape: IModelShape = { B, C, nHeads, T, A, nBlocks, vocabSize };
-    let layerBuilder: ILayerBuilder = { gl, model, shape };
+    let layerBuilder: ILayerBuilder = { gl, model, shape, shaderManager };
 
     let inputTokens = createBufferTex(gl, 1, B * T, 1);
 
@@ -207,6 +219,8 @@ export function createGptModel(gl: WebGL2RenderingContext, model: ITensorSet, B:
     let lm_head = createLinearLayer(layerBuilder, 'lm_head', C, vocabSize, ln_f.output, undefined, false);
 
     // @TODO: softmax layer
+
+    ensureShadersReady(shaderManager);
 
     return {
         inputTokens,
@@ -242,7 +256,7 @@ export function createBlockLayer(layerBuilder: ILayerBuilder, prefix: string, in
 export type IGpuAttnLayer = ReturnType<typeof createAttnLayer>;
 
 export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex) {
-    let { gl, model, shape: { B, T, C, nHeads, A } } = layerBuilder;
+    let { gl, model, shape: { B, T, C, nHeads, A }, shaderManager } = layerBuilder;
 
     // move the 1st dim to the end, i.e. the QKV split will be packed into RGB tex channels
     let tAttnWeight = model[prefix + '.c_attn.weight'].view([3, nHeads, A, C]).permute(1, 2, 3, 0);
@@ -262,7 +276,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
     writeToBufferTex(gl, qkvWeight, tAttnWeight.toFloat32Array());
     writeToBufferTex(gl, qkvBias, tAttnBias.toFloat32Array());
 
-    let qkvProg = createShaderProgram(gl, 'qkv', basicVertexShader, /*glsl*/`#version 300 es
+    let qkvProg = createShaderProgram(shaderManager, 'qkv', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D attnInput; // (B, T)         (C)
         uniform sampler2D qkvWeight; // (nHeads, A)    (C) [3]
@@ -288,7 +302,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
         }
     `);
 
-    let selfAttendProg = createShaderProgram(gl, 'selfAttend', basicVertexShader, /* glsl */`#version 300 es
+    let selfAttendProg = createShaderProgram(shaderManager, 'selfAttend', basicVertexShader, /* glsl */`#version 300 es
         precision highp float;
         uniform sampler2D qkvOutput; // (B, nHeads, T) (A)
         out float attnMatrix;        // (B, nHeads, T) (T)
@@ -314,7 +328,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
         }
     `);
 
-    let attnMatrixAggProg = createShaderProgram(gl, 'attnMatrixAgg', basicVertexShader, /*glsl*/`#version 300 es
+    let attnMatrixAggProg = createShaderProgram(shaderManager, 'attnMatrixAgg', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D attnMatrix; // (B, nHeads, T) (T)
         out vec2 attnMatrixAgg;       // (B, nHeads, T) (1) [2]
@@ -342,7 +356,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
         }
     `);
 
-    let attnMatrixSoftmaxProg = createShaderProgram(gl, 'attnMatrixSoftmax', basicVertexShader, /*glsl*/`#version 300 es
+    let attnMatrixSoftmaxProg = createShaderProgram(shaderManager, 'attnMatrixSoftmax', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D attnMatrix;    // (B, nHeads, T) (T)
         uniform sampler2D attnMatrixAgg; // (B, nHeads, T) (1) [2]
@@ -367,7 +381,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
         }
     `);
 
-    let scaledVectorsProg = createShaderProgram(gl, 'scaledVectors', basicVertexShader, /*glsl*/`#version 300 es
+    let scaledVectorsProg = createShaderProgram(shaderManager, 'scaledVectors', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D qkvOutput;         // (B, nHeads, T) (A)
         uniform sampler2D attnMatrixSoftmax; // (B, nHeads, T) (T)
@@ -428,7 +442,7 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
 export type IGpuLayerNormLayer = ReturnType<typeof createLayerNorm>;
 
 export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string, input: IBufferTex) {
-    let { gl, model, shape: { B, T, C } } = layerBuilder;
+    let { gl, model, shape: { B, T, C }, shaderManager } = layerBuilder;
 
     let tWeight = model[layerPrefix + '.weight'];
     let tBias = model[layerPrefix + '.bias'];
@@ -446,7 +460,7 @@ export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string
 
     let normEps = 1e-5;
 
-    let normAggProg = createShaderProgram(gl, 'normAgg', basicVertexShader, /*glsl*/`#version 300 es
+    let normAggProg = createShaderProgram(shaderManager, 'normAgg', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D normInput; // (B, T) (C)
         out vec2 normAgg;            // (B, T) (1) [2]
@@ -467,7 +481,7 @@ export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string
         }
     `)!;
 
-    let normApply = createShaderProgram(gl, 'normApply', basicVertexShader, /*glsl*/`#version 300 es
+    let normApply = createShaderProgram(shaderManager, 'normApply', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D normInput;  // (B, T) (C)
         uniform sampler2D normAgg;    // (B, T) (1) [2]
@@ -509,12 +523,12 @@ export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string
 export type IGpuMLPLayer = ReturnType<typeof createMLP>;
 
 export function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex) {
-    let { gl, shape: { B, T, C } } = layerBuilder;
+    let { gl, shape: { B, T, C }, shaderManager } = layerBuilder;
 
     // operating memory
     let mlpGelu = createBufferTex(gl, C * 4, B * T, 1); // (B, T) (4C)
 
-    let geluProg = createShaderProgram(gl, 'mlpGelu', basicVertexShader, /*glsl*/`#version 300 es
+    let geluProg = createShaderProgram(shaderManager, 'mlpGelu', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;
         uniform sampler2D geluInput;  // (B, T) (C * 4)
         out float geluOutput; // (B, T) (C * 4)
@@ -544,7 +558,7 @@ export function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IB
 export type IGpuLinearLayer = ReturnType<typeof createLinearLayer>;
 
 export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex, bias?: boolean) {
-    let { gl, model, shape: { B, T } } = layerBuilder;
+    let { gl, model, shape: { B, T }, shaderManager } = layerBuilder;
 
     bias = bias ?? true;
 
@@ -558,10 +572,10 @@ export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, n
     // operating memory
     let output = createBufferTex(gl, nOut, B * T, 1); // (B, T) (nOut)
 
-    writeToBufferTex(gl, linearWeight, tWeight.toFloat32Array());
-    tBias && linearBias && writeToBufferTex(gl, linearBias, tBias.toFloat32Array());
+    writeToBufferTex(gl, linearWeight, tWeight.buffer);
+    tBias && linearBias && writeToBufferTex(gl, linearBias, tBias.buffer);
 
-    let linearProg = createShaderProgram(gl, 'linear', basicVertexShader, /*glsl*/`#version 300 es
+    let linearProg = createShaderProgram(shaderManager, 'linear', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;          //    y     x
         uniform sampler2D linearInput;  // (B, T) (nIn)
         uniform sampler2D linearWeight; // (nOut) (nIn)
@@ -599,7 +613,7 @@ export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, n
 export type IGpuEmbeddingLayer = ReturnType<typeof createEmbeddingLayer>;
 
 export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string, nEmbed: number, nDims: number, input: IBufferTex) {
-    let { gl, model, shape: { B, T } } = layerBuilder;
+    let { gl, model, shape: { B, T }, shaderManager } = layerBuilder;
 
     let tWeight = model[prefix + '.weight'];
 
@@ -609,9 +623,9 @@ export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string
     // operating memory
     let output = createBufferTex(gl, nDims, B * T, 1); // (B, T) (nDims)
 
-    writeToBufferTex(gl, weight, tWeight.toFloat32Array());
+    writeToBufferTex(gl, weight, tWeight.buffer);
 
-    let embedProg = createShaderProgram(gl, 'embed', basicVertexShader, /*glsl*/`#version 300 es
+    let embedProg = createShaderProgram(shaderManager, 'embed', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;          //    y     x
         uniform sampler2D embedInput;  // (B, T)   (1)
         uniform sampler2D embedWeight; // (nEmbed) (nDims)
@@ -638,12 +652,12 @@ export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string
 }
 
 export function createAddLayer(layerBuilder: ILayerBuilder, inputA: IBufferTex, inputB: IBufferTex) {
-    let { gl, shape: { B, T, C } } = layerBuilder;
+    let { gl, shape: { B, T, C }, shaderManager } = layerBuilder;
 
     // operating memory
     let output = createBufferTex(gl, C, B * T, 1); // (B, T) (C)
 
-    let addProg = createShaderProgram(gl, 'add', basicVertexShader, /*glsl*/`#version 300 es
+    let addProg = createShaderProgram(shaderManager, 'add', basicVertexShader, /*glsl*/`#version 300 es
         precision highp float;     //    y    x
         uniform sampler2D inputA;  // (B, T) (C)
         uniform sampler2D inputB;  // (B, T) (C)
