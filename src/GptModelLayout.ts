@@ -52,7 +52,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     // work our way downwards from the top
     // x is to the left and right
     // y is coming out of the page
-    // z is going down the stack
+    // z is going up, and the stack advances down from the top (at (0, 0, 0))
 
     // a single batch of the residual pathway goes down the x-z plane
     // weights & off-residual pathways are left & right of the residual pathway (i.e. along x)
@@ -107,7 +107,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     let leftX = -T * cell / 2 - margin;
     let rightX = T * cell / 2 + margin;
 
-    z += cell + margin;
+    z -= cell + margin;
 
     let tokEmbedObj = mk({
         t: 'w',
@@ -131,7 +131,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     });
     cubes.push(idxObj, tokEmbedObj, posEmbedObj, residual0);
 
-    z += C * cell + margin;
+    z -= C * cell + margin;
 
     function createLn(x: number, target?: IGpuLayerNormLayer) {
         let lnLeftX = leftX + x;
@@ -142,7 +142,9 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: lnLeftX, yM: 0,
             access: { src: target?.normAgg, x: [0, 0, 1], y: [1, T, 0], scale: 10.0 },
         });
-        z += 2 * cell + margin;
+
+        z -= 2 * cell + margin;
+
         let lnResid = mk({
             t: 'i', cx: T, cy: B, cz: C, z: z,
             xR: lnLeftX, yM: 0,
@@ -173,9 +175,9 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         let headWidth = 3 * B * cell + qkvMargin * 2 + interHeadMargin;
 
-        let attn1Z = z + A * cell + margin;
+        let attn1Z = z - A * cell - margin;
         let attn2Z = attn1Z; // + T * cell + margin;
-        let vOutZ = attn2Z + T * cell + margin;
+        let vOutZ = attn2Z - T * cell - margin;
 
         let attnLeftX = lnLeftX; // leftX - ((T + 2) * cell + 3 * margin);
         let qkvValLeftX = attnLeftX - T * cell - margin;
@@ -266,7 +268,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             });
 
             let vOutBlock = mk({
-                t: 'i', cx: T, cy: B, cz: A, z: vOutZ + i * stepPerHeadZ,
+                t: 'i', cx: T, cy: B, cz: A, z: vOutZ - i * stepPerHeadZ,
                 xR: attnLeftX, yM: headYMid,
                 access: { src: attnTarget?.scaledVectors, x: [0, 0, 1, i * A], y: [1, T, 0] },
             });
@@ -288,9 +290,9 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         //     xR: attnLeftX, yF: - headWidth * nHeads / 2,
         // });
 
-        let vFinalZ = Math.max(
-            vOutZ + stepPerHeadZ * (nHeads - 1) + A * cell + margin,
-            z + C * cell + margin, // in case the layer norm block is shorter
+        let vFinalZ = Math.min(
+            vOutZ - stepPerHeadZ * (nHeads - 1) - A * cell - margin,
+            z - C * cell - margin, // in case the layer norm block is shorter
         );
 
         let projWeight = mk({
@@ -313,7 +315,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         cubes.push(projWeight, attnOut, attnResidual);
 
-        z = vFinalZ + C * cell + margin;
+        z = vFinalZ - C * cell - margin;
 
         let ln2 = createLn(0, target?.ln_2);
 
@@ -324,12 +326,12 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         });
 
         let mlpFcBias = mk({
-            t: 'w', cx: C * 4, cy: 1, cz: 1, z: z - 1 * cell - margin,
+            t: 'w', cx: C * 4, cy: 1, cz: 1, z: z + 1 * cell + margin,
             xR: attnLeftX, yM: 0,
             access: { src: target?.mlp.fcLayer.bias!, x: [0, 0, 1], y: [1, 0, 0], scale: C * 0.5 },
         });
 
-        z += C * cell + margin;
+        z -= C * cell + margin;
 
         let mlpFc = mk({
             t: 'i', cx: C * 4, cy: B, cz: T, z: z,
@@ -337,7 +339,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.mlp.fcLayer.output, x: [1, 0, 0], y: [0, T, 1] },
         });
 
-        z += T * cell + margin;
+        z -= T * cell + margin;
 
         let mlpAct = mk({
             t: 'i', cx: C * 4, cy: B, cz: T, z: z,
@@ -345,7 +347,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.mlp.mlpGelu, x: [1, 0, 0], y: [0, T, 1] },
         });
 
-        z += T * cell + margin;
+        z -= T * cell + margin;
 
         let mlpProjWeight = mk({
             t: 'w', cx: C * 4, cy: 1, cz: C, z: z,
@@ -371,7 +373,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.mlp.output, x: [0, 0, 1], y: [1, T, 0] },
         });
 
-        z += C * cell + margin;
+        z -= C * cell + margin;
 
         cubes.push(mlpFc, mlpFcWeight, mlpFcBias, mlpAct, mlpProjWeight, mlpProjBias, mlpResult, mlpResidual);
 
@@ -393,17 +395,17 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
     let blockHalfMargin = 2 * margin;
 
-    z += blockHalfMargin;
+    z -= blockHalfMargin;
 
     let blocks = [];
     for (let i = 0; i < nBlocks; i++) {
         let target = gptGpuModel?.blocks[i];
-        z += blockHalfMargin;
+        z -= blockHalfMargin;
         blocks.push(createBlock(target));
-        z += blockHalfMargin;
+        z -= blockHalfMargin;
     }
 
-    z += blockHalfMargin;
+    z -= blockHalfMargin;
     let ln_f = createLn(0, gptGpuModel?.ln_f);
 
 
@@ -413,7 +415,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         access: { src: gptGpuModel?.lm_head.weight, x: [0, 0, 1], y: [1, 0, 0], scale: 5.0 },
     });
 
-    z += C * cell + margin;
+    z -= C * cell + margin;
 
     let logits = mk({
         t: 'i', cx: vocabSize, cy: B, cz: T, z: z,
@@ -429,7 +431,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         // @TODO: link up
     });
 
-    z += T * cell + margin;
+    z -= T * cell + margin;
 
     let logitsSoftmax = mk({
         t: 'i', cx: vocabSize, cy: B, cz: T, z: z,

@@ -55,13 +55,13 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         out vec3 v_blockPos;
         out vec3 v_cubePos;
         void main() {
-            vec3 pos = a_position * 0.5 + 0.5;
-            vec3 model_pos = pos * u_size + u_offset;
+            vec3 localPos = vec3(a_position.xy, -a_position.z);
+            vec3 model_pos = a_position * u_size + u_offset;
             gl_Position = u_view * u_model * vec4(model_pos, 1);
             v_normal = a_normal;
             v_modelPos = model_pos;
-            v_blockPos = vec3(pos.x, pos.y, 1.0 - pos.z) * u_nCells;
-            v_cubePos = pos;
+            v_blockPos = localPos * u_nCells;
+            v_cubePos = localPos;
         }
     `, /*glsl*/`#version 300 es
         precision highp float;
@@ -70,6 +70,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         in vec3 v_blockPos;
         in vec3 v_cubePos;
         in vec3 v_modelPos;
+        uniform vec3 u_nCells;
         uniform vec3 u_lightPos[3]; // in model space
         uniform vec3 u_lightColor[3]; // in model space
         uniform vec3 u_camPos; // in model space
@@ -80,7 +81,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         uniform int u_channel;
 
         void main() {
-            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, -v_normal.z) * 0.1);
+            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, v_normal.z) * 0.1);
 
             bool cellDark = (blockPos.x + blockPos.y + blockPos.z) % 2 == 0;
 
@@ -127,10 +128,12 @@ export function initRender(canvasEl: HTMLCanvasElement) {
 
             if (true) {
                 // draw a line at 16 block intervals (edges?)
+                // @TODO: factor out into a function and decide how to choose each line-group
+                // e.g. based on zoom level, & probably limited to 2
 
-                // vec3 block16 = v_blockPos / 16.0;
-                // vec3 block16Grid = abs(fract(block16 - 0.5) - 0.5) / fwidth(block16);
-                // float line16 = min(min(block16Grid.x, block16Grid.y), block16Grid.z);
+                vec3 block16 = v_blockPos / 16.0;
+                vec3 block16Grid = abs(fract(block16 - 0.5) - 0.5) / fwidth(block16);
+                float line16 = min(min(block16Grid.x, block16Grid.y), block16Grid.z);
 
                 vec3 block256 = v_blockPos / 256.0;
                 vec3 block256Grid = abs(fract(block256 - 0.5) - 0.5) / fwidth(block256);
@@ -138,9 +141,9 @@ export function initRender(canvasEl: HTMLCanvasElement) {
 
                 vec3 cube = v_cubePos;
                 vec3 cubeGrid = abs(fract(cube - 0.5) - 0.5) / fwidth(cube);
-                float lineCube = min(min(cubeGrid.x, cubeGrid.y), cubeGrid.z);
+                float lineCube = min(min(cubeGrid.x, cubeGrid.x), cubeGrid.z);
 
-                float edgeWeight = smoothstep(0.0, 1.0, min(min(lineCube, line256), line256));
+                float edgeWeight = smoothstep(0.0, 1.0, min(min(lineCube, line256), line16));
                 baseColor = mix(baseColor, vec3(1.0, 1.0, 1.0), 1.0 - edgeWeight);
             }
 
@@ -229,15 +232,17 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
         Mat4f.fromAxisAngle(new Vec3(0, 1), -Math.PI / 2),
     ];
 
+    // top left front is (0, 0, 0), bottom right back is (1, 1, -1)
+    let transform = Mat4f.fromTranslation(new Vec3(0.5, 0.5, -0.5)).mul(Mat4f.fromScale(new Vec3(.5, .5, .5)));
     let arr = new Float32Array(6 * 6 * 3 * 2);
     let j = 0;
     for (let faceMtx of faces) {
         for (let i = 0; i < 6; i++) {
-            let v = faceMtx.mulVec3Proj(new Vec3(faceVerts[i*2], faceVerts[i*2+1], -1));
+            let v = transform.mulVec3Proj(faceMtx.mulVec3Proj(new Vec3(faceVerts[i*2], faceVerts[i*2+1], -1)));
             let n = faceMtx.mulVec3Proj(new Vec3(0, 0, -1));
-            arr[j++] = v.x;
-            arr[j++] = v.y;
-            arr[j++] = v.z;
+            arr[j++] = Math.round(v.x);
+            arr[j++] = Math.round(v.y);
+            arr[j++] = Math.round(v.z);
             arr[j++] = n.x;
             arr[j++] = n.y;
             arr[j++] = n.z;
@@ -349,7 +354,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
 
         for (let block of layout.cubes) {
             // using uniforms is just a quick & easy way to sort this out
-            let pos = new Vec3(block.x, block.y, - block.z - block.cz * cell + layout.height);
+            let pos = new Vec3(block.x, block.y, block.z);
             let size = new Vec3(block.cx * cell, block.cy * cell, block.cz * cell);
 
             gl.uniform3fv(locs.u_nCells, new Vec3(block.cx, block.cy, block.cz));
@@ -387,8 +392,8 @@ export function addSomeText(fontAtlas: IFontAtlas, layout: IGptModelLayout) {
 
     let width = measureTextWidth(fontAtlas, text);
 
-    let mtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(2.8));
+    let mtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(2));
     let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
-    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + layout.height));
+    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + target.cz * layout.cell + 0.5));
     writeTextToBuffer(fontAtlas, text, - width / 2, -fontAtlas.common.lineHeight, mtx2.mul(mtx.mul(mtx3)));
 }

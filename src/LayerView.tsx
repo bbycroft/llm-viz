@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { IDataAndModel, IModelShape, IModelState, initModel, runModel, setModelInputData } from './GptModel';
 import s from './LayerView.module.css';
 import { initRender, IRenderState, IRenderView, renderModel } from './modelRender';
 import { clamp, useGlobalDrag } from './utils/data';
-import { IFontAtlas, setupFontAtlas } from './utils/font';
+import { IFontAtlas, resetFontAtlas, setupFontAtlas } from './utils/font';
 import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
@@ -25,7 +25,7 @@ export function LayerView() {
     let [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
     let [dataAndModel, setDataAndModel] = useState<IDataAndModel | null>(null);
     let [camAngle, setCamAngle] = useState(new Vec3(290, 20, 30)); // degrees about z axis, and above the x-y plane; zoom
-    let [camTarget, setCamTarget] = useState(new Vec3(0, 0, 1000)); // where the camera is looking
+    let [camTarget, setCamTarget] = useState(new Vec3(0, 0, -500)); // where the camera is looking
     let [canvasRender, setCanvasRender] = useState<CanvasRender | null>(null);
 
     let [dragStart, setDragStart] = useGlobalDrag<{ camAngle: Vec3, camTarget: Vec3 }>(function handleMove(ev, ds) {
@@ -206,6 +206,8 @@ class CanvasRender {
         }
 
         renderModel(view, this.renderState, shape, this.modelState || undefined);
+
+        this.fontAtlas && resetFontAtlas(this.fontAtlas);
     }
 
 }

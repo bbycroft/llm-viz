@@ -210,6 +210,7 @@ export async function setupFontAtlas(shaderManager: IShaderManager) {
     }
 
     return {
+        gl,
         kernMap,
         charMap,
         common: fontDef.common as IFontCommonDef,
@@ -337,8 +338,9 @@ export function renderAllText(gl: WebGL2RenderingContext, font: IFontAtlas, view
 
     gl.bindVertexArray(state.vao);
     gl.drawArrays(gl.TRIANGLES, 0, state.glyphsUsed * 6);
+}
 
-    // may want to do this in a separate function (in case of multiple renders)
-    state.glyphsUsed = 0;
-    state.segmentsUsed = 0;
+export function resetFontAtlas(font: IFontAtlas) {
+    font.glState.glyphsUsed = 0;
+    font.glState.segmentsUsed = 0;
 }
