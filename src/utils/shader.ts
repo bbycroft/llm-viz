@@ -1,4 +1,12 @@
 
+export interface IGLContext {
+    gl: WebGL2RenderingContext;
+    shaderManager: IShaderManager;
+    ext: {
+        colorBufferFloat: EXT_color_buffer_float | null;
+    },
+}
+
 export interface IProgram<T extends string = any> {
     name: string;
     program: WebGLProgram;
@@ -28,7 +36,11 @@ export function createShaderManager(gl: WebGL2RenderingContext) {
     };
 }
 
-export function createShaderProgram<T extends string>(manager: IShaderManager, name: string, vert: string, frag: string, uniformNames?: T[]): IProgram<T> | null {
+export function createShaderProgram<T extends string>(manager: IShaderManager | IGLContext, name: string, vert: string, frag: string, uniformNames?: T[]): IProgram<T> | null {
+    if ('shaderManager' in manager) {
+        manager = manager.shaderManager;
+    }
+
     let gl = manager.gl;
 
     let program = gl.createProgram()!;

@@ -1,5 +1,5 @@
 import exp from "constants";
-import { IRenderState } from "./modelRender";
+import { IRenderState } from "./render/modelRender";
 import { nonNil } from "./utils/basic";
 import { Random } from "./utils/random";
 import { createBufferTex, writeToBufferTex, createRenderPhase, IBufferTex, runRenderPhase, readFromRenderPhase, arraysEqual, IRenderPhase, logArr } from "./utils/renderPhases";

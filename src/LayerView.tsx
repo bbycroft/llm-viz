@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { IDataAndModel, IModelShape, IModelState, initModel, runModel, setModelInputData } from './GptModel';
 import s from './LayerView.module.css';
-import { initRender, IRenderState, IRenderView, renderModel } from './modelRender';
+import { initRender, IRenderState, IRenderView, renderModel } from './render/modelRender';
 import { clamp, useGlobalDrag } from './utils/data';
 import { IFontAtlas, resetFontAtlas, setupFontAtlas } from './utils/font';
 import { Random } from './utils/random';
@@ -81,6 +81,7 @@ export function LayerView() {
             setCanvasRender(canvasRenderLocal);
             resizeObserver.observe(canvasEl);
             return () => {
+                canvasRenderLocal.destroy();
                 resizeObserver.disconnect();
             };
         } else {
@@ -117,6 +118,7 @@ class CanvasRender {
     modelState: IModelState | null = null;
     fontAtlas: IFontAtlas | null = null;
     random: Random;
+    stopped = false;
 
     constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData) {
         this.renderState = initRender(canvasEl);
@@ -128,6 +130,10 @@ class CanvasRender {
     }
 
     modelInitRun = false;
+
+    destroy() {
+        this.stopped = true;
+    }
 
     setData(data: ICanvasData) {
         this.canvasData = data;
@@ -145,7 +151,7 @@ class CanvasRender {
     rafHandle: number = 0;
     isDirty = false;
     markDirty = () => {
-        if (!this.canvasData) {
+        if (!this.canvasData || this.stopped) {
             return;
         }
 
@@ -157,7 +163,7 @@ class CanvasRender {
     }
 
     loop = (time: number) => {
-        if (!this.isDirty) {
+        if (!this.isDirty || this.stopped) {
             this.rafHandle = 0;
             return;
         }
@@ -203,6 +209,8 @@ class CanvasRender {
             ...this.canvasData,
             canvasEl: canvasEl!,
             fontAtlas: this.fontAtlas,
+            time,
+            markDirty: this.markDirty,
         }
 
         renderModel(view, this.renderState, shape, this.modelState || undefined);
@@ -213,25 +221,27 @@ class CanvasRender {
 }
 
 /*
-We want to render the whole layer!
 
-- Classic problem of managing a whole bunch of gl stuff while keeping it succint.
-- The entire structure & layout will be generated in code, so want a good structure object
-- Then we walk through the layers, computing offsets based on B, T, C etc
-  - Just plain linear code please!
-- Then we have a laid out structure to render
-  - Don't bother batching draw calls or anything
-  - Each component then has some source (an existing real buffer, or proc-gen)
-  - Also have different approaches to rendering a layer:
-    - just a cube with box-ey textures for the weights
-    - cube with boxes representing the weights (with vert-shader-set heights)
-- Then have various components swapped out or added to
+For interactivity & exploration:
+
+- Have various components swapped out or added to
   - Higher res option
   - Rotated to a camera-aligned view with example numbers etc
   - Active-thread trails
   - Symbols (#s, ops, mini-graphs) to show the operation of a layer
 
-Let's start minimal:
-- Need a camera ofc, (copy matrices from other projects)
-- We'll layout the token embedding & positional embedding objects below the input token arrays
+- What's the priority here?
+  - trails/arrows showing the flow of data
+  - symbols showing the operation of a layer/block
+  - improved camera controls
+  - thread trails
+  - Splitting up a block into columns
+  - dimension annotations (B, C, T) |------ C (48) ------|
+  - input/output rendering (text to idx mapping; softmax-idxs to text mapping)
+  - highlight of active blocks & threads
+    - fast & slow
+    - blocks below active show empty or faded
+    - highlight of active threads
+    - so it looks effective in large models
+  - actually process the model in a sequence of rounds
 */

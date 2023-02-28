@@ -1,15 +1,18 @@
-import { IGpuGptModel, IModelShape } from "./GptModel";
-import { genGptModelLayout, IGptModelLayout } from "./GptModelLayout";
-import { IFontAtlas, measureTextWidth, renderAllText, writeTextToBuffer } from "./utils/font";
-import { Mat4f } from "./utils/matrix";
-import { createShaderManager, createShaderProgram, ensureShadersReady, IShaderManager } from "./utils/shader";
-import { BoundingBox3d, Vec3 } from "./utils/vector";
+import { IGpuGptModel, IModelShape } from "../GptModel";
+import { genGptModelLayout, IGptModelLayout } from "../GptModelLayout";
+import { IFontAtlas, measureTextWidth, renderAllText, writeTextToBuffer } from "../utils/font";
+import { Mat4f } from "../utils/matrix";
+import { createShaderManager, createShaderProgram, ensureShadersReady, IGLContext, IShaderManager } from "../utils/shader";
+import { BoundingBox3d, Vec3 } from "../utils/vector";
+import { initThreadShader } from "./threadShader";
 
 export interface IRenderView {
     canvasEl: HTMLCanvasElement;
     camAngle: Vec3; // degrees about z axis, and above the x-y plane
     camTarget: Vec3;
     fontAtlas: IFontAtlas | null;
+    time: number;
+    markDirty: () => void;
 }
 
 export type IRenderState = ReturnType<typeof initRender>;
@@ -21,10 +24,12 @@ export function initRender(canvasEl: HTMLCanvasElement) {
     let gl = canvasEl.getContext("webgl2", { antialias: true })!;
 
     let ext = {
-        extColorBufferFloat: gl.getExtension("EXT_color_buffer_float"),
+        colorBufferFloat: gl.getExtension("EXT_color_buffer_float"),
     };
 
     let shaderManager = createShaderManager(gl);
+
+    let ctx: IGLContext = { gl, shaderManager, ext };
 
     let quadVbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
@@ -40,8 +45,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-
-    let blockShader = createShaderProgram(shaderManager, 'block', /*glsl*/`#version 300 es
+    let blockShader = createShaderProgram(ctx, 'block', /*glsl*/`#version 300 es
         precision highp float;
         uniform mat4 u_view;
         uniform mat4 u_model;
@@ -89,7 +93,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
             float maxPxPerCell = max(max(pxPerCell.x, pxPerCell.y), pxPerCell.z);
 
 
-            float maxDist = 2000.0;
+            float maxDist = 4000.0;
             float minDist = 600.0;
             float dist = distance(u_camPos, v_modelPos);
             float t = clamp((dist - minDist) / (maxDist - minDist), 0.0, 1.0);
@@ -169,7 +173,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         'u_channel', 'u_accessTexScale', 'u_accessSampler', 'u_accessMtx',
     ])!;
 
-    let lightShader = createShaderProgram(shaderManager, 'light', /*glsl*/`#version 300 es
+    let lightShader = createShaderProgram(ctx, 'light', /*glsl*/`#version 300 es
         precision highp float;
         uniform mat4 u_view;
         uniform mat4 u_model;
@@ -198,6 +202,8 @@ export function initRender(canvasEl: HTMLCanvasElement) {
 
     let cubeGeom = genCubeGeom(gl);
 
+    let threadShader = initThreadShader(ctx);
+
     ensureShadersReady(shaderManager);
 
     return {
@@ -208,6 +214,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         quadVbo,
         blockShader,
         lightShader,
+        threadShader,
         shaderManager,
     };
 }
@@ -263,7 +270,7 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
 }
 
 export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape, gptGpuModel?: IGpuGptModel) {
-    let { gl, blockShader, lightShader, canvasEl } = args;
+    let { gl, blockShader, lightShader, canvasEl, threadShader: { threadShader } } = args;
     let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
 
@@ -374,6 +381,42 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             gl.bindVertexArray(geom.vao);
             gl.drawArrays(geom.type, 0, geom.numVerts);
         }
+    }
+
+    {
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.disable(gl.CULL_FACE);
+        gl.polygonOffset(-1.0, 1.0);
+
+        let locs = threadShader.locs;
+        gl.useProgram(threadShader.program);
+
+        gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
+        gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
+
+        let block = layout.residual0;
+
+        let deltaZ = (view.time * 0.03) % block.cz;
+        view.markDirty();
+
+        let cz = Math.round(deltaZ);
+        let pos = new Vec3(block.x, block.y, block.z);
+        let size = new Vec3(block.cx * cell, block.cy * cell, cz * cell);
+        gl.uniform3fv(locs.u_offset, pos);
+        gl.uniform3fv(locs.u_size, size);
+        gl.uniform2f(locs.u_nCells, block.cx, cz);
+
+        gl.uniformMatrix3x2fv(locs.u_threadDir, true, [
+            1, 0, 0,
+            0, -1, 1]);
+
+        let baseColor = new Vec3(1.0, 0.0, 0.0);
+        gl.uniform3fv(locs.u_baseColor, baseColor);
+
+        gl.bindVertexArray(args.threadShader.threadVao);
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+        gl.disable(gl.POLYGON_OFFSET_FILL);
     }
 
     {
