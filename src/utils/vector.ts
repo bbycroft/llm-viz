@@ -15,13 +15,13 @@ V8 shows Vec3 & Vec4 as having an 24 byte overhead, which... isn't toooo bad
 
 */
 
-export class Vec3 extends Array<number> {
+export class Vec3A extends Array<number> {
     constructor(
         x: number = 0.0,
         y: number = 0.0,
         z: number = 0.0,
     ) {
-        super(3);
+        super();
         this[0] = +x;
         this[1] = +y;
         this[2] = +z;
@@ -34,23 +34,23 @@ export class Vec3 extends Array<number> {
     set y(value: number) { this[1] = +value; }
     set z(value: number) { this[2] = +value; }
 
-    add(a: Vec3): Vec3 { return new Vec3(this[0] + a[0], this[1] + a[1], this[2] + a[2]); }
-    sub(a: Vec3): Vec3 { return new Vec3(this[0] - a[0], this[1] - a[1], this[2] - a[2]); }
-    dot(a: Vec3): number { return this[0] * a[0] + this[1] * a[1] + this[2] * a[2]; }
-    mul(a: number): Vec3 { return new Vec3(this[0] * a, this[1] * a, this[2] * a); }
+    add(a: Vec3A): Vec3A { return new Vec3A(this[0] + a[0], this[1] + a[1], this[2] + a[2]); }
+    sub(a: Vec3A): Vec3A { return new Vec3A(this[0] - a[0], this[1] - a[1], this[2] - a[2]); }
+    dot(a: Vec3A): number { return this[0] * a[0] + this[1] * a[1] + this[2] * a[2]; }
+    mul(a: number): Vec3A { return new Vec3A(this[0] * a, this[1] * a, this[2] * a); }
     lenSq(): number { return this[0] * this[0] + this[1] * this[1] + this[2] * this[2]; }
-    distSq(a: Vec3): number {
+    distSq(a: Vec3A): number {
         let dx = this[0] - a[0];
         let dy = this[1] - a[1];
         let dz = this[2] - a[2];
         return dx * dx + dy * dy + dz * dz;
     }
     len(): number { return Math.sqrt(this.lenSq()); }
-    dist(a: Vec3): number { return Math.sqrt(this.distSq(a)); }
-    normalize(): Vec3 { return this.mul(1.0 / Math.sqrt(this.lenSq())); }
-    clone(): Vec3 { return new Vec3(this[0], this[1], this[2]); }
+    dist(a: Vec3A): number { return Math.sqrt(this.distSq(a)); }
+    normalize(): Vec3A { return this.mul(1.0 / Math.sqrt(this.lenSq())); }
+    clone(): Vec3A { return new Vec3A(this[0], this[1], this[2]); }
     toVec4(): Vec4 { return new Vec4(this[0], this[1], this[2], 1.0); }
-    static cross(a: Vec3, b: Vec3): Vec3 { return new Vec3(
+    static cross(a: Vec3A, b: Vec3A): Vec3A { return new Vec3A(
         a.y * b.z - a.z * b.y,
         a.z * b.x - a.x * b.z,
         a.x * b.y - a.y * b.x); }
@@ -59,6 +59,46 @@ export class Vec3 extends Array<number> {
         buf[offset + 1] = this[1];
         buf[offset + 2] = this[2];
     }
+    static fromArray(a: ArrayLike<number>, offset: number = 0): Vec3A {
+        return new Vec3A(a[offset + 0], a[offset + 1], a[offset + 2]);
+    }
+    toString(): string {
+        return `Vec3A(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)})`;
+    }
+}
+
+export class Vec3 {
+    constructor(
+        public x: number = 0.0,
+        public y: number = 0.0,
+        public z: number = 0.0,
+    ) {}
+
+    add(a: Vec3): Vec3 { return new Vec3(this.x + a.x, this.y + a.y, this.z + a.z); }
+    sub(a: Vec3): Vec3 { return new Vec3(this.x - a.x, this.y - a.y, this.z - a.z); }
+    dot(a: Vec3): number { return this.x * a.x + this.y * a.y + this.z * a.z; }
+    mul(a: number): Vec3 { return new Vec3(this.x * a, this.y * a, this.z * a); }
+    lenSq(): number { return this.x * this.x + this.y * this.y + this.z * this.z; }
+    distSq(a: Vec3): number {
+        let dx = this.x - a.x;
+        let dy = this.y - a.y;
+        let dz = this.z - a.z;
+        return dx * dx + dy * dy + dz * dz;
+    }
+    len(): number { return Math.sqrt(this.lenSq()); }
+    dist(a: Vec3): number { return Math.sqrt(this.distSq(a)); }
+    normalize(): Vec3 { return this.mul(1.0 / Math.sqrt(this.lenSq())); }
+    clone(): Vec3 { return new Vec3(this.x, this.y, this.z); }
+    toVec4(): Vec4 { return new Vec4(this.x, this.y, this.z, 1.0); }
+    static cross(a: Vec3, b: Vec3): Vec3 { return new Vec3(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x); }
+    writeToBuf(buf: Float32Array, offset: number) {
+        buf[offset + 0] = this.x;
+        buf[offset + 1] = this.y;
+        buf[offset + 2] = this.z;
+    }
     static fromArray(a: ArrayLike<number>, offset: number = 0): Vec3 {
         return new Vec3(a[offset + 0], a[offset + 1], a[offset + 2]);
     }
@@ -66,6 +106,7 @@ export class Vec3 extends Array<number> {
         return `Vec3(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)})`;
     }
 }
+
 
 export class Vec4 extends Array<number> {
     constructor(

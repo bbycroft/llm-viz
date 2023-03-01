@@ -109,11 +109,18 @@ export function initThreadShader(ctx: IGLContext) {
             if (blockPos.y == 0) {
                 // draw head
                 vec2 d = fract(v_blockPos) - 0.5;
-                float d2 = d.x * d.x + d.y * d.y;
+                float d2 = sqrt(d.x * d.x + d.y * d.y);
 
-                if (d2 > 0.35*0.35 && d2 < 0.45*0.45) {
-                    color = vec4(u_baseColor, 1);
-                }
+                // fwidth(d);
+                float deltad2_per_px = fwidth(d2); // fwidth(d2);
+
+                float t = 1.0 - smoothstep(0.45, 0.45 + 1.0 * deltad2_per_px, d2);
+
+                float t2 = smoothstep(0.35, 0.35 + 1.0 * deltad2_per_px, d2);
+
+                // if (d2 > 0.35 && d2 < 0.45) {
+                color = mix(color, vec4(u_baseColor, 1), min(t, t2));
+                // }
             }
 
             if (v_blockPos.y > (0.5 + 0.45)) {

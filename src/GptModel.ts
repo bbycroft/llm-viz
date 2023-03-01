@@ -46,15 +46,15 @@ We might as well build the nested structure of the real model, with each chunk h
 */
 
 export function initModel(renderState: IRenderState, dataAndModel: IDataAndModel, B: number) {
-    let gptLayerTest = createGptModel(renderState.shaderManager, dataAndModel.model, dataAndModel.data.config.B!);
-    runModel(renderState, gptLayerTest, dataAndModel.data);
-    cleanupGptModel(renderState.gl, gptLayerTest);
+    // let gptLayerTest = createGptModel(renderState.shaderManager, dataAndModel.model, dataAndModel.data.config.B!);
+    // runModel(renderState, gptLayerTest, dataAndModel.data);
+    // cleanupGptModel(renderState.gl, gptLayerTest);
 
     return createGptModel(renderState.shaderManager, dataAndModel.model, B);
 }
 
 export function setModelInputData(renderState: IRenderState, gptModel: IGpuGptModel, rand: Random) {
-    let { gl, quadVao } = renderState;
+    let { gl } = renderState;
     let { inputTokens, shape: { B, T } } = gptModel;
 
     let buf = new Float32Array(B * T);

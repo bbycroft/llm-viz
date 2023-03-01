@@ -133,6 +133,9 @@ export async function setupFontAtlas(shaderManager: IShaderManager) {
             float sd = median(msd.r, msd.g, msd.b);
             float screenPxDistance = screenPxRange()*(sd - 0.5);
             float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
+            if (opacity == 0.0) {
+                discard;
+            }
             color = mix(v_bgColor, v_fgColor, opacity);
         }
     `, ['u_view', 'u_model', 'u_tex', 'u_transformTex', 'pxRange'])!;
@@ -230,7 +233,7 @@ export async function setupFontAtlas(shaderManager: IShaderManager) {
     };
 }
 
-export function measureTextWidth(font: IFontAtlas, text: string) {
+export function measureTextWidth(font: IFontAtlas, text: string, scale: number = 1.0) {
     let x = 0;
     let prevCodePoint = '';
     for (let codePoint of text) {
@@ -243,14 +246,18 @@ export function measureTextWidth(font: IFontAtlas, text: string) {
         x += kernAmount + charDef.xadvance;
         prevCodePoint = codePoint;
     }
-    return x;
+    return x * scale / font.common.lineHeight;
 }
 
-export function writeTextToBuffer(font: IFontAtlas, text: string, dx?: number, dy?: number, mtx?: Mat4f) {
+let _bufCache = new Float32Array(1024 * floatsPerGlyph);
 
+export function writeTextToBuffer(font: IFontAtlas, text: string, dx?: number, dy?: number, scale?: number, mtx?: Mat4f) {
+
+    if (text.length * floatsPerGlyph > _bufCache.length) {
+        _bufCache = new Float32Array(text.length * floatsPerGlyph);
+    }
     let segmentId = font.glState.segmentsUsed;
-    // let floatsPerChar = 6 * 4;
-    let buf = new Float32Array(text.length * floatsPerGlyph);
+    let buf = _bufCache;
     let bufIdx = 0;
     let atlasWInv = 1.0 / font.common.scaleW;
     let atlasHInv = 1.0 / font.common.scaleH;
@@ -258,6 +265,8 @@ export function writeTextToBuffer(font: IFontAtlas, text: string, dx?: number, d
     let x = dx ?? 0;
     let y = dy ?? 0;
     let prevCodePoint = '';
+    scale = scale ?? 1.0;
+    let localScale = scale / font.common.lineHeight;
     for (let codePoint of text) {
         let charDef = font.charMap.get(codePoint);
         if (!charDef) {
@@ -266,13 +275,13 @@ export function writeTextToBuffer(font: IFontAtlas, text: string, dx?: number, d
         }
         let kernKey = `${prevCodePoint}${codePoint}`;
         let kernAmount = font.kernMap.get(kernKey) || 0;
-        x += kernAmount;
+        x += kernAmount * localScale;
 
         let ux = [charDef.x * atlasWInv, (charDef.x + charDef.width) * atlasWInv];
         let uy = [charDef.y * atlasHInv, (charDef.y + charDef.height) * atlasHInv];
 
-        let px = [x + charDef.xoffset, x + charDef.xoffset + charDef.width];
-        let py = [y + charDef.yoffset, y + charDef.yoffset + charDef.height];
+        let px = [x + charDef.xoffset * localScale, x + (charDef.xoffset + charDef.width) * localScale];
+        let py = [y + charDef.yoffset * localScale, y + (charDef.yoffset + charDef.height) * localScale];
 
         let tri = [0, 1,  0, 0,  1, 1,  1, 1,  0, 0,  1, 0];
         for (let i = 0; i < 6; i++) {
@@ -285,7 +294,7 @@ export function writeTextToBuffer(font: IFontAtlas, text: string, dx?: number, d
             buf[bufIdx++] = segmentId;
         }
 
-        x += charDef.xadvance;
+        x += charDef.xadvance * localScale;
 
         prevCodePoint = codePoint;
         numGlyphs += 1;
@@ -301,7 +310,7 @@ export function writeTextToBuffer(font: IFontAtlas, text: string, dx?: number, d
         state.localVertBuffer.set(prevBuf);
     }
 
-    state.localVertBuffer.set(buf, state.glyphsUsed * floatsPerGlyph);
+    state.localVertBuffer.set(buf.slice(0, numGlyphs * floatsPerGlyph), state.glyphsUsed * floatsPerGlyph);
     state.glyphsUsed += numGlyphs;
 
     // TODO: Do realloc stuff

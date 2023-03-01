@@ -76,6 +76,7 @@ export function LayerView() {
         if (canvasEl) {
             let canvasRenderLocal = new CanvasRender(canvasEl, null!);
             let resizeObserver = new ResizeObserver(() => {
+                canvasRenderLocal.canvasSizeDirty = true;
                 canvasRenderLocal.markDirty();
             });
             setCanvasRender(canvasRenderLocal);
@@ -119,6 +120,7 @@ class CanvasRender {
     fontAtlas: IFontAtlas | null = null;
     random: Random;
     stopped = false;
+    canvasSizeDirty = true;
 
     constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData) {
         this.renderState = initRender(canvasEl);
@@ -180,9 +182,12 @@ class CanvasRender {
     render(time: number, dt: number) {
         let canvasEl = this.renderState.canvasEl;
 
-        let bcr = canvasEl.getBoundingClientRect();
-        canvasEl.width = bcr.width;
-        canvasEl.height = bcr.height;
+        if (this.canvasSizeDirty) {
+            let bcr = canvasEl.getBoundingClientRect();
+            canvasEl.width = bcr.width;
+            canvasEl.height = bcr.height;
+            this.canvasSizeDirty = false;
+        }
 
         let shape: IModelShape = {
             B: 1,

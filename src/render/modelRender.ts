@@ -5,6 +5,7 @@ import { Mat4f } from "../utils/matrix";
 import { createShaderManager, createShaderProgram, ensureShadersReady, IGLContext, IShaderManager } from "../utils/shader";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { initThreadShader } from "./threadShader";
+import { renderTokens } from "./tokenRender";
 
 export interface IRenderView {
     canvasEl: HTMLCanvasElement;
@@ -209,6 +210,7 @@ export function initRender(canvasEl: HTMLCanvasElement) {
     return {
         canvasEl,
         gl,
+        ctx,
         cubeGeom,
         quadVao,
         quadVbo,
@@ -270,11 +272,13 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
 }
 
 export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape, gptGpuModel?: IGpuGptModel) {
-    let { gl, blockShader, lightShader, canvasEl, threadShader: { threadShader } } = args;
+    let { gl, blockShader, lightShader, canvasEl, threadShader: { threadShader }, ctx } = args;
     let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
 
+
     if (view.fontAtlas) {
+        renderTokens(ctx, view, layout);
         addSomeText(view.fontAtlas, layout);
     }
 
@@ -340,8 +344,8 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         let geom = args.cubeGeom;
         gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
         gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
-        gl.uniform3fv(locs.u_offset, light);
-        gl.uniform3fv(locs.u_size, new Vec3(1, 1, 1).mul(3));
+        gl.uniform3f(locs.u_offset, light.x, light.y, light.z);
+        gl.uniform3f(locs.u_size, 3, 3, 3);
         gl.bindVertexArray(geom.vao);
         // gl.drawArrays(geom.type, 0, geom.numVerts);
     }
@@ -353,7 +357,8 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
 
         gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
         gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
-        gl.uniform3fv(locs.u_camPos, modelMtx.mulVec3Proj(camPos));
+        let camPosModel = modelMtx.mulVec3Proj(camPos);
+        gl.uniform3f(locs.u_camPos, camPosModel.x, camPosModel.y, camPosModel.z);
 
         gl.uniform3fv(locs.u_lightPos, lightPosArr);
         gl.uniform3fv(locs.u_lightColor, lightColorArr);
@@ -364,11 +369,11 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             let pos = new Vec3(block.x, block.y, block.z);
             let size = new Vec3(block.cx * cell, block.cy * cell, block.cz * cell);
 
-            gl.uniform3fv(locs.u_nCells, new Vec3(block.cx, block.cy, block.cz));
-            gl.uniform3fv(locs.u_size, size);
-            gl.uniform3fv(locs.u_offset, pos);
+            gl.uniform3f(locs.u_nCells, block.cx, block.cy, block.cz);
+            gl.uniform3f(locs.u_size, size.x, size.y, size.z);
+            gl.uniform3f(locs.u_offset, pos.x, pos.y, pos.z);
             let baseColor = block.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
-            gl.uniform3fv(locs.u_baseColor, baseColor);
+            gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
             if (block.access) {
                 gl.uniformMatrix4x2fv(locs.u_accessMtx, true, block.access.mat, 0, 8);
                 let c = block.access.channel;
@@ -396,14 +401,14 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
 
         let block = layout.residual0;
 
-        let deltaZ = (view.time * 0.03) % block.cz;
+        let deltaZ = block.cz / 2; // (view.time * 0.03) % block.cz;
         view.markDirty();
 
         let cz = Math.round(deltaZ);
         let pos = new Vec3(block.x, block.y, block.z);
         let size = new Vec3(block.cx * cell, block.cy * cell, cz * cell);
-        gl.uniform3fv(locs.u_offset, pos);
-        gl.uniform3fv(locs.u_size, size);
+        gl.uniform3f(locs.u_offset, pos.x, pos.y, pos.z);
+        gl.uniform3f(locs.u_size, size.x, size.y, size.z);
         gl.uniform2f(locs.u_nCells, block.cx, cz);
 
         gl.uniformMatrix3x2fv(locs.u_threadDir, true, [
@@ -411,7 +416,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             0, -1, 1]);
 
         let baseColor = new Vec3(1.0, 0.0, 0.0);
-        gl.uniform3fv(locs.u_baseColor, baseColor);
+        gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
 
         gl.bindVertexArray(args.threadShader.threadVao);
         gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
@@ -428,15 +433,15 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
 
 export function addSomeText(fontAtlas: IFontAtlas, layout: IGptModelLayout) {
 
-    fontAtlas.glState.glyphsUsed = 0;
-    fontAtlas.glState.segmentsUsed = 0;
     let text = 'nano-gpt (~9k params)';
     let target = layout.idxObj;
 
-    let width = measureTextWidth(fontAtlas, text);
+    let fontEm = 4;
+    let width = measureTextWidth(fontAtlas, text, fontEm);
 
     let mtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(2));
     let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
-    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + target.cz * layout.cell + 0.5));
-    writeTextToBuffer(fontAtlas, text, - width / 2, -fontAtlas.common.lineHeight, mtx2.mul(mtx.mul(mtx3)));
+    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + target.cz * layout.cell * 10 + 0.5));
+    let mtxRes = mtx2.mul(mtx.mul(mtx3));
+    writeTextToBuffer(fontAtlas, text, - width / 2, -fontEm, fontEm, mtxRes);
 }
