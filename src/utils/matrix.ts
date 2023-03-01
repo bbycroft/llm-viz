@@ -317,9 +317,9 @@ export class Mat3f extends Float32Array {
     }
 
     mulVec3(a: Vec3): Vec3 {
-        let x = this[0] * a[0] + this[3] * a[1] + this[6] * a[2];
-        let y = this[1] * a[0] + this[4] * a[1] + this[7] * a[2];
-        let z = this[2] * a[0] + this[5] * a[1] + this[8] * a[2];
+        let x = this[0] * a.x + this[3] * a.y + this[6] * a.z;
+        let y = this[1] * a.x + this[4] * a.y + this[7] * a.z;
+        let z = this[2] * a.x + this[5] * a.y + this[8] * a.z;
         return new Vec3(x, y, z);
     }
 
