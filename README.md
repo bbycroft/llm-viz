@@ -1,24 +1,16 @@
-# Next.js + Turbopack App Directory Playground
+# LLM Visualization
 
-[Turbopack](https://turbo.build/pack) is a new incremental bundler optimized for JavaScript and TypeScript, written in Rust by the creators of Webpack and Next.js at [Vercel](https://vercel.com). On large applications Turbopack updates 10x faster than Vite and 700x faster than Webpack ([benchmark](https://turbo.build/pack/docs/benchmarks)). For the biggest applications the difference grows even more stark with updates up to 20x faster than Vite.
+This is a web app that displays a 3D model of a working implementation of a GPT-style network. That
+is, the network topology that's used in OpenAI's GPT-1, GPT-2 (and maybe GPT-3).
 
-This playground is a mirror of the [Next.js v13 App Directory Playground](https://github.com/vercel/app-playground), but uses Turbopack as the Next.js development server (`next dev --turbo`).
+The first network displayed with working weights is a tiny such network, which sorts a small list
+of the integers 0, 1, and 2. This is the demo example model from Andrej Karpathy's
+[minGPT](https://github.com/karpathy/minGPT) implementation.
 
-**As a reminder, Turbopack is currently in alpha and not yet ready for production. We appreciate your ongoing support as we work to make it ready for everyone.**
+The renderer will support visualizing arbitrary sized networks, and works with the smaller gpt2
+size, although the weights aren't downloaded (it's 100's of MBs).
 
 ## Running Locally
 
 1. Install dependencies: `yarn`
 1. Start the dev server: `yarn dev`
-
-**Note:** The playground uses [Tailwind CSS](https://tailwindcss.com) via [PostCSS](https://turbo.build/pack/docs/features/css#postcss).
-
-For more information, see: https://turbo.build/pack/docs/features/css#tailwind-css
-
-## Documentation
-
-https://nextjs.link/with-turbopack
-
-## Providing Feedback
-
-https://nextjs.link/turbopack-feedback
