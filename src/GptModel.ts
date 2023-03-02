@@ -62,6 +62,9 @@ export function setModelInputData(renderState: IRenderState, gptModel: IGpuGptMo
         buf[i] = rand.randint(0, 3);
     }
 
+    buf[5] = 2;
+    buf[6] = 2;
+
     writeToBufferTex(gl, inputTokens, buf);
 }
 

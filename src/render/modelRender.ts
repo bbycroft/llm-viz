@@ -5,6 +5,7 @@ import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTex
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, createShaderProgram, ensureShadersReady, IGLContext, IShaderManager } from "../utils/shader";
 import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
+import { modifyCells } from "../Walkthrough";
 import { addLine, createLineRender, renderAllLines, resetLineRender } from "./lineRender";
 import { initThreadShader } from "./threadShader";
 import { renderTokens } from "./tokenRender";
@@ -55,6 +56,8 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         uniform vec3 u_size;
         uniform vec3 u_offset;
         uniform vec3 u_nCells;
+        uniform mat4 u_localPosMtx;
+
         layout(location = 0) in vec3 a_position;
         layout(location = 1) in vec3 a_normal;
         out vec3 v_normal;
@@ -62,7 +65,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         out vec3 v_blockPos;
         out vec3 v_cubePos;
         void main() {
-            vec3 localPos = vec3(a_position.xy, -a_position.z);
+            vec3 localPos = (u_localPosMtx * vec4(a_position.xy, -a_position.z, 1.0)).xyz;
             vec3 model_pos = a_position * u_size + u_offset;
             gl_Position = u_view * u_model * vec4(model_pos, 1);
             v_normal = a_normal;
@@ -88,7 +91,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         uniform int u_channel;
 
         void main() {
-            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, v_normal.z) * 0.1);
+            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, -v_normal.z) * 0.1);
 
             bool cellDark = (blockPos.x + blockPos.y + blockPos.z) % 2 == 0;
 
@@ -173,7 +176,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         'u_view', 'u_model', 'u_size', 'u_offset',
         'u_baseColor', 'u_nCells',
         'u_lightPos', 'u_camPos', 'u_lightColor',
-        'u_channel', 'u_accessTexScale', 'u_accessSampler', 'u_accessMtx',
+        'u_channel', 'u_accessTexScale', 'u_accessSampler', 'u_accessMtx', 'u_localPosMtx',
     ])!;
 
     let lightShader = createShaderProgram(ctx, 'light', /*glsl*/`#version 300 es
@@ -295,6 +298,10 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
 
+    let walkthrough = modifyCells(args, view, layout);
+
+    layout = walkthrough.layout;
+
     resetLineRender(args.lineRender);
 
     renderTokens(ctx, args, layout);
@@ -404,24 +411,22 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         gl.uniform3fv(locs.u_lightColor, lightColorArr);
         gl.uniform1i(locs.u_accessSampler, 0);
 
-        for (let block of layout.cubes) {
+        for (let cube of layout.cubes) {
             // using uniforms is just a quick & easy way to sort this out
-            let pos = new Vec3(block.x, block.y, block.z);
-            let size = new Vec3(block.cx * cell, block.cy * cell, block.cz * cell);
-
-            gl.uniform3f(locs.u_nCells, block.cx, block.cy, block.cz);
-            gl.uniform3f(locs.u_size, size.x, size.y, size.z);
-            gl.uniform3f(locs.u_offset, pos.x, pos.y, pos.z);
-            let baseColor = block.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
+            gl.uniformMatrix4fv(locs.u_localPosMtx, false, cube.localMtx ?? new Mat4f());
+            gl.uniform3f(locs.u_nCells, cube.cx, cube.cy, cube.cz);
+            gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
+            gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
+            let baseColor = cube.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
             gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
-            if (block.access) {
-                gl.uniformMatrix4x2fv(locs.u_accessMtx, true, block.access.mat, 0, 8);
-                let c = block.access.channel;
+            if (cube.access) {
+                gl.uniformMatrix4x2fv(locs.u_accessMtx, true, cube.access.mat, 0, 8);
+                let c = cube.access.channel;
                 gl.uniform1i(locs.u_channel, c === 'r' ? 0 : c === 'g' ? 1 : c === 'b' ? 2 : 3);
             }
-            gl.uniform1f(locs.u_accessTexScale, block.access ? block.access.scale : 0);
+            gl.uniform1f(locs.u_accessTexScale, cube.access ? cube.access.scale : 0);
             gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, block.access ? block.access.src.texture : null);
+            gl.bindTexture(gl.TEXTURE_2D, cube.access ? cube.access.src.texture : null);
 
             gl.bindVertexArray(geom.vao);
             gl.drawArrays(geom.type, 0, geom.numVerts);

@@ -103,6 +103,17 @@ export class Mat4f extends Float32Array {
         return res;
     }
 
+    static fromScaleTranslation(s: Vec3, t: Vec3) {
+        let res = new Mat4f();
+        res[0] = s.x;
+        res[5] = s.y;
+        res[10] = s.z;
+        res[12] = t.x;
+        res[13] = t.y;
+        res[14] = t.z;
+        return res;
+    }
+
     static fromAxisAngle(axis: Vec3, angleRad: number) {
         let res = new Mat4f();
         fromAxisAngle(axis, angleRad, res, 4);

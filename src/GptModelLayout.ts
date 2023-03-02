@@ -1,20 +1,24 @@
 import { IGpuGptBlockLayer, IGpuGptModel, IGpuLayerNormLayer, IModelShape } from "./GptModel";
 import { isNil } from "./utils/data";
-import { Mat3f, Mat4f } from "./utils/matrix";
+import { Mat4f } from "./utils/matrix";
 import { IBufferTex } from "./utils/renderPhases";
 
-interface IBlkDef {
+export interface IBlkDef {
     t: 'w' | 'i', // weights; intermediate value
     x: number;
     y: number;
     z: number;
+    dx: number; // units: model-space
+    dy: number;
+    dz: number;
     cx: number; // units: number of cells
     cy: number;
     cz: number;
     access?: IBlkAccess;
+    localMtx?: Mat4f; // for creating blocks that are sub-parts of a block
 }
 
-interface IBlkAccess {
+export interface IBlkAccess {
     src: IBufferTex;
     channel: 'r' | 'g' | 'b';
     scale: number;
@@ -84,6 +88,9 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             x: x,
             y: y,
             z: args.z,
+            dx: args.cx * cell,
+            dy: args.cy * cell,
+            dz: args.cz * cell,
             cx: args.cx,
             cy: args.cy,
             cz: args.cz,
