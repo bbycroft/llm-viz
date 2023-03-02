@@ -4,7 +4,8 @@ import { genGptModelLayout, IGptModelLayout } from "../GptModelLayout";
 import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "../utils/font";
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, createShaderProgram, ensureShadersReady, IGLContext, IShaderManager } from "../utils/shader";
-import { BoundingBox3d, Vec3 } from "../utils/vector";
+import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
+import { addLine, createLineRender, renderAllLines, resetLineRender } from "./lineRender";
 import { initThreadShader } from "./threadShader";
 import { renderTokens } from "./tokenRender";
 
@@ -210,6 +211,8 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
 
     let threadShader = initThreadShader(ctx);
 
+    let lineRender = createLineRender(ctx);
+
     ensureShadersReady(shaderManager);
 
     let query = gl.createQuery()!;
@@ -224,6 +227,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         blockShader,
         lightShader,
         threadShader,
+        lineRender,
         shaderManager,
         fontAtlas,
         modelFontBuf,
@@ -290,6 +294,8 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     let { gl, blockShader, lightShader, canvasEl, threadShader: { threadShader }, ctx } = args;
     let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
+
+    resetLineRender(args.lineRender);
 
     renderTokens(ctx, args, layout);
     addSomeText(args.modelFontBuf, layout);
@@ -460,6 +466,9 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
 
     {
         renderAllText(gl, args.modelFontBuf, viewMtx, modelMtx);
+    }
+    {
+        renderAllLines(args.lineRender, viewMtx, modelMtx, new Vec4(0, 0, 0, 1));
     }
     {
         let w = canvasEl.width;
