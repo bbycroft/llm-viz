@@ -18,6 +18,8 @@
     display: flex;
     flex-direction: column;
     pointer-events: none;
+    font-size: 40px;
+    font-family: Roboto;
 }
 
 .canvasWrap {

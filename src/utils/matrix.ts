@@ -160,6 +160,17 @@ export class Mat4f extends Float32Array {
         return res;
     }
 
+    static fromOrtho(left: number, right: number, bottom: number, top: number, near: number, far: number) {
+        let res = new Mat4f();
+        res[0] = 2 / (right - left);
+        res[5] = 2 / (top - bottom);
+        res[10] = -2 / (far - near);
+        res[12] = -(right + left) / (right - left);
+        res[13] = -(top + bottom) / (top - bottom);
+        res[14] = -(far + near) / (far - near);
+        return res;
+    }
+
     // creates Translation, Rotation, Scale, such that this matrix is the result of multipling
     // the equivalent matrix forms, as in
     //

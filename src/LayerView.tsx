@@ -5,7 +5,7 @@ import { IDataAndModel, IModelShape, IModelState, initModel, runModel, setModelI
 import s from './LayerView.module.css';
 import { initRender, IRenderState, IRenderView, renderModel } from './render/modelRender';
 import { clamp, useGlobalDrag } from './utils/data';
-import { IFontAtlas, resetFontAtlas, setupFontAtlas } from './utils/font';
+import { fetchFontAtlasData, IFontAtlasData } from './utils/font';
 import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
@@ -27,6 +27,7 @@ export function LayerView() {
     let [camAngle, setCamAngle] = useState(new Vec3(290, 20, 30)); // degrees about z axis, and above the x-y plane; zoom
     let [camTarget, setCamTarget] = useState(new Vec3(0, 0, -500)); // where the camera is looking
     let [canvasRender, setCanvasRender] = useState<CanvasRender | null>(null);
+    let [fontAtlasData, setFontAtlasData] = useState<IFontAtlasData | null>(null);
 
     let [dragStart, setDragStart] = useGlobalDrag<{ camAngle: Vec3, camTarget: Vec3 }>(function handleMove(ev, ds) {
         let dx = ev.clientX - ds.clientX;
@@ -73,8 +74,21 @@ export function LayerView() {
     }, []);
 
     useEffect(() => {
-        if (canvasEl) {
-            let canvasRenderLocal = new CanvasRender(canvasEl, null!);
+        let stale = false;
+        async function getData() {
+            let data = await fetchFontAtlasData();
+            if (stale) return;
+            setFontAtlasData(data);
+        }
+
+        getData();
+
+        return () => { stale = true; };
+    }, []);
+
+    useEffect(() => {
+        if (canvasEl && fontAtlasData) {
+            let canvasRenderLocal = new CanvasRender(canvasEl, null!, fontAtlasData);
             let resizeObserver = new ResizeObserver(() => {
                 canvasRenderLocal.canvasSizeDirty = true;
                 canvasRenderLocal.markDirty();
@@ -88,14 +102,13 @@ export function LayerView() {
         } else {
             setCanvasRender(null);
         }
-    }, [canvasEl]);
+    }, [canvasEl, fontAtlasData]);
 
     useEffect(() => {
         canvasRender?.setData({ dataAndModel, camAngle, camTarget });
     }, [canvasRender, dataAndModel, camAngle, camTarget]);
 
     return <div className={s.view}>
-        <div className={s.sidebar}>This is the layer view</div>
         <div className={s.canvasWrap}>
             <canvas
                 className={s.canvas}
@@ -117,18 +130,13 @@ interface ICanvasData {
 class CanvasRender {
     renderState: IRenderState;
     modelState: IModelState | null = null;
-    fontAtlas: IFontAtlas | null = null;
     random: Random;
     stopped = false;
     canvasSizeDirty = true;
 
-    constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData) {
-        this.renderState = initRender(canvasEl);
+    constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData, fontAtlasData: IFontAtlasData) {
+        this.renderState = initRender(canvasEl, fontAtlasData);
         this.random = new Random(4);
-        setupFontAtlas(this.renderState.shaderManager).then((fa) => {
-            this.fontAtlas = fa;
-            this.markDirty();
-        });
     }
 
     modelInitRun = false;
@@ -213,14 +221,11 @@ class CanvasRender {
         let view: IRenderView = {
             ...this.canvasData,
             canvasEl: canvasEl!,
-            fontAtlas: this.fontAtlas,
             time,
             markDirty: this.markDirty,
         }
 
         renderModel(view, this.renderState, shape, this.modelState || undefined);
-
-        this.fontAtlas && resetFontAtlas(this.fontAtlas);
     }
 
 }

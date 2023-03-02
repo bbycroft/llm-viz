@@ -1,6 +1,7 @@
+import { render } from "react-dom";
 import { IGpuGptModel, IModelShape } from "../GptModel";
 import { genGptModelLayout, IGptModelLayout } from "../GptModelLayout";
-import { IFontAtlas, measureTextWidth, renderAllText, writeTextToBuffer } from "../utils/font";
+import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "../utils/font";
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, createShaderProgram, ensureShadersReady, IGLContext, IShaderManager } from "../utils/shader";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
@@ -11,21 +12,21 @@ export interface IRenderView {
     canvasEl: HTMLCanvasElement;
     camAngle: Vec3; // degrees about z axis, and above the x-y plane
     camTarget: Vec3;
-    fontAtlas: IFontAtlas | null;
     time: number;
     markDirty: () => void;
 }
 
 export type IRenderState = ReturnType<typeof initRender>;
 
-export function initRender(canvasEl: HTMLCanvasElement) {
+export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtlasData) {
     // init shaders for various block types
 
     console.clear();
     let gl = canvasEl.getContext("webgl2", { antialias: true })!;
 
-    let ext = {
+    let ext: IGLContext['ext'] = {
         colorBufferFloat: gl.getExtension("EXT_color_buffer_float"),
+        disjointTimerQuery: gl.getExtension('EXT_disjoint_timer_query_webgl2'),
     };
 
     let shaderManager = createShaderManager(gl);
@@ -200,12 +201,18 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         }
     `, ['u_view', 'u_model', 'u_size', 'u_offset'])!;
 
+    let fontAtlas = setupFontAtlas(ctx, fontAtlasData);
+
+    let modelFontBuf = createFontBuffers(fontAtlas);
+    let overlayFontBuf = createFontBuffers(fontAtlas);
 
     let cubeGeom = genCubeGeom(gl);
 
     let threadShader = initThreadShader(ctx);
 
     ensureShadersReady(shaderManager);
+
+    let query = gl.createQuery()!;
 
     return {
         canvasEl,
@@ -218,6 +225,13 @@ export function initRender(canvasEl: HTMLCanvasElement) {
         lightShader,
         threadShader,
         shaderManager,
+        fontAtlas,
+        modelFontBuf,
+        overlayFontBuf,
+        query,
+        lastGpuMs: 0,
+        lastJsMs: 0,
+        hasRunQuery: false,
     };
 }
 
@@ -272,14 +286,34 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
 }
 
 export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape, gptGpuModel?: IGpuGptModel) {
+    let timer0 = performance.now();
     let { gl, blockShader, lightShader, canvasEl, threadShader: { threadShader }, ctx } = args;
     let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
 
+    renderTokens(ctx, args, layout);
+    addSomeText(args.modelFontBuf, layout);
 
-    if (view.fontAtlas) {
-        renderTokens(ctx, view, layout);
-        addSomeText(view.fontAtlas, layout);
+    // pull out timing logic somewhere else
+    let resultAvailable = false;
+
+    if (args.hasRunQuery) {
+        resultAvailable = gl.getQueryParameter(args.query, gl.QUERY_RESULT_AVAILABLE);
+    }
+
+    let queryCanRun = ctx.ext.disjointTimerQuery && (!args.hasRunQuery || resultAvailable);
+
+    if (queryCanRun && ctx.ext.disjointTimerQuery) {
+
+        if (resultAvailable) {
+            let timeElapsed = gl.getQueryParameter(args.query, gl.QUERY_RESULT);
+            args.lastGpuMs = timeElapsed / 1000000;
+        }
+
+        if (queryCanRun) {
+            gl.beginQuery(ctx.ext.disjointTimerQuery.TIME_ELAPSED_EXT, args.query);
+            args.hasRunQuery = true;
+        }
     }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -402,7 +436,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         let block = layout.residual0;
 
         let deltaZ = block.cz / 2; // (view.time * 0.03) % block.cz;
-        view.markDirty();
+        // view.markDirty();
 
         let cz = Math.round(deltaZ);
         let pos = new Vec3(block.x, block.y, block.z);
@@ -425,23 +459,41 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     }
 
     {
-        if (view.fontAtlas) {
-            renderAllText(gl, view.fontAtlas, viewMtx, modelMtx);
-        }
+        renderAllText(gl, args.modelFontBuf, viewMtx, modelMtx);
     }
+    {
+        let w = canvasEl.width;
+        let h = canvasEl.height;
+        let screenViewMtx = Mat4f.fromOrtho(0, w, h, 0, -1, 1);
+
+        let text = `GPU: ${args.lastGpuMs.toFixed(2)}ms, JS: ${args.lastJsMs.toFixed(2)}ms`;
+        let fontSize = 14;
+        let tw = measureTextWidth(args.overlayFontBuf, text, fontSize);
+        writeTextToBuffer(args.overlayFontBuf, text, w - tw - 4, 4, fontSize, new Mat4f());
+        renderAllText(gl, args.overlayFontBuf, screenViewMtx, new Mat4f());
+    }
+
+    if (ctx.ext.disjointTimerQuery && queryCanRun) {
+        gl.endQuery(ctx.ext.disjointTimerQuery.TIME_ELAPSED_EXT);
+    }
+
+    resetFontBuffers(args.modelFontBuf);
+    resetFontBuffers(args.overlayFontBuf);
+
+    args.lastJsMs = performance.now() - timer0;
 }
 
-export function addSomeText(fontAtlas: IFontAtlas, layout: IGptModelLayout) {
+export function addSomeText(fontBuf: IFontBuffers, layout: IGptModelLayout) {
 
     let text = 'nano-gpt (~9k params)';
     let target = layout.idxObj;
 
     let fontEm = 4;
-    let width = measureTextWidth(fontAtlas, text, fontEm);
+    let width = measureTextWidth(fontBuf, text, fontEm);
 
     let mtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(2));
     let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
     let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + target.cz * layout.cell * 10 + 0.5));
     let mtxRes = mtx2.mul(mtx.mul(mtx3));
-    writeTextToBuffer(fontAtlas, text, - width / 2, -fontEm, fontEm, mtxRes);
+    writeTextToBuffer(fontBuf, text, - width / 2, -fontEm, fontEm, mtxRes);
 }

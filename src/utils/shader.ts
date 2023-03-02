@@ -4,7 +4,12 @@ export interface IGLContext {
     shaderManager: IShaderManager;
     ext: {
         colorBufferFloat: EXT_color_buffer_float | null;
+        disjointTimerQuery: EXT_disjoint_timer_query_webgl2 | null;
     },
+}
+
+export interface EXT_disjoint_timer_query_webgl2 {
+    TIME_ELAPSED_EXT: number;
 }
 
 export interface IProgram<T extends string = any> {

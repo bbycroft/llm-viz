@@ -1,8 +1,6 @@
 import { base64ToArrayBuffer } from "./data";
 import { Mat4f } from "./matrix";
-import { createShaderProgram, ensureShadersReady, IShaderManager } from "./shader";
-
-export type IFontAtlas = ReturnType<typeof setupFontAtlas> extends Promise<infer T> ? T : never;
+import { createShaderProgram, ensureShadersReady, IGLContext } from "./shader";
 
 export interface ICharDef {
     id: number;
@@ -42,8 +40,27 @@ const floatsPerGlyph = floatsPerVert * 6;
 const bytesPerVert = floatsPerVert * 4;
 const bytesPerGlyph = floatsPerGlyph * 4;
 
-export async function setupFontAtlas(shaderManager: IShaderManager) {
-    let gl = shaderManager.gl;
+export interface IFontBuffers {
+    atlas: IFontAtlas;
+    vertVbo: WebGLBuffer;
+    vao: WebGLVertexArrayObject;
+    transformTex: WebGLTexture;
+    localVertBuffer: Float32Array;
+    localTexBuffer: Float32Array;
+    glpyhCapacity: number;
+    glyphsUsed: number;
+    segmentsUsed: number;
+    segmentCapacity: number;
+}
+
+export type IFontAtlas = ReturnType<typeof setupFontAtlas>;
+
+export interface IFontAtlasData {
+    fontAtlasImage: HTMLImageElement;
+    fontDef: any;
+}
+
+export async function fetchFontAtlasData(): Promise<IFontAtlasData> {
     let imgEl = document.createElement('img');
     let imgP = new Promise<HTMLImageElement>((resolve, reject) => {
         imgEl.onload = () => resolve(imgEl);
@@ -51,15 +68,22 @@ export async function setupFontAtlas(shaderManager: IShaderManager) {
     });
     imgEl.src = 'fonts/font-atlas.png';
 
-    let fontDefP = fetch('fonts/Roboto-Regular.json').then(r => r.json());
+    let fontDefP = fetch('fonts/Roboto-Regular.json', { credentials: 'include', mode: 'no-cors' }).then(r => r.json());
 
-    let [img, fontDef] = await Promise.all([imgP, fontDefP]);
+    let [fontAtlasImage, fontDef] = await Promise.all([imgP, fontDefP]);
+
+    return {
+        fontAtlasImage,
+        fontDef,
+    };
+}
+
+export function setupFontAtlas(ctx: IGLContext, data: IFontAtlasData) {
+    let gl = ctx.gl;
 
     // With the fontDef, create a char -> glyph lookup
     // Create a kerning lookup (could use x1 * b + x2 for the keys)
-
-    let segmentCapacity = 1024;
-    let glpyhCapacity = 1024;
+    let fontDef = data.fontDef;
 
     let atlasTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, atlasTex);
@@ -68,19 +92,12 @@ export async function setupFontAtlas(shaderManager: IShaderManager) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, data.fontAtlasImage);
 
-    let transformTex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, transformTex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-    // we'll fill it in later
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, segmentCapacity, 4, 0, gl.RGBA, gl.FLOAT, null);
 
     // See https://github.com/Chlumsky/msdfgen for information on how to implement (this is the format the font atlas is in)
 
-    let shader = createShaderProgram(shaderManager, 'font', /*glsl*/`#version 300 es
+    let program = createShaderProgram(ctx.shaderManager, 'font', /*glsl*/`#version 300 es
         precision highp float;
         uniform mat4 u_view;
         uniform mat4 u_model;
@@ -140,29 +157,12 @@ export async function setupFontAtlas(shaderManager: IShaderManager) {
         }
     `, ['u_view', 'u_model', 'u_tex', 'u_transformTex', 'pxRange'])!;
 
-    ensureShadersReady(shaderManager);
+    ensureShadersReady(ctx.shaderManager);
 
-    let locs = shader.locs;
-    gl.useProgram(shader.program);
+    let locs = program.locs;
+    gl.useProgram(program.program);
     gl.uniform1i(locs.u_tex, 0);
     gl.uniform1i(locs.u_transformTex, 1);
-
-    // Just using 1 buffer for all text for now
-    let vbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, glpyhCapacity * bytesPerGlyph, gl.DYNAMIC_DRAW);
-    let localVertBuffer = new Float32Array(glpyhCapacity * floatsPerGlyph);
-    let localTexBuffer = new Float32Array(segmentCapacity * floatsPerSegment);
-
-    let vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-
-    gl.enableVertexAttribArray(0);
-    gl.enableVertexAttribArray(1);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, bytesPerVert, 0);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, bytesPerVert, 8);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, bytesPerVert, 16);
 
     let charArr = new Int16Array(base64ToArrayBuffer(fontDef.chars));
 
@@ -217,23 +217,61 @@ export async function setupFontAtlas(shaderManager: IShaderManager) {
         kernMap,
         charMap,
         common: fontDef.common as IFontCommonDef,
-        glState: {
-            vertVbo: vbo,
-            vao,
-            shader,
-            atlasTex,
-            transformTex,
-            localVertBuffer,
-            localTexBuffer,
-            glpyhCapacity,
-            glyphsUsed: 0,
-            segmentsUsed: 0,
-            segmentCapacity: 1024,
-        },
+        program: program,
+        atlasTex,
     };
 }
 
-export function measureTextWidth(font: IFontAtlas, text: string, scale: number = 1.0) {
+export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
+    let gl = atlas.gl;
+
+    let segmentCapacity = 1024;
+    let glpyhCapacity = 1024;
+
+    let transformTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, transformTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    // we'll fill it in later
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, segmentCapacity, 4, 0, gl.RGBA, gl.FLOAT, null);
+
+    // Just using 1 buffer for all text for now
+    let vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, glpyhCapacity * bytesPerGlyph, gl.DYNAMIC_DRAW);
+    let localVertBuffer = new Float32Array(glpyhCapacity * floatsPerGlyph);
+    let localTexBuffer = new Float32Array(segmentCapacity * floatsPerSegment);
+
+    let vao = gl.createVertexArray()!;
+    gl.bindVertexArray(vao);
+
+    gl.enableVertexAttribArray(0);
+    gl.enableVertexAttribArray(1);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, bytesPerVert, 0);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, bytesPerVert, 8);
+    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, bytesPerVert, 16);
+
+    return {
+        atlas,
+        vertVbo: vbo,
+        vao,
+        transformTex,
+        localVertBuffer,
+        localTexBuffer,
+        glpyhCapacity,
+        glyphsUsed: 0,
+        segmentsUsed: 0,
+        segmentCapacity: 1024,
+    };
+}
+
+ // Fudge factor to get it the same as HTML/CSS at the same px size
+let scaleFudgeFactor = 1.04;
+
+export function measureTextWidth(fontBuf: IFontBuffers, text: string, scale: number = 1.0) {
+    let font = fontBuf.atlas;
     let x = 0;
     let prevCodePoint = '';
     for (let codePoint of text) {
@@ -246,35 +284,36 @@ export function measureTextWidth(font: IFontAtlas, text: string, scale: number =
         x += kernAmount + charDef.xadvance;
         prevCodePoint = codePoint;
     }
-    return x * scale / font.common.lineHeight;
+    return x * scale / font.common.lineHeight * scaleFudgeFactor;
 }
 
 let _bufCache = new Float32Array(1024 * floatsPerGlyph);
 
-export function writeTextToBuffer(font: IFontAtlas, text: string, dx?: number, dy?: number, scale?: number, mtx?: Mat4f) {
+export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, dx?: number, dy?: number, scale?: number, mtx?: Mat4f) {
+    let atlas = fontBuf.atlas;
 
     if (text.length * floatsPerGlyph > _bufCache.length) {
         _bufCache = new Float32Array(text.length * floatsPerGlyph);
     }
-    let segmentId = font.glState.segmentsUsed;
+    let segmentId = fontBuf.segmentsUsed;
     let buf = _bufCache;
     let bufIdx = 0;
-    let atlasWInv = 1.0 / font.common.scaleW;
-    let atlasHInv = 1.0 / font.common.scaleH;
+    let atlasWInv = 1.0 / atlas.common.scaleW;
+    let atlasHInv = 1.0 / atlas.common.scaleH;
     let numGlyphs = 0;
     let x = dx ?? 0;
     let y = dy ?? 0;
     let prevCodePoint = '';
     scale = scale ?? 1.0;
-    let localScale = scale / font.common.lineHeight;
+    let localScale = scale / atlas.common.lineHeight * scaleFudgeFactor;
     for (let codePoint of text) {
-        let charDef = font.charMap.get(codePoint);
+        let charDef = atlas.charMap.get(codePoint);
         if (!charDef) {
             // TODO: Handle missing characters e.g. use a default character
             continue;
         }
         let kernKey = `${prevCodePoint}${codePoint}`;
-        let kernAmount = font.kernMap.get(kernKey) || 0;
+        let kernAmount = atlas.kernMap.get(kernKey) || 0;
         x += kernAmount * localScale;
 
         let ux = [charDef.x * atlasWInv, (charDef.x + charDef.width) * atlasWInv];
@@ -300,56 +339,54 @@ export function writeTextToBuffer(font: IFontAtlas, text: string, dx?: number, d
         numGlyphs += 1;
     }
 
-    let state = font.glState;
-
-    while (state.glyphsUsed + numGlyphs > state.glpyhCapacity) {
+    while (fontBuf.glyphsUsed + numGlyphs > fontBuf.glpyhCapacity) {
         // realloc buffer; double capacity
-        state.glpyhCapacity *= 2;
-        let prevBuf = state.localVertBuffer;
-        state.localVertBuffer = new Float32Array(state.glpyhCapacity * floatsPerGlyph);
-        state.localVertBuffer.set(prevBuf);
+        fontBuf.glpyhCapacity *= 2;
+        let prevBuf = fontBuf.localVertBuffer;
+        fontBuf.localVertBuffer = new Float32Array(fontBuf.glpyhCapacity * floatsPerGlyph);
+        fontBuf.localVertBuffer.set(prevBuf);
     }
 
-    state.localVertBuffer.set(buf.slice(0, numGlyphs * floatsPerGlyph), state.glyphsUsed * floatsPerGlyph);
-    state.glyphsUsed += numGlyphs;
+    fontBuf.localVertBuffer.set(buf.slice(0, numGlyphs * floatsPerGlyph), fontBuf.glyphsUsed * floatsPerGlyph);
+    fontBuf.glyphsUsed += numGlyphs;
 
     // TODO: Do realloc stuff
     mtx = mtx ?? new Mat4f();
-    state.localTexBuffer.set(mtx, state.segmentsUsed * floatsPerSegment);
-    state.segmentsUsed += 1;
+    fontBuf.localTexBuffer.set(mtx, fontBuf.segmentsUsed * floatsPerSegment);
+    fontBuf.segmentsUsed += 1;
 }
 
-export function renderAllText(gl: WebGL2RenderingContext, font: IFontAtlas, viewMtx: Mat4f, modelMtx: Mat4f) {
-
-    let state = font.glState;
+export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers, viewMtx: Mat4f, modelMtx: Mat4f) {
+    let atlas = fontBuf.atlas;
 
     gl.disable(gl.CULL_FACE);
 
     // resize texture if needed
-    gl.bindTexture(gl.TEXTURE_2D, state.transformTex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, state.segmentCapacity, 4, gl.RGBA, gl.FLOAT, state.localTexBuffer);
+    gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, fontBuf.segmentsUsed * 4, 1, gl.RGBA, gl.FLOAT, fontBuf.localTexBuffer);
 
     // resize vert buffer if needed
-    gl.bindBuffer(gl.ARRAY_BUFFER, state.vertVbo);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, state.localVertBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, fontBuf.vertVbo);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, fontBuf.localVertBuffer.slice(0, fontBuf.glyphsUsed * floatsPerGlyph));
 
-    gl.useProgram(state.shader.program);
+    gl.useProgram(atlas.program.program);
 
-    let locs = state.shader.locs;
+    let locs = atlas.program.locs;
     gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
     gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
     gl.uniform1f(locs.pxRange, 4);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, state.atlasTex);
+    gl.bindTexture(gl.TEXTURE_2D, atlas.atlasTex);
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, state.transformTex);
+    gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
 
-    gl.bindVertexArray(state.vao);
-    gl.drawArrays(gl.TRIANGLES, 0, state.glyphsUsed * 6);
+    gl.bindVertexArray(fontBuf.vao);
+    gl.drawArrays(gl.TRIANGLES, 0, fontBuf.glyphsUsed * 6);
+    // gl.finish();
 }
 
-export function resetFontAtlas(font: IFontAtlas) {
-    font.glState.glyphsUsed = 0;
-    font.glState.segmentsUsed = 0;
+export function resetFontBuffers(fontBuf: IFontBuffers) {
+    fontBuf.glyphsUsed = 0;
+    fontBuf.segmentsUsed = 0;
 }
