@@ -65,8 +65,9 @@ export function renderTokens(ctx: IGLContext, renderState: IRenderState, layout:
         let top = 4;
         let delta = 0.6;
         let bot = 0.3;
-        addLine(lineRender, new Vec3(tx, 0, top), new Vec3(tx, 0, top - delta));
-        addLine(lineRender, new Vec3(tx, 0, top - delta), new Vec3(bx, 0, bot + delta));
-        addLine(lineRender, new Vec3(bx, 0, bot + delta), new Vec3(bx, 0, bot));
+        let thick = 4;
+        addLine(lineRender, thick, color, new Vec3(tx, 0, top), new Vec3(tx, 0, top - delta));
+        addLine(lineRender, thick, color, new Vec3(tx, 0, top - delta), new Vec3(bx, 0, bot + delta));
+        addLine(lineRender, thick, color, new Vec3(bx, 0, bot + delta), new Vec3(bx, 0, bot));
     }
 }

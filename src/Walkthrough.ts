@@ -1,7 +1,9 @@
+import { blockDimension, blockIndex } from "./Annotations";
 import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { IRenderState, IRenderView } from "./render/modelRender";
 import { clamp } from "./utils/data";
 import { measureTextWidth, writeTextToBuffer } from "./utils/font";
+import { lerpSmoothstep } from "./utils/math";
 import { Mat4f } from "./utils/matrix";
 import { Vec3, Vec4 } from "./utils/vector";
 
@@ -39,7 +41,7 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
 
     let targetT = state.walkthrough.time;
 
-    function writeWord(str: string, tStart: number, colOverride?: Vec4) {
+    function writeWord(str: string, tStart: number, colOverride?: Vec4, fontOverride?: string) {
 
         while (str.startsWith('\n')) {
             lineNum += 1;
@@ -68,7 +70,7 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
             let targetColor = colOverride ?? new Vec4(0.1, 0.1, 0.1, 1);
             color = Vec4.lerp(color, targetColor, clamp((targetT - tStart) * 10, 0, 1));
         }
-        writeTextToBuffer(state.overlayFontBuf, strToDraw, color, 10 + lineOffset, 10 + lineNum * fontSize * 1.2, fontSize);
+        writeTextToBuffer(state.overlayFontBuf, strToDraw, color, 10 + lineOffset, 10 + lineNum * fontSize * 1.2, fontSize, undefined, fontOverride);
 
         lineOffset = nextOff;
     }
@@ -86,7 +88,7 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
             let val = values[i];
             // calculate the t value of this point
             val.t = 1.9;
-            writeWord(values[i].str, t, val.color);
+            writeWord(values[i].str, t, val.color, val.fontFace);
             t += val.duration;
         }
     }
@@ -129,16 +131,17 @@ export enum DimStyle {
     A,
 }
 
-export function getStyleColor(style: DimStyle) {
+export function dimStyleColor(style: DimStyle) {
      switch (style) {
         case DimStyle.t:
         case DimStyle.T:
             return new Vec4(0.4, 0.4, 0.9, 1);
     }
+    return new Vec4(0,0,0);
 }
 
 export function markDimensions(state: IRenderState, time: ITimeInfo, blk: IBlkDef, dim: Dim, style: DimStyle) {
-    let color = getStyleColor(style);
+    let color = dimStyleColor(style);
 }
 
 export function highlightBlock(state: IRenderState, time: ITimeInfo, blk: IBlkDef, name: string) {
@@ -157,8 +160,8 @@ export enum Phase {
 export function runWalkthrough(state: IRenderState, view: IRenderView, layout: IGptModelLayout) {
     let phaseState = state.walkthrough;
 
-    function T_val(str: string, duration: number = 0.3) {
-        return { str, duration, t: 0.0, color: getStyleColor(DimStyle.T) };
+    function T_val(str: string, duration: number = 0.3, fontFace?: string) {
+        return { str, duration, t: 0.0, color: dimStyleColor(DimStyle.T), fontFace };
     }
 
     function atTime(name: string, time: number, duration?: number): ITimeInfo {
@@ -215,11 +218,21 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
     // "Let's start at the top. To compute the vectors at each time T we do a couple of steps:" [highlight the input]
 
     case Phase.Input_First: {
-        let tStr = T_val('t', 1);
+        let tStr = T_val('t', 1, 'cmmi12');
         let c = commentary`Let's start at the top. To compute the vectors at each time ${tStr} we do a couple of steps:`;
 
         moveCameraTo(state, atTime('camera', 0), new Vec3(0, 0, 0), new Vec3());
         markDimensions(state, atEvent(tStr), layout.idxObj, Dim.X, DimStyle.T);
+
+        let idx = Math.min(phaseState.time * 2.0, 3.0);
+        let split = lerpSmoothstep(1.0, 2.0, phaseState.time * 2.0 - 3.0);
+        // blockDimension(state, layout, layout.residual0, Dim.X, DimStyle.T, 0.5);
+        blockIndex(state, layout, layout.residual0, Dim.X, DimStyle.t, idx, split / 2, 3.0);
+
+        let replacement = splitGridX(layout.residual0, idx + 0.5, split, layout.cell);
+        if (replacement.length > 0) {
+            layout.cubes = [...layout.cubes.filter(a => a !== layout.residual0), ...replacement];
+        }
 
         let embedMtx = T_val('token embedding matrix');
         let tokCol = T_val('token');
@@ -338,19 +351,19 @@ export function modifyCells(state: IRenderState, view: IRenderView, layout: IGpt
         view.markDirty();
     }
 
-    let idxObj = layout.idxObj;
-    let residual0 = layout.residual0;
+    // let idxObj = layout.idxObj;
+    // let residual0 = layout.residual0;
 
-    let offset = 3.5; // ((view.time * 0.004) % (idxObj.cx + 2.0)) - 1.0;
+    // let offset = 3.5; // ((view.time * 0.004) % (idxObj.cx + 2.0)) - 1.0;
     // view.markDirty();
 
     let cubes = [...layout.cubes];
 
-    let splitAmt = 3.0;
-    let idxBlks = splitGridX(idxObj, offset, splitAmt, layout.cell);
-    let residBlks = splitGridX(residual0, offset, splitAmt, layout.cell);
+    // let splitAmt = 3.0;
+    // let idxBlks = splitGridX(idxObj, offset, splitAmt, layout.cell);
+    // let residBlks = splitGridX(residual0, offset, splitAmt, layout.cell);
 
-    cubes = [...layout.cubes.filter(a => a !== idxObj && a !== residual0), ...idxBlks, ...residBlks];
+    // cubes = [...layout.cubes.filter(a => a !== idxObj && a !== residual0), ...idxBlks, ...residBlks];
 
     return { layout: { ...layout, cubes } };
 }
@@ -404,15 +417,4 @@ export function splitGridX(blk: IBlkDef, xSplit: number, splitAmt: number, cell:
     blk.rangeOffsetsX = rangeOffsets;
 
     return blocks;
-}
-
-function lerp(a: number, b: number, t: number) {
-    return a + (b - a) * clamp(t, 0, 1);
-}
-
-// we lerp after running the smoothstep, and t is clamped to [0, 1]
-function lerpSmoothstep(a: number, b: number, t: number) {
-    if (t <= 0.0) return a;
-    if (t >= 1.0) return b;
-    return a + (b - a) * t * t * (3 - 2 * t);
 }

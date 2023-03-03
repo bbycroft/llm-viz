@@ -11,7 +11,7 @@ export default function RootLayout({
         <head>
             <title>LLM Visualization</title>
             <link rel="preload" href="/fonts/font-atlas.png" as="image" />
-            <link rel="preload" href="/fonts/Roboto-Regular.json" as="fetch" />
+            <link rel="preload" href="/fonts/font-def.json" as="fetch" />
             <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto" />
         </head>
         <body className={s.body}>

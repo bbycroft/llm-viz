@@ -69,7 +69,7 @@ export async function fetchFontAtlasData(): Promise<IFontAtlasData> {
     });
     imgEl.src = 'fonts/font-atlas.png';
 
-    let fontDefP = fetch('fonts/Roboto-Regular.json', { credentials: 'include', mode: 'no-cors' }).then(r => r.json());
+    let fontDefP = fetch('fonts/font-def.json', { credentials: 'include', mode: 'no-cors' }).then(r => r.json());
 
     let [fontAtlasImage, fontDef] = await Promise.all([imgP, fontDefP]);
 
@@ -166,60 +166,69 @@ export function setupFontAtlas(ctx: IGLContext, data: IFontAtlasData) {
     gl.uniform1i(locs.u_tex, 0);
     gl.uniform1i(locs.u_transformTex, 1);
 
-    let charArr = new Int16Array(base64ToArrayBuffer(fontDef.chars));
+    let faceInfos = [];
 
-    let perCharSize = 12;
-    let numChars = charArr.length / perCharSize;
+    for (let face of fontDef.faces) {
+        let charArr = new Int16Array(base64ToArrayBuffer(face.chars));
 
-    let charMap = new Map<string, ICharDef>();
-    let charCodeMap = new Map<number, ICharDef>();
-    let chars: ICharDef[] = [];
-    for (let i = 0; i < numChars; i++) {
-        let offset = i * perCharSize;
-        let char: ICharDef = {
-            id: charArr[offset + 0],
-            index: charArr[offset + 1],
-            char: String.fromCharCode(charArr[offset + 2]),
-            x: charArr[offset + 3],
-            y: charArr[offset + 4],
-            width: charArr[offset + 5],
-            height: charArr[offset + 6],
-            xoffset: charArr[offset + 7],
-            yoffset: charArr[offset + 8],
-            xadvance: charArr[offset + 9],
-            page: charArr[offset + 10],
-            chnl: charArr[offset + 11],
-        };
-        charMap.set(char.char, char);
-        charCodeMap.set(char.id, char);
-        chars.push(char);
-    }
+        let perCharSize = 12;
+        let numChars = charArr.length / perCharSize;
 
-    let kernArr = new Int16Array(base64ToArrayBuffer(fontDef.kernings));
+        let charMap = new Map<string, ICharDef>();
+        let charCodeMap = new Map<number, ICharDef>();
+        let chars: ICharDef[] = [];
+        for (let i = 0; i < numChars; i++) {
+            let offset = i * perCharSize;
+            let char: ICharDef = {
+                id: charArr[offset + 0],
+                index: charArr[offset + 1],
+                char: String.fromCharCode(charArr[offset + 2]),
+                x: charArr[offset + 3],
+                y: charArr[offset + 4],
+                width: charArr[offset + 5],
+                height: charArr[offset + 6],
+                xoffset: charArr[offset + 7],
+                yoffset: charArr[offset + 8],
+                xadvance: charArr[offset + 9],
+                page: charArr[offset + 10],
+                chnl: charArr[offset + 11],
+            };
+            charMap.set(char.char, char);
+            charCodeMap.set(char.id, char);
+            chars.push(char);
+        }
 
-    let perKernSize = 3;
-    let numKerns = kernArr.length / perKernSize;
+        let kernArr = new Int16Array(base64ToArrayBuffer(face.kernings));
 
-    let kernMap = new Map<string, number>();
+        let perKernSize = 3;
+        let numKerns = kernArr.length / perKernSize;
 
-    for (let i = 0; i < numKerns; i++) {
-        let offset = i * perKernSize;
-        let kern = {
-            first: kernArr[offset + 0],
-            second: kernArr[offset + 1],
-            amount: kernArr[offset + 2],
-        };
-        let firstChar = charCodeMap.get(kern.first)!.char;
-        let secondChar = charCodeMap.get(kern.second)!.char;
-        kernMap.set(`${firstChar}${secondChar}`, kern.amount);
+        let kernMap = new Map<string, number>();
+
+        for (let i = 0; i < numKerns; i++) {
+            let offset = i * perKernSize;
+            let kern = {
+                first: kernArr[offset + 0],
+                second: kernArr[offset + 1],
+                amount: kernArr[offset + 2],
+            };
+            let firstChar = charCodeMap.get(kern.first)!.char;
+            let secondChar = charCodeMap.get(kern.second)!.char;
+            kernMap.set(`${firstChar}${secondChar}`, kern.amount);
+        }
+
+        faceInfos.push({
+            name: face.name,
+            common: face.common as IFontCommonDef,
+            charMap,
+            kernMap,
+        });
     }
 
     return {
         gl,
-        kernMap,
-        charMap,
-        common: fontDef.common as IFontCommonDef,
-        program: program,
+        faceInfos,
+        program,
         atlasTex,
     };
 }
@@ -272,27 +281,30 @@ export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
  // Fudge factor to get it the same as HTML/CSS at the same px size
 let scaleFudgeFactor = 1.04;
 
-export function measureTextWidth(fontBuf: IFontBuffers, text: string, scale: number = 1.0) {
-    let font = fontBuf.atlas;
+export function measureTextWidth(fontBuf: IFontBuffers, text: string, scale: number = 1.0, faceName?: string) {
+    let face = faceName ? fontBuf.atlas.faceInfos.find(a => a.name === faceName)! : fontBuf.atlas.faceInfos[0];
     let x = 0;
     let prevCodePoint = '';
     for (let codePoint of text) {
-        let charDef = font.charMap.get(codePoint);
+        let charDef = face.charMap.get(codePoint);
         if (!charDef) {
             continue;
         }
         let kernKey = `${prevCodePoint}${codePoint}`;
-        let kernAmount = font.kernMap.get(kernKey) || 0;
+        let kernAmount = face.kernMap.get(kernKey) || 0;
         x += kernAmount + charDef.xadvance;
         prevCodePoint = codePoint;
     }
-    return x * scale / font.common.lineHeight * scaleFudgeFactor;
+    return x * scale / face.common.lineHeight * scaleFudgeFactor;
 }
 
 let _bufCache = new Float32Array(1024 * floatsPerGlyph);
 
-export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Vec4, dx?: number, dy?: number, scale?: number, mtx?: Mat4f) {
-    let atlas = fontBuf.atlas;
+export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Vec4, dx?: number, dy?: number, scale?: number, mtx?: Mat4f, faceName?: string) {
+    let face = faceName ? fontBuf.atlas.faceInfos.find(a => a.name === faceName)! : fontBuf.atlas.faceInfos[0];
+    if (!face) {
+        face = fontBuf.atlas.faceInfos[0];
+    }
 
     if (text.length * floatsPerGlyph > _bufCache.length) {
         _bufCache = new Float32Array(text.length * floatsPerGlyph);
@@ -300,22 +312,22 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Ve
     let segmentId = fontBuf.segmentsUsed;
     let buf = _bufCache;
     let bufIdx = 0;
-    let atlasWInv = 1.0 / atlas.common.scaleW;
-    let atlasHInv = 1.0 / atlas.common.scaleH;
+    let atlasWInv = 1.0 / face.common.scaleW;
+    let atlasHInv = 1.0 / face.common.scaleH;
     let numGlyphs = 0;
     let x = dx ?? 0;
     let y = dy ?? 0;
     let prevCodePoint = '';
     scale = scale ?? 1.0;
-    let localScale = scale / atlas.common.lineHeight * scaleFudgeFactor;
+    let localScale = scale / face.common.lineHeight * scaleFudgeFactor;
     for (let codePoint of text) {
-        let charDef = atlas.charMap.get(codePoint);
+        let charDef = face.charMap.get(codePoint);
         if (!charDef) {
             // TODO: Handle missing characters e.g. use a default character
             continue;
         }
         let kernKey = `${prevCodePoint}${codePoint}`;
-        let kernAmount = atlas.kernMap.get(kernKey) || 0;
+        let kernAmount = face.kernMap.get(kernKey) || 0;
         x += kernAmount * localScale;
 
         let ux = [charDef.x * atlasWInv, (charDef.x + charDef.width) * atlasWInv];

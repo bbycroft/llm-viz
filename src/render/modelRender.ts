@@ -6,7 +6,7 @@ import { Mat4f } from "../utils/matrix";
 import { createShaderManager, createShaderProgram, ensureShadersReady, IGLContext, IShaderManager } from "../utils/shader";
 import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
 import { initWalkthrough, modifyCells } from "../Walkthrough";
-import { addLine, createLineRender, renderAllLines, resetLineRender } from "./lineRender";
+import { createLineRender, renderAllLines, resetLineRender } from "./lineRender";
 import { initThreadShader } from "./threadShader";
 import { renderTokens } from "./tokenRender";
 
