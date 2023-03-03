@@ -1,6 +1,7 @@
 import { base64ToArrayBuffer } from "./data";
 import { Mat4f } from "./matrix";
 import { createShaderProgram, ensureShadersReady, IGLContext } from "./shader";
+import { Vec4 } from "./vector";
 
 export interface ICharDef {
     id: number;
@@ -32,7 +33,7 @@ export interface IFontCommonDef {
     // assume multi-color msdf font
 }
 
-const floatsPerSegment = 16;
+const floatsPerSegment = 16 + 4;
 
 const floatsPerVert = 5;
 const floatsPerGlyph = floatsPerVert * 6;
@@ -111,18 +112,19 @@ export function setupFontAtlas(ctx: IGLContext, data: IFontAtlasData) {
 
         void main() {
             int texWidth = textureSize(u_transformTex, 0).x;
-            int texOffset = int(a_textId) * 4;
+            int texOffset = int(a_textId) * ${floatsPerSegment / 4};
             int y = texOffset / texWidth;
             int x = texOffset - y * texOffset;
             vec4 t0 = texelFetch(u_transformTex, ivec2(x + 0, y), 0);
             vec4 t1 = texelFetch(u_transformTex, ivec2(x + 1, y), 0);
             vec4 t2 = texelFetch(u_transformTex, ivec2(x + 2, y), 0);
             vec4 t3 = texelFetch(u_transformTex, ivec2(x + 3, y), 0);
+            vec4 c = texelFetch(u_transformTex, ivec2(x + 4, y), 0);
             mat4 transform = mat4(t0, t1, t2, t3);
 
             gl_Position = u_view * u_model * transform * vec4(a_position, 0.0, 1.0);
             v_uv = a_uv;
-            v_fgColor = vec4(0, 0, 0, 1);
+            v_fgColor = c;
             v_bgColor = vec4(0, 0, 0, 0);
         }
 
@@ -289,7 +291,7 @@ export function measureTextWidth(fontBuf: IFontBuffers, text: string, scale: num
 
 let _bufCache = new Float32Array(1024 * floatsPerGlyph);
 
-export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, dx?: number, dy?: number, scale?: number, mtx?: Mat4f) {
+export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Vec4, dx?: number, dy?: number, scale?: number, mtx?: Mat4f) {
     let atlas = fontBuf.atlas;
 
     if (text.length * floatsPerGlyph > _bufCache.length) {
@@ -352,7 +354,9 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, dx?: numb
 
     // TODO: Do realloc stuff
     mtx = mtx ?? new Mat4f();
-    fontBuf.localTexBuffer.set(mtx, fontBuf.segmentsUsed * floatsPerSegment);
+    color = color ?? new Vec4(1, 1, 1, 1);
+    fontBuf.localTexBuffer.set(mtx, fontBuf.segmentsUsed * floatsPerSegment + 0);
+    fontBuf.localTexBuffer.set(color, fontBuf.segmentsUsed * floatsPerSegment + 16);
     fontBuf.segmentsUsed += 1;
 }
 
@@ -363,7 +367,7 @@ export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers,
 
     // resize texture if needed
     gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, fontBuf.segmentsUsed * 4, 1, gl.RGBA, gl.FLOAT, fontBuf.localTexBuffer);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, fontBuf.segmentsUsed * floatsPerSegment / 4, 1, gl.RGBA, gl.FLOAT, fontBuf.localTexBuffer);
 
     // resize vert buffer if needed
     gl.bindBuffer(gl.ARRAY_BUFFER, fontBuf.vertVbo);

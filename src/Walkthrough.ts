@@ -1,20 +1,190 @@
 import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { IRenderState, IRenderView } from "./render/modelRender";
 import { clamp } from "./utils/data";
+import { measureTextWidth, writeTextToBuffer } from "./utils/font";
 import { Mat4f } from "./utils/matrix";
-import { Vec3 } from "./utils/vector";
+import { Vec3, Vec4 } from "./utils/vector";
 
 export interface IWalkthroughOutput {
     layout: IGptModelLayout;
 }
 
-export enum Phase {
-    SplitColumn, // will be broader later
+
+export enum Dim {
+    X = 0,
+    Y = 1,
+    Z = 2,
 }
 
-export function walkthrough() {
-    let phase = Phase.SplitColumn;
 
+export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null, stringsArr: TemplateStringsArray, ...values: any[]): ICommentaryRes {
+    let t = prev?.duration ?? 0;
+    let lineOffset = prev?.lineOffset ?? 0;
+    let lineNum = prev?.lineNum ?? 0;
+    let fontSize = 20;
+    let maxWidth = 300;
+    let charsPerSecond = 40;
+
+    for (let i = 0; i < values.length + 1; i++) {
+        let str = stringsArr[i];
+
+        t += str.length / charsPerSecond;
+
+        if (i < values.length && 't' in values[i]) {
+            // calculate the t value of this point
+            values[i].t = t;
+            t += values[i].duration;
+        }
+    }
+
+    let targetT = state.walkthrough.time;
+
+    function writeWord(str: string, tStart: number, colOverride?: Vec4) {
+
+        while (str.startsWith('\n')) {
+            lineNum += 1;
+            lineOffset = 0;
+            str = str.substring(1);
+        }
+
+        let strToDraw = str;
+        let nextOff = 0;
+        let w = measureTextWidth(state.modelFontBuf, str, fontSize);
+        if (lineOffset + w > maxWidth) {
+            lineNum += 1;
+            lineOffset = 0;
+            strToDraw = str.trimStart();
+            w = measureTextWidth(state.modelFontBuf, strToDraw, fontSize);
+            if (w > maxWidth) {
+                // ignore for now; single word longer than line: should break at the character level
+            }
+            nextOff = w;
+        } else {
+            nextOff = lineOffset + w;
+        }
+
+        let color = new Vec4(0.5, 0.5, 0.5, 1).mul(0.5);
+        if (targetT > tStart) {
+            let targetColor = colOverride ?? new Vec4(0.1, 0.1, 0.1, 1);
+            color = Vec4.lerp(color, targetColor, clamp((targetT - tStart) * 10, 0, 1));
+        }
+        writeTextToBuffer(state.overlayFontBuf, strToDraw, color, 10 + lineOffset, 10 + lineNum * fontSize * 1.2, fontSize);
+
+        lineOffset = nextOff;
+    }
+
+    t = prev?.duration ?? 0;
+    for (let i = 0; i < values.length + 1; i++) {
+        let words = stringsArr[i].split(/(?=[ \n])/);
+
+        for (let word of words) {
+            writeWord(word, t);
+            t += word.length / charsPerSecond;
+        }
+
+        if (i < values.length && 't' in values[i]) {
+            let val = values[i];
+            // calculate the t value of this point
+            val.t = 1.9;
+            writeWord(values[i].str, t, val.color);
+            t += val.duration;
+        }
+    }
+
+    let res = { stringsArr, values, duration: t, lineNum, lineOffset };
+
+    if (prev) {
+        prev.lineNum = lineNum;
+        prev.lineOffset = lineOffset;
+        prev.duration = t;
+    } else {
+        state.walkthrough.commentary = res;
+    }
+
+    return res;
+}
+
+export interface ICommentaryRes {
+    stringsArr: TemplateStringsArray;
+    values: any[];
+    duration: number;
+    lineNum: number;
+    lineOffset: number;
+}
+
+export interface ITimeInfo {
+    name: string;
+    t: number;
+}
+
+export function moveCameraTo(state: IRenderState, time: ITimeInfo, rot: Vec3, target: Vec3) {
+
+}
+
+export enum DimStyle {
+    t,
+    T,
+    C,
+    B,
+    A,
+}
+
+export function getStyleColor(style: DimStyle) {
+     switch (style) {
+        case DimStyle.t:
+        case DimStyle.T:
+            return new Vec4(0.4, 0.4, 0.9, 1);
+    }
+}
+
+export function markDimensions(state: IRenderState, time: ITimeInfo, blk: IBlkDef, dim: Dim, style: DimStyle) {
+    let color = getStyleColor(style);
+}
+
+export function highlightBlock(state: IRenderState, time: ITimeInfo, blk: IBlkDef, name: string) {
+
+}
+
+export function initWalkthrough() {
+    return { phase: Phase.Input_First, time: 0, running: false, commentary: null as ICommentaryRes | null };
+}
+
+export enum Phase {
+    Input_First,
+    Input_Detail_TokEmbed,
+}
+
+export function runWalkthrough(state: IRenderState, view: IRenderView, layout: IGptModelLayout) {
+    let phaseState = state.walkthrough;
+
+    function T_val(str: string, duration: number = 0.3) {
+        return { str, duration, t: 0.0, color: getStyleColor(DimStyle.T) };
+    }
+
+    function atTime(name: string, time: number, duration?: number): ITimeInfo {
+        return { name, t: clamp((phaseState.time - time) / (duration || 1) / 1000, 0, 1) };
+    }
+
+    function atEvent(evt: { str: string, duration: number, t: number }): ITimeInfo {
+        return atTime(evt.str, evt.t, evt.duration);
+    }
+
+    function afterTime(name: string, prev: ITimeInfo, duration: number): ITimeInfo {
+        return atTime(name, prev.t, duration);
+    }
+
+    function commentary(stringsArr: TemplateStringsArray, ...values: any[]) {
+        let res = writeCommentary(state, null, stringsArr, ...values);
+        return res;
+    }
+
+    function commentaryPara(c: ICommentaryRes) {
+        return (stringsArr: TemplateStringsArray, ...values: any[]) => {
+            return writeCommentary(state, c, stringsArr, ...values);
+        };
+    }
+
+    switch (phaseState.phase) {
     // -- Input --
     // "Each token, or word/character, is represented by a number." [sequentially highlight the first few tokens & their numbers]
     // "We could map characters to numbers, or words to numbers, or anything else." [show a char-map, show a gpt-token map; highlight the mappings]
@@ -43,6 +213,27 @@ export function walkthrough() {
     // "Note that only a small fraction of the intermediate results are actually required at any one time, but we show them all here for clarity." [highlight the intermediate results]
 
     // "Let's start at the top. To compute the vectors at each time T we do a couple of steps:" [highlight the input]
+
+    case Phase.Input_First: {
+        let tStr = T_val('t', 1);
+        let c = commentary`Let's start at the top. To compute the vectors at each time ${tStr} we do a couple of steps:`;
+
+        moveCameraTo(state, atTime('camera', 0), new Vec3(0, 0, 0), new Vec3());
+        markDimensions(state, atEvent(tStr), layout.idxObj, Dim.X, DimStyle.T);
+
+        let embedMtx = T_val('token embedding matrix');
+        let tokCol = T_val('token');
+        commentaryPara(c)`\n\n1. From the ${embedMtx}, select the ${tokCol}'th column.`;
+
+        highlightBlock(state, atEvent(embedMtx), layout.tokEmbedObj, 'token embedding matrix');
+
+        // fallthrough to continue once the commentary is done
+        break;
+    }
+    case Phase.Input_Detail_TokEmbed: {
+
+    }
+
     // "1. Select the i'th column of the token embedding matrix." [highlight the i'th column of the embedding matrix for a couple of them]
     // "2. Select the t'th column of the position embedding matrix." [highlight the t'th column of the position embedding matrix for a few of them]
     // "And add them together. Now each vector has some information about the token, and some about it's position, and is ready to enter the transformers." [highlight the addition]
@@ -126,10 +317,26 @@ export function walkthrough() {
     // "Logits after are meaningless, and logits before are just predicting the input." [highlight the logits after and before]
 
     // "As in the intro, we're ready to select the token, and feed it back into the top to predict the one after" [highlight the token selection and feeding back into the top]
+    }
+
 }
 
 
 export function modifyCells(state: IRenderState, view: IRenderView, layout: IGptModelLayout) {
+
+    runWalkthrough(state, view, layout);
+
+    if (state.walkthrough.running) {
+        state.walkthrough.time += view.dt / 1000;
+
+        let commentary = state.walkthrough.commentary;
+        if (commentary && state.walkthrough.time > commentary.duration) {
+            state.walkthrough.running = false;
+            state.walkthrough.time = commentary.duration;
+        }
+
+        view.markDirty();
+    }
 
     let idxObj = layout.idxObj;
     let residual0 = layout.residual0;

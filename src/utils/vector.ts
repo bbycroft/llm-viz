@@ -147,6 +147,9 @@ export class Vec4 extends Array<number> {
     dist(a: Vec4): number { return Math.sqrt(this.distSq(a)); }
     normalize(): Vec4 { return this.mul(1.0 / Math.sqrt(this.lenSq())); }
     projToVec3(): Vec3 { return new Vec3(this[0] / this[3], this[1] / this[3], this[2] / this[3]); }
+    static lerp(a: Vec4, b: Vec4, t: number): Vec4 {
+        return a.add(b.sub(a).mul(t));
+    }
 
     static fromArray(a: ArrayLike<number>, offset: number = 0): Vec4 {
         return new Vec4(a[offset + 0], a[offset + 1], a[offset + 2], a[offset + 3]);

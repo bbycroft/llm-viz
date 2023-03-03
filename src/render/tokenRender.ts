@@ -2,7 +2,7 @@ import { cellPositionX, IGptModelLayout } from "../GptModelLayout";
 import { measureTextWidth, writeTextToBuffer } from "../utils/font";
 import { Mat4f } from "../utils/matrix";
 import { IGLContext } from "../utils/shader";
-import { Vec3 } from "../utils/vector";
+import { Vec3, Vec4 } from "../utils/vector";
 import { addLine } from "./lineRender";
 import { IRenderState } from "./modelRender";
 
@@ -50,12 +50,15 @@ export function renderTokens(ctx: IGLContext, renderState: IRenderState, layout:
     let mtxRes = mtx2.mul(mtx3);
     let totalOffset = -strOffset / 2 - layout.cell / 2 * (count - 1);
 
+    let color = new Vec4(0.5, 0.6, 0.5, 1);
+
     for (let a of strParts) {
-        writeTextToBuffer(fontBuf, a.str, totalOffset + a.offset, zUpper, upperFontSize, mtxRes);
+        writeTextToBuffer(fontBuf, a.str, color, totalOffset + a.offset, zUpper, upperFontSize, mtxRes);
 
         let x = totalOffset + a.offset + a.w / 2 - a.w2 / 2;
 
-        writeTextToBuffer(fontBuf, '' + a.val, x, zLower, lowerFontSize, mtxRes);
+        writeTextToBuffer(fontBuf, '' + a.val, color, x, zLower, lowerFontSize, mtxRes);
+
 
         let tx = x + a.w2 / 2;
         let bx = cellPositionX(layout, target, a.i) + layout.cell * 0.5;

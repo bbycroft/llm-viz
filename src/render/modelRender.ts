@@ -5,7 +5,7 @@ import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTex
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, createShaderProgram, ensureShadersReady, IGLContext, IShaderManager } from "../utils/shader";
 import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
-import { modifyCells } from "../Walkthrough";
+import { initWalkthrough, modifyCells } from "../Walkthrough";
 import { addLine, createLineRender, renderAllLines, resetLineRender } from "./lineRender";
 import { initThreadShader } from "./threadShader";
 import { renderTokens } from "./tokenRender";
@@ -15,6 +15,7 @@ export interface IRenderView {
     camAngle: Vec3; // degrees about z axis, and above the x-y plane
     camTarget: Vec3;
     time: number;
+    dt: number;
     markDirty: () => void;
 }
 
@@ -216,6 +217,8 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
 
     let lineRender = createLineRender(ctx);
 
+    let walkthrough = initWalkthrough();
+
     ensureShadersReady(shaderManager);
 
     let query = gl.createQuery()!;
@@ -235,6 +238,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         fontAtlas,
         modelFontBuf,
         overlayFontBuf,
+        walkthrough,
         query,
         lastGpuMs: 0,
         lastJsMs: 0,
@@ -298,11 +302,13 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
 
-    let walkthrough = modifyCells(args, view, layout);
-
-    layout = walkthrough.layout;
-
     resetLineRender(args.lineRender);
+    resetFontBuffers(args.modelFontBuf);
+    resetFontBuffers(args.overlayFontBuf);
+
+    let modify = modifyCells(args, view, layout);
+
+    layout = modify.layout;
 
     renderTokens(ctx, args, layout);
     addSomeText(args.modelFontBuf, layout);
@@ -478,21 +484,19 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     {
         let w = canvasEl.width;
         let h = canvasEl.height;
-        let screenViewMtx = Mat4f.fromOrtho(0, w, h, 0, -1, 1);
 
         let text = `GPU: ${args.lastGpuMs.toFixed(2)}ms, JS: ${args.lastJsMs.toFixed(2)}ms`;
         let fontSize = 14;
         let tw = measureTextWidth(args.overlayFontBuf, text, fontSize);
-        writeTextToBuffer(args.overlayFontBuf, text, w - tw - 4, 4, fontSize, new Mat4f());
+        writeTextToBuffer(args.overlayFontBuf, text, new Vec4(0,0,0,1), w - tw - 4, 4, fontSize, new Mat4f());
+
+        let screenViewMtx = Mat4f.fromOrtho(0, w, h, 0, -1, 1);
         renderAllText(gl, args.overlayFontBuf, screenViewMtx, new Mat4f());
     }
 
     if (ctx.ext.disjointTimerQuery && queryCanRun) {
         gl.endQuery(ctx.ext.disjointTimerQuery.TIME_ELAPSED_EXT);
     }
-
-    resetFontBuffers(args.modelFontBuf);
-    resetFontBuffers(args.overlayFontBuf);
 
     args.lastJsMs = performance.now() - timer0;
 }
@@ -509,5 +513,5 @@ export function addSomeText(fontBuf: IFontBuffers, layout: IGptModelLayout) {
     let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
     let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + target.cz * layout.cell * 10 + 0.5));
     let mtxRes = mtx2.mul(mtx.mul(mtx3));
-    writeTextToBuffer(fontBuf, text, - width / 2, -fontEm, fontEm, mtxRes);
+    writeTextToBuffer(fontBuf, text, new Vec4(0,0,0,1), - width / 2, -fontEm, fontEm, mtxRes);
 }

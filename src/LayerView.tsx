@@ -59,6 +59,34 @@ export function LayerView() {
     }
 
     useEffect(() => {
+        function handleKeyDown(ev: KeyboardEvent) {
+            if (!canvasRender?.modelState) {
+                return;
+            }
+            let walkthrough = canvasRender.renderState.walkthrough;
+            if (ev.key === ' ') {
+                walkthrough.running = !walkthrough.running;
+                canvasRender.markDirty();
+            }
+            if (ev.key === 'Backspace' || ev.key === 'Delete') {
+                walkthrough.running = false;
+                walkthrough.time = 0;
+                canvasRender.markDirty();
+            }
+            if (ev.key === 'f' || ev.key === 'F') {
+                walkthrough.running = false;
+                walkthrough.time = 1000;
+                canvasRender.markDirty();
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [canvasRender]);
+
+    useEffect(() => {
         let stale = false;
         async function getData() {
             let dataP = fetchTensorData('gpt-nano-sort-t0-partials.json');
@@ -222,6 +250,7 @@ class CanvasRender {
             ...this.canvasData,
             canvasEl: canvasEl!,
             time,
+            dt,
             markDirty: this.markDirty,
         }
 
