@@ -436,7 +436,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     {
         gl.enable(gl.POLYGON_OFFSET_FILL);
         gl.disable(gl.CULL_FACE);
-        gl.polygonOffset(-1.0, 1.0);
+        gl.polygonOffset(-1.0, -2.0);
 
         let locs = threadShader.locs;
         gl.useProgram(threadShader.program);

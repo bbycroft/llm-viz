@@ -16,6 +16,8 @@ export interface IBlkDef {
     cz: number;
     access?: IBlkAccess;
     localMtx?: Mat4f; // for creating blocks that are sub-parts of a block
+    // what to do for different axes?
+    rangeOffsetsX?: [number, number][]; // if this block has been split, map from [[s0, xOff], [s1, xOff], ...] to the original block
 }
 
 export interface IBlkAccess {
@@ -46,6 +48,19 @@ interface IBlkDefArgs {
     cy: number;
     cz: number;
     access?: IBlkAccessDefArgs;
+}
+
+export function cellPositionX(layout: IGptModelLayout, blk: IBlkDef, index: number) {
+    let base = blk.x + layout.cell * index;
+    if (!blk.rangeOffsetsX) {
+        return base;
+    }
+    for (let [s, xOff] of blk.rangeOffsetsX) {
+        if (index < s) {
+            return base + xOff;
+        }
+    }
+    return base;
 }
 
 export type IGptModelLayout = ReturnType<typeof genGptModelLayout>;

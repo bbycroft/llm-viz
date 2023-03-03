@@ -1,4 +1,4 @@
-import { IGptModelLayout } from "../GptModelLayout";
+import { cellPositionX, IGptModelLayout } from "../GptModelLayout";
 import { measureTextWidth, writeTextToBuffer } from "../utils/font";
 import { Mat4f } from "../utils/matrix";
 import { IGLContext } from "../utils/shader";
@@ -58,7 +58,7 @@ export function renderTokens(ctx: IGLContext, renderState: IRenderState, layout:
         writeTextToBuffer(fontBuf, '' + a.val, x, zLower, lowerFontSize, mtxRes);
 
         let tx = x + a.w2 / 2;
-        let bx = target.x + layout.cell * (a.i + 0.5);
+        let bx = cellPositionX(layout, target, a.i) + layout.cell * 0.5;
         let top = 4;
         let delta = 0.6;
         let bot = 0.3;
