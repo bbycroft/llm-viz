@@ -1,4 +1,4 @@
-import { render } from "react-dom";
+import { IColorMix } from "../Annotations";
 import { IGpuGptModel, IModelShape } from "../GptModel";
 import { genGptModelLayout, IBlkDef, IGptModelLayout } from "../GptModelLayout";
 import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "../utils/font";
@@ -241,6 +241,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         overlayFontBuf,
         walkthrough,
         query,
+        tokenColors: null as IColorMix | null,
         lastGpuMs: 0,
         lastJsMs: 0,
         hasRunQuery: false,
@@ -310,7 +311,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     modifyCells(args, view, layout);
     args.walkthrough.markDirty = view.markDirty;
 
-    renderTokens(args, layout);
+    renderTokens(args, layout, undefined, undefined, args.tokenColors || undefined);
     addSomeText(args.modelFontBuf, layout);
 
     // pull out timing logic somewhere else
@@ -523,7 +524,7 @@ export function addSomeText(fontBuf: IFontBuffers, layout: IGptModelLayout) {
 
     let mtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(2));
     let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
-    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + target.cz * layout.cell * 10 + 0.5));
+    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + target.cz * layout.cell * 20 + 0.5));
     let mtxRes = mtx2.mul(mtx.mul(mtx3));
     writeTextToBuffer(fontBuf, text, new Vec4(0,0,0,1), - width / 2, -fontEm, fontEm, mtxRes);
 }

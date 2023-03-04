@@ -43,6 +43,7 @@ export function blockDimension(state: IRenderState, layout: IGptModelLayout, blk
 }
 
 export function blockIndex(state: IRenderState, layout: IGptModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, idx: number, cellOffset: number, t: number) {
+    if (t === 0) return;
 
     let fontSize = 2;
     let text = DimStyle[style] + '=' + Math.round(idx).toFixed(0);
@@ -65,7 +66,6 @@ export function blockIndex(state: IRenderState, layout: IGptModelLayout, blk: IB
 
 
 export function splitGridX(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, xSplit: number, splitAmt: number) {
-
     // generate several new blocks (let's say up to 5) that are neighbouring the zSplit point
 
     // main-left, left, center, right, main-right
@@ -128,7 +128,7 @@ export function splitGridX(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, xSpl
     }
 }
 
-interface IColorMix {
+export interface IColorMix {
     color2: Vec4;
     mixes: number[];
 }
@@ -197,4 +197,38 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
         addLine(lineRender, thick, drawColor, new Vec3(tx, 0, top - delta), new Vec3(bx, 0, bot + delta), new Vec3(0, -1, 0));
         // addLine(lineRender, thick, color, new Vec3(bx, 0, bot + delta), new Vec3(bx, 0, bot));
     }
+}
+
+/* Returns all subblocks along a given dimension that overlap the provided range
+
+Used in combination with splitGrid. To find all blocks up to, but not including the target idx 3, use:
+
+    findSubBlocks(blk, Dim.X, null, 3)
+
+To find the exact block at idx 3, use:
+
+    findSubBlocks(blk, Dim.X, 3, 3)
+
+To find all blocks after idx 3, use:
+
+    findSubBlocks(blk, Dim.X, 4, null)
+
+*/
+export function findSubBlocks(blk: IBlkDef, dim: Dim, idxLow: number | null, idxHi: number | null) {
+    if (!blk.subs) {
+        return [];
+    }
+
+    let offsets = dim === Dim.X ? blk.rangeOffsetsX : dim === Dim.Y ? blk.rangeOffsetsY : blk.rangeOffsetsZ;
+
+    let subBlocks: IBlkDef[] = [];
+    let startIdx = 0;
+    for (let i = 0; i < blk.subs.length; i += 1) {
+        let endIdx = offsets![i][0];
+        if ((idxLow === null || idxLow < endIdx) && (idxHi === null || idxHi >= startIdx)) {
+            subBlocks.push(blk.subs[i]);
+        }
+        startIdx = endIdx;
+    }
+    return subBlocks;
 }

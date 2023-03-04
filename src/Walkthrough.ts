@@ -1,4 +1,4 @@
-import { blockIndex, renderIndexes, splitGridX } from "./Annotations";
+import { blockIndex, findSubBlocks, renderIndexes, splitGridX } from "./Annotations";
 import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { IRenderState, IRenderView } from "./render/modelRender";
 import { clamp } from "./utils/data";
@@ -153,7 +153,10 @@ export interface ITimeInfo {
     start: number;
     duration: number;
     wait: number;
-    t: number;
+
+    // will change over the course of a phase: used to lerp
+    t: number; // 0 - 1
+    active: boolean;
 }
 
 export function moveCameraTo(state: IRenderState, time: ITimeInfo, rot: Vec3, target: Vec3) {
@@ -216,7 +219,7 @@ export type IWalkthrough = ReturnType<typeof initWalkthrough>;
 
 export function initWalkthrough() {
     return {
-        phase: Phase.Input_First,
+        phase: Phase.Input_Detail_TokEmbed,
         time: 0,
         running: false,
         commentary: null as ICommentaryRes | null,
@@ -256,6 +259,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             duration,
             wait,
             t: clamp((phaseState.time - start) / duration, 0, 1),
+            active: phaseState.time > start && phaseState.time < start + duration,
          };
          phaseState.times.push(info);
          phaseState.phaseLength = Math.max(phaseState.phaseLength, start + duration + wait);
@@ -270,6 +274,14 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         return atTime(prev.start + prev.duration + prev.wait, duration, wait);
     }
 
+    function cleanup(t: ITimeInfo, times: ITimeInfo[] = phaseState.times) {
+        if (t.t > 0.0) {
+            for (let prevTime of times) {
+                prevTime.t = 1.0 - t.t;
+            }
+        }
+    }
+
     function commentary(stringsArr: TemplateStringsArray, ...values: any[]) {
         let res = writeCommentary(state, null, stringsArr, ...values);
         return res;
@@ -280,6 +292,8 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             return writeCommentary(state, c, stringsArr, ...values);
         };
     }
+
+    state.tokenColors = null;
 
     switch (phaseState.phase) {
     // -- Input --
@@ -302,10 +316,10 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         let t2 = afterTime(t1a, 5, 0.2);
 
         let blocks = layout.cubes.filter(b => b.t === 'i');
-        let pos = lerp(0, blocks.length, t2.t);
+        let pos = lerpSmoothstep(0, blocks.length, t2.t);
         let idx = Math.floor(pos);
         for (let i = Math.min(idx, blocks.length - 1); i >= 0; i--) {
-            if (t2.t >= 1.0) {
+            if (!t2.active) {
                 break;
             }
             // blocks that are <= idx should have a falloff applied based on how much they're earlier than idx
@@ -324,7 +338,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
         let height = layout.height;
 
-        if (t2.t > 0 && t2.t < 1) {
+        if (t2.active && state.walkthrough.running) {
             view.camTarget.z = lerpSmoothstep(0, height, t2.t);
         }
 
@@ -355,55 +369,116 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         moveCameraTo(state, atTime(0), new Vec3(0, 0, 0), new Vec3());
         markDimensions(state, atEvent(tStr), layout.idxObj, Dim.X, DimStyle.T);
 
-        let t0 = atTime(0, 0.1, 0.2);
-        let t1 = afterTime(t0, 1.0);
-        let t2 = afterTime(t1, 0.1, 0.4);
-        let idx = lerp(0, 3, t1.t);
-        let split = lerpSmoothstep(t0.t * 1.0, 3.0, t2.t);
+        let t0_expandAt0 = atTime(0, 0.1, 0.2);
+        let t1_totEq3 = afterTime(t0_expandAt0, 1.0);
+        let t2_expandSplit = afterTime(t1_totEq3, 0.1, 0.4);
+
+        let t3_showTokEmIdx = afterTime(t2_expandSplit, 0.2, 1.0);
+        let t4_highlightTokEmIdx = afterTime(t3_showTokEmIdx, 0.4, 1.0);
+        let t5_iter1Col = afterTime(t4_highlightTokEmIdx, 1.0, 2.0);
+        let t6_cleanup1 = afterTime(t5_iter1Col, 0.3, 0.3);
+
+        cleanup(t6_cleanup1, [t0_expandAt0, t2_expandSplit, t4_highlightTokEmIdx, t5_iter1Col]);
+
+        let t7_iterCols = afterTime(t6_cleanup1, 5.0, 0.0);
+
         // blockDimension(state, layout, layout.residual0, Dim.X, DimStyle.T, 0.5);
-        blockIndex(state, layout, layout.residual0, Dim.X, DimStyle.t, idx, split / 2, t0.t);
-        splitGridX(layout, layout.residual0, Dim.X, idx + 0.5, split);
-        splitGridX(layout, layout.idxObj   , Dim.X, idx + 0.5, split);
+        if (t6_cleanup1.t < 1.0) {
+            let idx = lerp(0, 3, t1_totEq3.t);
+            let split = lerpSmoothstep(t0_expandAt0.t * 1.0, 3.0, t2_expandSplit.t);
+            blockIndex(state, layout, layout.residual0, Dim.X, DimStyle.t, idx, split / 2, t0_expandAt0.t);
+            splitGridX(layout, layout.residual0, Dim.X, idx + 0.5, split);
+            splitGridX(layout, layout.idxObj   , Dim.X, idx + 0.5, split);
+        }
 
         let embedMtx = T_val('token embedding matrix');
         let tokCol = T_val('token');
         commentaryPara(c)`\n\n1. From the ${embedMtx}, select the ${tokCol}'th column.`;
 
-        let t3 = afterTime(t2, 0.2, 1.0);
-        let t4 = afterTime(t3, 0.4, 1.0);
         let embedOffColor = new Vec4(0.5,0.5,0.5).mul(0.6);
         // let embedActiveColor = Vec4.lerp(embedOffColor, new Vec4(0.3,0.3,0.6), t4.t);
 
-
-        let mixes = [0, t4.t, 0];
-        renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3.t, 3, 0, null, { color2: new Vec4(.3, .3, .5), mixes });
-        // renderIndexes(state, layout, layout.tokEmbedObj, embedActiveColor, t3.t, 1, 1);
-        // renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3.t, 1, 2);
-
-        if (t4.t > 0) {
-            splitGridX(layout, layout.tokEmbedObj, Dim.X, 1, 0);
-            layout.tokEmbedObj.subs![1].highlight = lerp(0, 0.2, t4.t);
+        if (layout.model && t6_cleanup1.t < 1.0) {
+            let mixes = new Array(layout.tokEmbedObj.cx).fill(0.0);
+            mixes[layout.model!.inputBuf[3]] = t4_highlightTokEmIdx.t;
+            renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3_showTokEmIdx.t, 3, 0, null, { color2: new Vec4(.3, .3, .5), mixes });
         }
 
-        hideFromBlock(state, layout, layout.residual0);
+        if (layout.model && t4_highlightTokEmIdx.t > 0 && t6_cleanup1.t <= 1.0) {
+            splitGridX(layout, layout.tokEmbedObj, Dim.X, 1, 0);
+            layout.tokEmbedObj.subs![1].highlight = lerp(0, 0.2, t4_highlightTokEmIdx.t);
+            let T = layout.idxObj.cx;
+            let cMix = new Array(T).fill(0.0);
+            cMix[3] = t4_highlightTokEmIdx.t;
+            state.tokenColors = { color2: new Vec4(.3, .3, .5), mixes: cMix };
+        }
 
-        let t5_iterCol = afterTime(t4, 1.0, 0.0);
+        if (layout.model && t7_iterCols.t < 1.0) {
+            hideFromBlock(state, layout, layout.residual0);
+        }
 
-        if (layout.model && t5_iterCol.t > 0.0) {
-            let sub = layout.residual0.subs![2];
-            sub.access = { ...sub.access!, disable: false };
+        if (layout.model && t5_iter1Col.t > 0.0 && t6_cleanup1.t <= 0.0) {
+            let sub = findSubBlocks(layout.residual0, Dim.X, 3, 3)[0];
             if (sub) {
-                splitGridX(layout, sub, Dim.Z, t5_iterCol.t * sub.cz + 1.5, 0.0);
+                sub.access = { ...sub.access!, src: layout.model.vocabEmbed.output, disable: false };
+                let zPos = t5_iter1Col.t * sub.cz + 0.5;
+                splitGridX(layout, sub, Dim.Z, zPos, 0.0);
 
-                if (sub.subs!.length > 1) {
-                    let subSub = sub.subs![sub.subs!.length - 1];
-
-                    subSub.access = {
-                        ...sub.access!,
-                        src: layout.extraSources.tokEmbedOut!,
-                        disable: true,
-                    };
+                for (let vertSubBelow of findSubBlocks(sub, Dim.Z, Math.floor(zPos), null)) {
+                    vertSubBelow.access = { ...sub.access, disable: true };
                 }
+            }
+        }
+
+
+        if (layout.model && t7_iterCols.active) {
+            let T = layout.idxObj.cx;
+            let C = layout.residual0.cz;
+            let cMix = new Array(T).fill(0.0);
+
+            state.tokenColors = { color2: new Vec4(.3, .3, .5), mixes: cMix };
+
+            let tPos = t7_iterCols.t * T;
+            let tIdx = Math.floor(tPos);
+            cMix[tIdx] = 1.0;
+
+            let t_inner = tPos - tIdx;
+            let cPos = t_inner * C;
+
+            splitGridX(layout, layout.residual0, Dim.X, tIdx + 0.5, 0.0);
+
+            let sub = findSubBlocks(layout.residual0, Dim.X, null, tIdx - 1);
+            for (let vertSubLeft of sub) {
+                vertSubLeft.access = { ...vertSubLeft.access!, disable: false };
+            }
+            let sub2 = findSubBlocks(layout.residual0, Dim.X, tIdx, tIdx)[0];
+            if (sub2) {
+                sub2.highlight = 0.2;
+                sub2.access = { ...sub2.access!, disable: false };
+                let zPos = cPos + 0.5;
+                splitGridX(layout, sub2, Dim.Z, zPos, 0.0);
+
+                for (let colSubBelow of findSubBlocks(sub2, Dim.Z, Math.floor(zPos) + 1, null)) {
+                    colSubBelow.access = { ...colSubBelow.access!, disable: true };
+                }
+            }
+
+            let tokIdx = layout.model.inputBuf[tIdx];
+
+            let mixes = new Array(layout.tokEmbedObj.cx).fill(0.0);
+            mixes[tokIdx] = 1.0;
+            renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3_showTokEmIdx.t, 3, 0, null, { color2: new Vec4(.3, .3, .5), mixes });
+
+            splitGridX(layout, layout.tokEmbedObj, Dim.X, tokIdx + 0.5, 0);
+            let tokSub = findSubBlocks(layout.tokEmbedObj, Dim.X, tokIdx, tokIdx)[0];
+            if (tokSub) {
+                tokSub.highlight = 0.2;
+            }
+
+            splitGridX(layout, layout.posEmbedObj, Dim.X, tIdx + 0.5, 0);
+            let posSub = findSubBlocks(layout.posEmbedObj, Dim.X, tIdx, tIdx)[0];
+            if (posSub) {
+                posSub.highlight = 0.2;
             }
         }
 

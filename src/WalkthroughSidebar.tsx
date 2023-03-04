@@ -20,7 +20,6 @@ export const WalkthroughSidebar: React.FC<{
         let len = baseEl!.clientHeight;
         walkthrough.time = clamp(ds.data + dy / len * totalTime, 0, totalTime);
         walkthrough.running = false;
-        console.log('setting time to', walkthrough.time);
         ev.preventDefault();
         ev.stopImmediatePropagation();
         walkthrough.markDirty();
