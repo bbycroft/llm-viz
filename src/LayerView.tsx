@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useReducer, useState } from 'react';
 import { IDataAndModel, IModelShape, IModelState, initModel, runModel, setModelInputData } from './GptModel';
 import s from './LayerView.module.css';
 import { initRender, IRenderState, IRenderView, renderModel } from './render/modelRender';
-import { clamp, useGlobalDrag } from './utils/data';
+import { assignImm, clamp, useGlobalDrag } from './utils/data';
 import { fetchFontAtlasData, IFontAtlasData } from './utils/font';
 import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
+import { IWalkthrough } from './Walkthrough';
+import { WalkthroughSidebar } from './WalkthroughSidebar';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -28,6 +30,8 @@ export function LayerView() {
     let [camTarget, setCamTarget] = useState(new Vec3(0, 0, -500)); // where the camera is looking
     let [canvasRender, setCanvasRender] = useState<CanvasRender | null>(null);
     let [fontAtlasData, setFontAtlasData] = useState<IFontAtlasData | null>(null);
+    let [walkthrough, setWalkthrough] = useState<IWalkthrough | null>(null);
+    let [counter, setCounter] = useReducer((a: number) => a + 1, 0);
 
     let [dragStart, setDragStart] = useGlobalDrag<{ camAngle: Vec3, camTarget: Vec3 }>(function handleMove(ev, ds) {
         let dx = ev.clientX - ds.clientX;
@@ -75,7 +79,7 @@ export function LayerView() {
             }
             if (ev.key === 'f' || ev.key === 'F') {
                 walkthrough.running = false;
-                walkthrough.time = 1000;
+                walkthrough.time = walkthrough.phaseLength;
                 canvasRender.markDirty();
             }
         }
@@ -114,9 +118,16 @@ export function LayerView() {
         return () => { stale = true; };
     }, []);
 
+    let localSetWalkthrough = useCallback((walkthrough: IWalkthrough | null) => {
+        setCounter();
+        setWalkthrough(a => {
+            return walkthrough;
+        });
+    }, []);
+
     useEffect(() => {
         if (canvasEl && fontAtlasData) {
-            let canvasRenderLocal = new CanvasRender(canvasEl, null!, fontAtlasData);
+            let canvasRenderLocal = new CanvasRender(canvasEl, null!, fontAtlasData, localSetWalkthrough);
             let resizeObserver = new ResizeObserver(() => {
                 canvasRenderLocal.canvasSizeDirty = true;
                 canvasRenderLocal.markDirty();
@@ -137,6 +148,9 @@ export function LayerView() {
     }, [canvasRender, dataAndModel, camAngle, camTarget]);
 
     return <div className={s.view}>
+        <div className={s.sidebar}>
+            {walkthrough && <WalkthroughSidebar walkthrough={walkthrough} counter={counter} />}
+        </div>
         <div className={s.canvasWrap}>
             <canvas
                 className={s.canvas}
@@ -162,7 +176,7 @@ class CanvasRender {
     stopped = false;
     canvasSizeDirty = true;
 
-    constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData, fontAtlasData: IFontAtlasData) {
+    constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData, fontAtlasData: IFontAtlasData, private phaseInfoCallback: (a: IWalkthrough) => void) {
         this.renderState = initRender(canvasEl, fontAtlasData);
         this.random = new Random(4);
     }
@@ -255,6 +269,9 @@ class CanvasRender {
         }
 
         renderModel(view, this.renderState, shape, this.modelState || undefined);
+
+        this.phaseInfoCallback(this.renderState.walkthrough);
+
     }
 
 }

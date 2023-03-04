@@ -1,0 +1,124 @@
+@import '@/styles/variables.css';
+
+.title {
+    margin: 8px;
+}
+
+.split {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    align-items: stretch;
+}
+
+.walkthrough {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    justify-content: stretch;
+}
+
+.timelineLeft {
+    width: 32px;
+    /* background-color: rgba(255, 0, 0, 0.1); */
+    padding: 8px 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.timelineBase {
+    position: relative;
+    flex: 1;
+    /* background-color: rgba(0, 255, 0, 0.1); */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    pointer-events: none;
+}
+
+.timelineLine {
+    width: 5px;
+    border-radius: 8px;
+    flex: 1;
+    background-color: rgb(204, 204, 223);
+}
+
+.timelineCaret {
+    position: absolute;
+    transform: translateY(-50%);
+    background-color: #888;
+    width: 10px;
+    height: 10px;
+    border-radius: 40px;
+}
+
+.timelineCaretHit {
+    position: absolute;
+    transform: translateY(-50%);
+    cursor: pointer;
+    background-color: rgba(0,0,0,0);
+    width: 32px;
+    height: 32px;
+    border-radius: 40px;
+    pointer-events: auto;
+}
+
+.timelineEvt {
+    position: absolute;
+    /* transform: translateY(-50%); */
+    background-color: #a1a1a1;
+    width: 1px;
+    border-radius: 40px;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+}
+
+.timelineEvtStart {
+    position: absolute;
+    transform: translateY(-50%);
+    background-color: #a1a1a1;
+    width: 5px;
+    height: 5px;
+    border-radius: 40px;
+}
+
+.timelineEvtEnd {
+    position: absolute;
+    bottom: 0;
+    background-color: #a1a1a1;
+    width: 5px;
+    height: 1px;
+}
+
+.content {
+    margin: 8px;
+    flex: 1;
+}
+
+.phaseGroupTitle {
+    font-size: 16px;
+    margin: 4px 0;
+}
+
+.phase {
+    height: 30px;
+    border-radius: 2px;
+    background-color: #d1d5e7;
+    display: flex;
+    align-items: center;
+    color: #555;
+    cursor: pointer;
+}
+
+.active {
+    background-color: #8587f7;
+    color: white;
+}
+
+.phaseTitle {
+    font-size: 14px;
+    margin-left: 8px;
+}

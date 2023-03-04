@@ -1,16 +1,10 @@
-import { blockDimension, blockIndex, renderIndexes, splitGridX } from "./Annotations";
+import { blockIndex, renderIndexes, splitGridX } from "./Annotations";
 import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { IRenderState, IRenderView } from "./render/modelRender";
 import { clamp } from "./utils/data";
 import { measureTextWidth, writeTextToBuffer } from "./utils/font";
 import { lerp, lerpSmoothstep } from "./utils/math";
-import { Mat4f } from "./utils/matrix";
 import { Vec3, Vec4 } from "./utils/vector";
-
-export interface IWalkthroughOutput {
-    layout: IGptModelLayout;
-}
-
 
 export enum Dim {
     X = 0,
@@ -18,6 +12,46 @@ export enum Dim {
     Z = 2,
 }
 
+/**
+
+Thoughts about the walkthrough:
+
+- Linking text events to the visual actions doesn't work well.
+- Attention needs to flip between them directly. Much better to do a chunk of text, then [Spacebar], then action.
+  Can still do aligned highlights though, but focussed on the model, and linking back to the text.
+  This also works well with hover on either. The color-coding helps a lot anyway.
+
+- Better to do all this text in html, it adds searchability, and supports more things. _However_, probably
+  difficult to do TeX fonts. Although maybe that's a bit excessive anyway.
+
+- Can show a reasonable amount of text: Limit to half a screen on mobile, say.
+
+- Fast but smooth transitions, with a pause in between, is much better.
+- Slow, linked transitions is kinda nauseating.
+
+- Need more controls! Mainly jumping between phases, and selecting times on phases.
+- Can compute the latest time on each phase by keeping track of the events. Can keep this in an array for
+  display as well.
+- Need to push back into react-land at the end of each frame. (commentary; stats; etc)
+- Probably need to query all the phases up front somehow. Could have a pass where we don't actually
+  update anything, but read off info for each one. A pain for the in-place updates though. Likely to break
+  things. Easier to just have a list of them and info like titles.
+- Hmm, do want to expand to total time, hmm.
+
+- Need a bunch more annotations/effects yet
+  - Get the trails working well
+  - Want a descriptor of how a cell is computed (x, y from these; mul by a, b from these, plus this; all added, [t])
+  - It applies to everything, and could allow for 'draw for this 1 cell', 'draw for this col/row of cells'.
+  - Curved arrows and flows with thickness
+    - Arrows for showing embedding mapping, and for linking src & sink
+    - Flows for the residual pathway: wide transparent no-width path, with glowing more-solid sides
+      - Basically wide arrows
+      - Also need side bit coming off of it for when it's copied
+      - Not as wide as the actual block; keep it maybe half-T thick
+      - Some indication of flow
+  - Highlight block or row/column
+
+ */
 
 export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null, stringsArr: TemplateStringsArray, ...values: any[]): ICommentaryRes {
     let t = prev?.duration ?? 0;
@@ -25,7 +59,7 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
     let lineNum = prev?.lineNum ?? 0;
     let fontSize = 20;
     let maxWidth = 300;
-    let charsPerSecond = 40;
+    let charsPerSecond = 400;
 
     for (let i = 0; i < values.length + 1; i++) {
         let str = stringsArr[i];
@@ -34,7 +68,7 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
 
         if (i < values.length && 't' in values[i]) {
             // calculate the t value of this point
-            values[i].t = t;
+            values[i].start = t;
             t += values[i].duration;
         }
     }
@@ -87,7 +121,7 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
         if (i < values.length && 't' in values[i]) {
             let val = values[i];
             // calculate the t value of this point
-            val.t = 1.9;
+            val.start = t;
             writeWord(values[i].str, t, val.color, val.fontFace);
             t += val.duration;
         }
@@ -167,8 +201,37 @@ export function hideFromBlock(state: IRenderState, layout: IGptModelLayout, targ
     }
 }
 
+export interface IPhaseGroup {
+    groupId: string;
+    title: string;
+    phases: IPhaseDef[];
+}
+
+export interface IPhaseDef {
+    id: Phase;
+    title: string;
+}
+
+export type IWalkthrough = ReturnType<typeof initWalkthrough>;
+
 export function initWalkthrough() {
-    return { phase: Phase.Input_First, time: 100, running: false, commentary: null as ICommentaryRes | null };
+    return {
+        phase: Phase.Input_First,
+        time: 0,
+        running: false,
+        commentary: null as ICommentaryRes | null,
+        times: [] as ITimeInfo[],
+        phaseLength: 0,
+        markDirty: () => { }, // bit of a hack to get it to WalkthroughSidebar
+        phaseList: [{
+            groupId: 'detailed-input',
+            title: 'Detailed - Input',
+            phases: [
+                { id: Phase.Input_First, title: 'The First' },
+                { id: Phase.Input_Detail_TokEmbed, title: 'Embeddings' },
+            ],
+        }] as IPhaseGroup[],
+    };
 }
 
 export enum Phase {
@@ -178,19 +241,25 @@ export enum Phase {
 
 export function runWalkthrough(state: IRenderState, view: IRenderView, layout: IGptModelLayout) {
     let phaseState = state.walkthrough;
+    phaseState.times = [];
 
     function T_val(str: string, duration: number = 0.3, fontFace?: string) {
         return { str, duration, start: 0, t: 0.0, color: dimStyleColor(DimStyle.T), fontFace };
     }
 
-    function atTime(time: number, duration?: number, wait?: number): ITimeInfo {
-        return {
+    function atTime(start: number, duration?: number, wait?: number): ITimeInfo {
+        duration = duration ?? 1;
+        wait = wait ?? 0;
+        let info: ITimeInfo = {
             name: '',
-            start: time,
-            duration: duration || 1,
-            wait: wait || 0,
-            t: clamp((phaseState.time - time) / (duration || 1), 0, 1),
+            start,
+            duration,
+            wait,
+            t: clamp((phaseState.time - start) / duration, 0, 1),
          };
+         phaseState.times.push(info);
+         phaseState.phaseLength = Math.max(phaseState.phaseLength, start + duration + wait);
+         return info;
     }
 
     function atEvent(evt: { str: string, duration: number, t: number, start: number }): ITimeInfo {
@@ -225,6 +294,20 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
     // "These vectors now pass through the stages of the model, going through a series of transformers." [highlight the transformers, quickly step through them]
 
+    case Phase.Input_First: {
+        let t0 = T_val('', 0);
+        let c = commentary`These vectors now pass through the stages of the model, going through a series of transformers.${t0}`;
+        let t1 = atEvent(t0);
+        let t2 = afterTime(t1, 5, 0.2);
+
+        let blocks = layout.cubes.filter(b => b.t === 'i');
+        let idx = lerp(0, blocks.length, t2.t);
+        if (idx < blocks.length - 1) {
+            hideFromBlock(state, layout, blocks[Math.ceil(idx)]);
+        }
+        break;
+    }
+
     // -- Output --
     // "And what's the output? A weighted prediction of the next token in the sequence!" [highlight the 6th element]
     // "And once we've picked the next token, we can place that in the 7th position, and repeat." [slide the output viz to the top; plonk the 7th element at the top; repeat until the end]
@@ -242,7 +325,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
     // "Let's start at the top. To compute the vectors at each time T we do a couple of steps:" [highlight the input]
 
-    case Phase.Input_First: {
+    case Phase.Input_Detail_TokEmbed: {
         let tStr = T_val('t', 1, 'cmmi12');
         let c = commentary`Let's start at the top. To compute the vectors at each time ${tStr} we do a couple of steps:`;
 
@@ -278,7 +361,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
         hideFromBlock(state, layout, layout.residual0);
 
-        let t5 = afterTime(t4, 1.0, 2.0);
+        let t5 = afterTime(t4, 1.0, 0.0);
 
         if (layout.model && t5.t > 0.0) {
             let sub = layout.residual0.subs![2];
@@ -300,9 +383,6 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
         // fallthrough to continue once the commentary is done
         break;
-    }
-    case Phase.Input_Detail_TokEmbed: {
-
     }
 
     // "1. Select the i'th column of the token embedding matrix." [highlight the i'th column of the embedding matrix for a couple of them]
@@ -400,28 +480,11 @@ export function modifyCells(state: IRenderState, view: IRenderView, layout: IGpt
     if (state.walkthrough.running) {
         state.walkthrough.time += view.dt / 1000;
 
-        let commentary = state.walkthrough.commentary;
-        if (commentary && state.walkthrough.time > commentary.duration + 10) {
+        if (state.walkthrough.time > state.walkthrough.phaseLength) {
             state.walkthrough.running = false;
-            state.walkthrough.time = commentary.duration;
+            state.walkthrough.time = state.walkthrough.phaseLength;
         }
 
         view.markDirty();
     }
-
-    // let idxObj = layout.idxObj;
-    // let residual0 = layout.residual0;
-
-    // let offset = 3.5; // ((view.time * 0.004) % (idxObj.cx + 2.0)) - 1.0;
-    // view.markDirty();
-
-    let cubes = [...layout.cubes];
-
-    // let splitAmt = 3.0;
-    // let idxBlks = splitGridX(idxObj, offset, splitAmt, layout.cell);
-    // let residBlks = splitGridX(residual0, offset, splitAmt, layout.cell);
-
-    // cubes = [...layout.cubes.filter(a => a !== idxObj && a !== residual0), ...idxBlks, ...residBlks];
-
-    return { layout: { ...layout, cubes } };
 }

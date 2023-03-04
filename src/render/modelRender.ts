@@ -306,9 +306,8 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     resetFontBuffers(args.modelFontBuf);
     resetFontBuffers(args.overlayFontBuf);
 
-    let modify = modifyCells(args, view, layout);
-
-    layout = modify.layout;
+    modifyCells(args, view, layout);
+    args.walkthrough.markDirty = view.markDirty;
 
     renderTokens(args, layout);
     addSomeText(args.modelFontBuf, layout);

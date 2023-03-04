@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+
+export function clsx(...cls: (string | false | undefined | null)[]) {
+    let res = '';
+    for (let c of cls) {
+        if (c) {
+            res += c.split(' ').map(a => a.trim()).filter(a => !!a).join(' ');
+        }
+    }
+    return res;
+}
+
 export function assignImm<T>(target: T, source: Partial<T>): T {
     let keys = Object.keys(source);
     let changed = false;
