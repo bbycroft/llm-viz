@@ -128,7 +128,12 @@ export function splitGridX(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, xSpl
     }
 }
 
-export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk: IBlkDef, color: Vec4, t: number, count: number = 4, offset: number = 0, data: Float32Array | null = null) {
+interface IColorMix {
+    color2: Vec4;
+    mixes: number[];
+}
+
+export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk: IBlkDef, color: Vec4, t: number, count: number = 4, offset: number = 0, data: Float32Array | null = null, mix?: IColorMix) {
     let { modelFontBuf: fontBuf, lineRender } = state;
 
     // Just rendering the 0, 1, 2 tokens, with plans to advance to the GPT text model etc
@@ -172,7 +177,15 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
     for (let a of strParts) {
         let x = totalOffset + a.textOffset + a.space / 2 - a.w / 2;
 
-        writeTextToBuffer(fontBuf, '' + a.val, color, x, 0, em, mtxRes);
+        let drawColor = color;
+        if (mix) {
+            let val = mix.mixes[a.i];
+            if (val > 0.0) {
+                drawColor = Vec4.lerp(color, mix.color2, val);
+            }
+        }
+
+        writeTextToBuffer(fontBuf, '' + a.val, drawColor, x, 0, em, mtxRes);
 
         let tx = x + a.w / 2;
         let bx = cellPositionX(layout, blk, a.i + offset) + layout.cell * 0.5;
@@ -181,7 +194,7 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
         let bot = Math.min(blk.z + 0.3, top);
         let thick = em * 0.02;
         // addLine(lineRender, thick, color, new Vec3(tx, 0, top), new Vec3(tx, 0, top - delta));
-        addLine(lineRender, thick, color, new Vec3(tx, 0, top - delta), new Vec3(bx, 0, bot + delta), new Vec3(0, -1, 0));
+        addLine(lineRender, thick, drawColor, new Vec3(tx, 0, top - delta), new Vec3(bx, 0, bot + delta), new Vec3(0, -1, 0));
         // addLine(lineRender, thick, color, new Vec3(bx, 0, bot + delta), new Vec3(bx, 0, bot));
     }
 }

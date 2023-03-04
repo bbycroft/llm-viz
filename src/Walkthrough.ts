@@ -298,13 +298,36 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         let t0 = T_val('', 0);
         let c = commentary`These vectors now pass through the stages of the model, going through a series of transformers.${t0}`;
         let t1 = atEvent(t0);
-        let t2 = afterTime(t1, 5, 0.2);
+        let t1a = afterTime(t1, 0.0, 2.0);
+        let t2 = afterTime(t1a, 5, 0.2);
 
         let blocks = layout.cubes.filter(b => b.t === 'i');
-        let idx = lerp(0, blocks.length, t2.t);
-        if (idx < blocks.length - 1) {
-            hideFromBlock(state, layout, blocks[Math.ceil(idx)]);
+        let pos = lerp(0, blocks.length, t2.t);
+        let idx = Math.floor(pos);
+        for (let i = Math.min(idx, blocks.length - 1); i >= 0; i--) {
+            if (t2.t >= 1.0) {
+                break;
+            }
+            // blocks that are <= idx should have a falloff applied based on how much they're earlier than idx
+            let falloff = 1.0 - (pos - i) / 8;
+            if (falloff < 0) {
+                break;
+            }
+            let blk = blocks[i];
+            blk.highlight = falloff;
+            // blk.access?.enable();
         }
+        if (idx < blocks.length - 1) {
+            let blk = blocks[idx];
+            hideFromBlock(state, layout, blk);
+        }
+
+        let height = layout.height;
+
+        if (t2.t > 0 && t2.t < 1) {
+            view.camTarget.z = lerpSmoothstep(0, height, t2.t);
+        }
+
         break;
     }
 
@@ -332,7 +355,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         moveCameraTo(state, atTime(0), new Vec3(0, 0, 0), new Vec3());
         markDimensions(state, atEvent(tStr), layout.idxObj, Dim.X, DimStyle.T);
 
-        let t0 = atTime(0, 0.1, 0.4);
+        let t0 = atTime(0, 0.1, 0.2);
         let t1 = afterTime(t0, 1.0);
         let t2 = afterTime(t1, 0.1, 0.4);
         let idx = lerp(0, 3, t1.t);
@@ -349,25 +372,28 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         let t3 = afterTime(t2, 0.2, 1.0);
         let t4 = afterTime(t3, 0.4, 1.0);
         let embedOffColor = new Vec4(0.5,0.5,0.5).mul(0.6);
-        let embedActiveColor = Vec4.lerp(embedOffColor, new Vec4(0.3,0.3,0.6), t4.t);
+        // let embedActiveColor = Vec4.lerp(embedOffColor, new Vec4(0.3,0.3,0.6), t4.t);
 
-        splitGridX(layout, layout.tokEmbedObj, Dim.X, 1.5, lerpSmoothstep(0, 2, t4.t));
 
-        renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3.t, 1, 0);
-        renderIndexes(state, layout, layout.tokEmbedObj, embedActiveColor, t3.t, 1, 1);
-        renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3.t, 1, 2);
+        let mixes = [0, t4.t, 0];
+        renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3.t, 3, 0, null, { color2: new Vec4(.3, .3, .5), mixes });
+        // renderIndexes(state, layout, layout.tokEmbedObj, embedActiveColor, t3.t, 1, 1);
+        // renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3.t, 1, 2);
 
-        highlightBlock(state, atEvent(embedMtx), layout.tokEmbedObj, 'token embedding matrix');
+        if (t4.t > 0) {
+            splitGridX(layout, layout.tokEmbedObj, Dim.X, 1, 0);
+            layout.tokEmbedObj.subs![1].highlight = lerp(0, 0.2, t4.t);
+        }
 
         hideFromBlock(state, layout, layout.residual0);
 
-        let t5 = afterTime(t4, 1.0, 0.0);
+        let t5_iterCol = afterTime(t4, 1.0, 0.0);
 
-        if (layout.model && t5.t > 0.0) {
+        if (layout.model && t5_iterCol.t > 0.0) {
             let sub = layout.residual0.subs![2];
             sub.access = { ...sub.access!, disable: false };
             if (sub) {
-                splitGridX(layout, sub, Dim.Z, t5.t * sub.cz + 1.5, 0.0);
+                splitGridX(layout, sub, Dim.Z, t5_iterCol.t * sub.cz + 1.5, 0.0);
 
                 if (sub.subs!.length > 1) {
                     let subSub = sub.subs![sub.subs!.length - 1];

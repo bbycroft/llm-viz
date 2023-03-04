@@ -90,6 +90,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         uniform sampler2D u_accessSampler;
         uniform mat4x2 u_accessMtx;
         uniform int u_channel;
+        uniform float u_highlight;
 
         void main() {
             ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, -v_normal.z) * 0.1);
@@ -108,7 +109,6 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
             vec3 baseColor = mix(u_baseColor, vec3(0.5, 0.5, 0.5), 0.5);
             if (cellDark) {
                 baseColor *= mix(0.9, 1.0, t);
-
             }
 
             if (u_accessTexScale > 0.0 && dist < maxDist) { // have access texture
@@ -158,7 +158,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
                 baseColor = mix(baseColor, vec3(1.0, 1.0, 1.0), 1.0 - edgeWeight);
             }
 
-            vec3 color = baseColor * 0.7;
+            vec3 color = mix(baseColor * 0.7, u_baseColor, u_highlight);
 
             for (int i = 0; i < 3; i++) {
                 vec3 light_dir = normalize(u_lightPos[i] - v_modelPos);
@@ -178,6 +178,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         'u_baseColor', 'u_nCells',
         'u_lightPos', 'u_camPos', 'u_lightColor',
         'u_channel', 'u_accessTexScale', 'u_accessSampler', 'u_accessMtx', 'u_localPosMtx',
+        'u_highlight',
     ])!;
 
     let lightShader = createShaderProgram(ctx, 'light', /*glsl*/`#version 300 es
@@ -432,6 +433,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             gl.uniform3f(locs.u_nCells, cube.cx, cube.cy, cube.cz);
             gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
             gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
+            gl.uniform1f(locs.u_highlight, cube.highlight ?? 0);
             let baseColor = cube.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
             gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
             let hasAccess = cube.access && cube.access.disable !== true;

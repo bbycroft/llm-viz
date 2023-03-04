@@ -66,14 +66,14 @@ export const WalkthroughSidebar: React.FC<{
             <div className={s.content}>
                 {walkthrough.phaseList.map((group, i) => {
 
-                    return <div className={s.phaseGroup}>
+                    return <div key={group.groupId} className={s.phaseGroup}>
                         <div className={s.phaseGroupTitle}>{group.title}</div>
 
 
                         {group.phases.map((phase, j) => {
                             let active = walkthrough.phase === phase.id;
 
-                            return <div className={clsx(s.phase, active && s.active)} onClick={ev => handlePhaseClick(ev, phase)}>
+                            return <div key={phase.id} className={clsx(s.phase, active && s.active)} onClick={ev => handlePhaseClick(ev, phase)}>
                                 <div className={s.phaseTitle}>{phase.title}</div>
                             </div>;
                         })}

@@ -20,6 +20,7 @@ export interface IBlkDef {
     rangeOffsetsX?: [number, number][]; // if this block has been split, map from [[s0, xOff], [s1, xOff], ...] to the original block
     rangeOffsetsY?: [number, number][];
     rangeOffsetsZ?: [number, number][];
+    highlight?: number; // 0 - 1 (0 = no highlight, 1 = full highlight)
     subs?: IBlkDef[]; // substitutes for this block (i.e. render these instead)
 }
 
