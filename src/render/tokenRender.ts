@@ -1,17 +1,16 @@
 import { cellPositionX, IGptModelLayout } from "../GptModelLayout";
 import { measureTextWidth, writeTextToBuffer } from "../utils/font";
 import { Mat4f } from "../utils/matrix";
-import { IGLContext } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
 import { addLine } from "./lineRender";
 import { IRenderState } from "./modelRender";
 
-export function renderTokens(ctx: IGLContext, renderState: IRenderState, layout: IGptModelLayout, data?: Float32Array, count?: number) {
+export function renderTokens(renderState: IRenderState, layout: IGptModelLayout, data?: Float32Array, count?: number) {
     let { modelFontBuf: fontBuf, lineRender } = renderState;
 
     // Just rendering the 0, 1, 2 tokens, with plans to advance to the GPT text model etc
 
-    data = data || new Float32Array([0, 1, 2, 1, 2, 1, 0, 0, 0, 0, 0]);
+    data = data ?? layout.model?.inputBuf ?? new Float32Array([0, 1, 2]);
     count = count || 6;
 
     // may scale with view

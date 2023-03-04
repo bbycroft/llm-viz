@@ -102,6 +102,14 @@ export class Vec3 {
     static fromArray(a: ArrayLike<number>, offset: number = 0): Vec3 {
         return new Vec3(a[offset + 0], a[offset + 1], a[offset + 2]);
     }
+    setAt(i: number, v: number) {
+        switch (i) {
+        case 0: this.x = v; break;
+        case 1: this.y = v; break;
+        case 2: this.z = v; break;
+        }
+        return this;
+    }
     toString(): string {
         return `Vec3(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)})`;
     }

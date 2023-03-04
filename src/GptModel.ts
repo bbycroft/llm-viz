@@ -62,6 +62,10 @@ export function setModelInputData(renderState: IRenderState, gptModel: IGpuGptMo
         buf[i] = rand.randint(0, 3);
     }
 
+    buf.set([2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 0]);
+
+    gptModel.inputBuf = buf;
+    console.log('buf:', buf);
     writeToBufferTex(gl, inputTokens, buf);
 }
 
@@ -91,6 +95,7 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
 
     if (validationData) {
         let tIdx = validationData.idx; // (B, T)
+        gptModel.inputBuf = tIdx.buffer;
         writeToBufferTex(gl, inputTokens, tIdx.buffer);
     }
 
@@ -191,6 +196,7 @@ export function createGptModel(shaderManager: IShaderManager, model: ITensorSet,
     let shape: IModelShape = { B, C, nHeads, T, A, nBlocks, vocabSize };
     let layerBuilder: ILayerBuilder = { gl, model, shape, shaderManager };
 
+    let inputBuf = new Float32Array(B * T);
     let inputTokens = createBufferTex(gl, 1, B * T, 1);
 
     // not ideal to have to create one for each batch, but works for now
@@ -223,6 +229,7 @@ export function createGptModel(shaderManager: IShaderManager, model: ITensorSet,
     ensureShadersReady(shaderManager);
 
     return {
+        inputBuf,
         inputTokens,
         vocabEmbed,
         posEmbed,

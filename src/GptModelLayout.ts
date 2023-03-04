@@ -18,6 +18,9 @@ export interface IBlkDef {
     localMtx?: Mat4f; // for creating blocks that are sub-parts of a block
     // what to do for different axes?
     rangeOffsetsX?: [number, number][]; // if this block has been split, map from [[s0, xOff], [s1, xOff], ...] to the original block
+    rangeOffsetsY?: [number, number][];
+    rangeOffsetsZ?: [number, number][];
+    subs?: IBlkDef[]; // substitutes for this block (i.e. render these instead)
 }
 
 export interface IBlkAccess {
@@ -25,6 +28,7 @@ export interface IBlkAccess {
     channel: 'r' | 'g' | 'b';
     scale: number;
     mat: Mat4f; // actually using the first two columns for a 3x2 matrix: mapping (x, y, z) integer cell coord to (x, y) src tex coord
+    disable?: boolean;
 }
 
 interface IBlkAccessDefArgs {
@@ -483,5 +487,11 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         logitsSoftmaxTopN,
         blocks,
         height: z + 4,
+        model: gptGpuModel,
+        extraSources: {
+            idx: gptGpuModel?.inputBuf,
+            tokEmbedOut: gptGpuModel?.vocabEmbed.output,
+            posEmbedOut: gptGpuModel?.posEmbed.output,
+        },
     };
 }

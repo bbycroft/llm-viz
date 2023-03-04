@@ -46,7 +46,7 @@ export class Random {
     }
 
     randint(min: number, max: number): number {
-        return clamp(this.random() * (max - min) + min, min, max - 1);
+        return clamp(Math.floor(this.random() * (max - min) + min), min, max - 1);
     }
 }
 

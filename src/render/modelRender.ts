@@ -1,6 +1,6 @@
 import { render } from "react-dom";
 import { IGpuGptModel, IModelShape } from "../GptModel";
-import { genGptModelLayout, IGptModelLayout } from "../GptModelLayout";
+import { genGptModelLayout, IBlkDef, IGptModelLayout } from "../GptModelLayout";
 import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "../utils/font";
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, createShaderProgram, ensureShadersReady, IGLContext, IShaderManager } from "../utils/shader";
@@ -310,7 +310,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
 
     layout = modify.layout;
 
-    renderTokens(ctx, args, layout);
+    renderTokens(args, layout);
     addSomeText(args.modelFontBuf, layout);
 
     // pull out timing logic somewhere else
@@ -417,7 +417,17 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         gl.uniform3fv(locs.u_lightColor, lightColorArr);
         gl.uniform1i(locs.u_accessSampler, 0);
 
-        for (let cube of layout.cubes) {
+        let cubes: IBlkDef[] = [];
+        function addCube(c: IBlkDef) {
+            if (c.subs) {
+                c.subs.forEach(addCube);
+            } else {
+                cubes.push(c);
+            }
+        }
+        layout.cubes.forEach(addCube);
+
+        for (let cube of cubes) {
             // using uniforms is just a quick & easy way to sort this out
             gl.uniformMatrix4fv(locs.u_localPosMtx, false, cube.localMtx ?? new Mat4f());
             gl.uniform3f(locs.u_nCells, cube.cx, cube.cy, cube.cz);
@@ -425,14 +435,15 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
             let baseColor = cube.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
             gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
-            if (cube.access) {
+            let hasAccess = cube.access && cube.access.disable !== true;
+            if (hasAccess && cube.access) {
                 gl.uniformMatrix4x2fv(locs.u_accessMtx, true, cube.access.mat, 0, 8);
                 let c = cube.access.channel;
                 gl.uniform1i(locs.u_channel, c === 'r' ? 0 : c === 'g' ? 1 : c === 'b' ? 2 : 3);
             }
-            gl.uniform1f(locs.u_accessTexScale, cube.access ? cube.access.scale : 0);
+            gl.uniform1f(locs.u_accessTexScale, hasAccess && cube.access ? cube.access.scale : 0);
             gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, cube.access ? cube.access.src.texture : null);
+            gl.bindTexture(gl.TEXTURE_2D, hasAccess && cube.access ? cube.access.src.texture : null);
 
             gl.bindVertexArray(geom.vao);
             gl.drawArrays(geom.type, 0, geom.numVerts);
@@ -470,7 +481,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
 
         gl.bindVertexArray(args.threadShader.threadVao);
-        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+        // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
 
         gl.disable(gl.POLYGON_OFFSET_FILL);
     }

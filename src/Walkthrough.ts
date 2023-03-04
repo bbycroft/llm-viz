@@ -1,9 +1,9 @@
-import { blockDimension, blockIndex } from "./Annotations";
+import { blockDimension, blockIndex, renderIndexes, splitGridX } from "./Annotations";
 import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { IRenderState, IRenderView } from "./render/modelRender";
 import { clamp } from "./utils/data";
 import { measureTextWidth, writeTextToBuffer } from "./utils/font";
-import { lerpSmoothstep } from "./utils/math";
+import { lerp, lerpSmoothstep } from "./utils/math";
 import { Mat4f } from "./utils/matrix";
 import { Vec3, Vec4 } from "./utils/vector";
 
@@ -116,6 +116,9 @@ export interface ICommentaryRes {
 
 export interface ITimeInfo {
     name: string;
+    start: number;
+    duration: number;
+    wait: number;
     t: number;
 }
 
@@ -148,8 +151,24 @@ export function highlightBlock(state: IRenderState, time: ITimeInfo, blk: IBlkDe
 
 }
 
+export function hideFromBlock(state: IRenderState, layout: IGptModelLayout, targetBlk: IBlkDef) {
+    let seen = false;
+    for (let blk of layout.cubes) {
+        if (!seen && blk === targetBlk) {
+            seen = true;
+        }
+        seen && blk.t === 'i' && hideBlock(blk);
+    }
+    function hideBlock(b: IBlkDef) {
+        if (b.access) {
+            b.access.disable = true;
+        }
+        b.subs?.forEach(hideBlock);
+    }
+}
+
 export function initWalkthrough() {
-    return { phase: Phase.Input_First, time: 0, running: false, commentary: null as ICommentaryRes | null };
+    return { phase: Phase.Input_First, time: 100, running: false, commentary: null as ICommentaryRes | null };
 }
 
 export enum Phase {
@@ -161,19 +180,25 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
     let phaseState = state.walkthrough;
 
     function T_val(str: string, duration: number = 0.3, fontFace?: string) {
-        return { str, duration, t: 0.0, color: dimStyleColor(DimStyle.T), fontFace };
+        return { str, duration, start: 0, t: 0.0, color: dimStyleColor(DimStyle.T), fontFace };
     }
 
-    function atTime(name: string, time: number, duration?: number): ITimeInfo {
-        return { name, t: clamp((phaseState.time - time) / (duration || 1) / 1000, 0, 1) };
+    function atTime(time: number, duration?: number, wait?: number): ITimeInfo {
+        return {
+            name: '',
+            start: time,
+            duration: duration || 1,
+            wait: wait || 0,
+            t: clamp((phaseState.time - time) / (duration || 1), 0, 1),
+         };
     }
 
-    function atEvent(evt: { str: string, duration: number, t: number }): ITimeInfo {
-        return atTime(evt.str, evt.t, evt.duration);
+    function atEvent(evt: { str: string, duration: number, t: number, start: number }): ITimeInfo {
+        return atTime(evt.start, evt.duration);
     }
 
-    function afterTime(name: string, prev: ITimeInfo, duration: number): ITimeInfo {
-        return atTime(name, prev.t, duration);
+    function afterTime(prev: ITimeInfo, duration: number, wait?: number): ITimeInfo {
+        return atTime(prev.start + prev.duration + prev.wait, duration, wait);
     }
 
     function commentary(stringsArr: TemplateStringsArray, ...values: any[]) {
@@ -221,24 +246,57 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         let tStr = T_val('t', 1, 'cmmi12');
         let c = commentary`Let's start at the top. To compute the vectors at each time ${tStr} we do a couple of steps:`;
 
-        moveCameraTo(state, atTime('camera', 0), new Vec3(0, 0, 0), new Vec3());
+        moveCameraTo(state, atTime(0), new Vec3(0, 0, 0), new Vec3());
         markDimensions(state, atEvent(tStr), layout.idxObj, Dim.X, DimStyle.T);
 
-        let idx = Math.min(phaseState.time * 2.0, 3.0);
-        let split = lerpSmoothstep(1.0, 2.0, phaseState.time * 2.0 - 3.0);
+        let t0 = atTime(0, 0.1, 0.4);
+        let t1 = afterTime(t0, 1.0);
+        let t2 = afterTime(t1, 0.1, 0.4);
+        let idx = lerp(0, 3, t1.t);
+        let split = lerpSmoothstep(t0.t * 1.0, 3.0, t2.t);
         // blockDimension(state, layout, layout.residual0, Dim.X, DimStyle.T, 0.5);
-        blockIndex(state, layout, layout.residual0, Dim.X, DimStyle.t, idx, split / 2, 3.0);
-
-        let replacement = splitGridX(layout.residual0, idx + 0.5, split, layout.cell);
-        if (replacement.length > 0) {
-            layout.cubes = [...layout.cubes.filter(a => a !== layout.residual0), ...replacement];
-        }
+        blockIndex(state, layout, layout.residual0, Dim.X, DimStyle.t, idx, split / 2, t0.t);
+        splitGridX(layout, layout.residual0, Dim.X, idx + 0.5, split);
+        splitGridX(layout, layout.idxObj   , Dim.X, idx + 0.5, split);
 
         let embedMtx = T_val('token embedding matrix');
         let tokCol = T_val('token');
         commentaryPara(c)`\n\n1. From the ${embedMtx}, select the ${tokCol}'th column.`;
 
+        let t3 = afterTime(t2, 0.2, 1.0);
+        let t4 = afterTime(t3, 0.4, 1.0);
+        let embedOffColor = new Vec4(0.5,0.5,0.5).mul(0.6);
+        let embedActiveColor = Vec4.lerp(embedOffColor, new Vec4(0.3,0.3,0.6), t4.t);
+
+        splitGridX(layout, layout.tokEmbedObj, Dim.X, 1.5, lerpSmoothstep(0, 2, t4.t));
+
+        renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3.t, 1, 0);
+        renderIndexes(state, layout, layout.tokEmbedObj, embedActiveColor, t3.t, 1, 1);
+        renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3.t, 1, 2);
+
         highlightBlock(state, atEvent(embedMtx), layout.tokEmbedObj, 'token embedding matrix');
+
+        hideFromBlock(state, layout, layout.residual0);
+
+        let t5 = afterTime(t4, 1.0, 2.0);
+
+        if (layout.model && t5.t > 0.0) {
+            let sub = layout.residual0.subs![2];
+            sub.access = { ...sub.access!, disable: false };
+            if (sub) {
+                splitGridX(layout, sub, Dim.Z, t5.t * sub.cz + 1.5, 0.0);
+
+                if (sub.subs!.length > 1) {
+                    let subSub = sub.subs![sub.subs!.length - 1];
+
+                    subSub.access = {
+                        ...sub.access!,
+                        src: layout.extraSources.tokEmbedOut!,
+                        disable: true,
+                    };
+                }
+            }
+        }
 
         // fallthrough to continue once the commentary is done
         break;
@@ -343,7 +401,7 @@ export function modifyCells(state: IRenderState, view: IRenderView, layout: IGpt
         state.walkthrough.time += view.dt / 1000;
 
         let commentary = state.walkthrough.commentary;
-        if (commentary && state.walkthrough.time > commentary.duration) {
+        if (commentary && state.walkthrough.time > commentary.duration + 10) {
             state.walkthrough.running = false;
             state.walkthrough.time = commentary.duration;
         }
@@ -366,55 +424,4 @@ export function modifyCells(state: IRenderState, view: IRenderView, layout: IGpt
     // cubes = [...layout.cubes.filter(a => a !== idxObj && a !== residual0), ...idxBlks, ...residBlks];
 
     return { layout: { ...layout, cubes } };
-}
-
-export function splitGridX(blk: IBlkDef, xSplit: number, splitAmt: number, cell: number) {
-
-    // generate several new blocks (let's say up to 5) that are neighbouring the zSplit point
-
-    // main-left, left, center, right, main-right
-
-    // choose center as floor(zSplit), left is floor(zSplit) - 1, right is floor(zSplit) + 1
-    // main-left and main-right are the remaining
-    // only create those if there's space
-
-    // The splitAmt governs the overall gap between blocks
-    // Want a rotating-block-under-examination effect. When zSplit is right down the center (x + 0.5),
-    // have max seperation, and effectively join left & right with their main
-    // For non 0.5 zSplits, will show 2 gaps
-
-    let blocks: IBlkDef[] = [];
-    let rangeOffsets: [number, number][] = [];
-
-    function addSubBlock(iStart: number, iEnd: number, xOffset: number) {
-        if (iStart >= iEnd || iEnd <= 0 || iStart >= blk.cx) {
-            return;
-        }
-
-        let mtx = Mat4f.fromScaleTranslation(new Vec3((iEnd - iStart) / blk.cx, 1, 1), new Vec3(iStart / blk.cx, 0, 0));
-
-        blocks.push({ ...blk,
-            localMtx: mtx,
-            x: blk.x + iStart * cell + xOffset,
-            dx: (iEnd - iStart) * cell,
-        });
-        rangeOffsets.push([iEnd, xOffset]);
-    }
-
-    let xc = Math.floor(xSplit);
-    let scale = 0.5;
-    let fract = (xSplit - xc - 0.5) * scale + 0.5;
-
-    // let offset = smoothstepAlt(-w2, 0, xSplit / blk.cx);
-    let offset = lerpSmoothstep(-splitAmt, 0, (xSplit - 0.5) * scale + 0.5);
-
-    addSubBlock(0     , xc - 1, offset + 0.0);
-    addSubBlock(xc - 1, xc    , offset + lerpSmoothstep(splitAmt, 0, fract + scale));
-    addSubBlock(xc    , xc + 1, offset + lerpSmoothstep(splitAmt, 0, fract));
-    addSubBlock(xc + 1, xc + 2, offset + lerpSmoothstep(splitAmt, 0, fract - scale));
-    addSubBlock(xc + 2, blk.cx, offset + splitAmt);
-
-    blk.rangeOffsetsX = rangeOffsets;
-
-    return blocks;
 }
