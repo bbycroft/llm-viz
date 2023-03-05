@@ -56,7 +56,14 @@ interface IBlkDefArgs {
     access?: IBlkAccessDefArgs;
 }
 
-export function cellPosition(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, index: number) {
+export interface IModelLayout {
+    cell: number;
+    height: number;
+    margin: number;
+    cubes: IBlkDef[];
+}
+
+export function cellPosition(layout: IModelLayout, blk: IBlkDef, dim: Dim, index: number) {
     let base = (dim === Dim.X ? blk.x : dim === Dim.Y ? blk.y : blk.z) + layout.cell * index;
     if (!blk.rangeOffsetsX) {
         return base;

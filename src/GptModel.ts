@@ -45,12 +45,12 @@ Also have the issue of passing input/output buffers between stages, where we can
 We might as well build the nested structure of the real model, with each chunk having create + execute methods.
 */
 
-export function initModel(renderState: IRenderState, dataAndModel: IDataAndModel, B: number) {
+export function initModel(state: IRenderState, dataAndModel: IDataAndModel, B: number) {
     // let gptLayerTest = createGptModel(renderState.shaderManager, dataAndModel.model, dataAndModel.data.config.B!);
     // runModel(renderState, gptLayerTest, dataAndModel.data);
     // cleanupGptModel(renderState.gl, gptLayerTest);
 
-    return createGptModel(renderState.shaderManager, dataAndModel.model, B);
+    return createGptModel(state.ctx.shaderManager, dataAndModel.model, B);
 }
 
 export function setModelInputData(renderState: IRenderState, gptModel: IGpuGptModel, rand: Random) {
@@ -70,7 +70,7 @@ export function setModelInputData(renderState: IRenderState, gptModel: IGpuGptMo
 }
 
 export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, validationData?: ITensorSet) {
-    let { gl, quadVao } = renderState;
+    let { ctx: { gl }, quadVao } = renderState;
     let {
         inputTokens,
         add,

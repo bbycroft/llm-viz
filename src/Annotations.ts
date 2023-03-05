@@ -1,5 +1,5 @@
-import { cellPosition, IBlkDef, IGptModelLayout } from "./GptModelLayout";
-import { addLine } from "./render/lineRender";
+import { cellPosition, IBlkDef, IGptModelLayout, IModelLayout } from "./GptModelLayout";
+import { addLine, ILineRender } from "./render/lineRender";
 import { IRenderState } from "./render/modelRender";
 import { measureTextWidth, writeTextToBuffer } from "./utils/font";
 import { lerp, lerpSmoothstep } from "./utils/math";
@@ -7,7 +7,7 @@ import { Mat4f } from "./utils/matrix";
 import { Vec3, Vec4 } from "./utils/vector";
 import { Dim, DimStyle, dimStyleColor } from "./Walkthrough";
 
-export function blockDimension(state: IRenderState, layout: IGptModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, t: number) {
+export function blockDimension(state: IRenderState, layout: IModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, t: number) {
 
     // Render |----- T ------| along the appropriate dimension
 
@@ -72,7 +72,7 @@ export function blockDimension(state: IRenderState, layout: IGptModelLayout, blk
     addLine(state.lineRender, thickness, color, vEnd.withAddAt(offVecId, edgeH2), vEnd.withAddAt(offVecId, -edgeH2), n);
 }
 
-export function blockIndex(state: IRenderState, layout: IGptModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, idx: number, cellOffset: number, t: number) {
+export function blockIndex(state: IRenderState, layout: IModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, idx: number, cellOffset: number, t: number) {
     if (t === 0) return;
 
     let fontSize = 2;
@@ -117,7 +117,7 @@ export function dimProps(blk: IBlkDef, dim: Dim) {
     }
 }
 
-export function splitGridX(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, xSplit: number, splitAmt: number) {
+export function splitGridX(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: number, splitAmt: number) {
     // generate several new blocks (let's say up to 5) that are neighbouring the zSplit point
 
     // main-left, left, center, right, main-right
@@ -181,7 +181,7 @@ export interface IColorMix {
     mixes: number[];
 }
 
-export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk: IBlkDef, color: Vec4, t: number, count: number = 4, offset: number = 0, data: Float32Array | null = null, mix?: IColorMix) {
+export function renderIndexes(state: IRenderState, layout: IModelLayout, blk: IBlkDef, color: Vec4, t: number, count: number = 4, offset: number = 0, data: Float32Array | null = null, mix?: IColorMix) {
     let { modelFontBuf: fontBuf, lineRender } = state;
 
     // Just rendering the 0, 1, 2 tokens, with plans to advance to the GPT text model etc
@@ -245,7 +245,7 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
     }
 }
 
-export function indexMappingLines(state: IRenderState, layout: IGptModelLayout, blkSrc: IBlkDef, blkDest: IBlkDef, color: Vec4, srcPad: number, destPad: number, srcIdx: number, destIdx: number, lineFract: number) {
+export function indexMappingLines(state: IRenderState, layout: IModelLayout, blkSrc: IBlkDef, blkDest: IBlkDef, color: Vec4, srcPad: number, destPad: number, srcIdx: number, destIdx: number, lineFract: number) {
 
     // assume all in x-y plane, and idx's are in x, and src is above dest
 
@@ -351,4 +351,9 @@ export function drawTextOnModel(state: IRenderState, text: string, pos: Vec3, cf
     let mtxRes = Mat4f.fromTranslation(new Vec3(x, y, 0));
 
     writeTextToBuffer(fontBuf, text, color, 0, 0, size, mtxRes, face);
+}
+
+
+export function addSourceDestLine(state: IRenderState)  {
+
 }
