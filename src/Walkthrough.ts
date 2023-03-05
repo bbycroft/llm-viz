@@ -342,7 +342,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         let height = layout.height;
 
         if (t2.active && state.walkthrough.running) {
-            view.camTarget.z = lerpSmoothstep(0, height, t2.t);
+            view.camTarget.z = -lerpSmoothstep(0, height, t2.t);
         }
 
         break;
@@ -371,14 +371,14 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
         let tokEmbed = layout.tokEmbedObj;
         console.log(tokEmbed.z, tokEmbed.dz, tokEmbed.z + tokEmbed.dz, tokEmbed.cz);
-        drawTextOnModel(state, 'token-embedding matrix', new Vec3(tokEmbed.x - layout.margin, tokEmbed.y, -tokEmbed.z + tokEmbed.dz / 2), {
+        drawTextOnModel(state, 'token-embedding matrix', new Vec3(tokEmbed.x - layout.margin, tokEmbed.y + tokEmbed.dy / 2, 0), {
             align: TextAlignHoriz.Right,
             valign: TextAlignVert.Middle,
             color: new Vec4(0,0,0,1).mul(t0_showAll.t),
             size: 3,
         });
         let posEmbed = layout.posEmbedObj;
-        drawTextOnModel(state, 'position-embedding matrix', new Vec3(posEmbed.x + posEmbed.dx + layout.margin, tokEmbed.y, -tokEmbed.z + tokEmbed.dz / 2), {
+        drawTextOnModel(state, 'position-embedding matrix', new Vec3(posEmbed.x + posEmbed.dx + layout.margin, tokEmbed.y + tokEmbed.dy / 2, 0), {
             align: TextAlignHoriz.Left,
             valign: TextAlignVert.Middle,
             color: new Vec4(0,0,0,1).mul(t0_showAll.t),
@@ -418,7 +418,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         }
 
         let embedMtx = T_val('token embedding matrix');
-        let tokCol = T_val('token');
+        let tokCol = T_val('j');
         commentaryPara(c)`\n\n1. From the ${embedMtx}, select the ${tokCol}'th column.`;
 
         let embedOffColor = new Vec4(0.5,0.5,0.5).mul(0.6);
@@ -445,10 +445,10 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             let sub = findSubBlocks(layout.residual0, Dim.X, 3, 3)[0];
             if (sub) {
                 sub.access = { ...sub.access!, src: layout.model.vocabEmbed.output, disable: false };
-                let zPos = t5_iter1Col.t * sub.cz + 0.5;
-                splitGridX(layout, sub, Dim.Z, zPos, 0.0);
+                let yPos = t5_iter1Col.t * sub.cy + 0.5;
+                splitGridX(layout, sub, Dim.Y, yPos, 0.0);
 
-                for (let vertSubBelow of findSubBlocks(sub, Dim.Z, Math.floor(zPos), null)) {
+                for (let vertSubBelow of findSubBlocks(sub, Dim.Y, Math.floor(yPos), null)) {
                     vertSubBelow.access = { ...sub.access, disable: true };
                 }
             }
@@ -457,7 +457,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
         if (layout.model && t7_iterCols.active) {
             let T = layout.idxObj.cx;
-            let C = layout.residual0.cz;
+            let C = layout.residual0.cy;
 
             let tPos = t7_iterCols.t * T;
             let tIdx = Math.floor(tPos);
@@ -477,10 +477,10 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             if (sub2) {
                 sub2.highlight = 0.2;
                 sub2.access = { ...sub2.access!, disable: false };
-                let zPos = cPos + 0.5;
-                splitGridX(layout, sub2, Dim.Z, zPos, 0.0);
+                let yPos = cPos + 0.5;
+                splitGridX(layout, sub2, Dim.Y, yPos, 0.0);
 
-                for (let colSubBelow of findSubBlocks(sub2, Dim.Z, Math.floor(zPos) + 1, null)) {
+                for (let colSubBelow of findSubBlocks(sub2, Dim.Y, Math.floor(yPos) + 1, null)) {
                     colSubBelow.access = { ...colSubBelow.access!, disable: true };
                 }
             }

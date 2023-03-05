@@ -66,7 +66,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         out vec3 v_blockPos;
         out vec3 v_cubePos;
         void main() {
-            vec3 localPos = (u_localPosMtx * vec4(a_position.xy, -a_position.z, 1.0)).xyz;
+            vec3 localPos = (u_localPosMtx * vec4(a_position, 1.0)).xyz;
             vec3 model_pos = a_position * u_size + u_offset;
             gl_Position = u_view * u_model * vec4(model_pos, 1);
             v_normal = a_normal;
@@ -93,7 +93,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         uniform float u_highlight;
 
         void main() {
-            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, -v_normal.z) * 0.1);
+            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, v_normal.z) * 0.1);
 
             bool cellDark = (blockPos.x + blockPos.y + blockPos.z) % 2 == 0;
 
@@ -268,8 +268,8 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
         Mat4f.fromAxisAngle(new Vec3(0, 1), -Math.PI / 2),
     ];
 
-    // top left front is (0, 0, 0), bottom right back is (1, 1, -1)
-    let transform = Mat4f.fromTranslation(new Vec3(0.5, 0.5, -0.5)).mul(Mat4f.fromScale(new Vec3(.5, .5, .5)));
+    // top left front is (0, 0, 0), bottom right back is (1, 1, 1)
+    let transform = Mat4f.fromTranslation(new Vec3(0.5, 0.5, 0.5)).mul(Mat4f.fromScale(new Vec3(.5, .5, .5)));
     let arr = new Float32Array(6 * 6 * 3 * 2);
     let j = 0;
     for (let faceMtx of faces) {
@@ -349,6 +349,8 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.FRONT);
 
+    gl.frontFace(gl.CW); // our transform has a -ve determinant, so we switch this for correct rendering
+
     let bb = new BoundingBox3d();
     for (let c of layout.cubes) {
         let tl = new Vec3(c.x, c.y, c.z);
@@ -374,6 +376,11 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     let persp = Mat4f.fromPersp(40, view.canvasEl.height / view.canvasEl.width, dist / 100, localDist + Math.max(dist * 2, 10000));
     let viewMtx = persp.mul(lookAt);
     let modelMtx = new Mat4f();
+    modelMtx[0] = 1.0;
+    modelMtx[5] = 0.0;
+    modelMtx[6] = -1.0;
+    modelMtx[9] = -1.0;
+    modelMtx[10] = 0.0;
 
     let lightPos = [
         new Vec3(100, 400, 600),
@@ -523,8 +530,8 @@ export function addSomeText(fontBuf: IFontBuffers, layout: IGptModelLayout) {
     let width = measureTextWidth(fontBuf, text, fontEm);
 
     let mtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(2));
-    let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
-    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, target.z + target.cz * layout.cell * 20 + 0.5));
-    let mtxRes = mtx2.mul(mtx.mul(mtx3));
+    // let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
+    let mtx2 = Mat4f.fromTranslation(new Vec3(0, target.y - layout.cell * 20, 0));
+    let mtxRes = mtx2.mul(mtx);
     writeTextToBuffer(fontBuf, text, new Vec4(0,0,0,1), - width / 2, -fontEm, fontEm, mtxRes);
 }

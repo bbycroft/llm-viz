@@ -17,40 +17,39 @@ export function blockDimension(state: IRenderState, layout: IGptModelLayout, blk
 
     let tw = measureTextWidth(state.modelFontBuf, text, fontSize);
 
-    let bot = cellPositionX(layout, blk, 0);
-    let top = cellPositionX(layout, blk, blk.cx - 1) + layout.cell;
-    let mid = (top + bot) / 2;
+    let start = cellPositionX(layout, blk, 0);
+    let end = cellPositionX(layout, blk, blk.cx - 1) + layout.cell;
+    let mid = (end + start) / 2;
     let botPad = fontSize * 0.2;
-    let zOff = fontSize / 2 + botPad;
+    let yOff = fontSize / 2 + botPad;
     let edgeH2 = fontSize / 2 * 0.5;
 
     let color = dimStyleColor(style).mul(t);
 
-    let mtx = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
-    mtx = Mat4f.fromTranslation(new Vec3(mid, blk.y, blk.z + botPad)).mul(mtx);
+    let mtx = Mat4f.fromTranslation(new Vec3(mid, blk.y - botPad, blk.z + blk.dz));
 
     let textZOff = 0;
-    let tooSmall = tw > top - bot - textPad * 2;
+    let tooSmall = tw > end - start - textPad * 2;
     if (tooSmall) {
         textZOff = fontSize;
     }
 
     writeTextToBuffer(state.modelFontBuf, text, color, -tw / 2, -fontSize - textZOff, fontSize, mtx);
 
-    let lY = blk.y;
-    let lZ = blk.z + zOff;
+    let lY = blk.y - yOff;
+    let lZ = blk.z + blk.dz;
     let thickness = fontSize * 0.02;
-    let n = new Vec3(0, -1, 0);
+    let n = new Vec3(0, 0, 1);
 
     if (tooSmall) {
         textPad = 0;
 
     }
 
-    addLine(state.lineRender, thickness, color, new Vec3(bot, lY, lZ), new Vec3(mid - textPad, lY, lZ), n);
-    addLine(state.lineRender, thickness, color, new Vec3(top, lY, lZ), new Vec3(mid + textPad, lY, lZ), n);
-    addLine(state.lineRender, thickness, color, new Vec3(bot, lY, lZ + edgeH2), new Vec3(bot, lY, lZ - edgeH2), n);
-    addLine(state.lineRender, thickness, color, new Vec3(top, lY, lZ + edgeH2), new Vec3(top, lY, lZ - edgeH2), n);
+    addLine(state.lineRender, thickness, color, new Vec3(start, lY,          lZ), new Vec3(mid - textPad, lY,          lZ), n);
+    addLine(state.lineRender, thickness, color, new Vec3(end,   lY,          lZ), new Vec3(mid + textPad, lY,          lZ), n);
+    addLine(state.lineRender, thickness, color, new Vec3(start, lY + edgeH2, lZ), new Vec3(start,         lY - edgeH2, lZ), n);
+    addLine(state.lineRender, thickness, color, new Vec3(end,   lY + edgeH2, lZ), new Vec3(end,           lY - edgeH2, lZ), n);
 }
 
 export function blockIndex(state: IRenderState, layout: IGptModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, idx: number, cellOffset: number, t: number) {
@@ -69,8 +68,7 @@ export function blockIndex(state: IRenderState, layout: IGptModelLayout, blk: IB
 
     let color = dimStyleColor(style).mul(t);
 
-    let mtx = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
-    mtx = Mat4f.fromTranslation(new Vec3(pos, blk.y, blk.z + botPad)).mul(mtx);
+    let mtx = Mat4f.fromTranslation(new Vec3(pos, blk.y - botPad, blk.z + blk.dz));
 
     writeTextToBuffer(state.modelFontBuf, text, color, -tw / 2, -fontSize, fontSize, mtx, font);
 }
@@ -163,7 +161,7 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
     // may scale with view
     let em = layout.cell * 1;
 
-    let zLower = blk.z + em + layout.cell;// layout.cell * 2;
+    let yLower = blk.y - em - layout.cell;// layout.cell * 2;
 
     let strParts = [];
     let textOffset = 0;
@@ -181,9 +179,7 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
 
     let leftPos = cellPositionX(layout, blk, offset);
 
-    let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
-    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, zLower));
-    let mtxRes = mtx2.mul(mtx3);
+    let mtxRes = Mat4f.fromTranslation(new Vec3(0, yLower, 0));
     let totalOffset = leftPos - textOffset / 2 + layout.cell * count / 2;
     color = color.mul(t);
 
@@ -202,12 +198,12 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
 
         let tx = x + a.w / 2;
         let bx = cellPositionX(layout, blk, a.i + offset) + layout.cell * 0.5;
-        let top = zLower - em;
+        let top = yLower + em;
         let delta = 0.1 * em;
-        let bot = Math.min(blk.z + 0.3, top);
+        let bot = Math.max(blk.y - 0.3, top);
         let thick = em * 0.02;
         // addLine(lineRender, thick, color, new Vec3(tx, 0, top), new Vec3(tx, 0, top - delta));
-        addLine(lineRender, thick, drawColor, new Vec3(tx, 0, top - delta), new Vec3(bx, 0, bot + delta), new Vec3(0, -1, 0));
+        addLine(lineRender, thick, drawColor, new Vec3(tx, top + delta, 0), new Vec3(bx, bot - delta, 0), new Vec3(0, 0, 1));
         // addLine(lineRender, thick, color, new Vec3(bx, 0, bot + delta), new Vec3(bx, 0, bot));
     }
 }
@@ -289,13 +285,12 @@ export function drawTextOnModel(state: IRenderState, text: string, pos: Vec3, cf
     }
 
     if (valign === TextAlignVert.Middle) {
-        z -= h / 2;
+        y -= h / 2;
     } else if (valign === TextAlignVert.Bottom) {
-        z -= h;
+        y -= h;
     }
 
-    let mtxRes = Mat4f.fromTranslation(new Vec3(x, y, -z))
-        .mul(Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2));
+    let mtxRes = Mat4f.fromTranslation(new Vec3(x, y, 0));
 
     writeTextToBuffer(fontBuf, text, color, 0, 0, size, mtxRes, face);
 }

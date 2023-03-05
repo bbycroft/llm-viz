@@ -20,8 +20,8 @@ export function renderTokens(renderState: IRenderState, layout: IGptModelLayout,
     let lowerFontSize = em * 1;
     let upperFontSize = em * 2;
 
-    let zLower = layout.idxObj.z - lowerFontSize - layout.cell * 3;
-    let zUpper = zLower - upperFontSize;
+    let yLower = layout.idxObj.y - lowerFontSize - layout.cell * 3;
+    let yUpper = yLower - upperFontSize;
 
     function tokenIndexToString(a: number) {
         return String.fromCharCode('A'.charCodeAt(0) + a); // just A, B, C supported!
@@ -45,9 +45,7 @@ export function renderTokens(renderState: IRenderState, layout: IGptModelLayout,
     }
 
     let target = layout.idxObj;
-    let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
-    let mtx2 = Mat4f.fromTranslation(new Vec3(0, 0, 0));
-    let mtxRes = mtx2.mul(mtx3);
+    let mtxRes = new Mat4f();
     let totalOffset = -strOffset / 2 - layout.cell / 2 * (count - 1);
 
     let color = new Vec4(0.5, 0.6, 0.5, 1);
@@ -62,21 +60,21 @@ export function renderTokens(renderState: IRenderState, layout: IGptModelLayout,
             }
         }
 
-        writeTextToBuffer(fontBuf, a.str, drawColor, totalOffset + a.offset, zUpper, upperFontSize, mtxRes);
+        writeTextToBuffer(fontBuf, a.str, drawColor, totalOffset + a.offset, yUpper, upperFontSize, mtxRes);
 
         let x = totalOffset + a.offset + a.w / 2 - a.w2 / 2;
 
-        writeTextToBuffer(fontBuf, '' + a.val, drawColor, x, zLower, lowerFontSize, mtxRes);
+        writeTextToBuffer(fontBuf, '' + a.val, drawColor, x, yLower, lowerFontSize, mtxRes);
 
 
         let tx = x + a.w2 / 2;
         let bx = cellPositionX(layout, target, a.i) + layout.cell * 0.5;
-        let top = 4;
+        let top = -4;
         let delta = 0.6;
-        let bot = 0.3;
+        let bot = -0.3;
         let thick = 4;
-        addLine(lineRender, thick, drawColor, new Vec3(tx, 0, top), new Vec3(tx, 0, top - delta));
-        addLine(lineRender, thick, drawColor, new Vec3(tx, 0, top - delta), new Vec3(bx, 0, bot + delta));
-        addLine(lineRender, thick, drawColor, new Vec3(bx, 0, bot + delta), new Vec3(bx, 0, bot));
+        addLine(lineRender, thick, drawColor, new Vec3(tx, top, 0), new Vec3(tx, top + delta, 0));
+        addLine(lineRender, thick, drawColor, new Vec3(tx, top + delta, 0), new Vec3(bx, bot - delta, 0));
+        addLine(lineRender, thick, drawColor, new Vec3(bx, bot - delta, 0), new Vec3(bx, bot, 0));
     }
 }
