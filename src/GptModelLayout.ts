@@ -2,6 +2,7 @@ import { IGpuGptBlockLayer, IGpuGptModel, IGpuLayerNormLayer, IModelShape } from
 import { isNil } from "./utils/data";
 import { Mat4f } from "./utils/matrix";
 import { IBufferTex } from "./utils/renderPhases";
+import { Dim } from "./Walkthrough";
 
 export interface IBlkDef {
     t: 'w' | 'i', // weights; intermediate value
@@ -55,12 +56,13 @@ interface IBlkDefArgs {
     access?: IBlkAccessDefArgs;
 }
 
-export function cellPositionX(layout: IGptModelLayout, blk: IBlkDef, index: number) {
-    let base = blk.x + layout.cell * index;
+export function cellPosition(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, index: number) {
+    let base = (dim === Dim.X ? blk.x : dim === Dim.Y ? blk.y : blk.z) + layout.cell * index;
     if (!blk.rangeOffsetsX) {
         return base;
     }
-    for (let [s, xOff] of blk.rangeOffsetsX) {
+    let offsets = dim === Dim.X ? blk.rangeOffsetsX : dim === Dim.Y ? blk.rangeOffsetsY : blk.rangeOffsetsZ;
+    for (let [s, xOff] of offsets!) {
         if (index < s) {
             return base + xOff;
         }
@@ -86,7 +88,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     let y = 0;
 
     let cell = 1.5;
-    let margin = Math.max(4, C / 8);
+    let margin = Math.max(5, C / 6);
 
     function mk(args: IBlkDefArgs): IBlkDef {
         let xDef = [args.xL, args.xR, args.xM].map(a => +!isNil(a)).reduce((a, b) => a + b, 0);

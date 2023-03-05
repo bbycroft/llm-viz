@@ -1,6 +1,7 @@
-import { blockDimension, blockIndex, drawTextOnModel, findSubBlocks, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "./Annotations";
+import { blockDimension, blockIndex, drawTextOnModel, findSubBlocks, indexMappingLines, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "./Annotations";
 import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { IRenderState, IRenderView } from "./render/modelRender";
+import { SavedState } from "./SavedState";
 import { clamp, oneHotArray } from "./utils/data";
 import { measureTextWidth, writeTextToBuffer } from "./utils/font";
 import { lerp, lerpSmoothstep } from "./utils/math";
@@ -177,6 +178,10 @@ export function dimStyleColor(style: DimStyle) {
         case DimStyle.t:
         case DimStyle.T:
             return new Vec4(0.4, 0.4, 0.9, 1);
+        case DimStyle.C:
+            return new Vec4(0.9, 0.3, 0.3, 1);
+        case DimStyle.n_vocab:
+            return Vec4.fromHexColor('#7c3c8d'); // new Vec4(0.8, 0.6, 0.3, 1);
     }
     return new Vec4(0,0,0);
 }
@@ -220,8 +225,8 @@ export type IWalkthrough = ReturnType<typeof initWalkthrough>;
 
 export function initWalkthrough() {
     return {
-        phase: Phase.Input_Detail_Tables,
-        time: 0,
+        phase: SavedState.state?.phase ?? Phase.Input_Detail_Tables,
+        time: SavedState.state?.phaseTime ?? 0,
         running: false,
         commentary: null as ICommentaryRes | null,
         times: [] as ITimeInfo[],
@@ -246,6 +251,13 @@ export enum Phase {
 }
 
 export function runWalkthrough(state: IRenderState, view: IRenderView, layout: IGptModelLayout) {
+    SavedState.state = {
+        phase: state.walkthrough.phase,
+        phaseTime: state.walkthrough.time,
+        camAngle: view.camAngle,
+        camTarget: view.camTarget,
+    };
+
     let phaseState = state.walkthrough;
     phaseState.times = [];
 
@@ -262,7 +274,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             duration,
             wait,
             t: clamp((phaseState.time - start) / duration, 0, 1),
-            active: phaseState.time > start && phaseState.time < start + duration,
+            active: phaseState.time > start,
          };
          phaseState.times.push(info);
          phaseState.phaseLength = Math.max(phaseState.phaseLength, start + duration + wait);
@@ -281,6 +293,9 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         if (t.t > 0.0) {
             for (let prevTime of times) {
                 prevTime.t = 1.0 - t.t;
+                if (t.t >= 1.0) {
+                    prevTime.active = false;
+                }
             }
         }
     }
@@ -368,17 +383,18 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
         // practice drawing labels on tensors
         let t0_showAll = atTime(0, 0.1, 0.2);
+        t0_showAll.t = 1.0;
 
         let tokEmbed = layout.tokEmbedObj;
         console.log(tokEmbed.z, tokEmbed.dz, tokEmbed.z + tokEmbed.dz, tokEmbed.cz);
-        drawTextOnModel(state, 'token-embedding matrix', new Vec3(tokEmbed.x - layout.margin, tokEmbed.y + tokEmbed.dy / 2, 0), {
+        drawTextOnModel(state, 'token-embedding matrix', new Vec3(tokEmbed.x - layout.margin, tokEmbed.y + tokEmbed.dy / 4, 0), {
             align: TextAlignHoriz.Right,
             valign: TextAlignVert.Middle,
             color: new Vec4(0,0,0,1).mul(t0_showAll.t),
             size: 3,
         });
         let posEmbed = layout.posEmbedObj;
-        drawTextOnModel(state, 'position-embedding matrix', new Vec3(posEmbed.x + posEmbed.dx + layout.margin, tokEmbed.y + tokEmbed.dy / 2, 0), {
+        drawTextOnModel(state, 'position-embedding matrix', new Vec3(posEmbed.x + posEmbed.dx + layout.margin, tokEmbed.y + tokEmbed.dy / 4, 0), {
             align: TextAlignHoriz.Left,
             valign: TextAlignVert.Middle,
             color: new Vec4(0,0,0,1).mul(t0_showAll.t),
@@ -386,6 +402,13 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         });
 
         blockDimension(state, layout, tokEmbed, Dim.X, DimStyle.n_vocab, t0_showAll.t);
+        blockDimension(state, layout, tokEmbed, Dim.Y, DimStyle.C, t0_showAll.t);
+
+        blockDimension(state, layout, posEmbed, Dim.X, DimStyle.T, t0_showAll.t);
+        blockDimension(state, layout, posEmbed, Dim.Y, DimStyle.C, t0_showAll.t);
+
+        blockDimension(state, layout, layout.residual0, Dim.X, DimStyle.T, t0_showAll.t);
+        blockDimension(state, layout, layout.residual0, Dim.Y, DimStyle.C, t0_showAll.t);
 
     } break;
     case Phase.Input_Detail_TokEmbed: {
@@ -396,22 +419,25 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         markDimensions(state, atEvent(tStr), layout.idxObj, Dim.X, DimStyle.T);
 
         let t0_expandAt0 = atTime(0, 0.1, 0.2);
-        let t1_totEq3 = afterTime(t0_expandAt0, 1.0);
+        let t1_totEq3 = afterTime(t0_expandAt0, 1.0, 0.2);
         let t2_expandSplit = afterTime(t1_totEq3, 0.1, 0.4);
 
         let t3_showTokEmIdx = afterTime(t2_expandSplit, 0.2, 1.0);
         let t4_highlightTokEmIdx = afterTime(t3_showTokEmIdx, 0.4, 1.0);
-        let t5_iter1Col = afterTime(t4_highlightTokEmIdx, 1.0, 2.0);
-        let t6_cleanup1 = afterTime(t5_iter1Col, 0.3, 0.3);
+        let t5_iter1Col = afterTime(t4_highlightTokEmIdx, 1.0, 1.0);
+        let t6_cleanup1 = afterTime(t5_iter1Col, 0.3, 1.0);
 
         cleanup(t6_cleanup1, [t0_expandAt0, t2_expandSplit, t4_highlightTokEmIdx, t5_iter1Col]);
 
         let t7_iterCols = afterTime(t6_cleanup1, 5.0, 0.0);
 
+        let exampleTIdx = 3;
+        let exampleTokIdx = layout.model?.inputBuf[exampleTIdx] ?? 1;
+
         // blockDimension(state, layout, layout.residual0, Dim.X, DimStyle.T, 0.5);
         if (t6_cleanup1.t < 1.0) {
             let idx = lerp(0, 3, t1_totEq3.t);
-            let split = lerpSmoothstep(t0_expandAt0.t * 1.0, 3.0, t2_expandSplit.t);
+            let split = lerpSmoothstep(t0_expandAt0.t * 1.0, exampleTIdx, t2_expandSplit.t);
             blockIndex(state, layout, layout.residual0, Dim.X, DimStyle.t, idx, split / 2, t0_expandAt0.t);
             splitGridX(layout, layout.residual0, Dim.X, idx + 0.5, split);
             splitGridX(layout, layout.idxObj   , Dim.X, idx + 0.5, split);
@@ -422,19 +448,21 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         commentaryPara(c)`\n\n1. From the ${embedMtx}, select the ${tokCol}'th column.`;
 
         let embedOffColor = new Vec4(0.5,0.5,0.5).mul(0.6);
-        // let embedActiveColor = Vec4.lerp(embedOffColor, new Vec4(0.3,0.3,0.6), t4.t);
 
         if (layout.model && t7_iterCols.t <= 0.0) {
             let mixes = new Array(layout.tokEmbedObj.cx).fill(0.0);
-            mixes[layout.model!.inputBuf[3]] = t4_highlightTokEmIdx.t;
-            renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3_showTokEmIdx.t, 3, 0, null, { color2: new Vec4(.3, .3, .5), mixes });
+            mixes[layout.model!.inputBuf[exampleTIdx]] = t4_highlightTokEmIdx.t;
+            renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3_showTokEmIdx.t, exampleTIdx, 0, null, { color2: dimStyleColor(DimStyle.n_vocab), mixes });
         }
 
         if (layout.model && t4_highlightTokEmIdx.t > 0 && t6_cleanup1.t <= 1.0) {
-            splitGridX(layout, layout.tokEmbedObj, Dim.X, 1, 0);
-            layout.tokEmbedObj.subs![1].highlight = lerp(0, 0.2, t4_highlightTokEmIdx.t);
-            let T = layout.idxObj.cx;
-            state.tokenColors = { color2: new Vec4(.3, .3, .5), mixes: oneHotArray(T, 3, t4_highlightTokEmIdx.t) };
+            splitGridX(layout, layout.tokEmbedObj, Dim.X, exampleTokIdx, 0);
+            findSubBlocks(layout.tokEmbedObj, Dim.X, exampleTokIdx, exampleTokIdx)[0].highlight = lerp(0, 0.2, t4_highlightTokEmIdx.t);
+            state.tokenColors = { color2: dimStyleColor(DimStyle.n_vocab), mixes: oneHotArray(layout.idxObj.cx, exampleTIdx, t4_highlightTokEmIdx.t) };
+            let padTop = layout.cell * 0.3;
+            let padBot = layout.cell * 0.3 + 3;
+            let color = dimStyleColor(DimStyle.n_vocab).mul(t4_highlightTokEmIdx.t);
+            indexMappingLines(state, layout, layout.idxObj, layout.tokEmbedObj, color, padTop, padBot, exampleTIdx, exampleTokIdx, 0.5);
         }
 
         if (layout.model && t7_iterCols.t < 1.0) {
@@ -442,7 +470,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         }
 
         if (layout.model && t5_iter1Col.t > 0.0 && t6_cleanup1.t <= 0.0) {
-            let sub = findSubBlocks(layout.residual0, Dim.X, 3, 3)[0];
+            let sub = findSubBlocks(layout.residual0, Dim.X, exampleTIdx, exampleTIdx)[0];
             if (sub) {
                 sub.access = { ...sub.access!, src: layout.model.vocabEmbed.output, disable: false };
                 let yPos = t5_iter1Col.t * sub.cy + 0.5;
@@ -465,7 +493,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             let t_inner = tPos - tIdx;
             let cPos = t_inner * C;
 
-            state.tokenColors = { color2: new Vec4(.3, .3, .5), mixes: oneHotArray(T, tIdx, 1.0) };
+            state.tokenColors = { color2: dimStyleColor(DimStyle.n_vocab), mixes: oneHotArray(T, tIdx, 1.0) };
 
             splitGridX(layout, layout.residual0, Dim.X, tIdx + 0.5, 0.0);
 
@@ -488,7 +516,12 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             let tokIdx = layout.model.inputBuf[tIdx];
 
             let mixes = oneHotArray(layout.tokEmbedObj.cx, tokIdx, 1.0);
-            renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3_showTokEmIdx.t, 3, 0, null, { color2: new Vec4(.3, .3, .5), mixes });
+            renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3_showTokEmIdx.t, 3, 0, null, { color2: dimStyleColor(DimStyle.n_vocab), mixes });
+
+            let padTop = layout.cell * 0.3;
+            let padBot = layout.cell * 0.3 + 3;
+            let color = dimStyleColor(DimStyle.n_vocab).mul(t3_showTokEmIdx.t);
+            indexMappingLines(state, layout, layout.idxObj, layout.tokEmbedObj, color, padTop, padBot, tIdx, tokIdx, 0.5);
 
             splitGridX(layout, layout.tokEmbedObj, Dim.X, tokIdx + 0.5, 0);
             let tokSub = findSubBlocks(layout.tokEmbedObj, Dim.X, tokIdx, tokIdx)[0];

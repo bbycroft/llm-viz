@@ -110,6 +110,8 @@ export class Vec3 {
         }
         return this;
     }
+    withSetAt(i: number, v: number): Vec3 { return this.clone().setAt(i, v); }
+    withAddAt(i: number, v: number): Vec3 { return this.add(new Vec3().setAt(i, v)); }
     toString(): string {
         return `Vec3(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)})`;
     }
@@ -161,6 +163,14 @@ export class Vec4 extends Array<number> {
 
     static fromArray(a: ArrayLike<number>, offset: number = 0): Vec4 {
         return new Vec4(a[offset + 0], a[offset + 1], a[offset + 2], a[offset + 3]);
+    }
+    static fromHexColor(s: string, alpha: number = 1.0): Vec4 {
+        if (s.startsWith('#')) s = s.slice(1);
+        let hexVal = parseInt(s, 16);
+        let x = (hexVal >> 16) & 0xFF;
+        let y = (hexVal >> 8) & 0xFF;
+        let z = hexVal & 0xFF;
+        return new Vec4(x / 255.0, y / 255.0, z / 255.0, alpha);
     }
     toString(): string {
         return `Vec4(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)}, ${numMaxDp(this.w)})`;

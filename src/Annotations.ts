@@ -1,4 +1,4 @@
-import { cellPositionX, IBlkDef, IGptModelLayout } from "./GptModelLayout";
+import { cellPosition, IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { addLine } from "./render/lineRender";
 import { IRenderState } from "./render/modelRender";
 import { measureTextWidth, writeTextToBuffer } from "./utils/font";
@@ -11,22 +11,29 @@ export function blockDimension(state: IRenderState, layout: IGptModelLayout, blk
 
     // Render |----- T ------| along the appropriate dimension
 
-    let textPad = 1;
-    let fontSize = 2;
+    let { vecId } = dimConsts(dim);
+    let { x, cx } = dimProps(blk, dim);
+
+    let offVecId = vecId === 0 ? 1 : 0;
+
+    let fontSize = 2.5;
     let text = DimStyle[style];
 
     let tw = measureTextWidth(state.modelFontBuf, text, fontSize);
+    let th = fontSize;
+    let textPad = dim === Dim.X ? tw / 2 + fontSize * 0.4 : dim === Dim.Y ? th / 2 + fontSize * 0.4 : 0;
 
-    let start = cellPositionX(layout, blk, 0);
-    let end = cellPositionX(layout, blk, blk.cx - 1) + layout.cell;
+    let start = cellPosition(layout, blk, dim, 0);
+    let end = cellPosition(layout, blk, dim, cx - 1) + layout.cell;
     let mid = (end + start) / 2;
-    let botPad = fontSize * 0.2;
-    let yOff = fontSize / 2 + botPad;
+    let botPad = fontSize * 0.3;
     let edgeH2 = fontSize / 2 * 0.5;
 
     let color = dimStyleColor(style).mul(t);
 
-    let mtx = Mat4f.fromTranslation(new Vec3(mid, blk.y - botPad, blk.z + blk.dz));
+    let textPos = new Vec3(blk.x, blk.y, blk.z + blk.dz)
+        .setAt(vecId, mid)
+        .withAddAt(offVecId, -fontSize / 2 - botPad);
 
     let textZOff = 0;
     let tooSmall = tw > end - start - textPad * 2;
@@ -34,9 +41,16 @@ export function blockDimension(state: IRenderState, layout: IGptModelLayout, blk
         textZOff = fontSize;
     }
 
-    writeTextToBuffer(state.modelFontBuf, text, color, -tw / 2, -fontSize - textZOff, fontSize, mtx);
+    let mtx = Mat4f.fromTranslation(textPos);
 
-    let lY = blk.y - yOff;
+    let textDx = dim === Dim.X ? -tw / 2 : dim === Dim.Y ? -tw / 2 : 0;
+    let textDy = dim === Dim.X ? -textZOff - fontSize / 2 : dim === Dim.Y ? -fontSize / 2 : 0;
+
+    writeTextToBuffer(state.modelFontBuf, text, color, textDx, textDy, fontSize, mtx);
+
+    // let yOff = fontSize / 2 + botPad;
+    let lX = blk.x;
+    let lY = blk.y;
     let lZ = blk.z + blk.dz;
     let thickness = fontSize * 0.02;
     let n = new Vec3(0, 0, 1);
@@ -46,10 +60,16 @@ export function blockDimension(state: IRenderState, layout: IGptModelLayout, blk
 
     }
 
-    addLine(state.lineRender, thickness, color, new Vec3(start, lY,          lZ), new Vec3(mid - textPad, lY,          lZ), n);
-    addLine(state.lineRender, thickness, color, new Vec3(end,   lY,          lZ), new Vec3(mid + textPad, lY,          lZ), n);
-    addLine(state.lineRender, thickness, color, new Vec3(start, lY + edgeH2, lZ), new Vec3(start,         lY - edgeH2, lZ), n);
-    addLine(state.lineRender, thickness, color, new Vec3(end,   lY + edgeH2, lZ), new Vec3(end,           lY - edgeH2, lZ), n);
+    let base = new Vec3(lX, lY, lZ).withAddAt(offVecId, -fontSize / 2 - botPad);
+    let vStart = base.withSetAt(vecId, start);
+    let vEnd = base.withSetAt(vecId, end);
+    let vMid1 = base.withSetAt(vecId, mid - textPad);
+    let vMid2 = base.withSetAt(vecId, mid + textPad);
+
+    addLine(state.lineRender, thickness, color, vStart, vMid1, n);
+    addLine(state.lineRender, thickness, color, vEnd  , vMid2, n);
+    addLine(state.lineRender, thickness, color, vStart.withAddAt(offVecId, edgeH2), vStart.withAddAt(offVecId, -edgeH2), n);
+    addLine(state.lineRender, thickness, color, vEnd.withAddAt(offVecId, edgeH2), vEnd.withAddAt(offVecId, -edgeH2), n);
 }
 
 export function blockIndex(state: IRenderState, layout: IGptModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, idx: number, cellOffset: number, t: number) {
@@ -61,8 +81,8 @@ export function blockIndex(state: IRenderState, layout: IGptModelLayout, blk: IB
 
     let tw = measureTextWidth(state.modelFontBuf, text, fontSize, font);
 
-    let cellL = cellPositionX(layout, blk, Math.floor(idx)) + layout.cell / 2;
-    let cellR = cellPositionX(layout, blk, Math.ceil(idx)) + layout.cell / 2;
+    let cellL = cellPosition(layout, blk, dim, Math.floor(idx)) + layout.cell / 2;
+    let cellR = cellPosition(layout, blk, dim, Math.ceil(idx)) + layout.cell / 2;
     let pos = lerp(cellL, cellR, idx - Math.floor(idx)) + lerpSmoothstep(0, cellOffset, Math.min(idx, 1));
     let botPad = fontSize * 0.5;
 
@@ -73,11 +93,27 @@ export function blockIndex(state: IRenderState, layout: IGptModelLayout, blk: IB
     writeTextToBuffer(state.modelFontBuf, text, color, -tw / 2, -fontSize, fontSize, mtx, font);
 }
 
+interface IDimConst {
+    vecId: number;
+    xName: string;
+    dxName: string;
+    cxName: string;
+}
+
+let dimConstX: IDimConst = { vecId: 0, xName: 'x', dxName: 'dx', cxName: 'cx' };
+let dimConstY: IDimConst = { vecId: 1, xName: 'y', dxName: 'dy', cxName: 'cy' };
+let dimConstZ: IDimConst = { vecId: 2, xName: 'z', dxName: 'dz', cxName: 'cz' };
+
+
+export function dimConsts(dim: Dim) {
+    return dim === Dim.X ? dimConstX : dim === Dim.Y ? dimConstY : dimConstZ;
+}
+
 export function dimProps(blk: IBlkDef, dim: Dim) {
     switch (dim) {
-        case Dim.X: return { x: blk.x, cx: blk.cx, vecId: 0, xName: 'x', dxName: 'dx', mul: 1 };
-        case Dim.Y: return { x: blk.y, cx: blk.cy, vecId: 1, xName: 'y', dxName: 'dy', mul: 1 };
-        case Dim.Z: return { x: blk.z, cx: blk.cz, vecId: 2, xName: 'z', dxName: 'dz', mul: -1 };
+        case Dim.X: return { x: blk.x, cx: blk.cx, dx: blk.dx };
+        case Dim.Y: return { x: blk.y, cx: blk.cy, dx: blk.dy };
+        case Dim.Z: return { x: blk.z, cx: blk.cz, dx: blk.dz };
     }
 }
 
@@ -95,7 +131,8 @@ export function splitGridX(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, xSpl
     // have max seperation, and effectively join left & right with their main
     // For non 0.5 zSplits, will show 2 gaps
 
-    let { x, cx, vecId, xName, dxName, mul } = dimProps(blk, dim);
+    let { x, cx } = dimProps(blk, dim);
+    let { vecId, xName, dxName } = dimConsts(dim);
 
     let blocks: IBlkDef[] = [];
     let rangeOffsets: [number, number][] = [];
@@ -112,7 +149,7 @@ export function splitGridX(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, xSpl
 
         blocks.push({ ...blk,
             localMtx: mtx.mul(blk.localMtx ?? new Mat4f()),
-            [xName]: x + (iStart * layout.cell + xOffset) * mul,
+            [xName]: x + (iStart * layout.cell + xOffset),
             [dxName]: (iEnd - iStart) * layout.cell,
         });
         rangeOffsets.push([iEnd, xOffset]);
@@ -177,7 +214,7 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
         i += 1;
     }
 
-    let leftPos = cellPositionX(layout, blk, offset);
+    let leftPos = cellPosition(layout, blk, Dim.X, offset);
 
     let mtxRes = Mat4f.fromTranslation(new Vec3(0, yLower, 0));
     let totalOffset = leftPos - textOffset / 2 + layout.cell * count / 2;
@@ -197,7 +234,7 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
         writeTextToBuffer(fontBuf, '' + a.val, drawColor, x, 0, em, mtxRes);
 
         let tx = x + a.w / 2;
-        let bx = cellPositionX(layout, blk, a.i + offset) + layout.cell * 0.5;
+        let bx = cellPosition(layout, blk, Dim.X, a.i + offset) + layout.cell * 0.5;
         let top = yLower + em;
         let delta = 0.1 * em;
         let bot = Math.max(blk.y - 0.3, top);
@@ -206,6 +243,27 @@ export function renderIndexes(state: IRenderState, layout: IGptModelLayout, blk:
         addLine(lineRender, thick, drawColor, new Vec3(tx, top + delta, 0), new Vec3(bx, bot - delta, 0), new Vec3(0, 0, 1));
         // addLine(lineRender, thick, color, new Vec3(bx, 0, bot + delta), new Vec3(bx, 0, bot));
     }
+}
+
+export function indexMappingLines(state: IRenderState, layout: IGptModelLayout, blkSrc: IBlkDef, blkDest: IBlkDef, color: Vec4, srcPad: number, destPad: number, srcIdx: number, destIdx: number, lineFract: number) {
+
+    // assume all in x-y plane, and idx's are in x, and src is above dest
+
+    let top = blkSrc.y + blkSrc.dy + srcPad;
+    let bot = blkDest.y - destPad;
+    let midY = lerp(top, bot, lineFract);
+    let z = 0; // blkSrc.z + blkSrc.dz;
+
+    let srcX = cellPosition(layout, blkSrc, Dim.X, srcIdx) + layout.cell * 0.5;
+    let destX = cellPosition(layout, blkDest, Dim.X, destIdx) + layout.cell * 0.5;
+
+    // dogleg line, using only horizontal and vertical lines
+
+    let n = new Vec3(0, 0, 1);
+    let thick = layout.cell * 0.025;
+    addLine(state.lineRender, thick, color, new Vec3(srcX, top, z), new Vec3(srcX, midY, z), n);
+    addLine(state.lineRender, thick, color, new Vec3(srcX, midY, z), new Vec3(destX, midY, z), n);
+    addLine(state.lineRender, thick, color, new Vec3(destX, midY, z), new Vec3(destX, bot, z), n);
 }
 
 /* Returns all subblocks along a given dimension that overlap the provided range

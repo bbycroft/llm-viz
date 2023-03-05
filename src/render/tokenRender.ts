@@ -1,8 +1,9 @@
 import { IColorMix } from "../Annotations";
-import { cellPositionX, IGptModelLayout } from "../GptModelLayout";
+import { cellPosition, IGptModelLayout } from "../GptModelLayout";
 import { measureTextWidth, writeTextToBuffer } from "../utils/font";
 import { Mat4f } from "../utils/matrix";
 import { Vec3, Vec4 } from "../utils/vector";
+import { Dim } from "../Walkthrough";
 import { addLine } from "./lineRender";
 import { IRenderState } from "./modelRender";
 
@@ -68,7 +69,7 @@ export function renderTokens(renderState: IRenderState, layout: IGptModelLayout,
 
 
         let tx = x + a.w2 / 2;
-        let bx = cellPositionX(layout, target, a.i) + layout.cell * 0.5;
+        let bx = cellPosition(layout, target, Dim.X, a.i) + layout.cell * 0.5;
         let top = -4;
         let delta = 0.6;
         let bot = -0.3;
