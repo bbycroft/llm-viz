@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+export function makeArray<T = number>(length: number, val?: T): T[] {
+    return new Array(length).fill(val ?? 0);
+}
 
-export function clsx(...cls: (string | false | undefined | null)[]) {
-    let res = '';
-    for (let c of cls) {
-        if (c) {
-            res += c.split(' ').map(a => a.trim()).filter(a => !!a).join(' ');
-        }
-    }
-    return res;
+export function oneHotArray(length: number, index: number, val: number, defaultVal: number = 0.0): number[] {
+    let arr = new Array(length).fill(defaultVal);
+    arr[index] = val;
+    return arr;
 }
 
 export function assignImm<T>(target: T, source: Partial<T>): T {

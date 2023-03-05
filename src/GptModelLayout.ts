@@ -476,6 +476,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     return {
         cubes,
         cell,
+        margin,
         idxObj,
         tokEmbedObj,
         posEmbedObj,

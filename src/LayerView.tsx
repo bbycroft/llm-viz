@@ -60,6 +60,8 @@ export function LayerView() {
     function handleWheel(ev: React.WheelEvent) {
         let zoom = clamp(camAngle.z * Math.pow(1.0012, ev.deltaY), 0.01, 10000);
         setCamAngle(new Vec3(camAngle.x, camAngle.y, zoom));
+        ev.stopPropagation();
+        ev.preventDefault();
     }
 
     useEffect(() => {
@@ -126,15 +128,19 @@ export function LayerView() {
     }, []);
 
     useEffect(() => {
+        console.log('setting up canvas with font', canvasEl, fontAtlasData);
         if (canvasEl && fontAtlasData) {
             let canvasRenderLocal = new CanvasRender(canvasEl, null!, fontAtlasData, localSetWalkthrough);
             let resizeObserver = new ResizeObserver(() => {
                 canvasRenderLocal.canvasSizeDirty = true;
                 canvasRenderLocal.markDirty();
             });
+            let handleWheel = (ev: WheelEvent) => ev.preventDefault();
             setCanvasRender(canvasRenderLocal);
             resizeObserver.observe(canvasEl);
+            canvasEl.addEventListener('wheel', handleWheel, { passive: false });
             return () => {
+                canvasEl!.removeEventListener('wheel', handleWheel);
                 canvasRenderLocal.destroy();
                 resizeObserver.disconnect();
             };

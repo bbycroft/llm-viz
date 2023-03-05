@@ -24,17 +24,28 @@ export function blockDimension(state: IRenderState, layout: IGptModelLayout, blk
     let zOff = fontSize / 2 + botPad;
     let edgeH2 = fontSize / 2 * 0.5;
 
-    let color = dimStyleColor(style);
+    let color = dimStyleColor(style).mul(t);
 
     let mtx = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
     mtx = Mat4f.fromTranslation(new Vec3(mid, blk.y, blk.z + botPad)).mul(mtx);
 
-    writeTextToBuffer(state.modelFontBuf, text, color, -tw / 2, -fontSize, fontSize, mtx);
+    let textZOff = 0;
+    let tooSmall = tw > top - bot - textPad * 2;
+    if (tooSmall) {
+        textZOff = fontSize;
+    }
+
+    writeTextToBuffer(state.modelFontBuf, text, color, -tw / 2, -fontSize - textZOff, fontSize, mtx);
 
     let lY = blk.y;
     let lZ = blk.z + zOff;
     let thickness = fontSize * 0.02;
     let n = new Vec3(0, -1, 0);
+
+    if (tooSmall) {
+        textPad = 0;
+
+    }
 
     addLine(state.lineRender, thickness, color, new Vec3(bot, lY, lZ), new Vec3(mid - textPad, lY, lZ), n);
     addLine(state.lineRender, thickness, color, new Vec3(top, lY, lZ), new Vec3(mid + textPad, lY, lZ), n);
@@ -64,6 +75,13 @@ export function blockIndex(state: IRenderState, layout: IGptModelLayout, blk: IB
     writeTextToBuffer(state.modelFontBuf, text, color, -tw / 2, -fontSize, fontSize, mtx, font);
 }
 
+export function dimProps(blk: IBlkDef, dim: Dim) {
+    switch (dim) {
+        case Dim.X: return { x: blk.x, cx: blk.cx, vecId: 0, xName: 'x', dxName: 'dx', mul: 1 };
+        case Dim.Y: return { x: blk.y, cx: blk.cy, vecId: 1, xName: 'y', dxName: 'dy', mul: 1 };
+        case Dim.Z: return { x: blk.z, cx: blk.cz, vecId: 2, xName: 'z', dxName: 'dz', mul: -1 };
+    }
+}
 
 export function splitGridX(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, xSplit: number, splitAmt: number) {
     // generate several new blocks (let's say up to 5) that are neighbouring the zSplit point
@@ -79,12 +97,7 @@ export function splitGridX(layout: IGptModelLayout, blk: IBlkDef, dim: Dim, xSpl
     // have max seperation, and effectively join left & right with their main
     // For non 0.5 zSplits, will show 2 gaps
 
-    let x = dim === Dim.X ? blk.x : dim === Dim.Y ? blk.y : blk.z;
-    let cx = dim === Dim.X ? blk.cx : dim === Dim.Y ? blk.cy : blk.cz;
-    let vecId = dim === Dim.X ? 0 : dim === Dim.Y ? 1 : 2;
-    let xName = dim === Dim.X ? 'x' : dim === Dim.Y ? 'y' : 'z';
-    let dxName = dim === Dim.X ? 'dx' : dim === Dim.Y ? 'dy' : 'dz';
-    let mul = dim === Dim.Z ? -1 : 1;
+    let { x, cx, vecId, xName, dxName, mul } = dimProps(blk, dim);
 
     let blocks: IBlkDef[] = [];
     let rangeOffsets: [number, number][] = [];
@@ -231,4 +244,58 @@ export function findSubBlocks(blk: IBlkDef, dim: Dim, idxLow: number | null, idx
         startIdx = endIdx;
     }
     return subBlocks;
+}
+
+export enum TextAlignVert {
+    Top,
+    Middle,
+    Bottom,
+}
+
+export enum TextAlignHoriz {
+    Left,
+    Center,
+    Right,
+}
+
+export interface IFontConfig {
+    color?: Vec4; // default black
+    align?: TextAlignHoriz; // default left
+    valign?: TextAlignVert; // default top
+    size?: number; // default 1
+    face?: string; // default 'Roboto-Regular'
+}
+
+export function drawTextOnModel(state: IRenderState, text: string, pos: Vec3, cfg: IFontConfig) {
+    let { modelFontBuf: fontBuf } = state;
+
+    let color = cfg.color || new Vec4(0, 0, 0, 1);
+    let align = cfg.align || TextAlignHoriz.Left;
+    let valign = cfg.valign || TextAlignVert.Top;
+    let size = cfg.size || 1;
+    let face = cfg.face;
+
+    let w = measureTextWidth(fontBuf, text, size);
+    let h = size;
+
+    let x = pos.x;
+    let y = pos.y;
+    let z = pos.z;
+
+    if (align === TextAlignHoriz.Center) {
+        x -= w / 2;
+    } else if (align === TextAlignHoriz.Right) {
+        x -= w;
+    }
+
+    if (valign === TextAlignVert.Middle) {
+        z -= h / 2;
+    } else if (valign === TextAlignVert.Bottom) {
+        z -= h;
+    }
+
+    let mtxRes = Mat4f.fromTranslation(new Vec3(x, y, -z))
+        .mul(Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2));
+
+    writeTextToBuffer(fontBuf, text, color, 0, 0, size, mtxRes, face);
 }

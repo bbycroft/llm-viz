@@ -1,7 +1,7 @@
-import { blockIndex, findSubBlocks, renderIndexes, splitGridX } from "./Annotations";
+import { blockDimension, blockIndex, drawTextOnModel, findSubBlocks, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "./Annotations";
 import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { IRenderState, IRenderView } from "./render/modelRender";
-import { clamp } from "./utils/data";
+import { clamp, oneHotArray } from "./utils/data";
 import { measureTextWidth, writeTextToBuffer } from "./utils/font";
 import { lerp, lerpSmoothstep } from "./utils/math";
 import { Vec3, Vec4 } from "./utils/vector";
@@ -169,6 +169,7 @@ export enum DimStyle {
     C,
     B,
     A,
+    n_vocab,
 }
 
 export function dimStyleColor(style: DimStyle) {
@@ -219,7 +220,7 @@ export type IWalkthrough = ReturnType<typeof initWalkthrough>;
 
 export function initWalkthrough() {
     return {
-        phase: Phase.Input_Detail_TokEmbed,
+        phase: Phase.Input_Detail_Tables,
         time: 0,
         running: false,
         commentary: null as ICommentaryRes | null,
@@ -231,7 +232,8 @@ export function initWalkthrough() {
             title: 'Detailed - Input',
             phases: [
                 { id: Phase.Input_First, title: 'The First' },
-                { id: Phase.Input_Detail_TokEmbed, title: 'Embeddings' },
+                { id: Phase.Input_Detail_Tables, title: 'Embedding Tables' },
+                { id: Phase.Input_Detail_TokEmbed, title: 'Embedding Action' },
             ],
         }] as IPhaseGroup[],
     };
@@ -239,6 +241,7 @@ export function initWalkthrough() {
 
 export enum Phase {
     Input_First,
+    Input_Detail_Tables,
     Input_Detail_TokEmbed,
 }
 
@@ -361,7 +364,30 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
     // "Note that only a small fraction of the intermediate results are actually required at any one time, but we show them all here for clarity." [highlight the intermediate results]
 
     // "Let's start at the top. To compute the vectors at each time T we do a couple of steps:" [highlight the input]
+    case Phase.Input_Detail_Tables: {
 
+        // practice drawing labels on tensors
+        let t0_showAll = atTime(0, 0.1, 0.2);
+
+        let tokEmbed = layout.tokEmbedObj;
+        console.log(tokEmbed.z, tokEmbed.dz, tokEmbed.z + tokEmbed.dz, tokEmbed.cz);
+        drawTextOnModel(state, 'token-embedding matrix', new Vec3(tokEmbed.x - layout.margin, tokEmbed.y, -tokEmbed.z + tokEmbed.dz / 2), {
+            align: TextAlignHoriz.Right,
+            valign: TextAlignVert.Middle,
+            color: new Vec4(0,0,0,1).mul(t0_showAll.t),
+            size: 3,
+        });
+        let posEmbed = layout.posEmbedObj;
+        drawTextOnModel(state, 'position-embedding matrix', new Vec3(posEmbed.x + posEmbed.dx + layout.margin, tokEmbed.y, -tokEmbed.z + tokEmbed.dz / 2), {
+            align: TextAlignHoriz.Left,
+            valign: TextAlignVert.Middle,
+            color: new Vec4(0,0,0,1).mul(t0_showAll.t),
+            size: 3,
+        });
+
+        blockDimension(state, layout, tokEmbed, Dim.X, DimStyle.n_vocab, t0_showAll.t);
+
+    } break;
     case Phase.Input_Detail_TokEmbed: {
         let tStr = T_val('t', 1, 'cmmi12');
         let c = commentary`Let's start at the top. To compute the vectors at each time ${tStr} we do a couple of steps:`;
@@ -398,7 +424,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         let embedOffColor = new Vec4(0.5,0.5,0.5).mul(0.6);
         // let embedActiveColor = Vec4.lerp(embedOffColor, new Vec4(0.3,0.3,0.6), t4.t);
 
-        if (layout.model && t6_cleanup1.t < 1.0) {
+        if (layout.model && t7_iterCols.t <= 0.0) {
             let mixes = new Array(layout.tokEmbedObj.cx).fill(0.0);
             mixes[layout.model!.inputBuf[3]] = t4_highlightTokEmIdx.t;
             renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3_showTokEmIdx.t, 3, 0, null, { color2: new Vec4(.3, .3, .5), mixes });
@@ -408,9 +434,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             splitGridX(layout, layout.tokEmbedObj, Dim.X, 1, 0);
             layout.tokEmbedObj.subs![1].highlight = lerp(0, 0.2, t4_highlightTokEmIdx.t);
             let T = layout.idxObj.cx;
-            let cMix = new Array(T).fill(0.0);
-            cMix[3] = t4_highlightTokEmIdx.t;
-            state.tokenColors = { color2: new Vec4(.3, .3, .5), mixes: cMix };
+            state.tokenColors = { color2: new Vec4(.3, .3, .5), mixes: oneHotArray(T, 3, t4_highlightTokEmIdx.t) };
         }
 
         if (layout.model && t7_iterCols.t < 1.0) {
@@ -434,16 +458,14 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         if (layout.model && t7_iterCols.active) {
             let T = layout.idxObj.cx;
             let C = layout.residual0.cz;
-            let cMix = new Array(T).fill(0.0);
-
-            state.tokenColors = { color2: new Vec4(.3, .3, .5), mixes: cMix };
 
             let tPos = t7_iterCols.t * T;
             let tIdx = Math.floor(tPos);
-            cMix[tIdx] = 1.0;
 
             let t_inner = tPos - tIdx;
             let cPos = t_inner * C;
+
+            state.tokenColors = { color2: new Vec4(.3, .3, .5), mixes: oneHotArray(T, tIdx, 1.0) };
 
             splitGridX(layout, layout.residual0, Dim.X, tIdx + 0.5, 0.0);
 
@@ -465,8 +487,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
             let tokIdx = layout.model.inputBuf[tIdx];
 
-            let mixes = new Array(layout.tokEmbedObj.cx).fill(0.0);
-            mixes[tokIdx] = 1.0;
+            let mixes = oneHotArray(layout.tokEmbedObj.cx, tokIdx, 1.0);
             renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3_showTokEmIdx.t, 3, 0, null, { color2: new Vec4(.3, .3, .5), mixes });
 
             splitGridX(layout, layout.tokEmbedObj, Dim.X, tokIdx + 0.5, 0);
@@ -483,8 +504,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         }
 
         // fallthrough to continue once the commentary is done
-        break;
-    }
+    } break;
 
     // "1. Select the i'th column of the token embedding matrix." [highlight the i'th column of the embedding matrix for a couple of them]
     // "2. Select the t'th column of the position embedding matrix." [highlight the t'th column of the position embedding matrix for a few of them]
