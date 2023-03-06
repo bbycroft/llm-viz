@@ -6,7 +6,8 @@ import { Mat4f } from "../utils/matrix";
 import { createShaderManager, ensureShadersReady, IGLContext } from "../utils/shader";
 import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
 import { initWalkthrough, modifyCells } from "../Walkthrough";
-import { IBlockRender, initBlockRender } from "./blockRender";
+import { IBlockRender, initBlockRender, renderAllBlocks, renderBlocksSimple } from "./blockRender";
+import { initBlurRender, renderBlur, setupBlurTarget } from "./blurRender";
 import { createLineRender, renderAllLines, resetLineRender } from "./lineRender";
 import { renderAllThreads, initThreadRender } from "./threadRender";
 import { renderTokens } from "./tokenRender";
@@ -28,6 +29,7 @@ export interface IRenderState {
     walkthrough: ReturnType<typeof initWalkthrough>;
     lineRender: ReturnType<typeof createLineRender>;
     threadRender: ReturnType<typeof initThreadRender>;
+    blurRender: ReturnType<typeof initBlurRender>;
     fontAtlas: IFontAtlas;
     modelFontBuf: IFontBuffers;
     overlayFontBuf: IFontBuffers;
@@ -74,13 +76,10 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
 
     let modelFontBuf = createFontBuffers(fontAtlas);
     let overlayFontBuf = createFontBuffers(fontAtlas);
-
     let threadRender = initThreadRender(ctx);
-
     let lineRender = createLineRender(ctx);
-
     let blockRender = initBlockRender(ctx);
-
+    let blurRender = initBlurRender(ctx, quadVao);
     let walkthrough = initWalkthrough();
 
     ensureShadersReady(shaderManager);
@@ -94,6 +93,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         blockRender,
         threadRender,
         lineRender,
+        blurRender,
         fontAtlas,
         modelFontBuf,
         overlayFontBuf,
@@ -209,56 +209,15 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     }
 
     {
-        let locs = blockRender.shader.locs;
-        let geom = blockRender.cubeGeom;
-        gl.useProgram(blockRender.shader.program);
+        let blurBlocks = layout.cubes.filter(a => a.highlight && a.highlight > 0)
+        setupBlurTarget(args.blurRender);
+        renderBlocksSimple(blockRender, layout, blurBlocks, viewMtx, modelMtx);
 
-        gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
-        gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
-        let camPosModel = modelMtx.mulVec3Proj(camPos);
-        gl.uniform3f(locs.u_camPos, camPosModel.x, camPosModel.y, camPosModel.z);
-
-        gl.uniform3fv(locs.u_lightPos, lightPosArr);
-        gl.uniform3fv(locs.u_lightColor, lightColorArr);
-        gl.uniform1i(locs.u_accessSampler, 0);
-
-        let cubes: IBlkDef[] = [];
-        function addCube(c: IBlkDef) {
-            if (c.subs) {
-                c.subs.forEach(addCube);
-            } else {
-                cubes.push(c);
-            }
-        }
-        layout.cubes.forEach(addCube);
-
-        for (let cube of cubes) {
-            // using uniforms is just a quick & easy way to sort this out
-            // things worth putting into a texture:
-            gl.uniformMatrix4fv(locs.u_localPosMtx, false, cube.localMtx ?? new Mat4f());
-            gl.uniform3f(locs.u_nCells, cube.cx, cube.cy, cube.cz);
-            gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
-            gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
-            gl.uniform1f(locs.u_highlight, cube.highlight ?? 0);
-            let baseColor = cube.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
-            gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
-
-            // things we can just pass in as uniforms:
-            let hasAccess = cube.access && cube.access.disable !== true;
-            if (hasAccess && cube.access) {
-                gl.uniformMatrix4x2fv(locs.u_accessMtx, true, cube.access.mat, 0, 8);
-                let c = cube.access.channel;
-                gl.uniform1i(locs.u_channel, c === 'r' ? 0 : c === 'g' ? 1 : c === 'b' ? 2 : 3);
-            }
-            gl.uniform1f(locs.u_accessTexScale, hasAccess && cube.access ? cube.access.scale : 0);
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, hasAccess && cube.access ? cube.access.src.texture : null);
-
-            gl.bindVertexArray(geom.vao);
-            gl.drawArrays(geom.type, 0, geom.numVerts);
-        }
+        renderBlur(args.blurRender, null);
     }
+    gl.enable(gl.DEPTH_TEST);
 
+    renderAllBlocks(blockRender, layout, viewMtx, modelMtx, camPos, lightPosArr, lightColorArr);
     renderAllThreads(args.threadRender, viewMtx, modelMtx);
     renderAllText(gl, args.modelFontBuf, viewMtx, modelMtx);
     renderAllLines(args.lineRender, viewMtx, modelMtx, new Vec4(0, 0, 0, 1));
@@ -279,6 +238,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     if (ctx.ext.disjointTimerQuery && queryCanRun) {
         gl.endQuery(ctx.ext.disjointTimerQuery.TIME_ELAPSED_EXT);
     }
+    gl.flush();
 
     args.lastJsMs = performance.now() - timer0;
 }

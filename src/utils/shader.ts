@@ -21,6 +21,7 @@ export interface IProgram<T extends string = any> {
     fragSource: string;
     ready: boolean;
     locs: Record<T, WebGLUniformLocation>;
+    uboBindings: Record<string, number>;
 }
 
 export interface IShaderManager {
@@ -41,7 +42,11 @@ export function createShaderManager(gl: WebGL2RenderingContext) {
     };
 }
 
-export function createShaderProgram<T extends string>(manager: IShaderManager | IGLContext, name: string, vert: string, frag: string, uniformNames?: T[]): IProgram<T> | null {
+export interface IShaderExtras {
+    uboBindings: Record<string, number>;
+}
+
+export function createShaderProgram<T extends string>(manager: IShaderManager | IGLContext, name: string, vert: string, frag: string, uniformNames?: T[], extra?: IShaderExtras): IProgram<T> | null {
     if ('shaderManager' in manager) {
         manager = manager.shaderManager;
     }
@@ -81,6 +86,7 @@ export function createShaderProgram<T extends string>(manager: IShaderManager | 
         vertShader,
         fragShader,
         locs,
+        uboBindings: extra?.uboBindings ?? {},
         ready: false,
     };
 
@@ -110,6 +116,14 @@ export function ensureShadersReady(manager: IShaderManager) {
                 prog.locs[name] = loc!;
             }
             prog.ready = true;
+
+            for (let uboName of Object.keys(prog.uboBindings)) {
+                let uboIndex = gl.getUniformBlockIndex(program, uboName);
+                if (uboIndex < 0) {
+                    console.log(`ubo of ${prog.name} not found: ${uboName} (may just be unused)`);
+                }
+                gl.uniformBlockBinding(program, uboIndex, prog.uboBindings[uboName]);
+            }
 
         } else {
 

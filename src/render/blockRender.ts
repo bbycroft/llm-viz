@@ -1,6 +1,7 @@
+import { IBlkDef, IModelLayout } from "../GptModelLayout";
 import { Mat4f } from "../utils/matrix";
 import { createShaderProgram, IGLContext } from "../utils/shader";
-import { Vec3 } from "../utils/vector";
+import { Vec3, Vec4 } from "../utils/vector";
 
 
 export type IBlockRender = ReturnType<typeof initBlockRender>;
@@ -30,12 +31,14 @@ export function initBlockRender(ctx: IGLContext) {
         uniform vec3 u_offset;
         uniform vec3 u_nCells;
         uniform mat4 u_localPosMtx;
+        uniform mat4x2 u_accessMtx;
 
         layout(location = 0) in vec3 a_position;
         layout(location = 1) in vec3 a_normal;
         out vec3 v_normal;
         out vec3 v_modelPos;
         out vec3 v_blockPos;
+        out vec2 v_accessPos;
         out vec3 v_cubePos;
         void main() {
             vec3 localPos = (u_localPosMtx * vec4(a_position, 1.0)).xyz;
@@ -44,6 +47,7 @@ export function initBlockRender(ctx: IGLContext) {
             v_normal = a_normal;
             v_modelPos = model_pos;
             v_blockPos = localPos * u_nCells;
+            v_accessPos = u_accessMtx * vec4(v_blockPos, 1.0);
             v_cubePos = localPos;
         }
     `, /*glsl*/`#version 300 es
@@ -53,6 +57,7 @@ export function initBlockRender(ctx: IGLContext) {
         in vec3 v_blockPos;
         in vec3 v_cubePos;
         in vec3 v_modelPos;
+        in vec2 v_accessPos;
         uniform vec3 u_nCells;
         uniform vec3 u_lightPos[3]; // in model space
         uniform vec3 u_lightColor[3]; // in model space
@@ -68,10 +73,6 @@ export function initBlockRender(ctx: IGLContext) {
             ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, v_normal.z) * 0.1);
 
             bool cellDark = (blockPos.x + blockPos.y + blockPos.z) % 2 == 0;
-
-            vec3 pxPerCell = 1.0 / fwidth(v_blockPos);
-            float maxPxPerCell = max(max(pxPerCell.x, pxPerCell.y), pxPerCell.z);
-
 
             float maxDist = 4000.0;
             float minDist = 600.0;
@@ -132,6 +133,7 @@ export function initBlockRender(ctx: IGLContext) {
 
             vec3 color = mix(baseColor * 0.7, u_baseColor, u_highlight);
 
+            if (false) {
             for (int i = 0; i < 3; i++) {
                 vec3 light_dir = normalize(u_lightPos[i] - v_modelPos);
                 vec3 view_dir = normalize(u_camPos - v_modelPos);
@@ -141,6 +143,7 @@ export function initBlockRender(ctx: IGLContext) {
                 vec3 specular = 0.1 * u_lightColor[i] * pow(max(dot(half_dir, v_normal), 0.0), 32.0);
 
                 color += diffuse + specular;
+            }
             }
 
             o_color = vec4(color, 1);
@@ -153,13 +156,39 @@ export function initBlockRender(ctx: IGLContext) {
         'u_highlight',
     ])!;
 
+    let simpleShader = createShaderProgram(ctx, 'block-simple', /*glsl*/`#version 300 es
+        precision highp float;
+        uniform mat4 u_view;
+        uniform mat4 u_model;
+        uniform vec3 u_size;
+        uniform vec3 u_offset;
+
+        layout(location = 0) in vec3 a_position;
+        void main() {
+            vec3 model_pos = a_position * u_size + u_offset;
+            gl_Position = u_view * u_model * vec4(model_pos, 1);
+        }
+    `, /*glsl*/`#version 300 es
+        precision highp float;
+        out vec4 o_color;
+        uniform vec4 u_baseColor;
+
+        void main() {
+            o_color = u_baseColor;
+        }
+    `, [
+        'u_view', 'u_model', 'u_size', 'u_offset', 'u_baseColor',
+    ])!;
+
     let cubeGeom = genCubeGeom(gl);
 
     return {
+        gl,
         cubeGeom,
         quadVao,
         quadVbo,
         shader,
+        simpleShader,
     };
 }
 
@@ -212,4 +241,76 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
     gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 6 * 4, 3 * 4);
 
     return { name: 'cube', vao, vbo, type: gl.TRIANGLES, numVerts: 36 };
+}
+
+export function renderBlocksSimple(blockRender: IBlockRender, layout: IModelLayout, cubes: IBlkDef[], viewMtx: Mat4f, modelMtx: Mat4f) {
+    let gl = blockRender.gl;
+    let locs = blockRender.simpleShader.locs;
+    let geom = blockRender.cubeGeom;
+    gl.useProgram(blockRender.simpleShader.program);
+
+    gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
+    gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
+    gl.bindVertexArray(geom.vao);
+
+    for (let cube of cubes) {
+        gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
+        gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
+        let baseColor = (cube.t === 'w' ? new Vec4(0.3, 0.3, 1.0, 1) : new Vec4(0.4, 0.8, 0.4, 1)).mul(cube.highlight ?? 0);
+        gl.uniform4f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z, baseColor.w);
+        gl.drawArrays(geom.type, 0, geom.numVerts);
+    }
+}
+
+export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout, viewMtx: Mat4f, modelMtx: Mat4f, camPos: Vec3, lightPosArr: Float32Array, lightColorArr: Float32Array) {
+    let gl = blockRender.gl;
+    let locs = blockRender.shader.locs;
+    let geom = blockRender.cubeGeom;
+    gl.useProgram(blockRender.shader.program);
+
+    gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
+    gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
+    let camPosModel = modelMtx.mulVec3Proj(camPos);
+    gl.uniform3f(locs.u_camPos, camPosModel.x, camPosModel.y, camPosModel.z);
+
+    gl.uniform3fv(locs.u_lightPos, lightPosArr);
+    gl.uniform3fv(locs.u_lightColor, lightColorArr);
+    gl.uniform1i(locs.u_accessSampler, 0);
+
+    gl.bindVertexArray(geom.vao);
+
+    let cubes: IBlkDef[] = [];
+    function addCube(c: IBlkDef) {
+        if (c.subs) {
+            c.subs.forEach(addCube);
+        } else {
+            cubes.push(c);
+        }
+    }
+    layout.cubes.forEach(addCube);
+
+    for (let cube of cubes) {
+        // using uniforms is just a quick & easy way to sort this out
+        // things worth putting into a texture:
+        gl.uniformMatrix4fv(locs.u_localPosMtx, false, cube.localMtx ?? new Mat4f());
+        gl.uniform3f(locs.u_nCells, cube.cx, cube.cy, cube.cz);
+        gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
+        gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
+        gl.uniform1f(locs.u_highlight, cube.highlight ?? 0);
+        let baseColor = cube.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
+        gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
+
+        // things we can just pass in as uniforms:
+        let hasAccess = cube.access && cube.access.disable !== true;
+        if (hasAccess && cube.access) {
+            gl.uniformMatrix4x2fv(locs.u_accessMtx, true, cube.access.mat, 0, 8);
+            let c = cube.access.channel;
+            gl.uniform1i(locs.u_channel, c === 'r' ? 0 : c === 'g' ? 1 : c === 'b' ? 2 : 3);
+        }
+        gl.uniform1f(locs.u_accessTexScale, hasAccess && cube.access ? cube.access.scale : 0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, hasAccess && cube.access ? cube.access.src.texture : null);
+
+        gl.drawArrays(geom.type, 0, geom.numVerts);
+    }
 }

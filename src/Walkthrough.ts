@@ -347,7 +347,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
                 break;
             }
             let blk = blocks[i];
-            blk.highlight = falloff;
+            blk.highlight = falloff * 0.8;
             // blk.access?.enable();
         }
         if (idx < blocks.length - 1) {
@@ -387,7 +387,6 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         t0_showAll.t = 1.0;
 
         let tokEmbed = layout.tokEmbedObj;
-        console.log(tokEmbed.z, tokEmbed.dz, tokEmbed.z + tokEmbed.dz, tokEmbed.cz);
         drawTextOnModel(state, 'token-embedding matrix', new Vec3(tokEmbed.x - layout.margin, tokEmbed.y + tokEmbed.dy / 4, 0), {
             align: TextAlignHoriz.Right,
             valign: TextAlignVert.Middle,
@@ -476,10 +475,12 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
                 sub.access = { ...sub.access!, src: layout.model.vocabEmbed.output, disable: false };
                 let yPos = t5_iter1Col.t * sub.cy;
                 let yIdx = Math.floor(yPos);
-                addSourceDestCurveLine(state, layout, layout.tokEmbedObj, layout.residual0, new Vec3(exampleTokIdx, yIdx, 0), new Vec3(exampleTIdx, yIdx, 0), new Vec4(1,0,0,1));
-                drawThread(state.threadRender, layout, sub, Dim.Y, 0, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
-                drawThread(state.threadRender, layout, layout.tokEmbedObj, Dim.Y, exampleTokIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
-                drawThread(state.threadRender, layout, layout.posEmbedObj, Dim.Y, exampleTIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
+                if (yIdx < sub.cy) {
+                    addSourceDestCurveLine(state, layout, layout.tokEmbedObj, layout.residual0, new Vec3(exampleTokIdx, yIdx, 0), new Vec3(exampleTIdx, yIdx, 0), new Vec4(1,0,0,1));
+                    drawThread(state.threadRender, layout, sub, Dim.Y, 0, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
+                    drawThread(state.threadRender, layout, layout.tokEmbedObj, Dim.Y, exampleTokIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
+                    drawThread(state.threadRender, layout, layout.posEmbedObj, Dim.Y, exampleTIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
+                }
 
                 splitGridX(layout, sub, Dim.Y, yPos, 0.0);
 
@@ -516,8 +517,9 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
                 let yPos = cPos + 0.5;
 
                 let yIdx = Math.floor(cPos);
-                addSourceDestCurveLine(state, layout, layout.tokEmbedObj, layout.residual0, new Vec3(tokIdx, yIdx, 0), new Vec3(tIdx, yIdx, 0), new Vec4(1,0,0,1));
-                addSourceDestCurveLine(state, layout, layout.posEmbedObj, layout.residual0, new Vec3(tIdx, yIdx, 0), new Vec3(tIdx, yIdx, 0), new Vec4(1,0,0,1));
+                let curveColor = new Vec4(1,0,0,1).mul(0.3);
+                addSourceDestCurveLine(state, layout, layout.tokEmbedObj, layout.residual0, new Vec3(tokIdx, yIdx, 0), new Vec3(tIdx, yIdx, 0), curveColor);
+                addSourceDestCurveLine(state, layout, layout.posEmbedObj, layout.residual0, new Vec3(tIdx, yIdx, 0), new Vec3(tIdx, yIdx, 0), curveColor);
 
                 drawThread(state.threadRender, layout, layout.residual0, Dim.Y, tIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
                 drawThread(state.threadRender, layout, layout.tokEmbedObj, Dim.Y, tokIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));

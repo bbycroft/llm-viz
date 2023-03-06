@@ -239,8 +239,9 @@ class CanvasRender {
 
         if (this.canvasSizeDirty) {
             let bcr = canvasEl.getBoundingClientRect();
-            canvasEl.width = bcr.width;
-            canvasEl.height = bcr.height;
+            let scale = 1.0;
+            canvasEl.width = bcr.width * scale;
+            canvasEl.height = bcr.height * scale;
             this.canvasSizeDirty = false;
         }
 

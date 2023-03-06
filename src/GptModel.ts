@@ -65,7 +65,6 @@ export function setModelInputData(renderState: IRenderState, gptModel: IGpuGptMo
     buf.set([2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 0]);
 
     gptModel.inputBuf = buf;
-    console.log('buf:', buf);
     writeToBufferTex(gl, inputTokens, buf);
 }
 
