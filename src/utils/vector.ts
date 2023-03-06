@@ -115,6 +115,15 @@ export class Vec3 {
     toString(): string {
         return `Vec3(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)})`;
     }
+    rotateAbout(k: Vec3, thetaRad: number) {
+        // https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+        // k must have unit length
+        let c = Math.cos(thetaRad);
+        let s = Math.sin(thetaRad);
+        let kCrossV = Vec3.cross(k, this);
+        let kDotV = k.dot(this);
+        return this.mul(c).add(kCrossV.mul(s)).add(k.mul(kDotV * (1 - c)));
+    }
 }
 
 

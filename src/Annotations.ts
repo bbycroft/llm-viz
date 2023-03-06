@@ -354,6 +354,47 @@ export function drawTextOnModel(state: IRenderState, text: string, pos: Vec3, cf
 }
 
 
-export function addSourceDestLine(state: IRenderState)  {
+export function addSourceDestCurveLine(state: IRenderState, layout: IModelLayout, srcBlk: IBlkDef, destBlk: IBlkDef, srcIdx: Vec3, destIdx: Vec3, color: Vec4) {
+    // assume always sampling in x-y plane
+    // so ignoring the z component of the idx's
+
+    let srcX = cellPosition(layout, srcBlk, Dim.X, srcIdx.x) + layout.cell * 0.5;
+    let srcY = cellPosition(layout, srcBlk, Dim.Y, srcIdx.y) + layout.cell * 0.5;
+    let srcZ = cellPosition(layout, srcBlk, Dim.Z, srcBlk.cz - 1) + layout.cell;
+
+    let destX = cellPosition(layout, destBlk, Dim.X, destIdx.x) + layout.cell * 0.5;
+    let destY = cellPosition(layout, destBlk, Dim.Y, destIdx.y) + layout.cell * 0.5;
+    let destZ = cellPosition(layout, destBlk, Dim.Z, destBlk.cz - 1) + layout.cell;
+
+    // want the curve to start & end at about 45deg from the x-y plane, and rise up in z
+    // projected along the x-y plane, the curve should be straight line
+    // we'll go for a circular arc, where the center of the circle is at the midpoint of the line, and at a fixed z height
+
+    // may have to deal with different z heights of the src & dest blocks
+    let srcPos = new Vec3(srcX, srcY, srcZ);
+    let destPos = new Vec3(destX, destY, destZ);
+    let midPos = srcPos.add(destPos).mul(0.5);
+
+    let circleCenter = Vec3.cross(srcPos.sub(destPos), new Vec3(1.2, 1, 0)).normalize().mul(10).add(midPos);
+
+    let radius = srcPos.dist(circleCenter);
+
+    let theta = Math.asin(srcPos.dist(midPos) / radius) * 2.0;
+
+    let n = Vec3.cross(circleCenter.sub(srcPos), circleCenter.sub(destPos)).normalize();
+
+    let rotateVec = srcPos.sub(circleCenter);
+
+    let count = 20;
+    let prevP = srcPos;
+    for (let i = 0; i <= count; i++) {
+        let t = i / count;
+        let p1 = circleCenter.add(rotateVec.rotateAbout(n, t * theta));
+        addLine(state.lineRender, 3, color, prevP, p1);
+        prevP = p1;
+    }
+    // arc from src to dest around circleCenter
+
+
 
 }

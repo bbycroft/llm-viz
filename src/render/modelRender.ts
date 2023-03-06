@@ -8,7 +8,7 @@ import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
 import { initWalkthrough, modifyCells } from "../Walkthrough";
 import { IBlockRender, initBlockRender } from "./blockRender";
 import { createLineRender, renderAllLines, resetLineRender } from "./lineRender";
-import { initThreadShader } from "./threadShader";
+import { renderAllThreads, initThreadRender } from "./threadRender";
 import { renderTokens } from "./tokenRender";
 
 export interface IRenderView {
@@ -27,7 +27,7 @@ export interface IRenderState {
     blockRender: IBlockRender;
     walkthrough: ReturnType<typeof initWalkthrough>;
     lineRender: ReturnType<typeof createLineRender>;
-    threadShader: ReturnType<typeof initThreadShader>;
+    threadRender: ReturnType<typeof initThreadRender>;
     fontAtlas: IFontAtlas;
     modelFontBuf: IFontBuffers;
     overlayFontBuf: IFontBuffers;
@@ -75,7 +75,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
     let modelFontBuf = createFontBuffers(fontAtlas);
     let overlayFontBuf = createFontBuffers(fontAtlas);
 
-    let threadShader = initThreadShader(ctx);
+    let threadRender = initThreadRender(ctx);
 
     let lineRender = createLineRender(ctx);
 
@@ -92,7 +92,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         gl,
         ctx,
         blockRender,
-        threadShader,
+        threadRender,
         lineRender,
         fontAtlas,
         modelFontBuf,
@@ -109,7 +109,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
 
 export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape, gptGpuModel?: IGpuGptModel) {
     let timer0 = performance.now();
-    let { gl, blockRender, canvasEl, threadShader: { threadShader }, ctx } = args;
+    let { gl, blockRender, canvasEl, ctx } = args;
     let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
 
@@ -234,6 +234,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
 
         for (let cube of cubes) {
             // using uniforms is just a quick & easy way to sort this out
+            // things worth putting into a texture:
             gl.uniformMatrix4fv(locs.u_localPosMtx, false, cube.localMtx ?? new Mat4f());
             gl.uniform3f(locs.u_nCells, cube.cx, cube.cy, cube.cz);
             gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
@@ -241,6 +242,8 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
             gl.uniform1f(locs.u_highlight, cube.highlight ?? 0);
             let baseColor = cube.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
             gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
+
+            // things we can just pass in as uniforms:
             let hasAccess = cube.access && cube.access.disable !== true;
             if (hasAccess && cube.access) {
                 gl.uniformMatrix4x2fv(locs.u_accessMtx, true, cube.access.mat, 0, 8);
@@ -256,48 +259,10 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         }
     }
 
-    {
-        gl.enable(gl.POLYGON_OFFSET_FILL);
-        gl.disable(gl.CULL_FACE);
-        gl.polygonOffset(-1.0, -2.0);
+    renderAllThreads(args.threadRender, layout, viewMtx, modelMtx);
+    renderAllText(gl, args.modelFontBuf, viewMtx, modelMtx);
+    renderAllLines(args.lineRender, viewMtx, modelMtx, new Vec4(0, 0, 0, 1));
 
-        let locs = threadShader.locs;
-        gl.useProgram(threadShader.program);
-
-        gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
-        gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
-
-        let block = layout.residual0;
-
-        let deltaZ = block.cz / 2; // (view.time * 0.03) % block.cz;
-        // view.markDirty();
-
-        let cz = Math.round(deltaZ);
-        let pos = new Vec3(block.x, block.y, block.z);
-        let size = new Vec3(block.cx * cell, block.cy * cell, cz * cell);
-        gl.uniform3f(locs.u_offset, pos.x, pos.y, pos.z);
-        gl.uniform3f(locs.u_size, size.x, size.y, size.z);
-        gl.uniform2f(locs.u_nCells, block.cx, cz);
-
-        gl.uniformMatrix3x2fv(locs.u_threadDir, true, [
-            1, 0, 0,
-            0, -1, 1]);
-
-        let baseColor = new Vec3(1.0, 0.0, 0.0);
-        gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
-
-        gl.bindVertexArray(args.threadShader.threadVao);
-        // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
-
-        gl.disable(gl.POLYGON_OFFSET_FILL);
-    }
-
-    {
-        renderAllText(gl, args.modelFontBuf, viewMtx, modelMtx);
-    }
-    {
-        renderAllLines(args.lineRender, viewMtx, modelMtx, new Vec4(0, 0, 0, 1));
-    }
     {
         let w = canvasEl.width;
         let h = canvasEl.height;

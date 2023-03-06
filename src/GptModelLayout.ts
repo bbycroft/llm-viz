@@ -65,10 +65,10 @@ export interface IModelLayout {
 
 export function cellPosition(layout: IModelLayout, blk: IBlkDef, dim: Dim, index: number) {
     let base = (dim === Dim.X ? blk.x : dim === Dim.Y ? blk.y : blk.z) + layout.cell * index;
-    if (!blk.rangeOffsetsX) {
+    let offsets = dim === Dim.X ? blk.rangeOffsetsX : dim === Dim.Y ? blk.rangeOffsetsY : blk.rangeOffsetsZ;
+    if (!offsets) {
         return base;
     }
-    let offsets = dim === Dim.X ? blk.rangeOffsetsX : dim === Dim.Y ? blk.rangeOffsetsY : blk.rangeOffsetsZ;
     for (let [s, xOff] of offsets!) {
         if (index < s) {
             return base + xOff;

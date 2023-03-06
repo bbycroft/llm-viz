@@ -1,6 +1,12 @@
-import { createShaderProgram, IGLContext } from "../utils/shader";
+import { IBlkDef, IGptModelLayout, IModelLayout } from "../GptModelLayout";
+import { Mat4f } from "../utils/matrix";
+import { bindFloatAttribs, createFloatBuffer, createShaderProgram, IGLContext, IProgram } from "../utils/shader";
+import { Vec3 } from "../utils/vector";
+import { Dim } from "../Walkthrough";
 
-export function initThreadShader(ctx: IGLContext) {
+export type IThreadRender = ReturnType<typeof initThreadRender>;
+
+export function initThreadRender(ctx: IGLContext) {
 
 
     /* We'll construct a quad [0..1], [0..1] in the x-z plane that looks something like this:
@@ -43,33 +49,47 @@ export function initThreadShader(ctx: IGLContext) {
     let quadVbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-        0, 0, -1,
-        1, 0, -1,
+        0, 1, 0,
+        1, 1, 0,
         1, 0, 0,
         0, 0, 0,
     ]), gl.STATIC_DRAW);
 
-    let quadVao = gl.createVertexArray()!;
-    gl.bindVertexArray(quadVao);
+    let vao = gl.createVertexArray()!;
+    gl.bindVertexArray(vao);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 
-    let threadShader = createShaderProgram(ctx, 'block', /*glsl*/`#version 300 es
+    let instanceVbo = gl.createBuffer()!;
+    let instanceStride = bindFloatAttribs(gl, instanceVbo, { divisor: 1, locOffset: 2 }, [
+        { name: 'a_offset', size: 3 },
+        { name: 'a_size', size: 3 },
+        { name: 'a_nCells', size: 2 },
+        { name: 'a_threadDir', size: 2, nCols: 3 },
+    ]);
+    let instanceBuf = createFloatBuffer(gl, instanceVbo, 1024, instanceStride);
+
+    let shader = createShaderProgram(ctx, 'block', /*glsl*/`#version 300 es
         precision highp float;
         uniform mat4 u_view;
         uniform mat4 u_model;
+        layout(location = 0) in vec3 a_position;
+        layout(location = 1) in vec3 a_normal;
+
+        // layout(location = 2) in vec3 u_offset;
+        // layout(location = 3) in vec3 u_size;
+        // layout(location = 4) in vec2 u_nCells;
+        // layout(location = 5) in mat3x2 u_threadDir;
         uniform vec3 u_offset;
         uniform vec3 u_size;
         uniform vec2 u_nCells;
         uniform mat3x2 u_threadDir;
-        layout(location = 0) in vec3 a_position;
-        layout(location = 1) in vec3 a_normal;
         out vec3 v_normal;
         out vec3 v_modelPos;
         out vec2 v_blockPos;
         out vec2 v_squarePos;
         void main() {
-            vec2 localPos = u_threadDir * vec3(a_position.x, -a_position.z, 1);
+            vec2 localPos = u_threadDir * vec3(a_position.xy, 1);
             vec3 model_pos = a_position * u_size + u_offset;
             gl_Position = u_view * u_model * vec4(model_pos, 1);
             v_normal = a_normal;
@@ -95,7 +115,7 @@ export function initThreadShader(ctx: IGLContext) {
         uniform int u_channel;
 
         void main() {
-            ivec2 blockPos = ivec2(v_blockPos - vec2(v_normal.x, v_normal.z) * 0.0);
+            ivec2 blockPos = ivec2(v_blockPos - v_normal.xy * 0.0);
 
             vec2 pxPerCell = 1.0 / fwidth(v_blockPos);
             float maxPxPerCell = max(pxPerCell.x, pxPerCell.y);
@@ -124,13 +144,12 @@ export function initThreadShader(ctx: IGLContext) {
             }
 
             if (v_blockPos.y > (0.5 + 0.45)) {
-                // draw tail (along y axis) with falloff
+                float falloffY = 1.0 - clamp(v_blockPos.y / 10.0, 0.0, 1.0);
+
                 float cellPosX = fract(v_blockPos.x);
                 float distFromX = abs(cellPosX - 0.5);
                 // small side-to-side falloff based on distFromX for a glow effect
                 float falloffX = 1.0 - smoothstep(0.0, min(0.3, 5.0 * fwidth(v_blockPos.x)), distFromX);
-
-                float falloffY = 1.0 - clamp(v_blockPos.y / 10.0, 0.0, 1.0);
 
                 color = mix(color, vec4(u_baseColor, 1), falloffX * falloffY);
             }
@@ -144,9 +163,64 @@ export function initThreadShader(ctx: IGLContext) {
         'u_baseColor', 'u_nCells', 'u_threadDir',
     ])!;
 
+
     return {
-        threadVao: quadVao,
-        threadVbo: quadVbo,
-        threadShader,
+        gl,
+        vao,
+        quadVbo,
+        instanceVbo,
+        instanceBuf,
+        numInstances: 0,
+        shader,
     };
+}
+
+
+export function drawThread(threadRender: IThreadRender, model: IModelLayout, blk: IBlkDef, dim: Dim, startIdxMain: number, lengthMain: number, startIdxSide: number, lengthSide: number, t: number) {
+    let threadDir: number[] = dim === Dim.X ? [0, 1,  -1, 0,  0, 1] : [0, 1,  0, 1,  0, 0];
+
+    // we only go in the direction that has splits, so the top level split always matches
+
+
+}
+
+
+export function renderAllThreads(threadRender: IThreadRender, layout: IGptModelLayout, viewMtx: Mat4f, modelMtx: Mat4f) {
+    let { gl, shader, vao: threadVao } = threadRender;
+
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.disable(gl.CULL_FACE);
+    gl.depthMask(false);
+    gl.polygonOffset(-1.0, -2.0);
+
+    let locs = shader.locs;
+    gl.useProgram(shader.program);
+
+    gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
+    gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
+
+    let block = layout.residual0;
+
+    let deltaY = block.cy / 2; // (view.time * 0.03) % block.cz;
+    // view.markDirty();
+    let xOffset = 3;
+    let xCount = 2;
+
+    let cy = Math.round(deltaY);
+    let pos = new Vec3(block.x + xOffset * layout.cell, block.y, block.z + block.dz);
+    let size = new Vec3(xCount * layout.cell, cy * layout.cell, block.dz);
+    gl.uniform3f(locs.u_offset, pos.x, pos.y, pos.z);
+    gl.uniform3f(locs.u_size, size.x, size.y, size.z);
+    gl.uniform2f(locs.u_nCells, xCount, cy);
+
+    gl.uniformMatrix3x2fv(locs.u_threadDir, false, [1, 0,  0, -1,  0, 1]);
+
+    let baseColor = new Vec3(1.0, 0.0, 0.0);
+    gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
+
+    gl.bindVertexArray(threadVao);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+    gl.depthMask(true);
 }

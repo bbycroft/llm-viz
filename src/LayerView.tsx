@@ -61,7 +61,6 @@ export function LayerView() {
         let zoom = clamp(camAngle.z * Math.pow(1.0012, ev.deltaY), 0.01, 10000);
         setCamAngle(new Vec3(camAngle.x, camAngle.y, zoom));
         ev.stopPropagation();
-        ev.preventDefault();
     }
 
     useEffect(() => {

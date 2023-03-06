@@ -1,6 +1,6 @@
 import { base64ToArrayBuffer } from "./data";
 import { Mat4f } from "./matrix";
-import { createShaderProgram, ensureShadersReady, IGLContext } from "./shader";
+import { bindFloatAttribs, createFloatBuffer, createShaderProgram, ensureFloatBufferSize, ensureShadersReady, IFloatBuffer, IGLContext, uploadFloatBuffer } from "./shader";
 import { Vec4 } from "./vector";
 
 export interface ICharDef {
@@ -43,13 +43,11 @@ const bytesPerGlyph = floatsPerGlyph * 4;
 
 export interface IFontBuffers {
     atlas: IFontAtlas;
-    vertVbo: WebGLBuffer;
     vao: WebGLVertexArrayObject;
     transformTex: WebGLTexture;
-    localVertBuffer: Float32Array;
     localTexBuffer: Float32Array;
-    glpyhCapacity: number;
-    glyphsUsed: number;
+    vertBuffer: IFloatBuffer;
+
     segmentsUsed: number;
     segmentCapacity: number;
 }
@@ -237,7 +235,7 @@ export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
     let gl = atlas.gl;
 
     let segmentCapacity = 1024;
-    let glpyhCapacity = 1024;
+    let glyphCapacity = 1024;
 
     let transformTex = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, transformTex);
@@ -247,32 +245,26 @@ export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
     // we'll fill it in later
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, segmentCapacity, 4, 0, gl.RGBA, gl.FLOAT, null);
 
-    // Just using 1 buffer for all text for now
-    let vbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, glpyhCapacity * bytesPerGlyph, gl.DYNAMIC_DRAW);
-    let localVertBuffer = new Float32Array(glpyhCapacity * floatsPerGlyph);
-    let localTexBuffer = new Float32Array(segmentCapacity * floatsPerSegment);
-
     let vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
 
-    gl.enableVertexAttribArray(0);
-    gl.enableVertexAttribArray(1);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, bytesPerVert, 0);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, bytesPerVert, 8);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, bytesPerVert, 16);
+    // Just using 1 buffer for all text for now
+    let vertVbo = gl.createBuffer()!;
+    bindFloatAttribs(gl, vertVbo, {}, [
+        { name: 'a_pos', size: 2 },
+        { name: 'a_uv', size: 2 },
+        { name: 'a_texIndex', size: 1 },
+    ]);
+    let vertBuffer = createFloatBuffer(gl, vertVbo, glyphCapacity, bytesPerVert);
+
+    let localTexBuffer = new Float32Array(segmentCapacity * floatsPerSegment);
 
     return {
         atlas,
-        vertVbo: vbo,
         vao,
         transformTex,
-        localVertBuffer,
+        vertBuffer,
         localTexBuffer,
-        glpyhCapacity,
-        glyphsUsed: 0,
         segmentsUsed: 0,
         segmentCapacity: 1024,
     };
@@ -298,20 +290,17 @@ export function measureTextWidth(fontBuf: IFontBuffers, text: string, scale: num
     return x * scale / face.common.lineHeight * scaleFudgeFactor;
 }
 
-let _bufCache = new Float32Array(1024 * floatsPerGlyph);
-
 export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Vec4, dx?: number, dy?: number, scale?: number, mtx?: Mat4f, faceName?: string) {
     let face = faceName ? fontBuf.atlas.faceInfos.find(a => a.name === faceName)! : fontBuf.atlas.faceInfos[0];
     if (!face) {
         face = fontBuf.atlas.faceInfos[0];
     }
 
-    if (text.length * floatsPerGlyph > _bufCache.length) {
-        _bufCache = new Float32Array(text.length * floatsPerGlyph);
-    }
+    let vertBuf = fontBuf.vertBuffer;
+    ensureFloatBufferSize(vertBuf, text.length * floatsPerVert);
     let segmentId = fontBuf.segmentsUsed;
-    let buf = _bufCache;
-    let bufIdx = 0;
+    let buf = vertBuf.localBuf;
+    let bufIdx = vertBuf.usedEls * fontBuf.vertBuffer.strideFloats;
     let atlasWInv = 1.0 / face.common.scaleW;
     let atlasHInv = 1.0 / face.common.scaleH;
     let numGlyphs = 0;
@@ -353,16 +342,7 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Ve
         numGlyphs += 1;
     }
 
-    while (fontBuf.glyphsUsed + numGlyphs > fontBuf.glpyhCapacity) {
-        // realloc buffer; double capacity
-        fontBuf.glpyhCapacity *= 2;
-        let prevBuf = fontBuf.localVertBuffer;
-        fontBuf.localVertBuffer = new Float32Array(fontBuf.glpyhCapacity * floatsPerGlyph);
-        fontBuf.localVertBuffer.set(prevBuf);
-    }
-
-    fontBuf.localVertBuffer.set(buf.slice(0, numGlyphs * floatsPerGlyph), fontBuf.glyphsUsed * floatsPerGlyph);
-    fontBuf.glyphsUsed += numGlyphs;
+    vertBuf.usedEls += numGlyphs * 6;
 
     // TODO: Do realloc stuff
     mtx = mtx ?? new Mat4f();
@@ -381,9 +361,7 @@ export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers,
     gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, fontBuf.segmentsUsed * floatsPerSegment / 4, 1, gl.RGBA, gl.FLOAT, fontBuf.localTexBuffer);
 
-    // resize vert buffer if needed
-    gl.bindBuffer(gl.ARRAY_BUFFER, fontBuf.vertVbo);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, fontBuf.localVertBuffer.slice(0, fontBuf.glyphsUsed * floatsPerGlyph));
+    uploadFloatBuffer(gl, fontBuf.vertBuffer);
 
     gl.useProgram(atlas.program.program);
 
@@ -398,11 +376,11 @@ export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers,
     gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
 
     gl.bindVertexArray(fontBuf.vao);
-    gl.drawArrays(gl.TRIANGLES, 0, fontBuf.glyphsUsed * 6);
+    gl.drawArrays(gl.TRIANGLES, 0, fontBuf.vertBuffer.usedEls);
     // gl.finish();
 }
 
 export function resetFontBuffers(fontBuf: IFontBuffers) {
-    fontBuf.glyphsUsed = 0;
+    fontBuf.vertBuffer.usedEls = 0;
     fontBuf.segmentsUsed = 0;
 }

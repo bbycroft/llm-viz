@@ -1,4 +1,4 @@
-import { blockDimension, blockIndex, drawTextOnModel, findSubBlocks, indexMappingLines, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "./Annotations";
+import { addSourceDestCurveLine, blockDimension, blockIndex, drawTextOnModel, findSubBlocks, indexMappingLines, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "./Annotations";
 import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { IRenderState, IRenderView } from "./render/modelRender";
 import { SavedState } from "./SavedState";
@@ -473,15 +473,17 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             let sub = findSubBlocks(layout.residual0, Dim.X, exampleTIdx, exampleTIdx)[0];
             if (sub) {
                 sub.access = { ...sub.access!, src: layout.model.vocabEmbed.output, disable: false };
-                let yPos = t5_iter1Col.t * sub.cy + 0.5;
+                let yPos = t5_iter1Col.t * sub.cy;
+                let yIdx = Math.floor(yPos);
+                addSourceDestCurveLine(state, layout, layout.tokEmbedObj, layout.residual0, new Vec3(exampleTokIdx, yIdx, 0), new Vec3(exampleTIdx, yIdx, 0), new Vec4(1,0,0,1));
+
                 splitGridX(layout, sub, Dim.Y, yPos, 0.0);
 
-                for (let vertSubBelow of findSubBlocks(sub, Dim.Y, Math.floor(yPos), null)) {
+                for (let vertSubBelow of findSubBlocks(sub, Dim.Y, Math.floor(yPos) + 1, null)) {
                     vertSubBelow.access = { ...sub.access, disable: true };
                 }
             }
         }
-
 
         if (layout.model && t7_iterCols.active) {
             let T = layout.idxObj.cx;
@@ -492,6 +494,8 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
             let t_inner = tPos - tIdx;
             let cPos = t_inner * C;
+
+            let tokIdx = layout.model.inputBuf[tIdx];
 
             state.tokenColors = { color2: dimStyleColor(DimStyle.n_vocab), mixes: oneHotArray(T, tIdx, 1.0) };
 
@@ -506,14 +510,18 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
                 sub2.highlight = 0.2;
                 sub2.access = { ...sub2.access!, disable: false };
                 let yPos = cPos + 0.5;
+
+                let yIdx = Math.floor(cPos);
+                addSourceDestCurveLine(state, layout, layout.tokEmbedObj, layout.residual0, new Vec3(tokIdx, yIdx, 0), new Vec3(tIdx, yIdx, 0), new Vec4(1,0,0,1));
+                addSourceDestCurveLine(state, layout, layout.residual0, layout.posEmbedObj, new Vec3(tIdx, yIdx, 0), new Vec3(tIdx, yIdx, 0), new Vec4(1,0,0,1));
+
                 splitGridX(layout, sub2, Dim.Y, yPos, 0.0);
 
-                for (let colSubBelow of findSubBlocks(sub2, Dim.Y, Math.floor(yPos) + 1, null)) {
+                for (let colSubBelow of findSubBlocks(sub2, Dim.Y, Math.floor(cPos) + 1, null)) {
                     colSubBelow.access = { ...colSubBelow.access!, disable: true };
                 }
             }
 
-            let tokIdx = layout.model.inputBuf[tIdx];
 
             let mixes = oneHotArray(layout.tokEmbedObj.cx, tokIdx, 1.0);
             renderIndexes(state, layout, layout.tokEmbedObj, embedOffColor, t3_showTokEmIdx.t, 3, 0, null, { color2: dimStyleColor(DimStyle.n_vocab), mixes });
