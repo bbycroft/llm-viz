@@ -1,7 +1,9 @@
+import { PassThrough } from "stream";
+import { dimConsts, dimProps } from "../Annotations";
 import { IBlkDef, IGptModelLayout, IModelLayout } from "../GptModelLayout";
 import { Mat4f } from "../utils/matrix";
 import { bindFloatAttribs, createFloatBuffer, createShaderProgram, IGLContext, IProgram } from "../utils/shader";
-import { Vec3 } from "../utils/vector";
+import { Vec3, Vec4 } from "../utils/vector";
 import { Dim } from "../Walkthrough";
 
 export type IThreadRender = ReturnType<typeof initThreadRender>;
@@ -105,14 +107,8 @@ export function initThreadRender(ctx: IGLContext) {
         in vec2 v_squarePos;
         out vec4 o_color;
         uniform vec2 u_nCells;
-        uniform vec3 u_lightPos[3]; // in model space
-        uniform vec3 u_lightColor[3]; // in model space
         uniform vec3 u_camPos; // in model space
         uniform vec3 u_baseColor;
-        uniform float u_accessTexScale;
-        uniform sampler2D u_accessSampler;
-        uniform mat4x2 u_accessMtx;
-        uniform int u_channel;
 
         void main() {
             ivec2 blockPos = ivec2(v_blockPos - v_normal.xy * 0.0);
@@ -120,7 +116,7 @@ export function initThreadRender(ctx: IGLContext) {
             vec2 pxPerCell = 1.0 / fwidth(v_blockPos);
             float maxPxPerCell = max(pxPerCell.x, pxPerCell.y);
 
-            vec4 color = vec4(0.0, 0, 0, 0.0);
+            vec4 color = vec4(0);
 
             if (v_blockPos.y < 0.0) {
                 discard;
@@ -172,33 +168,54 @@ export function initThreadRender(ctx: IGLContext) {
         instanceBuf,
         numInstances: 0,
         shader,
+        threadInfos: [] as IThreadInfo[],
     };
 }
 
+export interface IThreadInfo {
+    pos: Vec3;
+    size: Vec3;
+    nCells: Vec3;
+    baseColor: Vec4;
+    threadDir: number[]; // 6 element, 3x2 matrix; col major
+}
 
-export function drawThread(threadRender: IThreadRender, model: IModelLayout, blk: IBlkDef, dim: Dim, startIdxMain: number, lengthMain: number, startIdxSide: number, lengthSide: number, t: number) {
-    let threadDir: number[] = dim === Dim.X ? [0, 1,  -1, 0,  0, 1] : [0, 1,  0, 1,  0, 0];
-
-    // we only go in the direction that has splits, so the top level split always matches
-
-
+export function drawThread(threadRender: IThreadRender, layout: IModelLayout, blk: IBlkDef, dim: Dim, x: number, y: number, cx: number, cy: number, color: Vec4) {
+    let threadDir = dim === Dim.X ? [0, -1,  1, 0,  0, 1] : [1, 0,  0, -1,  0, 1];
+    let pos = new Vec3(blk.x + x * layout.cell, blk.y + y * layout.cell, blk.z + blk.dz);
+    let size = new Vec3(cx * layout.cell, cy * layout.cell, blk.dz);
+    let nCells = new Vec3(cx, cy, 0);
+    threadRender.threadInfos.push({ pos, size, nCells, baseColor: color, threadDir });
 }
 
 
-export function renderAllThreads(threadRender: IThreadRender, layout: IGptModelLayout, viewMtx: Mat4f, modelMtx: Mat4f) {
+export function renderAllThreads(threadRender: IThreadRender, viewMtx: Mat4f, modelMtx: Mat4f) {
     let { gl, shader, vao: threadVao } = threadRender;
 
     gl.enable(gl.POLYGON_OFFSET_FILL);
     gl.disable(gl.CULL_FACE);
+    // gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
     gl.polygonOffset(-1.0, -2.0);
 
     let locs = shader.locs;
     gl.useProgram(shader.program);
+    gl.bindVertexArray(threadVao);
 
     gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
     gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
 
+    for (let a of threadRender.threadInfos) {
+        let color = a.baseColor;
+        gl.uniform3f(locs.u_offset, a.pos.x, a.pos.y, a.pos.z);
+        gl.uniform3f(locs.u_size, a.size.x, a.size.y, a.size.z);
+        gl.uniform2f(locs.u_nCells, a.nCells.x, a.nCells.y);
+        gl.uniform3f(locs.u_baseColor, color.x, color.y, color.z);
+        gl.uniformMatrix3x2fv(locs.u_threadDir, false, a.threadDir);
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+    }
+
+    /*
     let block = layout.residual0;
 
     let deltaY = block.cy / 2; // (view.time * 0.03) % block.cz;
@@ -217,9 +234,10 @@ export function renderAllThreads(threadRender: IThreadRender, layout: IGptModelL
 
     let baseColor = new Vec3(1.0, 0.0, 0.0);
     gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
-
-    gl.bindVertexArray(threadVao);
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+    */
+
+    threadRender.threadInfos = [];
 
     gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.depthMask(true);

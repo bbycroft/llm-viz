@@ -375,7 +375,12 @@ export function addSourceDestCurveLine(state: IRenderState, layout: IModelLayout
     let destPos = new Vec3(destX, destY, destZ);
     let midPos = srcPos.add(destPos).mul(0.5);
 
-    let circleCenter = Vec3.cross(srcPos.sub(destPos), new Vec3(1.2, 1, 0)).normalize().mul(10).add(midPos);
+    let cVec = Vec3.cross(srcPos.sub(destPos), new Vec3(1.2, 1, 0)).normalize().mul(10);
+    if (cVec.z > srcZ) {
+        cVec = cVec.mul(-1);
+    }
+    let circleCenter = cVec.add(midPos);
+
 
     let radius = srcPos.dist(circleCenter);
 

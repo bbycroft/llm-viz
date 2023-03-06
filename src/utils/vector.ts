@@ -110,8 +110,16 @@ export class Vec3 {
         }
         return this;
     }
+    addAt(i: number, v: number) {
+        switch (i) {
+        case 0: this.x += v; break;
+        case 1: this.y += v; break;
+        case 2: this.z += v; break;
+        }
+        return this;
+    }
     withSetAt(i: number, v: number): Vec3 { return this.clone().setAt(i, v); }
-    withAddAt(i: number, v: number): Vec3 { return this.add(new Vec3().setAt(i, v)); }
+    withAddAt(i: number, v: number): Vec3 { return this.clone().addAt(i, v); }
     toString(): string {
         return `Vec3(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)})`;
     }

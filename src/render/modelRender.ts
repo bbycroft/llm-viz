@@ -259,7 +259,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         }
     }
 
-    renderAllThreads(args.threadRender, layout, viewMtx, modelMtx);
+    renderAllThreads(args.threadRender, viewMtx, modelMtx);
     renderAllText(gl, args.modelFontBuf, viewMtx, modelMtx);
     renderAllLines(args.lineRender, viewMtx, modelMtx, new Vec4(0, 0, 0, 1));
 

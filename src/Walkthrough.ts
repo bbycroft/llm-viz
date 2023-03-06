@@ -1,6 +1,7 @@
 import { addSourceDestCurveLine, blockDimension, blockIndex, drawTextOnModel, findSubBlocks, indexMappingLines, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "./Annotations";
 import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { IRenderState, IRenderView } from "./render/modelRender";
+import { drawThread } from "./render/threadRender";
 import { SavedState } from "./SavedState";
 import { clamp, oneHotArray } from "./utils/data";
 import { measureTextWidth, writeTextToBuffer } from "./utils/font";
@@ -476,6 +477,9 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
                 let yPos = t5_iter1Col.t * sub.cy;
                 let yIdx = Math.floor(yPos);
                 addSourceDestCurveLine(state, layout, layout.tokEmbedObj, layout.residual0, new Vec3(exampleTokIdx, yIdx, 0), new Vec3(exampleTIdx, yIdx, 0), new Vec4(1,0,0,1));
+                drawThread(state.threadRender, layout, sub, Dim.Y, 0, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
+                drawThread(state.threadRender, layout, layout.tokEmbedObj, Dim.Y, exampleTokIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
+                drawThread(state.threadRender, layout, layout.posEmbedObj, Dim.Y, exampleTIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
 
                 splitGridX(layout, sub, Dim.Y, yPos, 0.0);
 
@@ -513,7 +517,11 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
                 let yIdx = Math.floor(cPos);
                 addSourceDestCurveLine(state, layout, layout.tokEmbedObj, layout.residual0, new Vec3(tokIdx, yIdx, 0), new Vec3(tIdx, yIdx, 0), new Vec4(1,0,0,1));
-                addSourceDestCurveLine(state, layout, layout.residual0, layout.posEmbedObj, new Vec3(tIdx, yIdx, 0), new Vec3(tIdx, yIdx, 0), new Vec4(1,0,0,1));
+                addSourceDestCurveLine(state, layout, layout.posEmbedObj, layout.residual0, new Vec3(tIdx, yIdx, 0), new Vec3(tIdx, yIdx, 0), new Vec4(1,0,0,1));
+
+                drawThread(state.threadRender, layout, layout.residual0, Dim.Y, tIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
+                drawThread(state.threadRender, layout, layout.tokEmbedObj, Dim.Y, tokIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
+                drawThread(state.threadRender, layout, layout.posEmbedObj, Dim.Y, tIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
 
                 splitGridX(layout, sub2, Dim.Y, yPos, 0.0);
 
