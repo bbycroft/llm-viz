@@ -226,7 +226,7 @@ export type IWalkthrough = ReturnType<typeof initWalkthrough>;
 
 export function initWalkthrough() {
     return {
-        phase: SavedState.state?.phase ?? Phase.Input_Detail_Tables,
+        phase: SavedState.state?.phase ?? Phase.LayerNorm1,
         time: SavedState.state?.phaseTime ?? 0,
         running: false,
         commentary: null as ICommentaryRes | null,
@@ -240,6 +240,7 @@ export function initWalkthrough() {
                 { id: Phase.Input_First, title: 'The First' },
                 { id: Phase.Input_Detail_Tables, title: 'Embedding Tables' },
                 { id: Phase.Input_Detail_TokEmbed, title: 'Embedding Action' },
+                { id: Phase.LayerNorm1, title: 'First Layer Norm' },
             ],
         }] as IPhaseGroup[],
     };
@@ -249,6 +250,7 @@ export enum Phase {
     Input_First,
     Input_Detail_Tables,
     Input_Detail_TokEmbed,
+    LayerNorm1,
 }
 
 export function runWalkthrough(state: IRenderState, view: IRenderView, layout: IGptModelLayout) {

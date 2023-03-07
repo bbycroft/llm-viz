@@ -60,6 +60,10 @@ export function isNil(a: any): a is null | undefined {
     return a === null || a === undefined;
 }
 
+export function isNotNil<T>(a: T | null | undefined): a is T {
+    return a !== null && a !== undefined;
+}
+
 export function useFunctionRef<T extends ((...args: any[]) => any) | undefined>(fn: T): React.MutableRefObject<T> {
     let ref = useRef<T>(fn);
     useEffect(() => {

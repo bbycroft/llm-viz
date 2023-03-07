@@ -182,6 +182,15 @@ export class Mat4f extends Float32Array {
         return res;
     }
 
+    static zeros() {
+        let res = new Mat4f();
+        res[0] = 0.0;
+        res[5] = 0.0;
+        res[10] = 0.0;
+        res[15] = 0.0;
+        return res;
+    }
+
     // creates Translation, Rotation, Scale, such that this matrix is the result of multipling
     // the equivalent matrix forms, as in
     //
