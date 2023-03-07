@@ -1,4 +1,5 @@
 import { IBlkDef, IModelLayout } from "../GptModelLayout";
+import { isNotNil } from "../utils/data";
 import { Mat4f } from "../utils/matrix";
 import { createShaderProgram, IGLContext } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
@@ -62,7 +63,7 @@ export function initBlockRender(ctx: IGLContext) {
         uniform vec3 u_lightPos[3]; // in model space
         uniform vec3 u_lightColor[3]; // in model space
         uniform vec3 u_camPos; // in model space
-        uniform vec3 u_baseColor;
+        uniform vec4 u_baseColor;
         uniform float u_accessTexScale;
         uniform sampler2D u_accessSampler;
         uniform mat4x2 u_accessMtx;
@@ -79,7 +80,7 @@ export function initBlockRender(ctx: IGLContext) {
             float dist = distance(u_camPos, v_modelPos);
             float t = clamp((dist - minDist) / (maxDist - minDist), 0.0, 1.0);
 
-            vec3 baseColor = mix(u_baseColor, vec3(0.5, 0.5, 0.5), 0.5);
+            vec3 baseColor = mix(u_baseColor.rgb, vec3(0.5, 0.5, 0.5), 0.5);
             if (cellDark) {
                 baseColor *= mix(0.9, 1.0, t);
             }
@@ -102,7 +103,7 @@ export function initBlockRender(ctx: IGLContext) {
                     float weight = clamp(abs(val), 0.0, 1.0);
 
                     vec3 negColor = vec3(0.0, 0.0, 0.0);
-                    vec3 posColor = u_baseColor; // vec3(0.0, 1.0, 0.0);
+                    vec3 posColor = u_baseColor.rgb; // vec3(0.0, 1.0, 0.0);
                     vec3 zeroColor = vec3(0.5, 0.5, 0.5);
                     texBaseColor = mix(mix(zeroColor, negColor, weight), mix(zeroColor, posColor, weight), step(0.0, val));
                 }
@@ -131,7 +132,7 @@ export function initBlockRender(ctx: IGLContext) {
                 baseColor = mix(baseColor, vec3(1.0, 1.0, 1.0), 1.0 - edgeWeight);
             }
 
-            vec3 color = mix(baseColor * 0.7, u_baseColor, u_highlight);
+            vec3 color = mix(baseColor * 0.7, u_baseColor.rgb, u_highlight);
 
             if (false) {
             for (int i = 0; i < 3; i++) {
@@ -146,7 +147,7 @@ export function initBlockRender(ctx: IGLContext) {
             }
             }
 
-            o_color = vec4(color, 1);
+            o_color = vec4(color, 1) * u_baseColor.a;
         }
     `, [
         'u_view', 'u_model', 'u_size', 'u_offset',
@@ -276,20 +277,28 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
     gl.uniform3fv(locs.u_lightPos, lightPosArr);
     gl.uniform3fv(locs.u_lightColor, lightColorArr);
     gl.uniform1i(locs.u_accessSampler, 0);
+    gl.enable(gl.BLEND);
 
     gl.bindVertexArray(geom.vao);
 
     let cubes: IBlkDef[] = [];
+    let transparentCubes: IBlkDef[] = [];
     function addCube(c: IBlkDef) {
         if (c.subs) {
             c.subs.forEach(addCube);
         } else {
-            cubes.push(c);
+            if (isNotNil(c.opacity) && c.opacity < 1) {
+                if (c.opacity > 0.0) {
+                    transparentCubes.push(c);
+                }
+            } else {
+                cubes.push(c);
+            }
         }
     }
     layout.cubes.forEach(addCube);
 
-    for (let cube of cubes) {
+    for (let cube of [...cubes, ...transparentCubes]) {
         // using uniforms is just a quick & easy way to sort this out
         // things worth putting into a texture:
         gl.uniformMatrix4fv(locs.u_localPosMtx, false, cube.localMtx ?? new Mat4f());
@@ -297,8 +306,9 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
         gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
         gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
         gl.uniform1f(locs.u_highlight, cube.highlight ?? 0);
-        let baseColor = cube.t === 'w' ? new Vec3(0.3, 0.3, 1.0) : new Vec3(0.4, 0.8, 0.4);
-        gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
+        let opacity = cube.opacity ?? 1;
+        let baseColor = (cube.t === 'w' ? new Vec4(0.3, 0.3, 1.0, opacity) : new Vec4(0.4, 0.8, 0.4, opacity));
+        gl.uniform4f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z, baseColor.w);
 
         // things we can just pass in as uniforms:
         let hasAccess = cube.access && cube.access.disable !== true;

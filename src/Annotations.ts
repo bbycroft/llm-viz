@@ -287,6 +287,8 @@ export function findSubBlocks(blk: IBlkDef, dim: Dim, idxLow: number | null, idx
     }
 
     let offsets = dim === Dim.X ? blk.rangeOffsetsX : dim === Dim.Y ? blk.rangeOffsetsY : blk.rangeOffsetsZ;
+    idxLow = idxLow === null ? null : Math.floor(idxLow);
+    idxHi = idxHi === null ? null : Math.floor(idxHi);
 
     let subBlocks: IBlkDef[] = [];
     let startIdx = 0;

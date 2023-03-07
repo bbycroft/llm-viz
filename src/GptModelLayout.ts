@@ -27,6 +27,7 @@ export interface IBlkDef {
     rangeOffsetsY?: [number, number][];
     rangeOffsetsZ?: [number, number][];
     highlight?: number; // 0 - 1 (0 = no highlight, 1 = full highlight)
+    opacity?: number; // 0 - 1 (0 = transparent, 1 = opaque)
     subs?: IBlkDef[]; // substitutes for this block (i.e. render these instead)
 }
 
@@ -34,6 +35,7 @@ export interface IBlkDef {
 // matrix-mulplication: cell(x, y, b) = sum_i(A[i, y] * B[x, i, b]) + C[0, y]
 export interface IBlkDeps {
     dot?: [IBlkCellDep, IBlkCellDep];
+    dotLen?: number;
     add?: IBlkCellDep[];
 }
 
@@ -44,6 +46,7 @@ export interface IBlkCellDep {
 
 interface IBlkDepArgs {
     dot?: [[IBlkDef, string], [IBlkDef, string]];
+    dotLen?: number;
     add?: [IBlkDef, string][];
     lowerTri?: boolean; // only use the lower triangle of the matrix (causal attention matrices)
     special?: 'softmax' | 'gelu' | 'layerNorm';
@@ -59,6 +62,7 @@ function parseDepIdxStr(str: string): Mat4f {
         if (srcIdx > 0) {
             mtx.s(destI, srcIdx - 1, 1.0);
         }
+        destI++;
     }
     return mtx;
 }
@@ -67,6 +71,7 @@ function depArgsToDeps(args: IBlkDepArgs): IBlkDeps {
     let makeBlkDeps = (src: IBlkDef, depStr: string) => ({ src, srcIdx: parseDepIdxStr(depStr) });
     return {
         dot: args.dot && args.dot.map(([src, depStr]) => makeBlkDeps(src, depStr)) as [IBlkCellDep, IBlkCellDep],
+        dotLen: args.dotLen,
         add: args.add && args.add.map(([src, depStr]) => makeBlkDeps(src, depStr)),
     };
 }
@@ -245,7 +250,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: resLeftX - cell * 1 - margin, zM: 0,
             access: { src: target?.normBias, x: [1, 0, 0], y: [0, 1, 0] },
         });
-        cubes.push(lnAgg, lnResid, lnSigma, lnMu);
+        cubes.push(lnAgg, lnSigma, lnMu, lnResid);
         return { lnAgg, lnResid, lnSigma, lnMu };
     }
 
@@ -272,6 +277,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         let heads = [];
         for (let i = 0; i < nHeads; i++) {
+            let headCubes: IBlkDef[] = [];
             let headZMid = headWidth * i - (nHeads - 1) * headWidth / 2;
             let qMid = headZMid - B * cell - qkvMargin;
             let kMid = headZMid;
@@ -317,21 +323,21 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 t: 'i', cx: T, cz: B, cy: A, y: y,
                 xR: attnLeftX, zM: qMid,
                 access: { src: attnTarget?.qkvOutput, x: [0, 1, 0], y: [1, 0, T * nHeads, 0, T * i], channel: 'r', scale: 1.0 },
-                deps: { dot: [[qWeightBlock, 'iy'], [ln1.lnResid, 'xi']], add: [[qBiasBlock, '0y']] },
+                deps: { dot: [[qWeightBlock, 'iy'], [ln1.lnResid, 'xi']], add: [[qBiasBlock, '0y']], dotLen: C },
             });
 
             let kBlock = mk({
                 t: 'i', cx: T, cz: B, cy: A, y: y,
                 xR: attnLeftX, zM: kMid,
                 access: { src: attnTarget?.qkvOutput, x: [0, 1, 0], y: [1, 0, T * nHeads, T * i], channel: 'g', scale: 1.0 },
-                deps: { dot: [[kWeightBlock, 'iy'], [ln1.lnResid, 'xi']], add: [[kBiasBlock, '0y']] },
+                deps: { dot: [[kWeightBlock, 'iy'], [ln1.lnResid, 'xi']], add: [[kBiasBlock, '0y']], dotLen: C },
             });
 
             let vBlock = mk({
                 t: 'i', cx: T, cz: B, cy: A, y: y,
                 xR: attnLeftX, zM: vMid,
                 access: { src: attnTarget?.qkvOutput, x: [0, 1, 0], y: [1, 0, T * nHeads, T * i], channel: 'b', scale: 1.0 },
-                deps: { dot: [[vWeightBlock, 'iy'], [ln1.lnResid, 'xi']], add: [[vBiasBlock, '0y']] },
+                deps: { dot: [[vWeightBlock, 'iy'], [ln1.lnResid, 'xi']], add: [[vBiasBlock, '0y']], dotLen: C },
             });
 
             let attn2LeftX = attnLeftX - (T + 2) * cell - 2 * margin;
@@ -340,7 +346,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 t: 'i', cx: T, cz: B, cy: T, y: attn1Y,
                 xR: attnLeftX, zM: headZMid,
                 access: { src: attnTarget?.attnMatrix, x: [1, 0, 0], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
-                deps: { dot: [[qBlock, 'yi'], [kBlock, 'xi']], lowerTri: true },
+                deps: { dot: [[qBlock, 'yi'], [kBlock, 'xi']], lowerTri: true, dotLen: A },
             });
 
             let attnMtxAgg = mk({
@@ -367,13 +373,13 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 qBiasBlock, kBiasBlock, vBiasBlock,
                 qBlock, kBlock, vBlock,
                 attnMtx, attnMtxAgg, attnMtxSm, vOutBlock,
+                cubes: [qWeightBlock, kWeightBlock, vWeightBlock,
+                    qBiasBlock, kBiasBlock, vBiasBlock,
+                    qBlock, kBlock, vBlock,
+                    attnMtx, attnMtxAgg, attnMtxSm, vOutBlock],
             };
             heads.push(head);
-            cubes.push(
-                qWeightBlock, kWeightBlock, vWeightBlock,
-                qBiasBlock, kBiasBlock, vBiasBlock,
-                qBlock, kBlock, vBlock,
-                attnMtx, attnMtxAgg, attnMtxSm, vOutBlock);
+            cubes.push(...head.cubes);
         }
 
         let vOutCombined = mk({
@@ -396,7 +402,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: T, cz: B, cy: C, y: vFinalZ,
             xR: attnLeftX, zM: 0,
             access: { src: attnTarget?.proj.output, x: [0, 1, 0], y: [1, 0, T] },
-            deps: { dot: [[projWeight, 'iy'], [vOutCombined, 'xi']] }
+            deps: { dot: [[projWeight, 'iy'], [vOutCombined, 'xi']], dotLen: C }
         });
 
         let attnResidual = mk({

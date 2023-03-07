@@ -158,6 +158,7 @@ export class Vec4 extends Array<number> {
     set z(value: number) { this[2] = +value; }
     set w(value: number) { this[3] = +value; }
 
+    getIdx(i: number): number { return this[i]; }
     add(a: Vec4): Vec4 { return new Vec4(this[0] + a[0], this[1] + a[1], this[2] + a[2], this[3] + a[3]); }
     sub(a: Vec4): Vec4 { return new Vec4(this[0] - a[0], this[1] - a[1], this[2] - a[2], this[3] - a[3]); }
     dot(a: Vec4): number { return this[0]*a[0] + this[1]*a[1] + this[2]*a[2] + this[3]+a[3]; }

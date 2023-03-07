@@ -559,6 +559,126 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         // fallthrough to continue once the commentary is done
     } break;
 
+    case Phase.LayerNorm1: {
+
+        let t0_dissolveHeads = atTime(0, 1.0, 0.5);
+        let t2_alignqkv = afterTime(t0_dissolveHeads, 0.5, 0.5);
+        let t3_v_mm = afterTime(t2_alignqkv, 4);
+
+        let targetHeadIdx = 2;
+        let targetHead = layout.blocks[0].heads[targetHeadIdx];
+
+        let block = layout.blocks[0];
+        {
+            for (let headIdx = 0; headIdx < block.heads.length; headIdx++) {
+                if (headIdx == targetHeadIdx) {
+                    continue;
+                }
+                for (let cube of block.heads[headIdx].cubes) {
+                    cube.opacity = lerpSmoothstep(1.0, 0.0, t0_dissolveHeads.t);
+                }
+            }
+        }
+
+        {
+            let headZ = targetHead.attnMtx.z;
+            let targetHeadZ = block.ln1.lnResid.z;
+            let deltaZ = lerpSmoothstep(0, (targetHeadZ - headZ), t2_alignqkv.t);
+            for (let cube of targetHead.cubes) {
+                cube.z += deltaZ;
+            }
+        }
+
+        {
+            let qkv = [
+                [targetHead.qBlock, targetHead.qWeightBlock, targetHead.qBiasBlock],
+                [targetHead.kBlock, targetHead.kWeightBlock, targetHead.kBiasBlock],
+                [targetHead.vBlock, targetHead.vWeightBlock, targetHead.vBiasBlock],
+            ];
+            let targetZ = block.ln1.lnResid.z;
+            let strideY = targetHead.qBlock.dy + layout.margin;
+            let baseY = targetHead.qBlock.y;
+            let qkvYPos = [0, -strideY, -strideY * 2];
+
+            for (let i = 0; i < 3; i++) {
+                let y = lerpSmoothstep(qkv[i][0].y, baseY + qkvYPos[i], t2_alignqkv.t);
+                let z = lerpSmoothstep(qkv[i][0].z, targetZ, t2_alignqkv.t);
+                for (let cube of qkv[i]) {
+                    cube.y = y;
+                    cube.z = z;
+                }
+            }
+
+            let blockMidY = (blk: IBlkDef) => blk.y + blk.dy / 2;
+
+            let resid0Idx = layout.cubes.indexOf(block.ln1.lnResid);
+            let yDelta = lerpSmoothstep(0, blockMidY(block.ln1.lnResid) - blockMidY(targetHead.kBlock), t2_alignqkv.t);
+
+            for (let i = resid0Idx + 1; i < layout.cubes.length; i++) {
+                layout.cubes[i].y += yDelta;
+            }
+        }
+
+        if (t3_v_mm.active) {
+            let target = targetHead.vBlock;
+            let xPos = t3_v_mm.t * target.cx;
+            let xIdx = clamp(Math.floor(xPos), 0, target.cx - 1);
+            let yPos = (xPos - xIdx) * target.cy;
+            let yIdx = clamp(Math.floor(yPos), 0, target.cy - 1);
+
+            let deps = target.deps;
+            if (deps) {
+
+                if (deps.dot) {
+                    let srcA = deps.dot[0].src;
+                    let srcB = deps.dot[1].src;
+                    // need to figure out what i stands for
+                    let dotLength = deps.dotLen!;
+
+                    // let zPos = (yPos - yIdx) * dotLength;
+                    // let zIdx = Math.floor(zPos);
+
+                    let srcIdx0Mat = deps.dot[0].srcIdx;
+                    let srcIdx1Mat = deps.dot[1].srcIdx;
+
+                    let dotDim0 = srcIdx0Mat.g(0, 3) === 1 ? Dim.Y : Dim.X;
+                    let dotDim1 = srcIdx1Mat.g(0, 3) === 1 ? Dim.Y : Dim.X;
+
+                    let srcIdxA = deps.dot[0].srcIdx.mulVec4(new Vec4(xIdx, yIdx, 0, dotLength / 2));
+                    let srcIdxB = deps.dot[1].srcIdx.mulVec4(new Vec4(xIdx, yIdx, 0, dotLength / 2));
+
+                    let split = 0.0;
+
+                    let srcADotDimIdx = srcIdxA.getIdx(dotDim0);
+                    splitGridX(layout, srcA, dotDim0, srcADotDimIdx, 0);
+                    let sub0 = findSubBlocks(srcA, dotDim0, srcADotDimIdx, srcADotDimIdx)[0];
+                    if (sub0) sub0.highlight = 0.3;
+
+                    let srcBDotDimIdx = srcIdxB.getIdx(dotDim1);
+                    splitGridX(layout, srcB, dotDim1, srcBDotDimIdx, split);
+                    let sub1 = findSubBlocks(srcB, dotDim1, srcBDotDimIdx, srcBDotDimIdx)[0];
+                    if (sub1) sub1.highlight = 0.3;
+
+                    // addSourceDestCurveLine(state, layout, srcA, target, new Vec3(srcIdxA.x, srcIdxA.y), new Vec3(xIdx, yIdx, 0), new Vec4(1,0,0,1).mul(0.3));
+                    // addSourceDestCurveLine(state, layout, srcB, target, new Vec3(srcIdxB.x, srcIdxB.y), new Vec3(xIdx, yIdx, 0), new Vec4(1,0,0,1).mul(0.3));
+
+                    splitGridX(layout, target, Dim.X, xPos, split);
+                    let sub2 = findSubBlocks(target, Dim.X, xIdx, xIdx)[0];
+                    if (sub2) {
+                        sub2.highlight = 0.3;
+                        splitGridX(layout, sub2, Dim.Y, yPos, 0);
+                        let sub3 = findSubBlocks(sub2, Dim.Y, yIdx, yIdx)[0];
+                        if (sub3) { sub3.highlight = 0.7; }
+
+                    }
+                }
+
+            }
+        }
+
+
+    } break;
+
     // "1. Select the i'th column of the token embedding matrix." [highlight the i'th column of the embedding matrix for a couple of them]
     // "2. Select the t'th column of the position embedding matrix." [highlight the t'th column of the position embedding matrix for a few of them]
     // "And add them together. Now each vector has some information about the token, and some about it's position, and is ready to enter the transformers." [highlight the addition]
