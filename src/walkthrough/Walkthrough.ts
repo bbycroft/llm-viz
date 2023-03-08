@@ -1,18 +1,13 @@
-import { addSourceDestCurveLine, blockDimension, blockIndex, drawTextOnModel, findSubBlocks, indexMappingLines, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "./Annotations";
-import { IBlkDef, IGptModelLayout } from "./GptModelLayout";
-import { IRenderState, IRenderView } from "./render/modelRender";
-import { drawThread } from "./render/threadRender";
-import { SavedState } from "./SavedState";
-import { clamp, oneHotArray } from "./utils/data";
-import { measureTextWidth, writeTextToBuffer } from "./utils/font";
-import { lerp, lerpSmoothstep } from "./utils/math";
-import { Vec3, Vec4 } from "./utils/vector";
+import { addSourceDestCurveLine, blockDimension, blockIndex, drawTextOnModel, findSubBlocks, indexMappingLines, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "../Annotations";
+import { IBlkDef, IGptModelLayout } from "../GptModelLayout";
+import { IRenderState, IRenderView } from "../render/modelRender";
+import { drawThread } from "../render/threadRender";
+import { SavedState } from "../SavedState";
+import { clamp, oneHotArray } from "../utils/data";
+import { lerp, lerpSmoothstep } from "../utils/math";
+import { Dim, Vec3, Vec4 } from "../utils/vector";
+import { DimStyle, dimStyleColor, hideFromBlock, ICommentaryRes, IPhaseGroup, ITimeInfo, moveCameraTo, phaseTools } from "./WalkthroughTools";
 
-export enum Dim {
-    X = 0,
-    Y = 1,
-    Z = 2,
-}
 
 /**
 
@@ -20,7 +15,7 @@ Thoughts about the walkthrough:
 
 - Linking text events to the visual actions doesn't work well.
 - Attention needs to flip between them directly. Much better to do a chunk of text, then [Spacebar], then action.
-  Can still do aligned highlights though, but focussed on the model, and linking back to the text.
+  Can still do aligned highlights though, but focused on the model, and linking back to the text.
   This also works well with hover on either. The color-coding helps a lot anyway.
 
 - Better to do all this text in html, it adds searchability, and supports more things. _However_, probably
@@ -55,172 +50,6 @@ Thoughts about the walkthrough:
 
  */
 
-export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null, stringsArr: TemplateStringsArray, ...values: any[]): ICommentaryRes {
-    let t = prev?.duration ?? 0;
-    let lineOffset = prev?.lineOffset ?? 0;
-    let lineNum = prev?.lineNum ?? 0;
-    let fontSize = 20;
-    let maxWidth = 300;
-    let charsPerSecond = 400;
-
-    for (let i = 0; i < values.length + 1; i++) {
-        let str = stringsArr[i];
-
-        t += str.length / charsPerSecond;
-
-        if (i < values.length && 't' in values[i]) {
-            // calculate the t value of this point
-            values[i].start = t;
-            t += values[i].duration;
-        }
-    }
-
-    let targetT = state.walkthrough.time;
-
-    function writeWord(str: string, tStart: number, colOverride?: Vec4, fontOverride?: string) {
-
-        while (str.startsWith('\n')) {
-            lineNum += 1;
-            lineOffset = 0;
-            str = str.substring(1);
-        }
-
-        let strToDraw = str;
-        let nextOff = 0;
-        let w = measureTextWidth(state.modelFontBuf, str, fontSize);
-        if (lineOffset + w > maxWidth) {
-            lineNum += 1;
-            lineOffset = 0;
-            strToDraw = str.trimStart();
-            w = measureTextWidth(state.modelFontBuf, strToDraw, fontSize);
-            if (w > maxWidth) {
-                // ignore for now; single word longer than line: should break at the character level
-            }
-            nextOff = w;
-        } else {
-            nextOff = lineOffset + w;
-        }
-
-        let color = new Vec4(0.5, 0.5, 0.5, 1).mul(0.5);
-        if (targetT > tStart) {
-            let targetColor = colOverride ?? new Vec4(0.1, 0.1, 0.1, 1);
-            color = Vec4.lerp(color, targetColor, clamp((targetT - tStart) * 10, 0, 1));
-        }
-        writeTextToBuffer(state.overlayFontBuf, strToDraw, color, 10 + lineOffset, 10 + lineNum * fontSize * 1.2, fontSize, undefined, fontOverride);
-
-        lineOffset = nextOff;
-    }
-
-    t = prev?.duration ?? 0;
-    for (let i = 0; i < values.length + 1; i++) {
-        let words = stringsArr[i].split(/(?=[ \n])/);
-
-        for (let word of words) {
-            writeWord(word, t);
-            t += word.length / charsPerSecond;
-        }
-
-        if (i < values.length && 't' in values[i]) {
-            let val = values[i];
-            // calculate the t value of this point
-            val.start = t;
-            writeWord(values[i].str, t, val.color, val.fontFace);
-            t += val.duration;
-        }
-    }
-
-    let res = { stringsArr, values, duration: t, lineNum, lineOffset };
-
-    if (prev) {
-        prev.lineNum = lineNum;
-        prev.lineOffset = lineOffset;
-        prev.duration = t;
-    } else {
-        state.walkthrough.commentary = res;
-    }
-
-    return res;
-}
-
-export interface ICommentaryRes {
-    stringsArr: TemplateStringsArray;
-    values: any[];
-    duration: number;
-    lineNum: number;
-    lineOffset: number;
-}
-
-export interface ITimeInfo {
-    name: string;
-    start: number;
-    duration: number;
-    wait: number;
-
-    // will change over the course of a phase: used to lerp
-    t: number; // 0 - 1
-    active: boolean;
-}
-
-export function moveCameraTo(state: IRenderState, time: ITimeInfo, rot: Vec3, target: Vec3) {
-
-}
-
-export enum DimStyle {
-    t,
-    T,
-    C,
-    B,
-    A,
-    n_vocab,
-}
-
-export function dimStyleColor(style: DimStyle) {
-     switch (style) {
-        case DimStyle.t:
-        case DimStyle.T:
-            return new Vec4(0.4, 0.4, 0.9, 1);
-        case DimStyle.C:
-            return new Vec4(0.9, 0.3, 0.3, 1);
-        case DimStyle.n_vocab:
-            return Vec4.fromHexColor('#7c3c8d'); // new Vec4(0.8, 0.6, 0.3, 1);
-    }
-    return new Vec4(0,0,0);
-}
-
-export function markDimensions(state: IRenderState, time: ITimeInfo, blk: IBlkDef, dim: Dim, style: DimStyle) {
-    let color = dimStyleColor(style);
-}
-
-export function highlightBlock(state: IRenderState, time: ITimeInfo, blk: IBlkDef, name: string) {
-
-}
-
-export function hideFromBlock(state: IRenderState, layout: IGptModelLayout, targetBlk: IBlkDef) {
-    let seen = false;
-    for (let blk of layout.cubes) {
-        if (!seen && blk === targetBlk) {
-            seen = true;
-        }
-        seen && blk.t === 'i' && hideBlock(blk);
-    }
-    function hideBlock(b: IBlkDef) {
-        if (b.access) {
-            b.access.disable = true;
-        }
-        b.subs?.forEach(hideBlock);
-    }
-}
-
-export interface IPhaseGroup {
-    groupId: string;
-    title: string;
-    phases: IPhaseDef[];
-}
-
-export interface IPhaseDef {
-    id: Phase;
-    title: string;
-}
 
 export type IWalkthrough = ReturnType<typeof initWalkthrough>;
 
@@ -253,7 +82,21 @@ export enum Phase {
     LayerNorm1,
 }
 
+
 export function runWalkthrough(state: IRenderState, view: IRenderView, layout: IGptModelLayout) {
+    state.walkthrough.markDirty = view.markDirty; // bit of a hack to get it to WalkthroughSidebar
+
+    if (state.walkthrough.running) {
+        state.walkthrough.time += view.dt / 1000;
+
+        if (state.walkthrough.time > state.walkthrough.phaseLength) {
+            state.walkthrough.running = false;
+            state.walkthrough.time = state.walkthrough.phaseLength;
+        }
+
+        view.markDirty();
+    }
+
     SavedState.state = {
         phase: state.walkthrough.phase,
         phaseTime: state.walkthrough.time,
@@ -264,55 +107,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
     let phaseState = state.walkthrough;
     phaseState.times = [];
 
-    function T_val(str: string, duration: number = 0.3, fontFace?: string) {
-        return { str, duration, start: 0, t: 0.0, color: dimStyleColor(DimStyle.T), fontFace };
-    }
-
-    function atTime(start: number, duration?: number, wait?: number): ITimeInfo {
-        duration = duration ?? 1;
-        wait = wait ?? 0;
-        let info: ITimeInfo = {
-            name: '',
-            start,
-            duration,
-            wait,
-            t: clamp((phaseState.time - start) / duration, 0, 1),
-            active: phaseState.time > start,
-         };
-         phaseState.times.push(info);
-         phaseState.phaseLength = Math.max(phaseState.phaseLength, start + duration + wait);
-         return info;
-    }
-
-    function atEvent(evt: { str: string, duration: number, t: number, start: number }): ITimeInfo {
-        return atTime(evt.start, evt.duration);
-    }
-
-    function afterTime(prev: ITimeInfo, duration: number, wait?: number): ITimeInfo {
-        return atTime(prev.start + prev.duration + prev.wait, duration, wait);
-    }
-
-    function cleanup(t: ITimeInfo, times: ITimeInfo[] = phaseState.times) {
-        if (t.t > 0.0) {
-            for (let prevTime of times) {
-                prevTime.t = 1.0 - t.t;
-                if (t.t >= 1.0) {
-                    prevTime.active = false;
-                }
-            }
-        }
-    }
-
-    function commentary(stringsArr: TemplateStringsArray, ...values: any[]) {
-        let res = writeCommentary(state, null, stringsArr, ...values);
-        return res;
-    }
-
-    function commentaryPara(c: ICommentaryRes) {
-        return (stringsArr: TemplateStringsArray, ...values: any[]) => {
-            return writeCommentary(state, c, stringsArr, ...values);
-        };
-    }
+    let { atTime, atEvent, afterTime, cleanup, commentary, commentaryPara, c_str } = phaseTools(state, phaseState);
 
     state.tokenColors = null;
 
@@ -330,7 +125,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
     // "These vectors now pass through the stages of the model, going through a series of transformers." [highlight the transformers, quickly step through them]
 
     case Phase.Input_First: {
-        let t0 = T_val('', 0);
+        let t0 = c_str('', 0);
         let c = commentary`These vectors now pass through the stages of the model, going through a series of transformers.${t0}`;
         let t1 = atEvent(t0);
         let t1a = afterTime(t1, 0.0, 2.0);
@@ -414,11 +209,10 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
 
     } break;
     case Phase.Input_Detail_TokEmbed: {
-        let tStr = T_val('t', 1, 'cmmi12');
+        let tStr = c_str('t', 1);
         let c = commentary`Let's start at the top. To compute the vectors at each time ${tStr} we do a couple of steps:`;
 
         moveCameraTo(state, atTime(0), new Vec3(0, 0, 0), new Vec3());
-        markDimensions(state, atEvent(tStr), layout.idxObj, Dim.X, DimStyle.T);
 
         let t0_expandAt0 = atTime(0, 0.1, 0.2);
         let t1_totEq3 = afterTime(t0_expandAt0, 1.0, 0.2);
@@ -445,8 +239,8 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             splitGridX(layout, layout.idxObj   , Dim.X, idx + 0.5, split);
         }
 
-        let embedMtx = T_val('token embedding matrix');
-        let tokCol = T_val('j');
+        let embedMtx = c_str('token embedding matrix');
+        let tokCol = c_str('j');
         commentaryPara(c)`\n\n1. From the ${embedMtx}, select the ${tokCol}'th column.`;
 
         let embedOffColor = new Vec4(0.5,0.5,0.5).mul(0.6);
@@ -614,17 +408,27 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             let resid0Idx = layout.cubes.indexOf(block.ln1.lnResid);
             let yDelta = lerpSmoothstep(0, blockMidY(block.ln1.lnResid) - blockMidY(targetHead.kBlock), t2_alignqkv.t);
 
+            for (let i = 0; i < resid0Idx; i++) {
+                layout.cubes[i].opacity = lerpSmoothstep(1.0, 0.2, t2_alignqkv.t);
+            }
+
+            let afterAttn = false;
             for (let i = resid0Idx + 1; i < layout.cubes.length; i++) {
-                layout.cubes[i].y += yDelta;
+                let cube = layout.cubes[i];
+                cube.y += yDelta;
+                afterAttn = afterAttn || cube === targetHead.vOutBlock;
+                if (afterAttn) {
+                    cube.opacity = Math.min(lerpSmoothstep(1.0, 0.2, t2_alignqkv.t), cube.opacity ?? 1.0);
+                }
             }
         }
 
         if (t3_v_mm.active) {
             let target = targetHead.vBlock;
             let xPos = t3_v_mm.t * target.cx;
-            let xIdx = clamp(Math.floor(xPos), 0, target.cx - 1);
+            let xIdx = Math.floor(xPos);
             let yPos = (xPos - xIdx) * target.cy;
-            let yIdx = clamp(Math.floor(yPos), 0, target.cy - 1);
+            let yIdx = Math.floor(yPos);
 
             let deps = target.deps;
             if (deps) {
@@ -764,21 +568,4 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
     // "As in the intro, we're ready to select the token, and feed it back into the top to predict the one after" [highlight the token selection and feeding back into the top]
     }
 
-}
-
-
-export function modifyCells(state: IRenderState, view: IRenderView, layout: IGptModelLayout) {
-
-    runWalkthrough(state, view, layout);
-
-    if (state.walkthrough.running) {
-        state.walkthrough.time += view.dt / 1000;
-
-        if (state.walkthrough.time > state.walkthrough.phaseLength) {
-            state.walkthrough.running = false;
-            state.walkthrough.time = state.walkthrough.phaseLength;
-        }
-
-        view.markDirty();
-    }
 }

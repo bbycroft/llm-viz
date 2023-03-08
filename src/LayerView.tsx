@@ -9,7 +9,7 @@ import { fetchFontAtlasData, IFontAtlasData } from './utils/font';
 import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
-import { IWalkthrough } from './Walkthrough';
+import { IWalkthrough } from './walkthrough/Walkthrough';
 import { WalkthroughSidebar } from './WalkthroughSidebar';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {

@@ -1,8 +1,8 @@
 import { IGpuGptBlockLayer, IGpuGptModel, IGpuLayerNormLayer, IModelShape } from "./GptModel";
 import { isNil } from "./utils/data";
 import { Mat4f } from "./utils/matrix";
+import { Dim } from "./utils/vector";
 import { IBufferTex } from "./utils/renderPhases";
-import { Dim } from "./Walkthrough";
 
 export interface IBlkDef {
     t: 'w' | 'i', // weights; intermediate value
@@ -26,8 +26,8 @@ export interface IBlkDef {
     rangeOffsetsX?: [number, number][]; // if this block has been split, map from [[s0, xOff], [s1, xOff], ...] to the original block
     rangeOffsetsY?: [number, number][];
     rangeOffsetsZ?: [number, number][];
-    highlight?: number; // 0 - 1 (0 = no highlight, 1 = full highlight)
-    opacity?: number; // 0 - 1 (0 = transparent, 1 = opaque)
+    highlight: number; // 0 - 1 (0 = no highlight, 1 = full highlight)
+    opacity: number; // 0 - 1 (0 = transparent, 1 = opaque)
     subs?: IBlkDef[]; // substitutes for this block (i.e. render these instead)
 }
 
@@ -182,6 +182,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 mat: Mat4f.fromColMajor([...ensure4(args.access.x), ...ensure4(args.access.y), 0, 0, 0, 0, 0, 0, 0, 0]),
             } : undefined,
             deps: args.deps ? depArgsToDeps(args.deps) : undefined,
+            opacity: 1.0,
+            highlight: 0.0,
         };
     }
 

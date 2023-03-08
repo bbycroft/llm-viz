@@ -1,11 +1,12 @@
-import { cellPosition, IBlkDef, IGptModelLayout, IModelLayout } from "./GptModelLayout";
-import { addLine, ILineRender } from "./render/lineRender";
+import { cellPosition, IBlkDef, IModelLayout } from "./GptModelLayout";
+import { addLine } from "./render/lineRender";
 import { IRenderState } from "./render/modelRender";
+import { clamp } from "./utils/data";
 import { measureTextWidth, writeTextToBuffer } from "./utils/font";
 import { lerp, lerpSmoothstep } from "./utils/math";
 import { Mat4f } from "./utils/matrix";
-import { Vec3, Vec4 } from "./utils/vector";
-import { Dim, DimStyle, dimStyleColor } from "./Walkthrough";
+import { Dim, Vec3, Vec4 } from "./utils/vector";
+import { DimStyle, dimStyleColor } from "./walkthrough/WalkthroughTools";
 
 export function blockDimension(state: IRenderState, layout: IModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, t: number) {
 
@@ -111,9 +112,9 @@ export function dimConsts(dim: Dim) {
 
 export function dimProps(blk: IBlkDef, dim: Dim) {
     switch (dim) {
-        case Dim.X: return { x: blk.x, cx: blk.cx, dx: blk.dx };
-        case Dim.Y: return { x: blk.y, cx: blk.cy, dx: blk.dy };
-        case Dim.Z: return { x: blk.z, cx: blk.cz, dx: blk.dz };
+        case Dim.X: return { x: blk.x, cx: blk.cx, dx: blk.dx, rangeOffsets: blk.rangeOffsetsX };
+        case Dim.Y: return { x: blk.y, cx: blk.cy, dx: blk.dy, rangeOffsets: blk.rangeOffsetsY };
+        case Dim.Z: return { x: blk.z, cx: blk.cz, dx: blk.dz, rangeOffsets: blk.rangeOffsetsZ };
     }
 }
 
@@ -137,9 +138,9 @@ export function splitGridX(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit:
     let blocks: IBlkDef[] = [];
     let rangeOffsets: [number, number][] = [];
 
-    function addSubBlock(iStart: number, iEnd: number, xOffset: number) {
+    function addSubBlock(iStart: number, iEnd: number, xOffset: number): IBlkDef | null {
         if (iStart >= iEnd || iEnd <= 0 || iStart >= cx) {
-            return;
+            return null;
         }
 
         let scale = (iEnd - iStart) / cx;
@@ -153,26 +154,42 @@ export function splitGridX(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit:
             [dxName]: (iEnd - iStart) * layout.cell,
         });
         rangeOffsets.push([iEnd, xOffset]);
+        return blocks[blocks.length - 1]!;
     }
 
     let xc = Math.floor(xSplit);
+    if (xc < 0 || xc >= cx) {
+        return null;
+    }
+
     let scale = 0.5;
     let fract = (xSplit - xc - 0.5) * scale + 0.5;
 
     // let offset = smoothstepAlt(-w2, 0, xSplit / blk.cx);
     let offset = lerpSmoothstep(-splitAmt, 0, (xSplit - 0.5) * scale + 0.5);
 
-    addSubBlock(0     , xc - 1, offset + 0.0);
-    addSubBlock(xc - 1, xc    , offset + lerpSmoothstep(splitAmt, 0, fract + scale));
-    addSubBlock(xc    , xc + 1, offset + lerpSmoothstep(splitAmt, 0, fract));
-    addSubBlock(xc + 1, xc + 2, offset + lerpSmoothstep(splitAmt, 0, fract - scale));
-    addSubBlock(xc + 2, cx, offset + splitAmt);
+    let midBlock: IBlkDef | null;
+    if (splitAmt === 0) {
+        addSubBlock(0, xc, 0.0);
+        midBlock = addSubBlock(xc, xc + 1, 0.0);
+        addSubBlock(xc + 1, cx, 0.0);
+    } else {
+        addSubBlock(0     , xc - 1, offset + 0.0);
+        addSubBlock(xc - 1, xc    , offset + lerpSmoothstep(splitAmt, 0, fract + scale));
+        midBlock = addSubBlock(xc    , xc + 1, offset + lerpSmoothstep(splitAmt, 0, fract));
+        addSubBlock(xc + 1, xc + 2, offset + lerpSmoothstep(splitAmt, 0, fract - scale));
+        addSubBlock(xc + 2, cx, offset + splitAmt);
+    }
 
     if (blocks.length > 0) {
         if (dim === Dim.X) blk.rangeOffsetsX = rangeOffsets;
         if (dim === Dim.Y) blk.rangeOffsetsY = rangeOffsets;
         if (dim === Dim.Z) blk.rangeOffsetsZ = rangeOffsets;
         blk.subs = blocks;
+        return midBlock;
+
+    } else {
+        return null;
     }
 }
 

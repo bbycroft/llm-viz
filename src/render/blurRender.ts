@@ -1,6 +1,5 @@
 import { createShaderProgram, IGLContext } from "../utils/shader";
-import { Vec3 } from "../utils/vector";
-import { Dim } from "../Walkthrough";
+import { Dim, Vec3 } from "../utils/vector";
 
 export const BLUR_UBO_BINDING = 2;
 

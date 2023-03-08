@@ -1,11 +1,11 @@
 import { IColorMix } from "../Annotations";
 import { IGpuGptModel, IModelShape } from "../GptModel";
-import { genGptModelLayout, IBlkDef, IGptModelLayout } from "../GptModelLayout";
+import { genGptModelLayout, IGptModelLayout } from "../GptModelLayout";
 import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "../utils/font";
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, ensureShadersReady, IGLContext } from "../utils/shader";
 import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
-import { initWalkthrough, modifyCells } from "../Walkthrough";
+import { initWalkthrough, runWalkthrough } from "../walkthrough/Walkthrough";
 import { IBlockRender, initBlockRender, renderAllBlocks, renderBlocksSimple } from "./blockRender";
 import { initBlurRender, renderBlur, setupBlurTarget } from "./blurRender";
 import { createLineRender, renderAllLines, resetLineRender } from "./lineRender";
@@ -117,8 +117,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     resetFontBuffers(args.modelFontBuf);
     resetFontBuffers(args.overlayFontBuf);
 
-    modifyCells(args, view, layout);
-    args.walkthrough.markDirty = view.markDirty;
+    runWalkthrough(args, view, layout);
 
     renderTokens(args, layout, undefined, undefined, args.tokenColors || undefined);
     addSomeText(args.modelFontBuf, layout);
@@ -209,7 +208,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     }
 
     {
-        let blurBlocks = layout.cubes.filter(a => a.highlight && a.highlight > 0)
+        let blurBlocks = layout.cubes.filter(a => a.highlight > 0)
         setupBlurTarget(args.blurRender);
         renderBlocksSimple(blockRender, layout, blurBlocks, viewMtx, modelMtx);
 

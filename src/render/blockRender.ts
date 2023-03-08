@@ -257,7 +257,7 @@ export function renderBlocksSimple(blockRender: IBlockRender, layout: IModelLayo
     for (let cube of cubes) {
         gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
         gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
-        let baseColor = (cube.t === 'w' ? new Vec4(0.3, 0.3, 1.0, 1) : new Vec4(0.4, 0.8, 0.4, 1)).mul(cube.highlight ?? 0);
+        let baseColor = (cube.t === 'w' ? new Vec4(0.3, 0.3, 1.0, 1) : new Vec4(0.4, 0.8, 0.4, 1)).mul(cube.highlight);
         gl.uniform4f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z, baseColor.w);
         gl.drawArrays(geom.type, 0, geom.numVerts);
     }
@@ -287,11 +287,9 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
         if (c.subs) {
             c.subs.forEach(addCube);
         } else {
-            if (isNotNil(c.opacity) && c.opacity < 1) {
-                if (c.opacity > 0.0) {
-                    transparentCubes.push(c);
-                }
-            } else {
+            if (c.opacity < 1 && c.opacity > 0) {
+                transparentCubes.push(c);
+            } else if (c.opacity > 0.0) {
                 cubes.push(c);
             }
         }
@@ -305,9 +303,8 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
         gl.uniform3f(locs.u_nCells, cube.cx, cube.cy, cube.cz);
         gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
         gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
-        gl.uniform1f(locs.u_highlight, cube.highlight ?? 0);
-        let opacity = cube.opacity ?? 1;
-        let baseColor = (cube.t === 'w' ? new Vec4(0.3, 0.3, 1.0, opacity) : new Vec4(0.4, 0.8, 0.4, opacity));
+        gl.uniform1f(locs.u_highlight, cube.highlight);
+        let baseColor = (cube.t === 'w' ? new Vec4(0.3, 0.3, 1.0, cube.opacity) : new Vec4(0.4, 0.8, 0.4, cube.opacity));
         gl.uniform4f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z, baseColor.w);
 
         // things we can just pass in as uniforms:

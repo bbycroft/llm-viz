@@ -1,5 +1,5 @@
 import s from './WalkthroughSidebar.module.css';
-import { IPhaseDef, IWalkthrough } from "./Walkthrough";
+import { IPhaseDef, IWalkthrough } from "./walkthrough/Walkthrough";
 import { clamp, useGlobalDrag } from './utils/data';
 import { useReducer, useState } from 'react';
 import clsx from 'clsx';

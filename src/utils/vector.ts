@@ -15,6 +15,12 @@ V8 shows Vec3 & Vec4 as having an 24 byte overhead, which... isn't toooo bad
 
 */
 
+export enum Dim {
+    X = 0,
+    Y = 1,
+    Z = 2,
+}
+
 export class Vec3A extends Array<number> {
     constructor(
         x: number = 0.0,

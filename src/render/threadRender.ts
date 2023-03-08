@@ -1,10 +1,7 @@
-import { PassThrough } from "stream";
-import { dimConsts, dimProps } from "../Annotations";
-import { IBlkDef, IGptModelLayout, IModelLayout } from "../GptModelLayout";
+import { IBlkDef, IModelLayout } from "../GptModelLayout";
 import { Mat4f } from "../utils/matrix";
-import { bindFloatAttribs, createFloatBuffer, createShaderProgram, IGLContext, IProgram } from "../utils/shader";
-import { Vec3, Vec4 } from "../utils/vector";
-import { Dim } from "../Walkthrough";
+import { bindFloatAttribs, createFloatBuffer, createShaderProgram, IGLContext } from "../utils/shader";
+import { Dim, Vec3, Vec4 } from "../utils/vector";
 
 export type IThreadRender = ReturnType<typeof initThreadRender>;
 

@@ -2,8 +2,7 @@ import { IColorMix } from "../Annotations";
 import { cellPosition, IGptModelLayout } from "../GptModelLayout";
 import { measureTextWidth, writeTextToBuffer } from "../utils/font";
 import { Mat4f } from "../utils/matrix";
-import { Vec3, Vec4 } from "../utils/vector";
-import { Dim } from "../Walkthrough";
+import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { addLine } from "./lineRender";
 import { IRenderState } from "./modelRender";
 
