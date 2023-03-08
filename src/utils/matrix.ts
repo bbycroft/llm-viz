@@ -53,10 +53,10 @@ export class Mat4f extends Float32Array {
     }
 
     mulVec4(a: Vec4): Vec4 {
-        let x = this[0] * a[0] + this[4] * a[1] + this[8] * a[2] + this[12] * a[3];
-        let y = this[1] * a[0] + this[5] * a[1] + this[9] * a[2] + this[13] * a[3];
-        let z = this[2] * a[0] + this[6] * a[1] + this[10] * a[2] + this[14] * a[3];
-        let w = this[3] * a[0] + this[7] * a[1] + this[11] * a[2] + this[15] * a[3];
+        let x = this[0] * a.x + this[4] * a.y + this[8] * a.z + this[12] * a.w;
+        let y = this[1] * a.x + this[5] * a.y + this[9] * a.z + this[13] * a.w;
+        let z = this[2] * a.x + this[6] * a.y + this[10] * a.z + this[14] * a.w;
+        let w = this[3] * a.x + this[7] * a.y + this[11] * a.z + this[15] * a.w;
         return new Vec4(x, y, z, w);
     }
 

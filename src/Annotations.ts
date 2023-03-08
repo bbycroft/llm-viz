@@ -2,7 +2,7 @@ import { cellPosition, IBlkDef, IModelLayout } from "./GptModelLayout";
 import { addLine } from "./render/lineRender";
 import { IRenderState } from "./render/modelRender";
 import { clamp } from "./utils/data";
-import { measureTextWidth, writeTextToBuffer } from "./utils/font";
+import { measureTextWidth, writeTextToBuffer } from "./render/fontRender";
 import { lerp, lerpSmoothstep } from "./utils/math";
 import { Mat4f } from "./utils/matrix";
 import { Dim, Vec3, Vec4 } from "./utils/vector";

@@ -2,6 +2,7 @@ import { IBlkDef, IModelLayout } from "../GptModelLayout";
 import { Mat4f } from "../utils/matrix";
 import { bindFloatAttribs, createFloatBuffer, createShaderProgram, IGLContext } from "../utils/shader";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
+import { modelViewUboText, UboBindings } from "./sharedRender";
 
 export type IThreadRender = ReturnType<typeof initThreadRender>;
 
@@ -66,19 +67,14 @@ export function initThreadRender(ctx: IGLContext) {
         { name: 'a_nCells', size: 2 },
         { name: 'a_threadDir', size: 2, nCols: 3 },
     ]);
-    let instanceBuf = createFloatBuffer(gl, instanceVbo, 1024, instanceStride);
+    let instanceBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, instanceVbo, 1024, instanceStride);
 
     let shader = createShaderProgram(ctx, 'block', /*glsl*/`#version 300 es
         precision highp float;
-        uniform mat4 u_view;
-        uniform mat4 u_model;
+        ${modelViewUboText}
         layout(location = 0) in vec3 a_position;
         layout(location = 1) in vec3 a_normal;
 
-        // layout(location = 2) in vec3 u_offset;
-        // layout(location = 3) in vec3 u_size;
-        // layout(location = 4) in vec2 u_nCells;
-        // layout(location = 5) in mat3x2 u_threadDir;
         uniform vec3 u_offset;
         uniform vec3 u_size;
         uniform vec2 u_nCells;
@@ -154,7 +150,7 @@ export function initThreadRender(ctx: IGLContext) {
     `, [
         'u_view', 'u_model', 'u_size', 'u_offset',
         'u_baseColor', 'u_nCells', 'u_threadDir',
-    ])!;
+    ], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView } })!;
 
 
     return {
@@ -185,22 +181,17 @@ export function drawThread(threadRender: IThreadRender, layout: IModelLayout, bl
     threadRender.threadInfos.push({ pos, size, nCells, baseColor: color, threadDir });
 }
 
-
-export function renderAllThreads(threadRender: IThreadRender, viewMtx: Mat4f, modelMtx: Mat4f) {
+export function renderAllThreads(threadRender: IThreadRender) {
     let { gl, shader, vao: threadVao } = threadRender;
 
     gl.enable(gl.POLYGON_OFFSET_FILL);
     gl.disable(gl.CULL_FACE);
-    // gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
     gl.polygonOffset(-1.0, -2.0);
 
     let locs = shader.locs;
     gl.useProgram(shader.program);
     gl.bindVertexArray(threadVao);
-
-    gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
-    gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
 
     for (let a of threadRender.threadInfos) {
         let color = a.baseColor;
@@ -211,28 +202,6 @@ export function renderAllThreads(threadRender: IThreadRender, viewMtx: Mat4f, mo
         gl.uniformMatrix3x2fv(locs.u_threadDir, false, a.threadDir);
         gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
     }
-
-    /*
-    let block = layout.residual0;
-
-    let deltaY = block.cy / 2; // (view.time * 0.03) % block.cz;
-    // view.markDirty();
-    let xOffset = 3;
-    let xCount = 2;
-
-    let cy = Math.round(deltaY);
-    let pos = new Vec3(block.x + xOffset * layout.cell, block.y, block.z + block.dz);
-    let size = new Vec3(xCount * layout.cell, cy * layout.cell, block.dz);
-    gl.uniform3f(locs.u_offset, pos.x, pos.y, pos.z);
-    gl.uniform3f(locs.u_size, size.x, size.y, size.z);
-    gl.uniform2f(locs.u_nCells, xCount, cy);
-
-    gl.uniformMatrix3x2fv(locs.u_threadDir, false, [1, 0,  0, -1,  0, 1]);
-
-    let baseColor = new Vec3(1.0, 0.0, 0.0);
-    gl.uniform3f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z);
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
-    */
 
     threadRender.threadInfos = [];
 

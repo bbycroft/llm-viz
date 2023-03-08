@@ -1,7 +1,6 @@
 import { createShaderProgram, IGLContext } from "../utils/shader";
 import { Dim, Vec3 } from "../utils/vector";
-
-export const BLUR_UBO_BINDING = 2;
+import { UboBindings } from "./sharedRender";
 
 export type IBlurRender = ReturnType<typeof initBlurRender>;
 
@@ -90,7 +89,7 @@ export function initBlurRender(ctx: IGLContext, quadVao: WebGLVertexArrayObject)
     let blurUbo = gl.createBuffer();
     gl.bindBuffer(gl.UNIFORM_BUFFER, blurUbo);
     gl.bufferData(gl.UNIFORM_BUFFER, blurWeights.buffer, gl.STATIC_DRAW);
-    gl.bindBufferBase(gl.UNIFORM_BUFFER, BLUR_UBO_BINDING, blurUbo);
+    gl.bindBufferBase(gl.UNIFORM_BUFFER, UboBindings.blur, blurUbo);
 
     function createBlurShader(name: string, dim: Dim) {
         return createShaderProgram(ctx.shaderManager, name, /*glsl*/`#version 300 es
@@ -119,7 +118,7 @@ export function initBlurRender(ctx: IGLContext, quadVao: WebGLVertexArrayObject)
                 }
                 o_color = max(color, center);
             }
-        `, ['u_texture'], { uboBindings: { 'BlurWeights': 2 } })!;
+        `, ['u_texture'], { uboBindings: { 'BlurWeights': UboBindings.blur } })!;
     }
 
     let horizShader = createBlurShader("blurHoriz", Dim.X);

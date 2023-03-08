@@ -1,7 +1,7 @@
 import { IColorMix } from "../Annotations";
 import { IGpuGptModel, IModelShape } from "../GptModel";
 import { genGptModelLayout, IGptModelLayout } from "../GptModelLayout";
-import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "../utils/font";
+import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "./fontRender";
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, ensureShadersReady, IGLContext } from "../utils/shader";
 import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
@@ -11,6 +11,7 @@ import { initBlurRender, renderBlur, setupBlurTarget } from "./blurRender";
 import { createLineRender, renderAllLines, resetLineRender } from "./lineRender";
 import { renderAllThreads, initThreadRender } from "./threadRender";
 import { renderTokens } from "./tokenRender";
+import { initSharedRender, writeModelViewUbo } from "./sharedRender";
 
 export interface IRenderView {
     canvasEl: HTMLCanvasElement;
@@ -30,6 +31,7 @@ export interface IRenderState {
     lineRender: ReturnType<typeof createLineRender>;
     threadRender: ReturnType<typeof initThreadRender>;
     blurRender: ReturnType<typeof initBlurRender>;
+    sharedRender: ReturnType<typeof initSharedRender>;
     fontAtlas: IFontAtlas;
     modelFontBuf: IFontBuffers;
     overlayFontBuf: IFontBuffers;
@@ -76,6 +78,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
 
     let modelFontBuf = createFontBuffers(fontAtlas);
     let overlayFontBuf = createFontBuffers(fontAtlas);
+    let sharedRender = initSharedRender(ctx);
     let threadRender = initThreadRender(ctx);
     let lineRender = createLineRender(ctx);
     let blockRender = initBlockRender(ctx);
@@ -94,6 +97,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         threadRender,
         lineRender,
         blurRender,
+        sharedRender,
         fontAtlas,
         modelFontBuf,
         overlayFontBuf,
@@ -207,18 +211,20 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         modelMtx.mulVec3Proj(lightColor[i]).writeToBuf(lightColorArr, i * 3);
     }
 
+    writeModelViewUbo(args.sharedRender, modelMtx, viewMtx);
+
     {
         let blurBlocks = layout.cubes.filter(a => a.highlight > 0)
         setupBlurTarget(args.blurRender);
-        renderBlocksSimple(blockRender, layout, blurBlocks, viewMtx, modelMtx);
+        renderBlocksSimple(blockRender, blurBlocks);
 
         renderBlur(args.blurRender, null);
     }
     gl.enable(gl.DEPTH_TEST);
 
-    renderAllBlocks(blockRender, layout, viewMtx, modelMtx, camPos, lightPosArr, lightColorArr);
-    renderAllThreads(args.threadRender, viewMtx, modelMtx);
-    renderAllText(gl, args.modelFontBuf, viewMtx, modelMtx);
+    renderAllBlocks(blockRender, layout, modelMtx, camPos, lightPosArr, lightColorArr);
+    renderAllThreads(args.threadRender);
+    renderAllText(gl, args.modelFontBuf);
     renderAllLines(args.lineRender, viewMtx, modelMtx, new Vec4(0, 0, 0, 1));
 
     {
@@ -230,8 +236,8 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         let tw = measureTextWidth(args.overlayFontBuf, text, fontSize);
         writeTextToBuffer(args.overlayFontBuf, text, new Vec4(0,0,0,1), w - tw - 4, 4, fontSize, new Mat4f());
 
-        let screenViewMtx = Mat4f.fromOrtho(0, w, h, 0, -1, 1);
-        renderAllText(gl, args.overlayFontBuf, screenViewMtx, new Mat4f());
+        writeModelViewUbo(args.sharedRender, new Mat4f(), Mat4f.fromOrtho(0, w, h, 0, -1, 1));
+        renderAllText(gl, args.overlayFontBuf);
     }
 
     if (ctx.ext.disjointTimerQuery && queryCanRun) {

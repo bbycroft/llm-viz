@@ -1,7 +1,8 @@
-import { base64ToArrayBuffer } from "./data";
-import { Mat4f } from "./matrix";
-import { bindFloatAttribs, createFloatBuffer, createShaderProgram, ensureFloatBufferSize, ensureShadersReady, IFloatBuffer, IGLContext, uploadFloatBuffer } from "./shader";
-import { Vec4 } from "./vector";
+import { base64ToArrayBuffer } from "../utils/data";
+import { Mat4f } from "../utils/matrix";
+import { bindFloatAttribs, createFloatBuffer, createShaderProgram, ensureFloatBufferSize, ensureShadersReady, IFloatBuffer, IGLContext, uploadFloatBuffer } from "../utils/shader";
+import { Vec4 } from "../utils/vector";
+import { modelViewUboText, UboBindings } from "./sharedRender";
 
 export interface ICharDef {
     id: number;
@@ -98,8 +99,7 @@ export function setupFontAtlas(ctx: IGLContext, data: IFontAtlasData) {
 
     let program = createShaderProgram(ctx.shaderManager, 'font', /*glsl*/`#version 300 es
         precision highp float;
-        uniform mat4 u_view;
-        uniform mat4 u_model;
+        ${modelViewUboText}
         uniform sampler2D u_transformTex;
         layout (location = 0) in vec2 a_position;
         layout (location = 1) in vec2 a_uv;
@@ -155,7 +155,7 @@ export function setupFontAtlas(ctx: IGLContext, data: IFontAtlasData) {
             }
             color = mix(v_bgColor, v_fgColor, opacity);
         }
-    `, ['u_view', 'u_model', 'u_tex', 'u_transformTex', 'pxRange'])!;
+    `, ['u_tex', 'u_transformTex', 'pxRange'], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView } })!;
 
     ensureShadersReady(ctx.shaderManager);
 
@@ -255,7 +255,7 @@ export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
         { name: 'a_uv', size: 2 },
         { name: 'a_texIndex', size: 1 },
     ]);
-    let vertBuffer = createFloatBuffer(gl, vertVbo, glyphCapacity, bytesPerVert);
+    let vertBuffer = createFloatBuffer(gl, gl.ARRAY_BUFFER, vertVbo, glyphCapacity, bytesPerVert);
 
     let localTexBuffer = new Float32Array(segmentCapacity * floatsPerSegment);
 
@@ -348,11 +348,11 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Ve
     mtx = mtx ?? new Mat4f();
     color = color ?? new Vec4(1, 1, 1, 1);
     fontBuf.localTexBuffer.set(mtx, fontBuf.segmentsUsed * floatsPerSegment + 0);
-    fontBuf.localTexBuffer.set(color, fontBuf.segmentsUsed * floatsPerSegment + 16);
+    fontBuf.localTexBuffer.set(color.toArray(), fontBuf.segmentsUsed * floatsPerSegment + 16);
     fontBuf.segmentsUsed += 1;
 }
 
-export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers, viewMtx: Mat4f, modelMtx: Mat4f) {
+export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers) {
     let atlas = fontBuf.atlas;
 
     gl.disable(gl.CULL_FACE);
@@ -366,8 +366,6 @@ export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers,
     gl.useProgram(atlas.program.program);
 
     let locs = atlas.program.locs;
-    gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
-    gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
     gl.uniform1f(locs.pxRange, 4);
 
     gl.activeTexture(gl.TEXTURE0);

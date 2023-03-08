@@ -1,8 +1,9 @@
 import { IBlkDef, IModelLayout } from "../GptModelLayout";
-import { isNotNil } from "../utils/data";
+import { roundUpTo } from "../utils/math";
 import { Mat4f } from "../utils/matrix";
-import { createShaderProgram, IGLContext } from "../utils/shader";
+import { createFloatBuffer, createShaderProgram, ensureFloatBufferSize, IGLContext, resetFloatBufferMap, uploadFloatBuffer } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
+import { modelViewUboText, UboBindings } from "./sharedRender";
 
 
 export type IBlockRender = ReturnType<typeof initBlockRender>;
@@ -24,15 +25,38 @@ export function initBlockRender(ctx: IGLContext) {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    let shader = createShaderProgram(ctx, 'block', /*glsl*/`#version 300 es
-        precision highp float;
-        uniform mat4 u_view;
-        uniform mat4 u_model;
-        uniform vec3 u_size;
+    let blockUboText = /*glsl*/`
+    layout (std140) uniform BlockUbo {
         uniform vec3 u_offset;
+        uniform vec3 u_size;
         uniform vec3 u_nCells;
         uniform mat4 u_localPosMtx;
-        uniform mat4x2 u_accessMtx;
+        uniform vec4 u_baseColor;
+        uniform float u_highlight;
+    };`;
+
+    let blockAccessUboText = /*glsl*/`
+    layout (std140) uniform BlockAccessUbo {
+        layout(row_major) uniform mat4x2 u_accessMtx;
+        uniform float u_accessTexChannel;
+        uniform float u_accessTexScale;
+    };`;
+
+    let numBlocks = 1024;
+    let blockSize = (1 + 1 + 1 + 4 + 1 + 1) * 4;
+    let blockUbo = createFloatBuffer(gl, gl.UNIFORM_BUFFER, gl.createBuffer()!, numBlocks, blockSize);
+
+    let blockAccessSize = (2 + 1 + 1 + 1) * 4;
+    let blockAccessUbo = createFloatBuffer(gl, gl.UNIFORM_BUFFER, gl.createBuffer()!, numBlocks, blockAccessSize);
+
+    let shader = createShaderProgram(ctx, 'block', /*glsl*/`#version 300 es
+        precision highp float;
+
+        ${modelViewUboText}
+
+        ${blockUboText}
+
+        ${blockAccessUboText}
 
         layout(location = 0) in vec3 a_position;
         layout(location = 1) in vec3 a_normal;
@@ -59,16 +83,15 @@ export function initBlockRender(ctx: IGLContext) {
         in vec3 v_cubePos;
         in vec3 v_modelPos;
         in vec2 v_accessPos;
-        uniform vec3 u_nCells;
         uniform vec3 u_lightPos[3]; // in model space
         uniform vec3 u_lightColor[3]; // in model space
         uniform vec3 u_camPos; // in model space
-        uniform vec4 u_baseColor;
-        uniform float u_accessTexScale;
+
+        ${blockUboText}
+
+        ${blockAccessUboText}
+
         uniform sampler2D u_accessSampler;
-        uniform mat4x2 u_accessMtx;
-        uniform int u_channel;
-        uniform float u_highlight;
 
         void main() {
             ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, v_normal.z) * 0.1);
@@ -98,7 +121,7 @@ export function initBlockRender(ctx: IGLContext) {
                 if (insideAny) {
                     ivec2 accessPos = ivec2(u_accessMtx * vec4(blockPos, 1.0));
                     vec4 valVec = texelFetch(u_accessSampler, accessPos, 0) * u_accessTexScale;
-                    float val = u_channel == 0 ? valVec.r : u_channel == 1 ? valVec.g : valVec.b;
+                    float val = u_accessTexChannel == 0.0 ? valVec.r : u_accessTexChannel == 1.0 ? valVec.g : valVec.b;
 
                     float weight = clamp(abs(val), 0.0, 1.0);
 
@@ -150,17 +173,12 @@ export function initBlockRender(ctx: IGLContext) {
             o_color = vec4(color, 1) * u_baseColor.a;
         }
     `, [
-        'u_view', 'u_model', 'u_size', 'u_offset',
-        'u_baseColor', 'u_nCells',
-        'u_lightPos', 'u_camPos', 'u_lightColor',
-        'u_channel', 'u_accessTexScale', 'u_accessSampler', 'u_accessMtx', 'u_localPosMtx',
-        'u_highlight',
-    ])!;
+        'u_lightPos', 'u_camPos', 'u_lightColor', 'u_accessSampler',
+    ], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView, 'BlockUbo': UboBindings.Block, 'BlockAccessUbo': UboBindings.BlockAccess } })!;
 
     let simpleShader = createShaderProgram(ctx, 'block-simple', /*glsl*/`#version 300 es
         precision highp float;
-        uniform mat4 u_view;
-        uniform mat4 u_model;
+        ${modelViewUboText}
         uniform vec3 u_size;
         uniform vec3 u_offset;
 
@@ -178,8 +196,8 @@ export function initBlockRender(ctx: IGLContext) {
             o_color = u_baseColor;
         }
     `, [
-        'u_view', 'u_model', 'u_size', 'u_offset', 'u_baseColor',
-    ])!;
+        'u_size', 'u_offset', 'u_baseColor',
+    ], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView } })!;
 
     let cubeGeom = genCubeGeom(gl);
 
@@ -190,6 +208,8 @@ export function initBlockRender(ctx: IGLContext) {
         quadVbo,
         shader,
         simpleShader,
+        blockUbo,
+        blockAccessUbo,
     };
 }
 
@@ -244,14 +264,11 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
     return { name: 'cube', vao, vbo, type: gl.TRIANGLES, numVerts: 36 };
 }
 
-export function renderBlocksSimple(blockRender: IBlockRender, layout: IModelLayout, cubes: IBlkDef[], viewMtx: Mat4f, modelMtx: Mat4f) {
+export function renderBlocksSimple(blockRender: IBlockRender, cubes: IBlkDef[]) {
     let gl = blockRender.gl;
     let locs = blockRender.simpleShader.locs;
     let geom = blockRender.cubeGeom;
     gl.useProgram(blockRender.simpleShader.program);
-
-    gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
-    gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
     gl.bindVertexArray(geom.vao);
 
     for (let cube of cubes) {
@@ -263,14 +280,12 @@ export function renderBlocksSimple(blockRender: IBlockRender, layout: IModelLayo
     }
 }
 
-export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout, viewMtx: Mat4f, modelMtx: Mat4f, camPos: Vec3, lightPosArr: Float32Array, lightColorArr: Float32Array) {
+export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout, modelMtx: Mat4f, camPos: Vec3, lightPosArr: Float32Array, lightColorArr: Float32Array) {
     let gl = blockRender.gl;
     let locs = blockRender.shader.locs;
     let geom = blockRender.cubeGeom;
     gl.useProgram(blockRender.shader.program);
 
-    gl.uniformMatrix4fv(locs.u_view, false, viewMtx);
-    gl.uniformMatrix4fv(locs.u_model, false, modelMtx);
     let camPosModel = modelMtx.mulVec3Proj(camPos);
     gl.uniform3f(locs.u_camPos, camPosModel.x, camPosModel.y, camPosModel.z);
 
@@ -279,6 +294,7 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
     gl.uniform1i(locs.u_accessSampler, 0);
     gl.enable(gl.BLEND);
 
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindVertexArray(geom.vao);
 
     let cubes: IBlkDef[] = [];
@@ -295,29 +311,74 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
         }
     }
     layout.cubes.forEach(addCube);
+    let allCubes = [...cubes, ...transparentCubes];
 
-    for (let cube of [...cubes, ...transparentCubes]) {
-        // using uniforms is just a quick & easy way to sort this out
-        // things worth putting into a texture:
-        gl.uniformMatrix4fv(locs.u_localPosMtx, false, cube.localMtx ?? new Mat4f());
-        gl.uniform3f(locs.u_nCells, cube.cx, cube.cy, cube.cz);
-        gl.uniform3f(locs.u_size, cube.dx, cube.dy, cube.dz);
-        gl.uniform3f(locs.u_offset, cube.x, cube.y, cube.z);
-        gl.uniform1f(locs.u_highlight, cube.highlight);
-        let baseColor = (cube.t === 'w' ? new Vec4(0.3, 0.3, 1.0, cube.opacity) : new Vec4(0.4, 0.8, 0.4, cube.opacity));
-        gl.uniform4f(locs.u_baseColor, baseColor.x, baseColor.y, baseColor.z, baseColor.w);
+    let blockUbo = blockRender.blockUbo;
+    let blockAccessUbo = blockRender.blockAccessUbo;
 
-        // things we can just pass in as uniforms:
-        let hasAccess = cube.access && cube.access.disable !== true;
-        if (hasAccess && cube.access) {
-            gl.uniformMatrix4x2fv(locs.u_accessMtx, true, cube.access.mat, 0, 8);
-            let c = cube.access.channel;
-            gl.uniform1i(locs.u_channel, c === 'r' ? 0 : c === 'g' ? 1 : c === 'b' ? 2 : 3);
+    {
+        resetFloatBufferMap(blockUbo);
+        ensureFloatBufferSize(blockUbo, cubes.length);
+        let blockBuf = blockUbo.localBuf;
+        for (let cube of allCubes) {
+            let baseOff = blockUbo.usedEls * blockUbo.strideFloats;
+            blockBuf[baseOff + 0] = cube.x;
+            blockBuf[baseOff + 1] = cube.y;
+            blockBuf[baseOff + 2] = cube.z;
+
+            blockBuf[baseOff + 4] = cube.dx;
+            blockBuf[baseOff + 5] = cube.dy;
+            blockBuf[baseOff + 6] = cube.dz;
+
+            blockBuf[baseOff + 8] = cube.cx;
+            blockBuf[baseOff + 9] = cube.cy;
+            blockBuf[baseOff + 10] = cube.cz;
+
+            blockBuf.set(cube.localMtx ?? new Mat4f(), baseOff + 12);
+
+            let baseColor = (cube.t === 'w' ? new Vec4(0.3, 0.3, 1.0, cube.opacity) : new Vec4(0.4, 0.8, 0.4, cube.opacity));
+            baseColor.writeToBuf(blockBuf, baseOff + 28);
+
+            blockBuf[baseOff + 32] = cube.highlight;
+
+            blockUbo.usedEls += 1;
         }
-        gl.uniform1f(locs.u_accessTexScale, hasAccess && cube.access ? cube.access.scale : 0);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, hasAccess && cube.access ? cube.access.src.texture : null);
+        uploadFloatBuffer(gl, blockUbo);
+    }
+
+    {
+        resetFloatBufferMap(blockAccessUbo);
+        ensureFloatBufferSize(blockAccessUbo, cubes.length);
+        let blockBuf = blockAccessUbo.localBuf;
+        for  (let cube of allCubes) {
+            let baseOff = blockAccessUbo.usedEls * blockAccessUbo.strideFloats;
+            if (cube.access && cube.access.disable !== true) {
+                blockBuf.set(cube.access.mat.slice(0, 8), baseOff);
+                let c = cube.access.channel;
+
+                blockBuf[baseOff + 8] = c === 'r' ? 0.0 : c === 'g' ? 1.0 : c === 'b' ? 2.0 : 3.0;
+                blockBuf[baseOff + 9] = cube.access.scale;
+            } else {
+                blockBuf[baseOff + 9] = 0.0;
+            }
+            blockAccessUbo.usedEls += 1;
+        }
+        uploadFloatBuffer(gl, blockAccessUbo);
+    }
+
+    let prevHasAccess = true;
+    let idx = 0;
+    for (let cube of allCubes) {
+        gl.bindBufferRange(gl.UNIFORM_BUFFER, UboBindings.Block, blockUbo.buf, idx * blockUbo.strideBytes, blockUbo.strideBytes);
+
+        let hasAccess = !!cube.access && cube.access.disable !== true;
+        if (prevHasAccess || hasAccess) {
+            gl.bindBufferRange(gl.UNIFORM_BUFFER, UboBindings.BlockAccess, blockAccessUbo.buf, idx * blockAccessUbo.strideBytes, blockAccessUbo.strideBytes);
+            gl.bindTexture(gl.TEXTURE_2D, hasAccess && cube.access ? cube.access.src.texture : null);
+            prevHasAccess = hasAccess;
+        }
 
         gl.drawArrays(geom.type, 0, geom.numVerts);
+        idx++;
     }
 }

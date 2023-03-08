@@ -1,3 +1,4 @@
+import { roundUpTo } from "./math";
 
 export interface IGLContext {
     gl: WebGL2RenderingContext;
@@ -183,21 +184,28 @@ export function bindFloatAttribs(gl: WebGL2RenderingContext, buf: WebGLBuffer, o
 }
 
 export interface IFloatBuffer {
+    target: number; // gl.ARRAY_BUFFER, gl.UNIFORM_BUFFER, etc
     buf: WebGLBuffer;
     localBuf: Float32Array;
     strideFloats: number;
+    strideBytes: number;
     capacityEls: number; // elements
     usedEls: number; // elements
 
     glCapacityEls: number; // elements in the gl buffer. May lag capacityEls
 }
 
-export function createFloatBuffer(gl: WebGL2RenderingContext, buf: WebGLBuffer, capacityEls: number, strideBytes: number): IFloatBuffer {
+export function createFloatBuffer(gl: WebGL2RenderingContext, target: number, buf: WebGLBuffer, capacityEls: number, strideBytes: number): IFloatBuffer {
+    if (target === gl.UNIFORM_BUFFER) {
+        let uboBlockOffsetAlign = gl.getParameter(gl.UNIFORM_BUFFER_OFFSET_ALIGNMENT);
+        strideBytes = roundUpTo(strideBytes, uboBlockOffsetAlign);
+    }
+
     let strideFloats = strideBytes / 4;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, capacityEls * strideBytes, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(target, buf);
+    gl.bufferData(target, capacityEls * strideBytes, gl.DYNAMIC_DRAW);
     let localBuf = new Float32Array(capacityEls * strideFloats);
-    return { buf, localBuf, strideFloats, capacityEls, usedEls: 0, glCapacityEls: capacityEls };
+    return { target, buf, localBuf, strideFloats, strideBytes, capacityEls, usedEls: 0, glCapacityEls: capacityEls };
 }
 
 export function ensureFloatBufferSize(bufMap: IFloatBuffer, countEls: number) {
@@ -218,14 +226,14 @@ export function ensureFloatBufferSize(bufMap: IFloatBuffer, countEls: number) {
 }
 
 export function uploadFloatBuffer(gl: WebGL2RenderingContext, bufMap: IFloatBuffer) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufMap.buf);
+    gl.bindBuffer(bufMap.target, bufMap.buf);
 
     if (bufMap.capacityEls > bufMap.glCapacityEls) {
-        gl.bufferData(gl.ARRAY_BUFFER, bufMap.capacityEls * bufMap.strideFloats * 4, gl.DYNAMIC_DRAW);
+        gl.bufferData(bufMap.target, bufMap.capacityEls * bufMap.strideBytes, gl.DYNAMIC_DRAW);
         bufMap.glCapacityEls = bufMap.capacityEls;
     }
 
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, bufMap.localBuf.subarray(0, bufMap.usedEls * bufMap.strideFloats));
+    gl.bufferSubData(bufMap.target, 0, bufMap.localBuf.subarray(0, bufMap.usedEls * bufMap.strideFloats));
 }
 
 export function resetFloatBufferMap(bufMap: IFloatBuffer) {

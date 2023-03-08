@@ -1,6 +1,6 @@
 import { IColorMix } from "../Annotations";
 import { cellPosition, IGptModelLayout } from "../GptModelLayout";
-import { measureTextWidth, writeTextToBuffer } from "../utils/font";
+import { measureTextWidth, writeTextToBuffer } from "./fontRender";
 import { Mat4f } from "../utils/matrix";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { addLine } from "./lineRender";

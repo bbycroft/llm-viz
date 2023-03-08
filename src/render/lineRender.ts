@@ -1,6 +1,7 @@
 import { Mat4f } from "../utils/matrix";
 import { createShaderProgram, IGLContext } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
+import { modelViewUboText, UboBindings } from "./sharedRender";
 
 export type ILineRender = ReturnType<typeof createLineRender>;
 
@@ -58,8 +59,7 @@ export function createLineRender(ctx: IGLContext) {
 
     let lineShader = createShaderProgram(ctx, 'line', /*glsl*/`#version 300 es
         precision highp float;
-        uniform mat4 u_view;
-        uniform mat4 u_model;
+        ${modelViewUboText}
         uniform vec2 u_viewSizeInv;
         layout(location = 0) in vec3 a_position;
         layout(location = 1) in vec3 a_lineDir;
@@ -126,7 +126,7 @@ export function createLineRender(ctx: IGLContext) {
         }
     `, [
         'u_view', 'u_model', 'u_viewSizeInv'
-    ])!;
+    ], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView } })!;
 
     return {
         gl,

@@ -10,3 +10,7 @@ export function lerpSmoothstep(a: number, b: number, t: number) {
     if (t >= 1.0) return b;
     return a + (b - a) * t * t * (3 - 2 * t);
 }
+
+export function roundUpTo(a: number, b: number) {
+    return Math.ceil(a / b) * b;
+}

@@ -54,15 +54,12 @@ interface IBlkDepArgs {
 
 let depIdxVars = '0xybi';
 function parseDepIdxStr(str: string): Mat4f {
-    let [parts] = str.split(',').map(s => s.trim());
     let mtx = Mat4f.zeros();
-    let destI = 0;
-    for (let p of parts) {
-        let srcIdx = depIdxVars.indexOf(p);
+    for (let destI = 0; destI < str.length; destI++) {
+        let srcIdx = depIdxVars.indexOf(str[destI]);
         if (srcIdx > 0) {
             mtx.s(destI, srcIdx - 1, 1.0);
         }
-        destI++;
     }
     return mtx;
 }

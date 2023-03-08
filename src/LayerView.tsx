@@ -5,7 +5,7 @@ import { IDataAndModel, IModelShape, IModelState, initModel, runModel, setModelI
 import s from './LayerView.module.css';
 import { initRender, IRenderState, IRenderView, renderModel } from './render/modelRender';
 import { assignImm, clamp, useGlobalDrag } from './utils/data';
-import { fetchFontAtlasData, IFontAtlasData } from './utils/font';
+import { fetchFontAtlasData, IFontAtlasData } from './render/fontRender';
 import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';

@@ -1,8 +1,8 @@
 import { IBlkDef, IGptModelLayout } from "@/src/GptModelLayout";
 import { IRenderState } from "@/src/render/modelRender";
 import { clamp } from "@/src/utils/data";
-import { measureTextWidth, writeTextToBuffer } from "@/src/utils/font";
-import { Dim, Vec3, Vec4 } from "../utils/vector";
+import { measureTextWidth, writeTextToBuffer } from "@/src/render/fontRender";
+import { Vec3, Vec4 } from "../utils/vector";
 import { IWalkthrough, Phase } from "./Walkthrough";
 
 export function phaseTools(state: IRenderState, phaseState: IWalkthrough) {

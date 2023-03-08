@@ -5,11 +5,17 @@ Methods have immutable behavior (rather than in-place) for less error-prone usag
 means a drop in perf. Happy with this trade.
 All methods only have at most 1 new Vec*, even if it means a bit more repetition.
 
-Inheriting from Array<number> seems to give good structure in V8. In particular, the number array
-elements (as doubles) are inline in the array, and the initialization with the size means the array
-is actually that size. It looks like there's an extra pointer hop from this class to get to the
-actual array data which is not strictly ideal, but better than both Float64Array and 3 pointer hops
-in the case of { x: number, y: number, z: number } (V8 doesn't do double de-boxing :( ).
+Fact-check: false:
+    Inheriting from Array<number> seems to give good structure in V8. In particular, the number array
+    elements (as doubles) are inline in the array, and the initialization with the size means the array
+    is actually that size. It looks like there's an extra pointer hop from this class to get to the
+    actual array data which is not strictly ideal, but better than both Float64Array and 3 pointer hops
+    in the case of { x: number, y: number, z: number } (V8 doesn't do double de-boxing :( ).
+
+Probably due to inhieriting from Array<number>, the constructor is painfully slow, showing up in
+stack traces.
+
+Back to simple objects, on the idea that ones that live on the stack will get jitted away anyway.
 
 V8 shows Vec3 & Vec4 as having an 24 byte overhead, which... isn't toooo bad
 
@@ -21,64 +27,15 @@ export enum Dim {
     Z = 2,
 }
 
-export class Vec3A extends Array<number> {
-    constructor(
-        x: number = 0.0,
-        y: number = 0.0,
-        z: number = 0.0,
-    ) {
-        super();
-        this[0] = +x;
-        this[1] = +y;
-        this[2] = +z;
-    }
-
-    get x() { return this[0]; }
-    get y() { return this[1]; }
-    get z() { return this[2]; }
-    set x(value: number) { this[0] = +value; }
-    set y(value: number) { this[1] = +value; }
-    set z(value: number) { this[2] = +value; }
-
-    add(a: Vec3A): Vec3A { return new Vec3A(this[0] + a[0], this[1] + a[1], this[2] + a[2]); }
-    sub(a: Vec3A): Vec3A { return new Vec3A(this[0] - a[0], this[1] - a[1], this[2] - a[2]); }
-    dot(a: Vec3A): number { return this[0] * a[0] + this[1] * a[1] + this[2] * a[2]; }
-    mul(a: number): Vec3A { return new Vec3A(this[0] * a, this[1] * a, this[2] * a); }
-    lenSq(): number { return this[0] * this[0] + this[1] * this[1] + this[2] * this[2]; }
-    distSq(a: Vec3A): number {
-        let dx = this[0] - a[0];
-        let dy = this[1] - a[1];
-        let dz = this[2] - a[2];
-        return dx * dx + dy * dy + dz * dz;
-    }
-    len(): number { return Math.sqrt(this.lenSq()); }
-    dist(a: Vec3A): number { return Math.sqrt(this.distSq(a)); }
-    normalize(): Vec3A { return this.mul(1.0 / Math.sqrt(this.lenSq())); }
-    clone(): Vec3A { return new Vec3A(this[0], this[1], this[2]); }
-    toVec4(): Vec4 { return new Vec4(this[0], this[1], this[2], 1.0); }
-    static cross(a: Vec3A, b: Vec3A): Vec3A { return new Vec3A(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x); }
-    writeToBuf(buf: Float32Array, offset: number) {
-        buf[offset + 0] = this[0];
-        buf[offset + 1] = this[1];
-        buf[offset + 2] = this[2];
-    }
-    static fromArray(a: ArrayLike<number>, offset: number = 0): Vec3A {
-        return new Vec3A(a[offset + 0], a[offset + 1], a[offset + 2]);
-    }
-    toString(): string {
-        return `Vec3A(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)})`;
-    }
-}
-
 export class Vec3 {
-    constructor(
-        public x: number = 0.0,
-        public y: number = 0.0,
-        public z: number = 0.0,
-    ) {}
+    x: number;
+    y: number;
+    z: number;
+    constructor(x: number = 0.0, y: number = 0.0, z: number = 0.0) {
+        this.x = +x;
+        this.y = +y;
+        this.z = +z;
+    }
 
     add(a: Vec3): Vec3 { return new Vec3(this.x + a.x, this.y + a.y, this.z + a.z); }
     sub(a: Vec3): Vec3 { return new Vec3(this.x - a.x, this.y - a.y, this.z - a.z); }
@@ -141,52 +98,57 @@ export class Vec3 {
 }
 
 
-export class Vec4 extends Array<number> {
-    constructor(
-        x: number = 0.0,
-        y: number = 0.0,
-        z: number = 0.0,
-        w: number = 1.0,
-    ) {
-        super(4);
-        this[0] = +x;
-        this[1] = +y;
-        this[2] = +z;
-        this[3] = +w;
+export class Vec4 {
+    x: number;
+    y: number;
+    z: number;
+    w: number;
+    constructor(x: number = 0.0, y: number = 0.0, z: number = 0.0, w: number = 1.0) {
+        this.x = +x;
+        this.y = +y;
+        this.z = +z;
+        this.w = +w;
     }
 
-    get x() { return this[0]; }
-    get y() { return this[1]; }
-    get z() { return this[2]; }
-    get w() { return this[3]; }
-    set x(value: number) { this[0] = +value; }
-    set y(value: number) { this[1] = +value; }
-    set z(value: number) { this[2] = +value; }
-    set w(value: number) { this[3] = +value; }
-
-    getIdx(i: number): number { return this[i]; }
-    add(a: Vec4): Vec4 { return new Vec4(this[0] + a[0], this[1] + a[1], this[2] + a[2], this[3] + a[3]); }
-    sub(a: Vec4): Vec4 { return new Vec4(this[0] - a[0], this[1] - a[1], this[2] - a[2], this[3] - a[3]); }
-    dot(a: Vec4): number { return this[0]*a[0] + this[1]*a[1] + this[2]*a[2] + this[3]+a[3]; }
-    mul(a: number): Vec4 { return new Vec4(this[0] * a, this[1] * a, this[2] * a, this[3] * a); }
-    lenSq(): number { return this[0]*this[0] + this[1]*this[1] + this[2]*this[2] + this[3]*this[3]; }
+    getIdx(i: number): number {
+        switch (i) {
+        case 0: return this.x;
+        case 1: return this.y;
+        case 2: return this.z;
+        case 3: return this.w;
+        default: throw new Error(`Invalid index ${i}`);
+        }
+    }
+    add(a: Vec4): Vec4 { return new Vec4(this.x + a.x, this.y + a.y, this.z + a.z, this.w + a.w); }
+    sub(a: Vec4): Vec4 { return new Vec4(this.x - a.x, this.y - a.y, this.z - a.z, this.w - a.w); }
+    dot(a: Vec4): number { return this.x*a.x + this.y*a.y + this.z*a.z + this.w+a.w; }
+    mul(a: number): Vec4 { return new Vec4(this.x * a, this.y * a, this.z * a, this.w * a); }
+    lenSq(): number { return this.x*this.x + this.y*this.y + this.z*this.z + this.w*this.w; }
     distSq(a: Vec4): number {
-        let dx = this[0] - a[0];
-        let dy = this[1] - a[1];
-        let dz = this[2] - a[2];
-        let dw = this[3] - a[3];
+        let dx = this.x - a.x;
+        let dy = this.y - a.y;
+        let dz = this.z - a.z;
+        let dw = this.w - a.w;
         return dx * dx + dy * dy + dz * dz + dw * dw;
     }
     len(): number { return Math.sqrt(this.lenSq()); }
     dist(a: Vec4): number { return Math.sqrt(this.distSq(a)); }
     normalize(): Vec4 { return this.mul(1.0 / Math.sqrt(this.lenSq())); }
-    projToVec3(): Vec3 { return new Vec3(this[0] / this[3], this[1] / this[3], this[2] / this[3]); }
+    projToVec3(): Vec3 { return new Vec3(this.x / this.w, this.y / this.w, this.z / this.w); }
     static lerp(a: Vec4, b: Vec4, t: number): Vec4 {
         return a.add(b.sub(a).mul(t));
     }
-
+    writeToBuf(buf: Float32Array, offset: number) {
+        buf[offset + 0] = this.x;
+        buf[offset + 1] = this.y;
+        buf[offset + 2] = this.z;
+        buf[offset + 3] = this.w;
+    }
     static fromArray(a: ArrayLike<number>, offset: number = 0): Vec4 {
         return new Vec4(a[offset + 0], a[offset + 1], a[offset + 2], a[offset + 3]);
+    }
+    toArray(): ArrayLike<number> {
+        return [this.x, this.y, this.z, this.w];
     }
     static fromHexColor(s: string, alpha: number = 1.0): Vec4 {
         if (s.startsWith('#')) s = s.slice(1);
