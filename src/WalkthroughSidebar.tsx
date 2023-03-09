@@ -1,16 +1,20 @@
 import s from './WalkthroughSidebar.module.css';
-import { IPhaseDef, IWalkthrough } from "./walkthrough/Walkthrough";
+import { IWalkthrough } from "./walkthrough/Walkthrough";
 import { clamp, useGlobalDrag } from './utils/data';
 import { useReducer, useState } from 'react';
 import clsx from 'clsx';
+import { IPhaseDef } from './walkthrough/WalkthroughTools';
+import { IRenderState } from './render/modelRender';
 
 export const WalkthroughSidebar: React.FC<{
     walkthrough: IWalkthrough;
+    renderState: IRenderState;
     counter?: number;
-}> = ({ walkthrough, counter }) => {
+}> = ({ walkthrough, renderState, counter }) => {
     let [baseEl, setBaseEl] = useState<HTMLDivElement | null>(null);
     let [, refresh] = useReducer((a: any) => a + 1, 0);
 
+    let camera = renderState.camera;
     let totalTime = walkthrough.phaseLength;
 
     let toFract = (v: number) => clamp(v / totalTime, 0, 1);
@@ -78,6 +82,14 @@ export const WalkthroughSidebar: React.FC<{
                         })}
                     </div>;
                 })}
+
+                <div className={s.camStats}>
+                    center = {camera.center.toString(1)}
+                </div>
+                <div className={s.camStats}>
+                    angle = {camera.angle.toString(1)}
+                </div>
+
             </div>
 
         </div>

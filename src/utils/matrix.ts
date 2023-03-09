@@ -157,8 +157,8 @@ export class Mat4f extends Float32Array {
     }
 
     static fromPersp(fovDeg: number, aspect: number, near: number, far: number) {
-        let w = near * Math.tan(fovDeg / 2 * Math.PI / 180) * 2;
-        let h = w * aspect;
+        let h = near * Math.tan(fovDeg / 2 * Math.PI / 180) * 2;
+        let w = h * aspect;
 
         let res = new Mat4f();
         res[0] = 2 * near / w;

@@ -1,10 +1,9 @@
-import { Vec3 } from "./utils/vector";
+import { ICamera } from "./Camera";
 
 export interface ISavedState {
     phase: number;
     phaseTime: number;
-    camTarget: Vec3;
-    camAngle: Vec3;
+    camera: ICamera;
 }
 
 export let SavedState = {

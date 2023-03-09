@@ -87,12 +87,42 @@ export function clamp(num: number, min: number, max: number) {
     return num;
 }
 
+export function useRequestAnimationFrame(active: boolean, cb: (dt: number) => void) {
+    let cbRef = useFunctionRef(cb);
+    useEffect(() => {
+        let stale = false;
+        let handle: number;
+        let prevTime: number | undefined;
+
+        function loop(time: number) {
+            let dt = (prevTime === undefined ? 16 : (time - prevTime)) / 1000;
+            prevTime = time;
+            cbRef.current(dt);
+            if (!stale) {
+                handle = requestAnimationFrame(loop);
+            }
+        }
+
+        if (active) {
+            handle = requestAnimationFrame(loop);
+            return () => {
+                stale = true;
+                cancelAnimationFrame(handle);
+            };
+        }
+    }, [active, cbRef]);
+}
+
 export interface IDragStart<T> {
     clientX: number;
     clientY: number;
     data: T;
     button: number;
     buttons: number;
+    shiftKey: boolean;
+    altKey: boolean;
+    metaKey: boolean;
+    ctrlKey: boolean;
 }
 
 export function useGlobalDrag<T>(
@@ -152,6 +182,10 @@ export function useGlobalDrag<T>(
             data,
             button: ev.button,
             buttons: ev.buttons,
+            shiftKey: ev.shiftKey,
+            altKey: ev.altKey,
+            ctrlKey: ev.ctrlKey,
+            metaKey: ev.metaKey,
         });
     }, [setDragStart]);
 

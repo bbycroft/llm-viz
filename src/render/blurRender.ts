@@ -124,7 +124,7 @@ export function initBlurRender(ctx: IGLContext, quadVao: WebGLVertexArrayObject)
     let horizShader = createBlurShader("blurHoriz", Dim.X);
     let vertShader = createBlurShader("blurVert", Dim.Y);
 
-    let overlayShader = createShaderProgram(ctx.shaderManager, "overlay", /*glsl*/`#version 300 es
+    let overlayShader = createShaderProgram(ctx.shaderManager, "blurOverlay", /*glsl*/`#version 300 es
             precision highp float;
             layout(location = 0) in vec2 a_position;
             out vec2 v_uv;
@@ -151,7 +151,7 @@ export function initBlurRender(ctx: IGLContext, quadVao: WebGLVertexArrayObject)
                 o_color = blurColor; // + initColor * (1.0 - blurColor.a);
                 // o_color = initColor;
             }
-        `, ['u_texture', 'u_initTexture'])!;
+        `, ['u_texture'])!;
 
     return {
         gl,
@@ -186,8 +186,6 @@ export function setupBlurTarget(blur: IBlurRender) {
             gl.bindTexture(gl.TEXTURE_2D, fbo.tex);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, blurW, blurH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         }
-
-        console.log('Resized blur target to', blurW, blurH);
 
         blur.currViewSize = new Vec3(w, h);
     }
@@ -242,10 +240,9 @@ export function renderBlur(blur: IBlurRender, destFbo: WebGLFramebuffer | null) 
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, blur.initialTex);
 
-
         gl.useProgram(blur.overlayShader.program);
         gl.uniform1i(blur.overlayShader.locs.u_texture, 0);
-        gl.uniform1i(blur.overlayShader.locs.u_initTexture, 1);
+        // gl.uniform1i(blur.overlayShader.locs.u_initTexture, 1);
         gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
     }
 }

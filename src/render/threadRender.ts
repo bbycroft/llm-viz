@@ -69,7 +69,7 @@ export function initThreadRender(ctx: IGLContext) {
     ]);
     let instanceBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, instanceVbo, 1024, instanceStride);
 
-    let shader = createShaderProgram(ctx, 'block', /*glsl*/`#version 300 es
+    let shader = createShaderProgram(ctx, 'thread', /*glsl*/`#version 300 es
         precision highp float;
         ${modelViewUboText}
         layout(location = 0) in vec3 a_position;
@@ -148,8 +148,7 @@ export function initThreadRender(ctx: IGLContext) {
             o_color = color;
         }
     `, [
-        'u_view', 'u_model', 'u_size', 'u_offset',
-        'u_baseColor', 'u_nCells', 'u_threadDir',
+        'u_size', 'u_offset', 'u_baseColor', 'u_nCells', 'u_threadDir',
     ], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView } })!;
 
 

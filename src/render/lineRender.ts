@@ -125,7 +125,7 @@ export function createLineRender(ctx: IGLContext) {
             o_color = v_color * t;
         }
     `, [
-        'u_view', 'u_model', 'u_viewSizeInv'
+        'u_viewSizeInv'
     ], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView } })!;
 
     return {
@@ -177,12 +177,9 @@ export function renderAllLines(render: ILineRender, view: Mat4f, model: Mat4f, b
     gl.useProgram(render.lineShader.program);
 
     let locs = render.lineShader.locs;
-    gl.uniformMatrix4fv(locs.u_view, false, view);
-    gl.uniformMatrix4fv(locs.u_model, false, model);
     gl.uniform2f(locs.u_viewSizeInv, 1.0 / gl.canvas.width, 1.0 / gl.canvas.height);
 
     gl.drawElements(gl.TRIANGLE_STRIP, render.usedCount * 5, gl.UNSIGNED_SHORT, 0);
-    // gl.drawArrays(gl.TRIANGLE_STRIP, 0, render.usedCount * 4);
 
     gl.depthMask(true);
 }

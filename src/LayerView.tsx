@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useCallback, useEffect, useReducer, useState } from 'react';
+import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { IDataAndModel, IModelShape, IModelState, initModel, runModel, setModelInputData } from './GptModel';
 import s from './LayerView.module.css';
 import { initRender, IRenderState, IRenderView, renderModel } from './render/modelRender';
-import { assignImm, clamp, useGlobalDrag } from './utils/data';
+import { clamp, useGlobalDrag, useRequestAnimationFrame } from './utils/data';
 import { fetchFontAtlasData, IFontAtlasData } from './render/fontRender';
 import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
 import { IWalkthrough } from './walkthrough/Walkthrough';
 import { WalkthroughSidebar } from './WalkthroughSidebar';
+import { ICamera } from './Camera';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -26,21 +27,40 @@ async function fetchTensorData(url: string): Promise<ITensorSet> {
 export function LayerView() {
     let [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
     let [dataAndModel, setDataAndModel] = useState<IDataAndModel | null>(null);
-    let [camAngle, setCamAngle] = useState(new Vec3(290, 20, 30)); // degrees about z axis, and above the x-y plane; zoom
-    let [camTarget, setCamTarget] = useState(new Vec3(0, 0, -500)); // where the camera is looking
     let [canvasRender, setCanvasRender] = useState<CanvasRender | null>(null);
     let [fontAtlasData, setFontAtlasData] = useState<IFontAtlasData | null>(null);
     let [walkthrough, setWalkthrough] = useState<IWalkthrough | null>(null);
     let [counter, setCounter] = useReducer((a: number) => a + 1, 0);
+    let [cursorPos, setCursorPos] = useState(new Vec3(0, 0));
+    let [pointPos, setPointPos] = useState(new Vec3(0, 0));
+
+    let updateRenderState = useCallback((fn: (rs: IRenderState) => void) => {
+        if (canvasRender) {
+            fn(canvasRender.renderState);
+            canvasRender.markDirty();
+        }
+    }, [canvasRender]);
+
+    let renderState = canvasRender?.renderState;
 
     let [dragStart, setDragStart] = useGlobalDrag<{ camAngle: Vec3, camTarget: Vec3 }>(function handleMove(ev, ds) {
+        if (!renderState) {
+            return;
+        }
+
         let dx = ev.clientX - ds.clientX;
         let dy = ev.clientY - ds.clientY;
+        let camAngle = ds.data.camAngle;
 
-        if (ev.shiftKey || ds.button === 1) {
+        if (!ds.shiftKey && !(ds.button === 1 || ds.button === 2)) {
             let target = ds.data.camTarget.clone();
             target.z = target.z + dy * 0.1 * camAngle.z; // @TODO: clamp to the bounding box of the model
-            setCamTarget(target);
+            let sideMul = Math.sin(camAngle.x * Math.PI / 180) > 0 ? 1 : -1;
+            target.x = target.x + sideMul * dx * 0.1 * camAngle.z;
+
+            updateRenderState(rs => {
+                rs.camera.center = target;
+            });
 
         } else {
             let degPerPixel = 0.5;
@@ -49,23 +69,41 @@ export function LayerView() {
             let x = initial.x - dx * degPerPixel;
             let y = clamp(initial.y + dy * degPerPixel, -87, 87);
 
-            setCamAngle(new Vec3(x, y, camAngle.z));
+            updateRenderState(rs => {
+                rs.camera.angle = new Vec3(x, y, camAngle.z);
+            });
         }
+
+        ev.preventDefault();
     });
 
     function handleMouseDown(ev: React.MouseEvent) {
-        setDragStart(ev, { camAngle, camTarget });
+        if (renderState) {
+            setDragStart(ev, { camAngle: renderState.camera.angle, camTarget: renderState.camera.center });
+        }
+    }
+
+    function handleMouseMove(ev: React.MouseEvent) {
+        if (canvasEl) {
+            let bcr = canvasEl.getBoundingClientRect();
+            setCursorPos(new Vec3(ev.clientX - bcr.x, ev.clientY - bcr.y));
+        }
     }
 
     function handleWheel(ev: React.WheelEvent) {
-        let zoom = clamp(camAngle.z * Math.pow(1.0012, ev.deltaY), 0.01, 10000);
-        setCamAngle(new Vec3(camAngle.x, camAngle.y, zoom));
+        if (renderState) {
+            let camAngle = renderState.camera.angle;
+            let zoom = clamp(camAngle.z * Math.pow(1.0013, ev.deltaY), 0.01, 10000);
+            updateRenderState(rs => {
+                rs.camera.angle = new Vec3(camAngle.x, camAngle.y, zoom);
+            });
+        }
         ev.stopPropagation();
     }
 
     useEffect(() => {
         function handleKeyDown(ev: KeyboardEvent) {
-            if (!canvasRender?.modelState) {
+            if (!canvasRender?.renderState) {
                 return;
             }
             let walkthrough = canvasRender.renderState.walkthrough;
@@ -121,10 +159,22 @@ export function LayerView() {
 
     let localSetWalkthrough = useCallback((walkthrough: IWalkthrough | null) => {
         setCounter();
-        setWalkthrough(a => {
-            return walkthrough;
-        });
+        setWalkthrough(walkthrough);
     }, []);
+
+    let vel = useRef(new Vec3(0, 0));
+    useRequestAnimationFrame(pointPos.dist(cursorPos) > 0.1, (dt) => {
+        let tension = 400;
+        let mass = 10;
+        let friction = 2 * Math.sqrt(mass * tension);
+
+        let dist = pointPos.sub(cursorPos);
+        let springF = (dist.add(dist.normalize().mul(4))).mul(-tension);
+        let dampF = vel.current.mul(-friction);
+        let accel = springF.add(dampF).mul(1.0 / mass);
+        vel.current = vel.current.add(accel.mul(dt));
+        setPointPos(pointPos.add(vel.current.mul(dt)));
+    });
 
     useEffect(() => {
         console.log('setting up canvas with font', canvasEl, fontAtlasData);
@@ -149,29 +199,30 @@ export function LayerView() {
     }, [canvasEl, fontAtlasData]);
 
     useEffect(() => {
-        canvasRender?.setData({ dataAndModel, camAngle, camTarget });
-    }, [canvasRender, dataAndModel, camAngle, camTarget]);
+        canvasRender?.setData({ dataAndModel });
+    }, [canvasRender, dataAndModel]);
 
     return <div className={s.view}>
         <div className={s.sidebar}>
-            {walkthrough && <WalkthroughSidebar walkthrough={walkthrough} counter={counter} />}
+            {walkthrough && <WalkthroughSidebar walkthrough={walkthrough} counter={counter} renderState={renderState!} />}
         </div>
         <div className={s.canvasWrap}>
             <canvas
                 className={s.canvas}
                 ref={setCanvasEl}
+                onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
                 onWheel={handleWheel}
+                onContextMenu={ev => ev.preventDefault()}
                 style={{ cursor: dragStart ? 'grabbing' : 'grab' }}
             />
+            {/* <div className={s.cursorFollow} style={{ top: pointPos.y, left: pointPos.x }} /> */}
         </div>
     </div>;
 }
 
 interface ICanvasData {
     dataAndModel: IDataAndModel | null;
-    camAngle: Vec3;
-    camTarget: Vec3;
 }
 
 class CanvasRender {
@@ -268,7 +319,6 @@ class CanvasRender {
 
         let view: IRenderView = {
             ...this.canvasData,
-            canvasEl: canvasEl!,
             time,
             dt,
             markDirty: this.markDirty,

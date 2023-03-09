@@ -100,10 +100,10 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
     SavedState.state = {
         phase: state.walkthrough.phase,
         phaseTime: state.walkthrough.time,
-        camAngle: view.camAngle,
-        camTarget: view.camTarget,
+        camera: state.camera,
     };
 
+    let cam = state.camera;
     let phaseState = state.walkthrough;
     phaseState.times = [];
 
@@ -131,6 +131,12 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
         let t1a = afterTime(t1, 0.0, 2.0);
         let t2 = afterTime(t1a, 5, 0.2);
 
+        if (!t2.active) {
+            cam.centerDesired = new Vec3(0, 0, -30);
+            cam.angleZDesired = 1.2;
+            cam.angleRotDesired = new Vec3(290, 20);
+        }
+
         let blocks = layout.cubes.filter(b => b.t === 'i');
         let pos = lerpSmoothstep(0, blocks.length, t2.t);
         let idx = Math.floor(pos);
@@ -152,10 +158,9 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             hideFromBlock(state, layout, blk);
         }
 
-        let height = layout.height;
-
         if (t2.active && state.walkthrough.running) {
-            view.camTarget.z = -lerpSmoothstep(0, height, t2.t);
+            cam.centerDesired = new Vec3(cam.center.x, cam.center.y, lerpSmoothstep(-30, -1000, t2.t));
+            cam.angleZDesired = lerpSmoothstep(1.2, 10, t2.t);
         }
 
         break;

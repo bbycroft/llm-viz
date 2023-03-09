@@ -83,8 +83,8 @@ export class Vec3 {
     }
     withSetAt(i: number, v: number): Vec3 { return this.clone().setAt(i, v); }
     withAddAt(i: number, v: number): Vec3 { return this.clone().addAt(i, v); }
-    toString(): string {
-        return `Vec3(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)})`;
+    toString(dp: number = 3): string {
+        return `Vec3(${numMaxDp(this.x, dp)}, ${numMaxDp(this.y, dp)}, ${numMaxDp(this.z, dp)})`;
     }
     rotateAbout(k: Vec3, thetaRad: number) {
         // https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
@@ -164,7 +164,7 @@ export class Vec4 {
 }
 
 function numMaxDp(x: number, dp: number = 3) {
-    return x.toFixed(dp);
+    return parseFloat(x.toFixed(dp)).toString();
 }
 
 export class BoundingBox3d {

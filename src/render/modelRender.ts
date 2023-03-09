@@ -12,11 +12,9 @@ import { createLineRender, renderAllLines, resetLineRender } from "./lineRender"
 import { renderAllThreads, initThreadRender } from "./threadRender";
 import { renderTokens } from "./tokenRender";
 import { initSharedRender, writeModelViewUbo } from "./sharedRender";
+import { cameraMoveToDesired, cameraToMatrixView, ICamera } from "../Camera";
 
 export interface IRenderView {
-    canvasEl: HTMLCanvasElement;
-    camAngle: Vec3; // degrees about z axis, and above the x-y plane
-    camTarget: Vec3;
     time: number;
     dt: number;
     markDirty: () => void;
@@ -38,6 +36,8 @@ export interface IRenderState {
     quadVao: WebGLVertexArrayObject;
     query: WebGLQuery;
     tokenColors: IColorMix | null;
+
+    camera: ICamera;
 
     // factor into query stuff
     lastGpuMs: number;
@@ -108,12 +108,18 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         lastGpuMs: 0,
         lastJsMs: 0,
         hasRunQuery: false,
+        camera: { angle: new Vec3(290, 20, 30), center: new Vec3(0, 0, -500), transition: {} },
     };
 }
 
 export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape, gptGpuModel?: IGpuGptModel) {
     let timer0 = performance.now();
     let { gl, blockRender, canvasEl, ctx } = args;
+
+    if (args.walkthrough.running) {
+        cameraMoveToDesired(args.camera, view.dt);
+    }
+
     let layout = genGptModelLayout(shape, gptGpuModel);
     let cell = layout.cell;
 
@@ -172,20 +178,10 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     }
     let localDist = bb.size().len();
 
-    let camZoom = view.camAngle.z;
-    let angleX = view.camAngle.x * Math.PI / 180;
-    let angleY = view.camAngle.y * Math.PI / 180;
+    let { lookAt, camPos } = cameraToMatrixView(args.camera);
+    let dist = 200 * args.camera.angle.z;
 
-    let dist = 200 * camZoom;
-    let camZ = dist * Math.sin(angleY);
-    let camX = dist * Math.cos(angleY) * Math.cos(angleX);
-    let camY = dist * Math.cos(angleY) * Math.sin(angleX);
-
-    let camLookat = view.camTarget;
-    let camPos = new Vec3(camX, camY, camZ).add(camLookat);
-
-    let lookAt = Mat4f.fromLookAt(camPos, camLookat, new Vec3(0, 0, 1));
-    let persp = Mat4f.fromPersp(40, view.canvasEl.height / view.canvasEl.width, dist / 100, localDist + Math.max(dist * 2, 10000));
+    let persp = Mat4f.fromPersp(40, args.canvasEl.width / args.canvasEl.height, dist / 100, localDist + Math.max(dist * 2, 10000));
     let viewMtx = persp.mul(lookAt);
     let modelMtx = new Mat4f();
     modelMtx[0] = 1.0;
