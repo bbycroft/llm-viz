@@ -361,7 +361,7 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
     case Phase.LayerNorm1: {
 
         let t0_dissolveHeads = atTime(0, 1.0, 0.5);
-        let t2_alignqkv = afterTime(t0_dissolveHeads, 0.5, 0.5);
+        let t2_alignqkv = afterTime(t0_dissolveHeads, 1.0, 0.5);
         let t3_v_mm = afterTime(t2_alignqkv, 4);
 
         let targetHeadIdx = 2;
@@ -414,17 +414,18 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             let yDelta = lerpSmoothstep(0, blockMidY(block.ln1.lnResid) - blockMidY(targetHead.kBlock), t2_alignqkv.t);
 
             for (let i = 0; i < resid0Idx; i++) {
-                layout.cubes[i].opacity = lerpSmoothstep(1.0, 0.2, t2_alignqkv.t);
+                let targetOpacity = 0.2;
+                layout.cubes[i].opacity = lerpSmoothstep(1.0, targetOpacity, t2_alignqkv.t);
             }
 
             let afterAttn = false;
             for (let i = resid0Idx + 1; i < layout.cubes.length; i++) {
                 let cube = layout.cubes[i];
                 cube.y += yDelta;
-                afterAttn = afterAttn || cube === targetHead.vOutBlock;
                 if (afterAttn) {
                     cube.opacity = Math.min(lerpSmoothstep(1.0, 0.2, t2_alignqkv.t), cube.opacity ?? 1.0);
                 }
+                afterAttn = afterAttn || cube === targetHead.vOutBlock;
             }
         }
 

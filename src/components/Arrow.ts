@@ -27,6 +27,7 @@ import { IBlkDef, IGptModelLayout } from "../GptModelLayout";
 import { addLine } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { addPrimitiveRestart, addQuad, addVert } from "../render/triRender";
+import { bezierCurveBuild } from "../utils/bezier";
 import { Mat4f } from "../utils/matrix";
 import { Vec3, Vec4 } from "../utils/vector";
 
@@ -50,6 +51,10 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
         drawVertArrow(block.ln1.lnAgg, block.ln1.lnResid, 2);
 
         for (let head of block.heads) {
+            drawArrowBetween(block.ln1.lnResid, BlockPos.Left, head.qBlock, BlockPos.Right);
+            drawArrowBetween(block.ln1.lnResid, BlockPos.Left, head.kBlock, BlockPos.Right);
+            drawArrowBetween(block.ln1.lnResid, BlockPos.Left, head.vBlock, BlockPos.Right);
+
             drawHorizArrow(head.qBiasBlock, head.qWeightBlock);
             drawHorizArrow(head.kBiasBlock, head.kWeightBlock);
             drawHorizArrow(head.vBiasBlock, head.vWeightBlock);
@@ -58,9 +63,15 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
             drawHorizArrow(head.kWeightBlock, head.kBlock);
             drawHorizArrow(head.vWeightBlock, head.vBlock);
 
+            drawArrowBetween(head.qBlock, BlockPos.Bot, head.attnMtx, BlockPos.Top);
+            drawArrowBetween(head.kBlock, BlockPos.Bot, head.attnMtx, BlockPos.Top);
+            drawArrowBetween(head.vBlock, BlockPos.Bot, head.vOutBlock, BlockPos.Top);
+
             drawArrowBetween(head.attnMtx, BlockPos.Left, head.attnMtxAgg, BlockPos.Right);
             drawArrowBetween(head.attnMtxAgg, BlockPos.Left, head.attnMtxSm, BlockPos.Right);
             drawArrowBetween(head.attnMtxSm, BlockPos.Bot, head.vOutBlock, BlockPos.Left);
+
+            drawArrowBetween(head.vOutBlock, BlockPos.Bot, block.attnOut, BlockPos.Top);
         }
 
         drawVertArrow(block.attnResidual, block.mlpResidual);
@@ -130,8 +141,13 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
         let start = blockPos(src, BlockPos.Bot);
         let end = blockPos(dest, BlockPos.Right);
 
+        let opacity = Math.min(src.opacity, dest.opacity);
+        if (opacity === 0) {
+            return;
+        }
+
         let normal = new Vec3(0, 0, 1);
-        let color = blkColor(src);
+        let color = blkColor(src).mul(opacity);
 
         let mid1 = new Vec3(start.x - residWidth / 2, end.y);
         drawArrow(state, mid1, end, width, normal, color, true);
@@ -141,8 +157,17 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
         let start = blockPos(src, srcPos);
         let end = blockPos(dest, destPos);
 
+        let opacity = Math.min(src.opacity, dest.opacity);
+        if (opacity === 0) {
+            return;
+        }
+
         let normal = new Vec3(0, 0, 1);
-        let color = blkColor(src);
+        let color = blkColor(src).mul(opacity);
+
+        if (srcPos === BlockPos.Left && destPos === BlockPos.Right) {
+            start.y = end.y;
+        }
 
         if (srcPos === BlockPos.Right && destPos === BlockPos.Top) {
             // dogleg right => down
@@ -190,7 +215,10 @@ export enum CornerMode {
 
 export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: number, normal: Vec3, color: Vec4, drawHead: boolean = true, drawCorner: CornerMode = CornerMode.None) {
 
-    let dir = end.sub(start).normalize();
+    let dir = end.sub(start);
+    dir.z = 0.0;
+    dir = dir.normalize();
+
     let len = end.sub(start).len();
     let headExtra = 3.0;
     let headDepth = drawHead ? Math.min(len * 0.7, headExtra * 1.0) : 0;
@@ -208,7 +236,7 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
     mtx[8] = normal.x;
     mtx[9] = normal.y;
     mtx[10] = normal.z;
-    mtx[14] = start.z;
+    // mtx[14] = start.z;
 
     start = mtx.mulVec3Proj(start);
     end = mtx.mulVec3Proj(end);
@@ -226,10 +254,31 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
         mtx,
     };
 
-    // assume the arrow is in the xy plane, and the normal is in the x direction
-    // so just a quad from start to end - headDepth
+    // matrix is constructed such that the ribbons are always in the x-y plane, and going from -y to +y
+    // The ribbon will be curved if it is not in the x-y plane, but the start and end remain tangent to the plane
 
-    drawArrowSeg(state, start, end.sub(new Vec3(0, headDepth)), normal, opts);
+    function drawBezierRibbon() {
+        let dist = Math.max(headDepth, Math.abs(start.y - end.y - headDepth) / 2);
+        let p0 = new Vec3(start.x, start.y               , start.z);
+        let p1 = new Vec3(start.x, start.y + dist        , start.z);
+        let p2 = new Vec3(end.x, end.y - headDepth - dist, end.z);
+        let p3 = new Vec3(end.x, end.y - headDepth       , end.z);
+        let steps = bezierCurveBuild(p0, p1, p2, p3, 0.1);
+        let nPts = steps.length / 3;
+        for (let i = 0; i < nPts - 1; i++) {
+            let p0 = new Vec3(steps[i*3+0], steps[i*3+1], steps[i*3+2]);
+            let p1 = new Vec3(steps[i*3+3], steps[i*3+4], steps[i*3+5]);
+            drawArrowSeg(state, p0, p1, normal, opts);
+        }
+    }
+
+    if (Math.abs(start.z - end.z) > 0.01) {
+        drawBezierRibbon();
+
+    } else {
+        drawArrowSeg(state, start, end.sub(new Vec3(0, headDepth)), normal, opts);
+    }
+
     if (drawCorner !== CornerMode.None) {
         drawArrowCorner(state, start.sub(new Vec3(0, width/2)), drawCorner, opts);
     }
@@ -253,25 +302,25 @@ export function drawArrowSeg(state: IRenderState, start: Vec3, end: Vec3, side: 
     // assume the arrow is in the xy plane, and the normal is in the x direction
     // so just a quad from start to end - headDepth
 
-    let tl = new Vec3(start.x - opts.width/2, start.y, 0);
-    let br = new Vec3(end.x + opts.width/2, end.y, 0);
+    let tl = new Vec3(start.x - opts.width/2, start.y, start.z);
+    let br = new Vec3(end.x + opts.width/2, end.y, end.z);
 
     addQuad(state.triRender, tl, br, opts.ribbonColor, opts.mtx);
 
     let n = undefined;
     let thick = opts.lineThick;
-    addLine(state.lineRender, thick, opts.borderColor, new Vec3(tl.x, tl.y), new Vec3(tl.x, br.y), n, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, new Vec3(br.x, tl.y), new Vec3(br.x, br.y), n, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, new Vec3(tl.x, tl.y, tl.z), new Vec3(tl.x, br.y, br.z), n, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, new Vec3(br.x, tl.y, tl.z), new Vec3(br.x, br.y, br.z), n, opts.mtx);
 }
 
 export function drawArrowHead(state: IRenderState, a: Vec3, b: Vec3, opts: IArrowOpts) {
-    let tl = new Vec3(a.x - opts.width/2, a.y, 0);
-    let br = new Vec3(b.x + opts.width/2, b.y, 0);
+    let tl = new Vec3(a.x - opts.width/2, a.y, a.z);
+    let br = new Vec3(b.x + opts.width/2, b.y, b.z);
     let n = new Vec3(0, 0, 1);
     let headExtra = 3.0;
-    let left = new Vec3(tl.x - headExtra, a.y);
-    let right = new Vec3(br.x + headExtra, a.y);
-    let tip = new Vec3(tl.x + opts.width / 2, b.y);
+    let left = new Vec3(tl.x - headExtra, a.y, a.z);
+    let right = new Vec3(br.x + headExtra, a.y, a.z);
+    let tip = new Vec3(tl.x + opts.width / 2, b.y, b.z);
 
     addVert(state.triRender, left, opts.ribbonColor, n, opts.mtx);
     addVert(state.triRender, tip, opts.ribbonColor, n, opts.mtx);
@@ -280,10 +329,10 @@ export function drawArrowHead(state: IRenderState, a: Vec3, b: Vec3, opts: IArro
 
     let thick = opts.lineThick;
     n = undefined!;
-    addLine(state.lineRender, thick, opts.borderColor, new Vec3(tl.x, a.y), left, n, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, new Vec3(tl.x, a.y, a.z), left, n, opts.mtx);
     addLine(state.lineRender, thick, opts.borderColor, tip, left, n, opts.mtx);
     addLine(state.lineRender, thick, opts.borderColor, tip, right, n, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, new Vec3(br.x, a.y), right, n, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, new Vec3(br.x, a.y, a.z), right, n, opts.mtx);
 }
 
 export function drawArrowCorner(state: IRenderState, center: Vec3, mode: CornerMode, opts: IArrowOpts) {
@@ -291,7 +340,7 @@ export function drawArrowCorner(state: IRenderState, center: Vec3, mode: CornerM
     // coming from the left (-x), and going downwards (+y)
     let mul = mode === CornerMode.Left ? 1 : -1;
 
-    let pivot = new Vec3(center.x + opts.width / 2 * mul, center.y + opts.width / 2);
+    let pivot = new Vec3(center.x + opts.width / 2 * mul, center.y + opts.width / 2, center.z);
     let ribbonN = new Vec3(0, 0, 1);
 
     let count = 8;

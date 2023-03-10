@@ -387,7 +387,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         });
 
         let vFinalZ = Math.max(
-            vOutY + stepPerHeadY * (nHeads - 1) + A * cell + margin,
+            vOutY + stepPerHeadY * (nHeads - 1) + A * cell + 2 * margin,
             y + C * cell + margin, // in case the layer norm block is shorter
         );
 

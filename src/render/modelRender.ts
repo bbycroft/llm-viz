@@ -142,8 +142,9 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     resetFontBuffers(args.overlayFontBuf);
     resetTriRender(args.triRender);
 
-    drawAllArrows(args, layout);
     runWalkthrough(args, view, layout);
+
+    drawAllArrows(args, layout);
 
     renderModelCard(args, layout);
     renderTokens(args, layout, undefined, undefined, args.tokenColors || undefined);

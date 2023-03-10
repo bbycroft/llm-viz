@@ -180,6 +180,7 @@ export function renderAllLines(render: ILineRender, view: Mat4f, model: Mat4f, b
     let locs = render.lineShader.locs;
     gl.uniform2f(locs.u_viewSizeInv, 1.0 / gl.canvas.width, 1.0 / gl.canvas.height);
 
+    // console.log('rendering lines', render.indexBuf.usedVerts);
     gl.drawElements(gl.TRIANGLE_STRIP, render.indexBuf.usedVerts, gl.UNSIGNED_INT, 0);
 
     gl.depthMask(true);
