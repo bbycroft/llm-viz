@@ -167,20 +167,20 @@ export function bindFloatAttribs(gl: WebGL2RenderingContext, buf: WebGLBuffer, o
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     let locId = opts.locOffset || 0;
     let offset = opts.bufOffset || 0;
-    let stride = 0;
+    let byteStride = 0;
     for (let a of attribs) {
-        stride += a.size * 4 * (a.nCols ?? 1);
+        byteStride += a.size * 4 * (a.nCols ?? 1);
     }
     for (let a of attribs) {
         for (let i = 0; i < (a.nCols ?? 1); i++) {
             gl.enableVertexAttribArray(locId);
-            gl.vertexAttribPointer(locId, a.size, gl.FLOAT, false, stride, offset);
+            gl.vertexAttribPointer(locId, a.size, gl.FLOAT, false, byteStride, offset);
             offset += a.size * 4;
             locId++;
         }
 
     }
-    return stride;
+    return byteStride;
 }
 
 export interface IFloatBuffer {
@@ -233,9 +233,54 @@ export function uploadFloatBuffer(gl: WebGL2RenderingContext, bufMap: IFloatBuff
         bufMap.glCapacityEls = bufMap.capacityEls;
     }
 
-    gl.bufferSubData(bufMap.target, 0, bufMap.localBuf.subarray(0, bufMap.usedEls * bufMap.strideFloats));
+    gl.bufferSubData(bufMap.target, 0, bufMap.localBuf.subarray(0, bufMap.usedEls * bufMap.strideFloats).buffer);
 }
 
 export function resetFloatBufferMap(bufMap: IFloatBuffer) {
     bufMap.usedEls = 0;
+}
+
+export interface IElementBuffer {
+    buf: WebGLBuffer;
+    localBuf: Uint32Array;
+
+    capacityVerts: number;
+    usedVerts: number;
+
+    glCapacityVerts: number; // verts in the gl buffer. May lag capacityVerts
+}
+
+export function createElementBuffer(gl: WebGL2RenderingContext, buf: WebGLBuffer, capacityVerts: number): IElementBuffer {
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, capacityVerts * 4, gl.DYNAMIC_DRAW);
+    let localBuf = new Uint32Array(capacityVerts);
+    return { buf, localBuf, capacityVerts, usedVerts: 0, glCapacityVerts: capacityVerts };
+}
+
+export function ensureElementBufferSize(bufMap: IElementBuffer, countVerts: number) {
+    let newUsedVerts = bufMap.usedVerts + countVerts;
+
+    if (newUsedVerts > bufMap.capacityVerts) {
+        let newCapacityVerts = bufMap.capacityVerts * 2;
+        while (newUsedVerts > newCapacityVerts) {
+            newCapacityVerts *= 2;
+        }
+
+        let newLocalBuf = new Uint32Array(newCapacityVerts);
+        newLocalBuf.set(bufMap.localBuf);
+
+        bufMap.capacityVerts = newCapacityVerts;
+        bufMap.localBuf = newLocalBuf;
+    }
+}
+
+export function uploadElementBuffer(gl: WebGL2RenderingContext, bufMap: IElementBuffer) {
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufMap.buf);
+
+    if (bufMap.capacityVerts > bufMap.glCapacityVerts) {
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, bufMap.capacityVerts * 4, gl.DYNAMIC_DRAW);
+        bufMap.glCapacityVerts = bufMap.capacityVerts;
+    }
+
+    gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, bufMap.localBuf.subarray(0, bufMap.usedVerts).buffer);
 }

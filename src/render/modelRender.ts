@@ -13,6 +13,9 @@ import { renderAllThreads, initThreadRender } from "./threadRender";
 import { renderTokens } from "./tokenRender";
 import { initSharedRender, writeModelViewUbo } from "./sharedRender";
 import { cameraMoveToDesired, cameraToMatrixView, ICamera } from "../Camera";
+import { renderModelCard } from "../components/ModelCard";
+import { SavedState } from "../SavedState";
+import { initTriRender, renderAllTris, resetTriRender } from "./triRender";
 
 export interface IRenderView {
     time: number;
@@ -30,6 +33,7 @@ export interface IRenderState {
     threadRender: ReturnType<typeof initThreadRender>;
     blurRender: ReturnType<typeof initBlurRender>;
     sharedRender: ReturnType<typeof initSharedRender>;
+    triRender: ReturnType<typeof initTriRender>;
     fontAtlas: IFontAtlas;
     modelFontBuf: IFontBuffers;
     overlayFontBuf: IFontBuffers;
@@ -82,12 +86,20 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
     let threadRender = initThreadRender(ctx);
     let lineRender = createLineRender(ctx);
     let blockRender = initBlockRender(ctx);
+    let triRender = initTriRender(ctx);
     let blurRender = initBlurRender(ctx, quadVao);
     let walkthrough = initWalkthrough();
 
     ensureShadersReady(shaderManager);
 
     let query = gl.createQuery()!;
+
+    let prevState = SavedState.state;
+    let camera: ICamera = {
+        angle: prevState?.camera.angle ?? new Vec3(290, 20, 30),
+        center: prevState?.camera.center ?? new Vec3(0, 0, -500),
+        transition: {},
+    }
 
     return {
         canvasEl,
@@ -97,6 +109,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         threadRender,
         lineRender,
         blurRender,
+        triRender,
         sharedRender,
         fontAtlas,
         modelFontBuf,
@@ -108,7 +121,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         lastGpuMs: 0,
         lastJsMs: 0,
         hasRunQuery: false,
-        camera: { angle: new Vec3(290, 20, 30), center: new Vec3(0, 0, -500), transition: {} },
+        camera,
     };
 }
 
@@ -126,11 +139,12 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     resetLineRender(args.lineRender);
     resetFontBuffers(args.modelFontBuf);
     resetFontBuffers(args.overlayFontBuf);
+    resetTriRender(args.triRender);
 
     runWalkthrough(args, view, layout);
 
+    renderModelCard(args, layout);
     renderTokens(args, layout, undefined, undefined, args.tokenColors || undefined);
-    addSomeText(args.modelFontBuf, layout);
 
     // pull out timing logic somewhere else
     let resultAvailable = false;
@@ -219,6 +233,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     gl.enable(gl.DEPTH_TEST);
 
     renderAllBlocks(blockRender, layout, modelMtx, camPos, lightPosArr, lightColorArr);
+    renderAllTris(args.triRender);
     renderAllThreads(args.threadRender);
     renderAllText(gl, args.modelFontBuf);
     renderAllLines(args.lineRender, viewMtx, modelMtx, new Vec4(0, 0, 0, 1));
@@ -242,19 +257,4 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     gl.flush();
 
     args.lastJsMs = performance.now() - timer0;
-}
-
-export function addSomeText(fontBuf: IFontBuffers, layout: IGptModelLayout) {
-
-    let text = 'nano-gpt (~9k params)';
-    let target = layout.idxObj;
-
-    let fontEm = 4;
-    let width = measureTextWidth(fontBuf, text, fontEm);
-
-    let mtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(2));
-    // let mtx3 = Mat4f.fromAxisAngle(new Vec3(1, 0, 0), -Math.PI / 2);
-    let mtx2 = Mat4f.fromTranslation(new Vec3(0, target.y - layout.cell * 20, 0));
-    let mtxRes = mtx2.mul(mtx);
-    writeTextToBuffer(fontBuf, text, new Vec4(0,0,0,1), - width / 2, -fontEm, fontEm, mtxRes);
 }

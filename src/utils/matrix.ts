@@ -61,9 +61,14 @@ export class Mat4f extends Float32Array {
     }
 
     mulVec3Proj(a: Vec3): Vec3 {
-        let v4 = this.mulVec4(a.toVec4());
+        let v4 = this.mulVec4(new Vec4(a.x, a.y, a.z, 1.0));
         let wInv = 1.0 / v4.w;
         return new Vec3(v4.x * wInv, v4.y * wInv, v4.z * wInv);
+    }
+
+    mulVec3ProjVec(a: Vec3): Vec3 {
+        let v4 = this.mulVec4(new Vec4(a.x, a.y, a.z, 0.0));
+        return new Vec3(v4.x, v4.y, v4.z);
     }
 
     static fromRowMajor(a: ArrayLike<number> | number[][]) {

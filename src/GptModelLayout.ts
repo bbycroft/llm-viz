@@ -397,6 +397,12 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: attnTarget?.proj.weight, x: [1, 0, 0], y: [0, 1, 0], scale: C * 0.5 },
         });
 
+        let projBias = mk({
+            t: 'w', cx: 1, cz: 1, cy: C, y: vFinalZ,
+            xR: qkvValLeftX - C * cell - margin, zM: 0,
+            access: { src: attnTarget?.proj.bias!, x: [0, 0, 0], y: [0, 1, 0], scale: C * 0.5 },
+        });
+
         let attnOut = mk({
             t: 'i', cx: T, cz: B, cy: C, y: vFinalZ,
             xR: attnLeftX, zM: 0,
@@ -411,7 +417,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             deps: { add: [[attnOut, 'xy'], [ln1.lnResid, 'xy']] }
         });
 
-        cubes.push(projWeight, attnOut, attnResidual);
+        cubes.push(projWeight, projBias, attnOut, attnResidual);
 
         y = vFinalZ + C * cell + margin;
 
@@ -479,6 +485,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             ln1,
             heads,
             projWeight,
+            projBias,
             attnOut,
             attnResidual,
             mlpFc,
@@ -542,6 +549,12 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         xM: 0, zM: 0,
     });
 
+    let weightCount = vocabSize*C + T*C +
+        nBlocks * ((2*C + 4*C*C + C + 3*C) + // self attn
+                   (2*C + 4*C + 8*C*C + C)) + 2*C; // mlp
+
+    // let decoderCount = vocabSize * C; (excluded from the weight count apparently)
+
     cubes.push(lmHeadWeight, logits, logitsAgg, logitsSoftmax, logitsSoftmaxTopN);
 
     return {
@@ -561,6 +574,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         blocks,
         height: y,
         model: gptGpuModel,
+        weightCount,
+        shape,
         extraSources: {
             idx: gptGpuModel?.inputBuf,
             tokEmbedOut: gptGpuModel?.vocabEmbed.output,

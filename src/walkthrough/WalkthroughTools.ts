@@ -176,6 +176,8 @@ export enum DimStyle {
     B,
     A,
     n_vocab,
+    n_heads,
+    n_layers,
 }
 
 export function dimStyleColor(style: DimStyle) {

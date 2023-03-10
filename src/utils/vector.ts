@@ -95,6 +95,8 @@ export class Vec3 {
         let kDotV = k.dot(this);
         return this.mul(c).add(kCrossV.mul(s)).add(k.mul(kDotV * (1 - c)));
     }
+    static zero = new Vec3(0, 0, 0);
+    static one = new Vec3(1, 1, 1);
 }
 
 
@@ -156,7 +158,7 @@ export class Vec4 {
         let x = (hexVal >> 16) & 0xFF;
         let y = (hexVal >> 8) & 0xFF;
         let z = hexVal & 0xFF;
-        return new Vec4(x / 255.0, y / 255.0, z / 255.0, alpha);
+        return new Vec4(x / 255.0 * alpha, y / 255.0 * alpha, z / 255.0 * alpha, alpha);
     }
     toString(): string {
         return `Vec4(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)}, ${numMaxDp(this.w)})`;

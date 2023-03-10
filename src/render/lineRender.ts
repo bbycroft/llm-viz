@@ -138,12 +138,18 @@ export function createLineRender(ctx: IGLContext) {
     };
 }
 
-export function addLine(render: ILineRender, thickness: number, color: Vec4, a: Vec3, b: Vec3, n?: Vec3) {
+export function addLine(render: ILineRender, thickness: number, color: Vec4, a: Vec3, b: Vec3, n?: Vec3, mtx?: Mat4f) {
     let buf = render.localBuffer;
+    if (mtx) {
+        a = mtx.mulVec3Proj(a);
+        b = mtx.mulVec3Proj(b);
+        thickness = thickness;
+        // n = n ? mtx.mulVec3ProjVec(n) : undefined;
+    }
 
     let dir = b.sub(a).normalize();
     let pt = [a, a, b, b];
-    n = n ?? new Vec3();
+    n = n ?? Vec3.zero;
 
     let i = render.usedCount * floatsPerLine;
     for (let j = 0; j < 4; j++) {

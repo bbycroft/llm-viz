@@ -11,7 +11,6 @@ import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
 import { IWalkthrough } from './walkthrough/Walkthrough';
 import { WalkthroughSidebar } from './WalkthroughSidebar';
-import { ICamera } from './Camera';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
