@@ -4,7 +4,6 @@ import { measureTextWidth, writeTextToBuffer } from "../render/fontRender";
 import { addLine } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { addQuad } from "../render/triRender";
-import { clamp } from "../utils/data";
 import { Mat4f } from "../utils/matrix";
 import { Vec3, Vec4 } from "../utils/vector";
 import { DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";

@@ -1,5 +1,5 @@
 import { Mat4f } from "../utils/matrix";
-import { createShaderProgram, IGLContext } from "../utils/shader";
+import { bindFloatAttribs, createElementBuffer, createFloatBuffer, createShaderProgram, ensureElementBufferSize, ensureFloatBufferSize, IGLContext, resetElementBufferMap, resetFloatBufferMap, uploadElementBuffer, uploadFloatBuffer } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
 import { modelViewUboText, UboBindings } from "./sharedRender";
 
@@ -27,35 +27,22 @@ export function createLineRender(ctx: IGLContext) {
 
     let gl = ctx.gl;
 
-    let quadVbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
-    gl.bufferData(gl.ARRAY_BUFFER, 1024 * bytesPerLine, gl.DYNAMIC_DRAW);
+    let lineVao = gl.createVertexArray()!;
+    gl.bindVertexArray(lineVao);
 
-    let quadVao = gl.createVertexArray()!;
-    gl.bindVertexArray(quadVao);
-    gl.enableVertexAttribArray(0);
-    gl.enableVertexAttribArray(1);
-    gl.enableVertexAttribArray(2);
-    gl.enableVertexAttribArray(3);
-    gl.enableVertexAttribArray(4);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, bytesPerVert, 0);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, bytesPerVert, 3 * 4);
-    gl.vertexAttribPointer(2, 4, gl.FLOAT, false, bytesPerVert, 6 * 4);
-    gl.vertexAttribPointer(3, 1, gl.FLOAT, false, bytesPerVert, 10 * 4);
-    gl.vertexAttribPointer(4, 3, gl.FLOAT, false, bytesPerVert, 11 * 4);
+    let lineVbo = gl.createBuffer()!;
+    let strideBytes = bindFloatAttribs(gl, lineVbo, { }, [
+        { name: 'a_position', size: 3 },
+        { name: 'a_lineDir', size: 3 },
+        { name: 'a_color', size: 4 },
+        { name: 'a_thickness', size: 1 },
+        { name: 'a_normal', size: 3 },
+    ])
 
-    let quadIbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIbo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 1024 * 5 * 2, gl.DYNAMIC_DRAW)
-    let indices = new Uint16Array(1024 * 5);
-    for (let i = 0; i < 1024; i++) {
-        indices[i * 5 + 0] = i * 4 + 0;
-        indices[i * 5 + 1] = i * 4 + 1;
-        indices[i * 5 + 2] = i * 4 + 2;
-        indices[i * 5 + 3] = i * 4 + 3;
-        indices[i * 5 + 4] = 65535;
-    }
-    gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, indices);
+    let lineFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, lineVbo, 1024, strideBytes);
+
+    let lineIbo = gl.createBuffer()!;
+    let lineIndexBuf = createElementBuffer(gl, lineIbo, 1024);
 
     let lineShader = createShaderProgram(ctx, 'line', /*glsl*/`#version 300 es
         precision highp float;
@@ -130,16 +117,19 @@ export function createLineRender(ctx: IGLContext) {
 
     return {
         gl,
-        vao: quadVao,
-        vbo: quadVbo,
-        localBuffer: new Float32Array(1024 * floatsPerLine),
-        usedCount: 0,
+        vao: lineVao,
+        floatBuf: lineFloatBuf,
+        indexBuf: lineIndexBuf,
         lineShader,
     };
 }
 
 export function addLine(render: ILineRender, thickness: number, color: Vec4, a: Vec3, b: Vec3, n?: Vec3, mtx?: Mat4f) {
-    let buf = render.localBuffer;
+    let floatBuf = render.floatBuf;
+    let buf = floatBuf.localBuf;
+    let idxBuf = render.indexBuf.localBuf;
+    ensureFloatBufferSize(floatBuf, 4);
+    ensureElementBufferSize(render.indexBuf, 5);
     if (mtx) {
         a = mtx.mulVec3Proj(a);
         b = mtx.mulVec3Proj(b);
@@ -151,7 +141,8 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
     let pt = [a, a, b, b];
     n = n ?? Vec3.zero;
 
-    let i = render.usedCount * floatsPerLine;
+    let i = floatBuf.usedEls * floatBuf.strideFloats;
+    let k = render.indexBuf.usedVerts;
     for (let j = 0; j < 4; j++) {
         buf[i + 0] = pt[j].x;
         buf[i + 1] = pt[j].y;
@@ -167,29 +158,34 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
         buf[i + 11] = n.x;
         buf[i + 12] = n.y;
         buf[i + 13] = n.z;
-        i += floatsPerVert;
+        i += floatBuf.strideFloats;
+        idxBuf[k + j] = floatBuf.usedEls + j;
     }
-    render.usedCount += 1;
+    idxBuf[k + 4] = 0xffffffff;
+    floatBuf.usedEls += 4;
+    render.indexBuf.usedVerts += 5;
 }
 
 export function renderAllLines(render: ILineRender, view: Mat4f, model: Mat4f, baseColor: Vec4) {
     let gl = render.gl;
-    gl.bindVertexArray(render.vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, render.vbo);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, render.localBuffer.slice(0, render.usedCount * floatsPerLine));
+    uploadFloatBuffer(gl, render.floatBuf);
+    uploadElementBuffer(gl, render.indexBuf)
+
     gl.disable(gl.CULL_FACE);
     gl.depthMask(false);
 
     gl.useProgram(render.lineShader.program);
+    gl.bindVertexArray(render.vao);
 
     let locs = render.lineShader.locs;
     gl.uniform2f(locs.u_viewSizeInv, 1.0 / gl.canvas.width, 1.0 / gl.canvas.height);
 
-    gl.drawElements(gl.TRIANGLE_STRIP, render.usedCount * 5, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.TRIANGLE_STRIP, render.indexBuf.usedVerts, gl.UNSIGNED_INT, 0);
 
     gl.depthMask(true);
 }
 
 export function resetLineRender(render: ILineRender) {
-    render.usedCount = 0;
+    resetFloatBufferMap(render.floatBuf);
+    resetElementBufferMap(render.indexBuf);
 }

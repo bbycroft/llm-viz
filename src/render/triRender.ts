@@ -107,13 +107,21 @@ export function addVert(render: ITriRender, p: Vec3, color: Vec4, n?: Vec3, mtx?
     ibo.usedVerts += 1;
 }
 
-export function addQuad(render: ITriRender, tl: Vec3, br: Vec3, color: Vec4, mtx?: Mat4f) {
+export function addQuad(render: ITriRender, tl: Vec3, br: Vec3, color: Vec4, mtx?: Mat4f, isEnd: boolean = true) {
     let tr = new Vec3(br.x, tl.y, tl.z);
     let bl = new Vec3(tl.x, br.y, br.z);
     addVert(render, tl, color, undefined, mtx);
     addVert(render, bl, color, undefined, mtx);
     addVert(render, tr, color, undefined, mtx);
     addVert(render, br, color, undefined, mtx);
+    if (isEnd) {
+        ensureElementBufferSize(render.ibo, 1);
+        render.ibo.localBuf[render.ibo.usedVerts] = 0xffffffff; // primitive restart
+        render.ibo.usedVerts += 1;
+    }
+}
+
+export function addPrimitiveRestart(render: ITriRender) {
     ensureElementBufferSize(render.ibo, 1);
     render.ibo.localBuf[render.ibo.usedVerts] = 0xffffffff; // primitive restart
     render.ibo.usedVerts += 1;
@@ -125,11 +133,12 @@ export function renderAllTris(render: ITriRender) {
     uploadFloatBuffer(gl, render.vbo);
     uploadElementBuffer(gl, render.ibo);
 
-    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
     gl.disable(gl.CULL_FACE);
     gl.useProgram(render.triShader.program);
     gl.bindVertexArray(render.vao);
     gl.drawElements(gl.TRIANGLE_STRIP, render.ibo.usedVerts, gl.UNSIGNED_INT, 0);
+    gl.depthMask(true);
 }
 
 export function resetTriRender(render: ITriRender) {

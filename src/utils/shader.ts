@@ -284,3 +284,7 @@ export function uploadElementBuffer(gl: WebGL2RenderingContext, bufMap: IElement
 
     gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, bufMap.localBuf.subarray(0, bufMap.usedVerts).buffer);
 }
+
+export function resetElementBufferMap(bufMap: IElementBuffer) {
+    bufMap.usedVerts = 0;
+}

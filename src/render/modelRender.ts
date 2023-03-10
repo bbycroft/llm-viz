@@ -16,6 +16,7 @@ import { cameraMoveToDesired, cameraToMatrixView, ICamera } from "../Camera";
 import { renderModelCard } from "../components/ModelCard";
 import { SavedState } from "../SavedState";
 import { initTriRender, renderAllTris, resetTriRender } from "./triRender";
+import { drawAllArrows } from "../components/Arrow";
 
 export interface IRenderView {
     time: number;
@@ -141,47 +142,12 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     resetFontBuffers(args.overlayFontBuf);
     resetTriRender(args.triRender);
 
+    drawAllArrows(args, layout);
     runWalkthrough(args, view, layout);
 
     renderModelCard(args, layout);
     renderTokens(args, layout, undefined, undefined, args.tokenColors || undefined);
 
-    // pull out timing logic somewhere else
-    let resultAvailable = false;
-
-    if (args.hasRunQuery) {
-        resultAvailable = gl.getQueryParameter(args.query, gl.QUERY_RESULT_AVAILABLE);
-    }
-
-    let queryCanRun = ctx.ext.disjointTimerQuery && (!args.hasRunQuery || resultAvailable);
-
-    if (queryCanRun && ctx.ext.disjointTimerQuery) {
-
-        if (resultAvailable) {
-            let timeElapsed = gl.getQueryParameter(args.query, gl.QUERY_RESULT);
-            args.lastGpuMs = timeElapsed / 1000000;
-        }
-
-        if (queryCanRun) {
-            gl.beginQuery(ctx.ext.disjointTimerQuery.TIME_ELAPSED_EXT, args.query);
-            args.hasRunQuery = true;
-        }
-    }
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvasEl.width, canvasEl.height);
-
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
-    gl.cullFace(gl.FRONT);
-
-    gl.frontFace(gl.CW); // our transform has a -ve determinant, so we switch this for correct rendering
 
     let bb = new BoundingBox3d();
     for (let c of layout.cubes) {
@@ -220,6 +186,45 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         modelMtx.mulVec3Proj(lightPos[i]).writeToBuf(lightPosArr, i * 3);
         modelMtx.mulVec3Proj(lightColor[i]).writeToBuf(lightColorArr, i * 3);
     }
+
+    // pull out timing logic somewhere else
+    let resultAvailable = false;
+
+    if (args.hasRunQuery) {
+        resultAvailable = gl.getQueryParameter(args.query, gl.QUERY_RESULT_AVAILABLE);
+    }
+
+    let queryCanRun = ctx.ext.disjointTimerQuery && (!args.hasRunQuery || resultAvailable);
+
+    if (queryCanRun && ctx.ext.disjointTimerQuery) {
+
+        if (resultAvailable) {
+            let timeElapsed = gl.getQueryParameter(args.query, gl.QUERY_RESULT);
+            args.lastGpuMs = timeElapsed / 1000000;
+        }
+
+        if (queryCanRun) {
+            gl.beginQuery(ctx.ext.disjointTimerQuery.TIME_ELAPSED_EXT, args.query);
+            args.hasRunQuery = true;
+        }
+    }
+
+    /// ------ The render pass ------ ///
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvasEl.width, canvasEl.height);
+
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.FRONT);
+
+    gl.frontFace(gl.CW); // our transform has a -ve determinant, so we switch this for correct rendering
 
     writeModelViewUbo(args.sharedRender, modelMtx, viewMtx);
 
