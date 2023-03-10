@@ -158,7 +158,7 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
 
     function drawArrowBotToSide(src: IBlkDef, dest: IBlkDef, offset: number, width: number = 6, forceOffset: boolean = false) {
         let start = blockPos(src, BlockPos.Bot);
-        let left = start.z >= dest.z + dest.dz / 2;
+        let left = start.z > dest.z + dest.dz / 2;
         let end = new Vec3(dest.x + dest.dx / 2, dest.y + layout.cell * (offset + 0.5), left ? dest.z + dest.dz / 2 + pad : dest.z - pad);
 
         let opacity = Math.min(src.opacity, dest.opacity);

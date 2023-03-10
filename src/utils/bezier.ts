@@ -38,8 +38,10 @@ export interface IBezierQueueItem {
     p3: Vec3;
 }
 
+let _cacheRes = new Float32Array(1024 * 3);
+
 export function bezierCurveBuild(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, threshold: number) {
-    let res = new Float32Array(1024 * 3);
+    let res = _cacheRes;
     let resOff = 0;
 
     let queue: IBezierQueueItem[] = [];
@@ -92,6 +94,7 @@ export function bezierCurveBuild(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, thresho
         iter++;
     }
 
+    _cacheRes = res;
     return res.slice(0, resOff);
 }
 

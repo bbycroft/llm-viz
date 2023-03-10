@@ -356,6 +356,7 @@ export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers)
     let atlas = fontBuf.atlas;
 
     gl.disable(gl.CULL_FACE);
+    gl.depthMask(false);
 
     // resize texture if needed
     gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
@@ -375,6 +376,8 @@ export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers)
 
     gl.bindVertexArray(fontBuf.vao);
     gl.drawArrays(gl.TRIANGLES, 0, fontBuf.vertBuffer.usedEls);
+
+    gl.depthMask(true);
     // gl.finish();
 }
 

@@ -303,7 +303,7 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
         if (c.subs) {
             c.subs.forEach(addCube);
         } else {
-            if (c.opacity < 1 && c.opacity > 0) {
+            if (c.opacity < 0.8 && c.opacity > 0) {
                 transparentCubes.push(c);
             } else if (c.opacity > 0.0) {
                 cubes.push(c);
@@ -312,6 +312,7 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
     }
     layout.cubes.forEach(addCube);
     let allCubes = [...cubes, ...transparentCubes];
+    let firstTransparent = cubes.length;
 
     let blockUbo = blockRender.blockUbo;
     let blockAccessUbo = blockRender.blockAccessUbo;
@@ -369,6 +370,10 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
     let prevHasAccess = true;
     let idx = 0;
     for (let cube of allCubes) {
+        if (idx === firstTransparent) {
+            gl.depthMask(false);
+        }
+
         gl.bindBufferRange(gl.UNIFORM_BUFFER, UboBindings.Block, blockUbo.buf, idx * blockUbo.strideBytes, blockUbo.strideBytes);
 
         let hasAccess = !!cube.access && cube.access.disable !== true;
@@ -381,4 +386,6 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
         gl.drawArrays(geom.type, 0, geom.numVerts);
         idx++;
     }
+
+    gl.depthMask(true);
 }

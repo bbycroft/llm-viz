@@ -17,6 +17,7 @@ import { renderModelCard } from "../components/ModelCard";
 import { SavedState } from "../SavedState";
 import { initTriRender, renderAllTris, resetTriRender } from "./triRender";
 import { drawAllArrows } from "../components/Arrow";
+import { drawBlockLabels } from "../components/BlockLabels";
 
 export interface IRenderView {
     time: number;
@@ -145,6 +146,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     runWalkthrough(args, view, layout);
 
     drawAllArrows(args, layout);
+    drawBlockLabels(args, layout);
 
     renderModelCard(args, layout);
     renderTokens(args, layout, undefined, undefined, args.tokenColors || undefined);
