@@ -97,8 +97,8 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
 
     let prevState = SavedState.state;
     let camera: ICamera = {
-        angle: prevState?.camera.angle ?? new Vec3(290, 20, 30),
-        center: prevState?.camera.center ?? new Vec3(0, 0, -500),
+        angle: prevState?.camera.angle ?? new Vec3(290, 38, 2.5),
+        center: prevState?.camera.center ?? new Vec3(-6, 0, -80),
         transition: {},
     }
 

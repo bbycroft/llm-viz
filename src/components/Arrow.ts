@@ -50,6 +50,7 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
         drawArrowResidSplit(prevResid, block.ln1.lnAgg, 2);
         drawVertArrow(block.ln1.lnAgg, block.ln1.lnResid, 2);
 
+        // let headIdx = 0;
         for (let head of block.heads) {
             drawArrowBetween(block.ln1.lnResid, BlockPos.Left, head.qBlock, BlockPos.Right);
             drawArrowBetween(block.ln1.lnResid, BlockPos.Left, head.kBlock, BlockPos.Right);
@@ -63,15 +64,17 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
             drawHorizArrow(head.kWeightBlock, head.kBlock);
             drawHorizArrow(head.vWeightBlock, head.vBlock);
 
-            drawArrowBetween(head.qBlock, BlockPos.Bot, head.attnMtx, BlockPos.Top);
-            drawArrowBetween(head.kBlock, BlockPos.Bot, head.attnMtx, BlockPos.Top);
-            drawArrowBetween(head.vBlock, BlockPos.Bot, head.vOutBlock, BlockPos.Top);
+            drawArrowBotToSide(head.qBlock, head.attnMtx, 0);
+            drawArrowBotToSide(head.kBlock, head.attnMtx, 0, undefined, head.kBlock.y !== head.qBlock.y);
+            drawArrowBotToSide(head.vBlock, head.vOutBlock, 0, undefined, head.vBlock.y !== head.kBlock.y);
 
             drawArrowBetween(head.attnMtx, BlockPos.Left, head.attnMtxAgg, BlockPos.Right);
             drawArrowBetween(head.attnMtxAgg, BlockPos.Left, head.attnMtxSm, BlockPos.Right);
             drawArrowBetween(head.attnMtxSm, BlockPos.Bot, head.vOutBlock, BlockPos.Left);
 
             drawArrowBetween(head.vOutBlock, BlockPos.Bot, block.attnOut, BlockPos.Top);
+            // drawArrowBotToSide(head.vOutBlock, block.attnOut, headIdx * head.vOutBlock.cy, undefined, true);
+            // headIdx += 1;
         }
 
         drawVertArrow(block.attnResidual, block.mlpResidual);
@@ -153,6 +156,29 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
         drawArrow(state, mid1, end, width, normal, color, true);
     }
 
+    function drawArrowBotToSide(src: IBlkDef, dest: IBlkDef, offset: number, width: number = 6, forceOffset: boolean = false) {
+        let start = blockPos(src, BlockPos.Bot);
+        let left = start.z >= dest.z + dest.dz / 2;
+        let end = new Vec3(dest.x + dest.dx / 2, dest.y + layout.cell * (offset + 0.5), left ? dest.z + dest.dz / 2 + pad : dest.z - pad);
+
+        let opacity = Math.min(src.opacity, dest.opacity);
+        if (opacity === 0) {
+            return;
+        }
+
+
+        let normal = new Vec3(0, 0, 1);
+        let color = blkColor(src).mul(opacity);
+        let endDir = new Vec3(0, 0, left ? -1 : 1);
+
+        let areClose = Math.abs(start.z - (dest.z + dest.dz / 2)) < 1.0;
+        if (areClose && !forceOffset) {
+            endDir = undefined!;
+            end = blockPos(dest, BlockPos.Top);
+        }
+
+        drawArrow(state, start, end, width, normal, color, true, CornerMode.None, endDir);
+    }
     function drawArrowBetween(src: IBlkDef, srcPos: BlockPos, dest: IBlkDef, destPos: BlockPos, width: number = 6) {
         let start = blockPos(src, srcPos);
         let end = blockPos(dest, destPos);
@@ -213,7 +239,11 @@ export enum CornerMode {
     Right,
 }
 
-export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: number, normal: Vec3, color: Vec4, drawHead: boolean = true, drawCorner: CornerMode = CornerMode.None) {
+export interface IEndDir {
+    dir: Vec3;
+}
+
+export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: number, normal: Vec3, color: Vec4, drawHead: boolean = true, drawCorner: CornerMode = CornerMode.None, endDir?: Vec3) {
 
     let dir = end.sub(start);
     dir.z = 0.0;
@@ -254,6 +284,9 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
         mtx,
     };
 
+    endDir = endDir ? mtx.mulVec3ProjVec(endDir) : undefined;
+
+    endDir = endDir ?? new Vec3(0, 1, 0);
     // matrix is constructed such that the ribbons are always in the x-y plane, and going from -y to +y
     // The ribbon will be curved if it is not in the x-y plane, but the start and end remain tangent to the plane
 
@@ -263,6 +296,10 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
         let p1 = new Vec3(start.x, start.y + dist        , start.z);
         let p2 = new Vec3(end.x, end.y - headDepth - dist, end.z);
         let p3 = new Vec3(end.x, end.y - headDepth       , end.z);
+        if (endDir) {
+            p2 = end.mulAdd(endDir, -headDepth - dist);
+            p3 = end.mulAdd(endDir, -headDepth);
+        }
         let steps = bezierCurveBuild(p0, p1, p2, p3, 0.1);
         let nPts = steps.length / 3;
         for (let i = 0; i < nPts - 1; i++) {
@@ -272,7 +309,7 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
         }
     }
 
-    if (Math.abs(start.z - end.z) > 0.01) {
+    if (Math.abs(start.z - end.z) > 0.01 || endDir) {
         drawBezierRibbon();
 
     } else {
@@ -283,7 +320,7 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
         drawArrowCorner(state, start.sub(new Vec3(0, width/2)), drawCorner, opts);
     }
     if (drawHead) {
-        drawArrowHead(state, end.sub(new Vec3(0, headDepth)), end, opts);
+        drawArrowHead(state, end.mulAdd(endDir, -headDepth), end, opts);
     }
 }
 
