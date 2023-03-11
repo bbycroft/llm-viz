@@ -71,6 +71,24 @@ export class Mat4f extends Float32Array {
         return new Vec3(v4.x, v4.y, v4.z);
     }
 
+    mulVec3Affine_(a: Vec3, o: Vec3) {
+        let x = this[0] * a.x + this[4] * a.y + this[8] * a.z + this[12];
+        let y = this[1] * a.x + this[5] * a.y + this[9] * a.z + this[13];
+        let z = this[2] * a.x + this[6] * a.y + this[10] * a.z + this[14];
+        o.x = x;
+        o.y = y;
+        o.z = z;
+    }
+
+    mulVec3AffineVec_(a: Vec3, o: Vec3) {
+        let x = this[0] * a.x + this[4] * a.y + this[8] * a.z;
+        let y = this[1] * a.x + this[5] * a.y + this[9] * a.z;
+        let z = this[2] * a.x + this[6] * a.y + this[10] * a.z;
+        o.x = x;
+        o.y = y;
+        o.z = z;
+    }
+
     static fromRowMajor(a: ArrayLike<number> | number[][]) {
         if (a.length > 0 && Array.isArray(a[0])) {
             a = (a as number[][]).flatMap(x => x);

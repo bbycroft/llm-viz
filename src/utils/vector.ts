@@ -55,6 +55,7 @@ export class Vec3 {
     mid(a: Vec3): Vec3 { return new Vec3((this.x + a.x) * 0.5, (this.y + a.y) * 0.5, (this.z + a.z) * 0.5); }
     clone(): Vec3 { return new Vec3(this.x, this.y, this.z); }
     toVec4(): Vec4 { return new Vec4(this.x, this.y, this.z, 1.0); }
+    copy_(a: Vec3) { this.x = a.x; this.y = a.y; this.z = a.z; }
     static cross(a: Vec3, b: Vec3): Vec3 { return new Vec3(
         a.y * b.z - a.z * b.y,
         a.z * b.x - a.x * b.z,

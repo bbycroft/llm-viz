@@ -75,6 +75,8 @@ export function initTriRender(ctx: IGLContext) {
 
 let defaultN = new Vec3(0, 0, 1);
 
+let _vertP = new Vec3();
+let _vertN = new Vec3();
 export function addVert(render: ITriRender, p: Vec3, color: Vec4, n?: Vec3, mtx?: Mat4f) {
     ensureFloatBufferSize(render.vbo, 1);
     ensureElementBufferSize(render.ibo, 1);
@@ -85,15 +87,20 @@ export function addVert(render: ITriRender, p: Vec3, color: Vec4, n?: Vec3, mtx?
     let fIdx = vbo.usedEls * vbo.strideFloats;
     let iIdx = ibo.usedVerts;
 
-    p = mtx ? mtx.mulVec3Proj(p) : p;
-    n = n ? mtx ? mtx.mulVec3ProjVec(n) : n : defaultN;
+    if (mtx) {
+        mtx.mulVec3Affine_(p, _vertP);
+        mtx.mulVec3AffineVec_(n || defaultN, _vertN);
+    } else {
+        _vertP.copy_(p);
+        _vertN.copy_(n || defaultN);
+    }
 
-    fBuf[fIdx + 0] = p.x;
-    fBuf[fIdx + 1] = p.y;
-    fBuf[fIdx + 2] = p.z;
-    fBuf[fIdx + 3] = n.x;
-    fBuf[fIdx + 4] = n.y;
-    fBuf[fIdx + 5] = n.z;
+    fBuf[fIdx + 0] = _vertP.x;
+    fBuf[fIdx + 1] = _vertP.y;
+    fBuf[fIdx + 2] = _vertP.z;
+    fBuf[fIdx + 3] = _vertN.x;
+    fBuf[fIdx + 4] = _vertN.y;
+    fBuf[fIdx + 5] = _vertN.z;
     fBuf[fIdx + 6] = color.x;
     fBuf[fIdx + 7] = color.y;
     fBuf[fIdx + 8] = color.z;
@@ -107,12 +114,20 @@ export function addVert(render: ITriRender, p: Vec3, color: Vec4, n?: Vec3, mtx?
     ibo.usedVerts += 1;
 }
 
+let _quadTr = new Vec3();
+let _quadBl = new Vec3();
 export function addQuad(render: ITriRender, tl: Vec3, br: Vec3, color: Vec4, mtx?: Mat4f, isEnd: boolean = true) {
-    let tr = new Vec3(br.x, tl.y, tl.z);
-    let bl = new Vec3(tl.x, br.y, br.z);
+    _quadTr.x = br.x;
+    _quadTr.y = tl.y;
+    _quadTr.z = tl.z;
+
+    _quadBl.x = tl.x;
+    _quadBl.y = br.y;
+    _quadBl.z = br.z;
+
     addVert(render, tl, color, undefined, mtx);
-    addVert(render, bl, color, undefined, mtx);
-    addVert(render, tr, color, undefined, mtx);
+    addVert(render, _quadBl, color, undefined, mtx);
+    addVert(render, _quadTr, color, undefined, mtx);
     addVert(render, br, color, undefined, mtx);
     if (isEnd) {
         ensureElementBufferSize(render.ibo, 1);

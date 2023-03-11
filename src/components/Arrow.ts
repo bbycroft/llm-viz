@@ -305,7 +305,7 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
         for (let i = 0; i < nPts - 1; i++) {
             let p0 = new Vec3(steps[i*3+0], steps[i*3+1], steps[i*3+2]);
             let p1 = new Vec3(steps[i*3+3], steps[i*3+4], steps[i*3+5]);
-            drawArrowSeg(state, p0, p1, normal, opts);
+            drawArrowSeg(state, p0, p1, opts);
         }
     }
 
@@ -313,7 +313,7 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
         drawBezierRibbon();
 
     } else {
-        drawArrowSeg(state, start, end.sub(new Vec3(0, headDepth)), normal, opts);
+        drawArrowSeg(state, start, end.sub(new Vec3(0, headDepth)), opts);
     }
 
     if (drawCorner !== CornerMode.None) {
@@ -334,68 +334,104 @@ interface IArrowOpts {
     mtx: Mat4f;
 }
 
-export function drawArrowSeg(state: IRenderState, start: Vec3, end: Vec3, side: Vec3, opts: IArrowOpts) {
+// Inner loop of bezier curve, so make this fast
+let _segTl = new Vec3();
+let _segBr = new Vec3();
+let _segBl = new Vec3();
+let _segTr = new Vec3();
+export function drawArrowSeg(state: IRenderState, start: Vec3, end: Vec3, opts: IArrowOpts) {
+    _segTl.x = start.x - opts.width/2;
+    _segTl.y = start.y;
+    _segTl.z = start.z;
 
-    // assume the arrow is in the xy plane, and the normal is in the x direction
-    // so just a quad from start to end - headDepth
+    _segBr.x = end.x + opts.width/2;
+    _segBr.y = end.y;
+    _segBr.z = end.z;
 
-    let tl = new Vec3(start.x - opts.width/2, start.y, start.z);
-    let br = new Vec3(end.x + opts.width/2, end.y, end.z);
+    addQuad(state.triRender, _segTl, _segBr, opts.ribbonColor, opts.mtx);
 
-    addQuad(state.triRender, tl, br, opts.ribbonColor, opts.mtx);
+    _segBl.x = _segTl.x;
+    _segBl.y = _segBr.y;
+    _segBl.z = _segBr.z;
+
+    _segTr.x = _segBr.x;
+    _segTr.y = _segTl.y;
+    _segTr.z = _segTl.z;
 
     let n = undefined;
     let thick = opts.lineThick;
-    addLine(state.lineRender, thick, opts.borderColor, new Vec3(tl.x, tl.y, tl.z), new Vec3(tl.x, br.y, br.z), n, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, new Vec3(br.x, tl.y, tl.z), new Vec3(br.x, br.y, br.z), n, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, _segTl, _segBl, n, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, _segTr, _segBr, n, opts.mtx);
 }
 
+let _headTl = new Vec3();
+let _headTr = new Vec3();
+let _headBr = new Vec3();
+let _headLeft = new Vec3();
+let _headRight = new Vec3();
+let _headTip = new Vec3();
+let _headN = new Vec3(0, 0, 1);
 export function drawArrowHead(state: IRenderState, a: Vec3, b: Vec3, opts: IArrowOpts) {
-    let tl = new Vec3(a.x - opts.width/2, a.y, a.z);
-    let br = new Vec3(b.x + opts.width/2, b.y, b.z);
-    let n = new Vec3(0, 0, 1);
     let headExtra = 3.0;
-    let left = new Vec3(tl.x - headExtra, a.y, a.z);
-    let right = new Vec3(br.x + headExtra, a.y, a.z);
-    let tip = new Vec3(tl.x + opts.width / 2, b.y, b.z);
 
-    addVert(state.triRender, left, opts.ribbonColor, n, opts.mtx);
-    addVert(state.triRender, tip, opts.ribbonColor, n, opts.mtx);
-    addVert(state.triRender, right, opts.ribbonColor, n, opts.mtx);
+    _headTl.copy_(a);
+    _headTl.x -= opts.width/2;
+    _headTr.copy_(a);
+    _headTr.x += opts.width/2;
+    _headBr.copy_(b);
+    _headBr.x += opts.width/2;
+    _headLeft.copy_(a);
+    _headLeft.x = _headTl.x - headExtra;
+    _headRight.copy_(a);
+    _headRight.x = _headBr.x + headExtra;
+    _headTip.copy_(b);
+    _headTip.x = _headTl.x + opts.width / 2;
+
+    addVert(state.triRender, _headLeft, opts.ribbonColor, _headN, opts.mtx);
+    addVert(state.triRender, _headTip, opts.ribbonColor, _headN, opts.mtx);
+    addVert(state.triRender, _headRight, opts.ribbonColor, _headN, opts.mtx);
     addPrimitiveRestart(state.triRender);
 
     let thick = opts.lineThick;
-    n = undefined!;
-    addLine(state.lineRender, thick, opts.borderColor, new Vec3(tl.x, a.y, a.z), left, n, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, tip, left, n, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, tip, right, n, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, new Vec3(br.x, a.y, a.z), right, n, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, _headTl, _headLeft, undefined, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, _headTip, _headLeft, undefined, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, _headTip, _headRight, undefined, opts.mtx);
+    addLine(state.lineRender, thick, opts.borderColor, _headTr, _headRight, undefined, opts.mtx);
 }
 
+let _cornerPivot = new Vec3();
+let _cornerN = new Vec3(0, 0, 1);
+let _cornerCurrP = new Vec3();
+let _cornerPrevP = new Vec3();
 export function drawArrowCorner(state: IRenderState, center: Vec3, mode: CornerMode, opts: IArrowOpts) {
 
     // coming from the left (-x), and going downwards (+y)
     let mul = mode === CornerMode.Left ? 1 : -1;
 
-    let pivot = new Vec3(center.x + opts.width / 2 * mul, center.y + opts.width / 2, center.z);
-    let ribbonN = new Vec3(0, 0, 1);
+    _cornerPivot.x = center.x + opts.width / 2 * mul;
+    _cornerPivot.y = center.y + opts.width / 2;
+    _cornerPivot.z = center.z;
 
+    _cornerCurrP.z = center.z;
+    _cornerPrevP.z = center.z;
     let count = 8;
-    let prevP: Vec3 | null = null;
 
     for (let i = 0; i < count; i++) {
         let theta = i / (count - 1) * Math.PI / 2;
         let c = opts.width * Math.cos(theta) * mul;
         let s = opts.width * Math.sin(theta);
-        let p = new Vec3(pivot.x - c, pivot.y - s, center.z);
+        _cornerCurrP.x = _cornerPivot.x - c;
+        _cornerCurrP.y = _cornerPivot.y - s;
 
-        addVert(state.triRender, p, opts.ribbonColor, ribbonN, opts.mtx);
-        addVert(state.triRender, pivot, opts.ribbonColor, ribbonN, opts.mtx);
+        addVert(state.triRender, _cornerCurrP, opts.ribbonColor, _cornerN, opts.mtx);
+        addVert(state.triRender, _cornerPivot, opts.ribbonColor, _cornerN, opts.mtx);
 
-        if (prevP) {
-            addLine(state.lineRender, opts.lineThick, opts.borderColor, prevP, p, undefined, opts.mtx);
+        if (i > 0) {
+            addLine(state.lineRender, opts.lineThick, opts.borderColor, _cornerPrevP, _cornerCurrP, undefined, opts.mtx);
         }
-        prevP = p;
+        let tmp = _cornerPrevP;
+        _cornerPrevP = _cornerCurrP;
+        _cornerCurrP = tmp;
     }
 
     addPrimitiveRestart(state.triRender);

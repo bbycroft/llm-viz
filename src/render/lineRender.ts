@@ -124,6 +124,9 @@ export function createLineRender(ctx: IGLContext) {
     };
 }
 
+let _lineA = new Vec3();
+let _lineB = new Vec3();
+let _lineDir = new Vec3();
 export function addLine(render: ILineRender, thickness: number, color: Vec4, a: Vec3, b: Vec3, n?: Vec3, mtx?: Mat4f) {
     let floatBuf = render.floatBuf;
     let buf = floatBuf.localBuf;
@@ -131,14 +134,24 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
     ensureFloatBufferSize(floatBuf, 4);
     ensureElementBufferSize(render.indexBuf, 5);
     if (mtx) {
-        a = mtx.mulVec3Proj(a);
-        b = mtx.mulVec3Proj(b);
-        thickness = thickness;
+        mtx.mulVec3Affine_(a, _lineA);
+        mtx.mulVec3Affine_(b, _lineB);
+        // thickness = thickness;
         // n = n ? mtx.mulVec3ProjVec(n) : undefined;
+    } else {
+        _lineA.copy_(a);
+        _lineB.copy_(b);
     }
 
-    let dir = b.sub(a).normalize();
-    let pt = [a, a, b, b];
+    _lineDir.x = _lineB.x - _lineA.x;
+    _lineDir.y = _lineB.y - _lineA.y;
+    _lineDir.z = _lineB.z - _lineA.z;
+    let dirLen = 1.0 / _lineDir.len();
+    _lineDir.x *= dirLen;
+    _lineDir.y *= dirLen;
+    _lineDir.z *= dirLen;
+
+    let pt = [_lineA, _lineA, _lineB, _lineB];
     n = n ?? Vec3.zero;
 
     let i = floatBuf.usedEls * floatBuf.strideFloats;
@@ -147,9 +160,9 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
         buf[i + 0] = pt[j].x;
         buf[i + 1] = pt[j].y;
         buf[i + 2] = pt[j].z;
-        buf[i + 3] = dir.x;
-        buf[i + 4] = dir.y;
-        buf[i + 5] = dir.z;
+        buf[i + 3] = _lineDir.x;
+        buf[i + 4] = _lineDir.y;
+        buf[i + 5] = _lineDir.z;
         buf[i + 6] = color.x;
         buf[i + 7] = color.y;
         buf[i + 8] = color.z;
