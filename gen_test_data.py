@@ -149,6 +149,8 @@ x = model.transformer.ln_f(x)
 partials['ln_f'] = x
 x = model.lm_head(x)
 partials['lm_head'] = x
+probs = F.softmax(x, dim=-1)
+partials['probs'] = probs
 
 print(model_config.to_dict())
 

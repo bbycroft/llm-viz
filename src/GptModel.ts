@@ -46,9 +46,9 @@ We might as well build the nested structure of the real model, with each chunk h
 */
 
 export function initModel(state: IRenderState, dataAndModel: IDataAndModel, B: number) {
-    // let gptLayerTest = createGptModel(renderState.shaderManager, dataAndModel.model, dataAndModel.data.config.B!);
-    // runModel(renderState, gptLayerTest, dataAndModel.data);
-    // cleanupGptModel(renderState.gl, gptLayerTest);
+    // let gptLayerTest = createGptModel(state.ctx.shaderManager, dataAndModel.model, dataAndModel.data.config.B!);
+    // runModel(state, gptLayerTest, dataAndModel.data);
+    // cleanupGptModel(state.gl, gptLayerTest);
 
     return createGptModel(state.ctx.shaderManager, dataAndModel.model, B);
 }
@@ -78,6 +78,7 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
         blocks,
         ln_f,
         lm_head,
+        softmaxFinal,
         shape,
     } = gptModel;
 
@@ -130,6 +131,9 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
     runRenderPhase(gl, ln_f.applyPhase);
     runRenderPhase(gl, lm_head.linearPhase);
 
+    runRenderPhase(gl, softmaxFinal.aggPhase);
+    runRenderPhase(gl, softmaxFinal.softmaxPhase);
+
     function validate(name: string, phase: IRenderPhase) {
         if (!validationData) {
             return;
@@ -156,11 +160,40 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
 
             validate('lm_head', lm_head.linearPhase);
 
+            validate('probs', softmaxFinal.softmaxPhase);
+
             if (!allValid) {
                 console.error('VALIDATION FAILED');
             }
         }, 200);
     }
+
+    if (!validationData) {
+        readModelResultsBack(gptModel); // Expensive!! Should defer
+    }
+}
+
+export function readModelResultsBack(model: IGpuGptModel) {
+
+    let { gl, shape: { B, T, C, vocabSize } } = model;
+    let size = B * T * vocabSize;
+
+    if (!model.resultBuf || model.resultBuf.length !== size) {
+        model.resultBuf = new Float32Array(size);
+    }
+
+    readFromRenderPhase(gl, model.softmaxFinal.softmaxPhase, 0, model.resultBuf);
+
+    let sortedBuf = new Float32Array(T * vocabSize * 2);
+    for (let t = 0; t < T; t++) {
+        let options = [...model.resultBuf.slice(t * vocabSize, (t + 1) * vocabSize)].map((v, i) => ({ v, i }));
+        options.sort((a, b) => b.v - a.v);
+        for (let i = 0; i < options.length; i++) {
+            sortedBuf[(t * vocabSize + i) * 2 + 0] = options[i].i;
+            sortedBuf[(t * vocabSize + i) * 2 + 1] = options[i].v;
+        }
+    }
+    model.sortedBuf = sortedBuf;
 }
 
 function cleanupGptModel(gl: WebGL2RenderingContext, model: IGpuGptModel) {
@@ -223,11 +256,12 @@ export function createGptModel(shaderManager: IShaderManager, model: ITensorSet,
     let ln_f = createLayerNorm(layerBuilder, prefix + '.ln_f', x);
     let lm_head = createLinearLayer(layerBuilder, 'lm_head', C, vocabSize, ln_f.output, undefined, false);
 
-    // @TODO: softmax layer
+    let softmaxFinal = createSoftmaxLayer(layerBuilder, lm_head.output);
 
     ensureShadersReady(shaderManager);
 
     return {
+        gl,
         inputBuf,
         inputTokens,
         vocabEmbed,
@@ -237,7 +271,11 @@ export function createGptModel(shaderManager: IShaderManager, model: ITensorSet,
         ln_f,
         lm_head,
         shape,
-        output: lm_head.output,
+        softmaxFinal,
+        output: softmaxFinal.output,
+        activeCount: 6,
+        resultBuf: null as Float32Array | null,
+        sortedBuf: null as Float32Array | null,
     };
 }
 
@@ -682,6 +720,74 @@ export function createAddLayer(layerBuilder: ILayerBuilder, inputA: IBufferTex, 
 
     return {
         addPhase,
+        output,
+    };
+}
+
+function createSoftmaxLayer(layerBuilder: ILayerBuilder, input: IBufferTex) {
+    let { gl, shape: { B, T, C, vocabSize }, shaderManager } = layerBuilder;
+
+    // operating memory
+    let agg    = createBufferTex(gl,         1, B * T, 2);
+    let output = createBufferTex(gl, vocabSize, B * T, 1);
+
+    let softmaxAggProg = createShaderProgram(shaderManager, 'softmaxAgg', basicVertexShader, /*glsl*/`#version 300 es
+        precision highp float;       //    y      x
+        uniform sampler2D smInput;   // (B, T) (nVocab)
+        out vec2 smAgg;              // (B)    (nVocab) [2]
+
+        void main() {
+            ivec2 pos = ivec2(gl_FragCoord.xy);
+            int tIdxY = pos.y % ${T};
+
+            // Pass 1 finds the max
+            float m = 0.0;
+            for (int i = 0; i < ${vocabSize}; i++) {
+                float p = texelFetch(smInput, ivec2(i, pos.y), 0).r;
+                m = max(m, p);
+            }
+
+            // Pass 2 finds the exp sum (shifted by max)
+            float a = 0.0;
+            for (int i = 0; i < ${vocabSize}; i++) {
+                float p = texelFetch(smInput, ivec2(i, pos.y), 0).r;
+                a += exp(p - m);
+            }
+
+            // Store sufficient information to compute/apply the softmax
+            smAgg = vec2(1.0 / a, m);
+        }
+    `)!;
+
+    let softmaxProg = createShaderProgram(shaderManager, 'softmax', basicVertexShader, /*glsl*/`#version 300 es
+        precision highp float;
+        uniform sampler2D smInput;    // (B, T) (nVocab)
+        uniform sampler2D smAgg;      // (B)    (nVocab) [2]
+        out float smOutput;           // (B, T) (nVocab)
+
+        void main() {
+            ivec2 pos = ivec2(gl_FragCoord.xy);
+            int tIdxX = pos.x;
+            int tIdxY = pos.y % ${T};
+
+            vec2 agg = texelFetch(smAgg, ivec2(0, pos.y), 0).rg;
+            float expSumInv = agg.r;
+            float maxVal = agg.g;
+
+            float p = texelFetch(smInput, pos, 0).r;
+            smOutput = exp(p - maxVal) * expSumInv;
+        }
+    `)!;
+
+    let aggPhase = createRenderPhase(gl, softmaxAggProg, [agg], [input], ['smInput']);
+    let softmaxPhase = createRenderPhase(gl, softmaxProg, [output], [input, agg], ['smInput', 'smAgg']);
+
+    return {
+        bufs: [agg, output],
+        progs: [softmaxAggProg, softmaxProg],
+        phases: [aggPhase, softmaxPhase],
+        aggPhase,
+        softmaxPhase,
         output,
     };
 }

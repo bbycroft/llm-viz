@@ -244,7 +244,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     renderAllTris(args.triRender);
     renderAllThreads(args.threadRender);
     renderAllText(gl, args.modelFontBuf);
-    renderAllLines(args.lineRender, viewMtx, modelMtx, new Vec4(0, 0, 0, 1));
+    renderAllLines(args.lineRender);
 
     {
         let w = canvasEl.width;

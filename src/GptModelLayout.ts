@@ -534,7 +534,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
     let logitsAgg = mk({
         t: 'i', cx: 2, cz: B, cy: T, y: y,
-        xL: lnLeftX + margin, zM: 0,
+        xL: lnLeftX + 1.5 * margin, zM: -3 * cell,
         // @TODO: link up
     });
 
@@ -546,10 +546,10 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         // @TODO: link up
     });
 
-    let logitsSoftmaxTopN = mk({
-        t: 'i', cx: T, cz: B, cy: Math.min(32, vocabSize), y: y,
-        xM: 0, zM: 0,
-    });
+    // let logitsSoftmaxTopN = mk({
+    //     t: 'i', cx: T, cz: B, cy: Math.min(32, vocabSize), y: y,
+    //     xM: 0, zM: 0,
+    // });
 
     let weightCount = vocabSize*C + T*C +
         nBlocks * ((2*C + 4*C*C + C + 3*C) + // self attn
@@ -557,7 +557,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
     // let decoderCount = vocabSize * C; (excluded from the weight count apparently)
 
-    cubes.push(lmHeadWeight, logits, logitsAgg, logitsSoftmax, logitsSoftmaxTopN);
+    cubes.push(lmHeadWeight, logits, logitsAgg, logitsSoftmax);
 
     return {
         cubes,
@@ -572,7 +572,6 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         logits,
         logitsAgg,
         logitsSoftmax,
-        logitsSoftmaxTopN,
         blocks,
         height: y,
         model: gptGpuModel,

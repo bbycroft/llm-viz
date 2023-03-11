@@ -205,7 +205,7 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
 
         } else if (srcPos === BlockPos.Bot && destPos === BlockPos.Right) {
             // dogleg down => right
-            let mid0 = new Vec3(start.x, end.y - width / 2, start.z);
+            let mid0 = new Vec3(start.x, end.y - width / 2, end.z);
             let mid1 = new Vec3(start.x - width / 2, end.y, end.z);
 
             drawArrow(state, start, mid0, width, normal, color, false);
@@ -213,10 +213,10 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
 
         } else if (srcPos === BlockPos.Bot && destPos === BlockPos.Left) {
             // dogleg down => left
-            let mid0 = new Vec3(start.x, end.y - width / 2, start.z);
+            let mid0 = new Vec3(start.x, end.y - width / 2, end.z);
             let mid1 = new Vec3(start.x + width / 2, end.y, end.z);
 
-            drawArrow(state, start, mid0, width, normal, color, false);
+            drawArrow(state, start, mid0, width, normal, color, false, CornerMode.None, new Vec3(0, 1, 0));
             drawArrow(state, mid1, end, width, normal, color, true, CornerMode.Right);
 
         } else {
@@ -286,7 +286,6 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
 
     endDir = endDir ? mtx.mulVec3ProjVec(endDir) : undefined;
 
-    endDir = endDir ?? new Vec3(0, 1, 0);
     // matrix is constructed such that the ribbons are always in the x-y plane, and going from -y to +y
     // The ribbon will be curved if it is not in the x-y plane, but the start and end remain tangent to the plane
 
@@ -320,6 +319,7 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
         drawArrowCorner(state, start.sub(new Vec3(0, width/2)), drawCorner, opts);
     }
     if (drawHead) {
+        endDir = endDir ?? new Vec3(0, 1, 0);
         drawArrowHead(state, end.mulAdd(endDir, -headDepth), end, opts);
     }
 }

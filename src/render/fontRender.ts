@@ -290,6 +290,21 @@ export function measureTextWidth(fontBuf: IFontBuffers, text: string, scale: num
     return x * scale / face.common.lineHeight * scaleFudgeFactor;
 }
 
+export interface IFontOpts {
+    color: Vec4;
+    size: number;
+    mtx?: Mat4f;
+    faceName?: string;
+}
+
+export function measureText(fontBuf: IFontBuffers, text: string, opts: IFontOpts) {
+    return measureTextWidth(fontBuf, text, opts.size, opts.faceName);
+}
+
+export function drawText(fontBuf: IFontBuffers, text: string, dx: number, dy: number, opts: IFontOpts) {
+    writeTextToBuffer(fontBuf, text, opts.color, dx, dy, opts.size, opts.mtx, opts.faceName);
+}
+
 export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Vec4, dx?: number, dy?: number, scale?: number, mtx?: Mat4f, faceName?: string) {
     let face = faceName ? fontBuf.atlas.faceInfos.find(a => a.name === faceName)! : fontBuf.atlas.faceInfos[0];
     if (!face) {

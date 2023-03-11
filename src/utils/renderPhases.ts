@@ -115,7 +115,7 @@ export function writeToBufferTex(gl: WebGL2RenderingContext, buffer: IBufferTex,
 export function readFromRenderPhase(gl: WebGL2RenderingContext, phase: IRenderPhase, index: number, out: Float32Array) {
     let buffer = phase.destBuffers[index];
     if (out.length !== buffer.width * buffer.height * buffer.channels) {
-        throw new Error('Data length does not match output size');
+        throw new Error(`Data length does not match output size: expected ${buffer.width * buffer.height * buffer.channels}, got supplied buffer is ${out.length}`);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, phase.fbo);
     gl.readBuffer(gl.COLOR_ATTACHMENT0 + index);

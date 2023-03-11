@@ -42,6 +42,37 @@ export function cameraToMatrixView(camera: ICamera) {
 
 export function cameraMoveToDesired(camera: ICamera, dt: number) {
 
+    // This is making me nauseous. Gonna do jump-to instead of smooth transition for now.
+
+    // We'll use the velocity to check if we've applied the desired value, so we know when to
+    // modify the main camera
+
+    if (camera.centerDesired && (!camera.transition.centerVel || camera.transition.centerVel.dist(camera.centerDesired) < 0.01)) {
+        camera.center = camera.centerDesired;
+        camera.transition.centerVel = camera.centerDesired;
+        camera.centerDesired = undefined;
+    } else if (!camera.centerDesired) {
+        camera.transition.centerVel = undefined;
+    }
+
+    if (camera.angleZDesired && (!camera.transition.angleZVel || Math.abs(camera.transition.angleZVel - camera.angleZDesired) < 0.01)) {
+        camera.angle.z = camera.angleZDesired;
+        camera.transition.angleZVel = camera.angleZDesired;
+        camera.angleZDesired = undefined;
+    } else if (!camera.angleZDesired) {
+        camera.transition.angleZVel = undefined;
+    }
+
+    if (camera.angleRotDesired && (!camera.transition.angleRotVel || camera.transition.angleRotVel.dist(camera.angleRotDesired) < 0.01)) {
+        camera.angle.x = camera.angleRotDesired.x;
+        camera.angle.y = camera.angleRotDesired.y;
+        camera.transition.angleRotVel = camera.angleRotDesired;
+        camera.angleRotDesired = undefined;
+    } else if (!camera.angleRotDesired) {
+        camera.transition.angleRotVel = undefined;
+    }
+
+    /*
     if (camera.centerDesired) {
         let { pos, vel } = applySpringStep(
             camera.center,
@@ -94,6 +125,7 @@ export function cameraMoveToDesired(camera: ICamera, dt: number) {
 
         camera.angleRotDesired = undefined;
     }
+    */
 }
 
 export interface ISpringConfig {

@@ -1,7 +1,9 @@
+import { useState } from "react";
+import { drawTextOnModel } from "../Annotations";
 import { cameraToMatrixView } from "../Camera";
 import { IGptModelLayout, IModelLayout } from "../GptModelLayout";
-import { measureTextWidth, writeTextToBuffer } from "../render/fontRender";
-import { addLine } from "../render/lineRender";
+import { drawText, IFontOpts, measureText, measureTextWidth, writeTextToBuffer } from "../render/fontRender";
+import { addLine, addLine2 as drawLine, ILineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { addQuad } from "../render/triRender";
 import { Mat4f } from "../utils/matrix";
@@ -33,20 +35,16 @@ export function renderModelCard(state: IRenderState, layout: IGptModelLayout) {
         .mul(Mat4f.fromTranslation(new Vec3(0, 30, 0)));
 
     let thick = 1.0 / 10.0 * scale;
-    let borderColor = Vec4.fromHexColor("#555555", 0.8);
-    let backgroundColor = Vec4.fromHexColor("#999999", 0.3);
+    let borderColor = Vec4.fromHexColor("#555599", 0.8);
+    let backgroundColor = Vec4.fromHexColor("#9999ee", 0.3);
     let titleColor = Vec4.fromHexColor("#000000", 1.0);
     let n = new Vec3(0, 0, 1);
 
-    let tl = new Vec3(-110, -80, 0);
-    let br = new Vec3( 110, -30, 0);
-    let corners = [tl, new Vec3(br.x, tl.y, 0), br, new Vec3(tl.x, br.y, 0)];
-    for (let i = 0; i < 4; i++) {
-        let a = corners[i];
-        let b = corners[(i + 1) % 4];
+    let lineOpts: ILineOpts = { color: borderColor, mtx, thick, n };
 
-        addLine(state.lineRender, thick, borderColor, a, b, n, mtx);
-    }
+    let tl = new Vec3(-110, -97, 0);
+    let br = new Vec3( 110, -30, 0);
+    drawLineRect(state, tl, br, lineOpts);
 
     addQuad(state.triRender, new Vec3(tl.x, tl.y, -0.1), new Vec3(br.x, br.y, -0.1), backgroundColor, mtx);
 
@@ -103,6 +101,132 @@ export function renderModelCard(state: IRenderState, layout: IGptModelLayout) {
 
     addLine(state.lineRender, thick, borderColor, new Vec3(tl.x, tl.y + paramHeight), new Vec3(br.x, tl.y + paramHeight), n, mtx);
 
+    renderInputOutput(state, layout, new Vec3(tl.x, tl.y + paramHeight + 8, 0), new Vec3(br.x, br.y, 0), lineOpts);
+}
+
+export function renderInputOutput(state: IRenderState, layout: IGptModelLayout, tl: Vec3, br: Vec3, lineOpts: ILineOpts) {
+    // rect with n cells
+    // each cell is a rect with a letter & number in it, the number is smaller & below the letter
+
+    // gray out ones in the future
+    // potentially cut off the ones too far in the past
+
+    // draw rectangle
+    // iter through boxes; draw each one, sampling from the input data
+
+    lineOpts = { ...lineOpts, thick: lineOpts.thick * 0.8 };
+
+    let titleTextOpts: IFontOpts = { color: Vec4.fromHexColor("#666666", 1.0), mtx: lineOpts.mtx, size: 3 };
+
+    let tokTextOpts: IFontOpts = { color: Vec4.fromHexColor("#000000", 1.0), mtx: lineOpts.mtx, size: 5 };
+    let idxTextOpts: IFontOpts = { color: Vec4.fromHexColor("#666666", 1.0), mtx: lineOpts.mtx, size: 3 };
+
+    let dimmedTokTextOpts: IFontOpts = { ...tokTextOpts, color: tokTextOpts.color.mul(0.3) };
+    let dimmedIdxTextOpts: IFontOpts = { ...idxTextOpts, color: idxTextOpts.color.mul(0.3) };
+
+    let { T, vocabSize } = layout.shape;
+
+    let cellW = 12;
+    let inCellH = 9;
+
+    let pad = 2;
+    let inTl = new Vec3(tl.x + pad, tl.y + titleTextOpts.size + 1);
+    let inBr = new Vec3(inTl.x + cellW * T, inTl.y + inCellH, 0);
+
+    let inputTitle = "Input";
+    drawText(state.modelFontBuf, inputTitle, inTl.x, tl.y, titleTextOpts);
+    let tokens = layout.model?.inputBuf;
+    drawLineRect(state, inTl, inBr, lineOpts);
+
+    function tokenIndexToString(a: number) {
+        return String.fromCharCode('A'.charCodeAt(0) + a); // just A, B, C supported!
+    }
+
+    for (let i = 0; i < T; i++) {
+
+        if (i > 0) {
+            let lineX = inTl.x + i * cellW;
+            drawLine(state.lineRender, new Vec3(lineX, inTl.y, 0), new Vec3(lineX, inBr.y, 0), lineOpts);
+        }
+
+        if (tokens && i < layout.model!.activeCount) {
+            let cx = inTl.x + (i + 0.5) * cellW;
+
+            let tokStr = tokenIndexToString(tokens[i]);
+            let tokW = measureText(state.modelFontBuf, tokStr, tokTextOpts);
+            let idxW = measureText(state.modelFontBuf, tokens[i].toString(), idxTextOpts);
+            let totalH = tokTextOpts.size + idxTextOpts.size;
+            let top = inTl.y + (inCellH - totalH) / 2;
+
+            drawText(state.modelFontBuf, tokStr, cx - tokW / 2, top, tokTextOpts);
+            drawText(state.modelFontBuf, tokens[i].toString(),  cx - idxW / 2, top + tokTextOpts.size, idxTextOpts);
+        }
+
+    }
+
+    let outCellH = 20;
+    let outputTitle = "Output";
+    drawText(state.modelFontBuf, outputTitle, inTl.x, inBr.y + 1, titleTextOpts);
+
+    let outTl = new Vec3(inTl.x, inBr.y + 1 + titleTextOpts.size + 1);
+    let outBr = new Vec3(inBr.x, outTl.y + outCellH, 0);
+
+    drawLineRect(state, outTl, outBr, lineOpts);
+
+    let sortedOutput = layout.model?.sortedBuf;
+
+    for (let i = 0; i < T; i++) {
+        if (i > 0) {
+            let lineX = outTl.x + i * cellW;
+            drawLine(state.lineRender, new Vec3(lineX, outTl.y, 0), new Vec3(lineX, outBr.y, 0), lineOpts);
+        }
+
+        if (sortedOutput && i < layout.model!.activeCount) {
+            let usedSoFar = 0.0;
+            let cx = outTl.x + (i + 0.5) * cellW;
+
+            for (let j = 0; j < vocabSize; j++) {
+                let tokIdx = sortedOutput[(i * vocabSize + j) * 2 + 0];
+                let tokProb = sortedOutput[(i * vocabSize + j) * 2 + 1];
+
+                let partTop = outTl.y + usedSoFar * outCellH;
+                let partH = tokProb * outCellH;
+
+                let dimmed = i < layout.model!.activeCount - 1;
+                let tokOpts = dimmed ? dimmedTokTextOpts : tokTextOpts;
+                let idxOpts = dimmed ? dimmedIdxTextOpts : idxTextOpts;
+
+                let tokStr = tokenIndexToString(tokIdx);
+                let tokW = measureText(state.modelFontBuf, tokStr, tokOpts);
+                let idxW = measureText(state.modelFontBuf, tokIdx.toString(), idxOpts);
+                let textH = tokOpts.size + idxOpts.size;
+                let top = partTop + (partH - textH) / 2;
+
+                if (partH > textH) {
+                    drawText(state.modelFontBuf, tokStr, cx - tokW / 2, top, tokOpts);
+                    drawText(state.modelFontBuf, tokIdx.toString(),  cx - idxW / 2, top + tokOpts.size, idxOpts);
+                }
+
+                usedSoFar += tokProb;
+
+                drawLine(state.lineRender, new Vec3(cx - cellW/2, partTop + partH, 0), new Vec3(cx + cellW/2, partTop + partH, 0), lineOpts);
+                if (usedSoFar >= 1.0 - 1e-4) {
+                    break;
+                }
+            }
+        }
+    }
+}
+
+export function drawLineRect(state: IRenderState, tl: Vec3, br: Vec3, opts: ILineOpts) {
+
+    let corners = [tl, new Vec3(br.x, tl.y, 0), br, new Vec3(tl.x, br.y, 0)];
+    for (let i = 0; i < 4; i++) {
+        let a = corners[i];
+        let b = corners[(i + 1) % 4];
+
+        drawLine(state.lineRender, a, b, opts);
+    }
 }
 
 function numberToCommaSep(a: number) {

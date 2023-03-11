@@ -124,9 +124,21 @@ export function createLineRender(ctx: IGLContext) {
     };
 }
 
+export interface ILineOpts {
+    thick: number;
+    color: Vec4;
+    mtx: Mat4f;
+    n?: Vec3;
+}
+
+export function addLine2(render: ILineRender, a: Vec3, b: Vec3, opts: ILineOpts) {
+    addLine(render, opts.thick, opts.color, a, b, opts.n, opts.mtx);
+}
+
 let _lineA = new Vec3();
 let _lineB = new Vec3();
 let _lineDir = new Vec3();
+
 export function addLine(render: ILineRender, thickness: number, color: Vec4, a: Vec3, b: Vec3, n?: Vec3, mtx?: Mat4f) {
     let floatBuf = render.floatBuf;
     let buf = floatBuf.localBuf;
@@ -179,7 +191,7 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
     render.indexBuf.usedVerts += 5;
 }
 
-export function renderAllLines(render: ILineRender, view: Mat4f, model: Mat4f, baseColor: Vec4) {
+export function renderAllLines(render: ILineRender) {
     let gl = render.gl;
     uploadFloatBuffer(gl, render.floatBuf);
     uploadElementBuffer(gl, render.indexBuf)
