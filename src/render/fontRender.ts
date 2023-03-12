@@ -37,10 +37,9 @@ export interface IFontCommonDef {
 const floatsPerSegment = 16 + 4;
 
 const floatsPerVert = 5;
-const floatsPerGlyph = floatsPerVert * 6;
-
 const bytesPerVert = floatsPerVert * 4;
-const bytesPerGlyph = floatsPerGlyph * 4;
+
+const texWidth = 1024;
 
 export interface IFontBuffers {
     atlas: IFontAtlas;
@@ -51,6 +50,7 @@ export interface IFontBuffers {
 
     segmentsUsed: number;
     segmentCapacity: number;
+    glSegmentCapacity: number;
 }
 
 export type IFontAtlas = ReturnType<typeof setupFontAtlas>;
@@ -112,7 +112,7 @@ export function setupFontAtlas(ctx: IGLContext, data: IFontAtlasData) {
             int texWidth = textureSize(u_transformTex, 0).x;
             int texOffset = int(a_textId) * ${floatsPerSegment / 4};
             int y = texOffset / texWidth;
-            int x = texOffset - y * texOffset;
+            int x = texOffset % texWidth;
             vec4 t0 = texelFetch(u_transformTex, ivec2(x + 0, y), 0);
             vec4 t1 = texelFetch(u_transformTex, ivec2(x + 1, y), 0);
             vec4 t2 = texelFetch(u_transformTex, ivec2(x + 2, y), 0);
@@ -243,7 +243,7 @@ export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     // we'll fill it in later
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, segmentCapacity, 4, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, texWidth, computeTexHeight(segmentCapacity), 0, gl.RGBA, gl.FLOAT, null);
 
     let vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
@@ -267,7 +267,12 @@ export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
         localTexBuffer,
         segmentsUsed: 0,
         segmentCapacity: 1024,
+        glSegmentCapacity: 1024,
     };
+}
+
+export function computeTexHeight(numSegments: number) {
+    return Math.ceil(numSegments * floatsPerSegment / 4 / texWidth);
 }
 
  // Fudge factor to get it the same as HTML/CSS at the same px size
@@ -313,6 +318,10 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Ve
 
     let vertBuf = fontBuf.vertBuffer;
     ensureFloatBufferSize(vertBuf, text.length * floatsPerVert);
+    if (fontBuf.segmentsUsed === Math.floor(texWidth * 4 / floatsPerSegment)) {
+        // the last segment on each texel row would overflow (it takes 5 texels), so we skip it
+        fontBuf.segmentsUsed += 1;
+    }
     let segmentId = fontBuf.segmentsUsed;
     let buf = vertBuf.localBuf;
     let bufIdx = vertBuf.usedEls * fontBuf.vertBuffer.strideFloats;
@@ -362,6 +371,14 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Ve
     // TODO: Do realloc stuff
     mtx = mtx ?? new Mat4f();
     color = color ?? new Vec4(1, 1, 1, 1);
+
+    if (fontBuf.segmentsUsed >= fontBuf.segmentCapacity) {
+        let newCapacity = fontBuf.segmentCapacity * 2;
+        let newBuf = new Float32Array(newCapacity * floatsPerSegment);
+        newBuf.set(fontBuf.localTexBuffer);
+        fontBuf.localTexBuffer = newBuf;
+    }
+
     fontBuf.localTexBuffer.set(mtx, fontBuf.segmentsUsed * floatsPerSegment + 0);
     fontBuf.localTexBuffer.set(color.toArray(), fontBuf.segmentsUsed * floatsPerSegment + 16);
     fontBuf.segmentsUsed += 1;
@@ -375,7 +392,19 @@ export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers)
 
     // resize texture if needed
     gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, fontBuf.segmentsUsed * floatsPerSegment / 4, 1, gl.RGBA, gl.FLOAT, fontBuf.localTexBuffer);
+
+    if (fontBuf.segmentCapacity > fontBuf.glSegmentCapacity) {
+        let w = 1024;
+        let h = Math.ceil(fontBuf.segmentCapacity * floatsPerSegment / 4 / w);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, null);
+        fontBuf.glSegmentCapacity = w * h / 4;
+    }
+
+    {
+        let w = 1024;
+        let h = Math.ceil(fontBuf.segmentsUsed * floatsPerSegment / 4 / w);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.FLOAT, fontBuf.localTexBuffer);
+    }
 
     uploadFloatBuffer(gl, fontBuf.vertBuffer);
 

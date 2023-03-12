@@ -3,27 +3,24 @@ import { IRenderState } from "@/src/render/modelRender";
 import { clamp } from "@/src/utils/data";
 import { measureTextWidth, writeTextToBuffer } from "@/src/render/fontRender";
 import { Vec3, Vec4 } from "../utils/vector";
-import { IWalkthrough, Phase } from "./Walkthrough";
+import { IWalkthrough, Phase, PhaseGroup } from "./Walkthrough";
 
-export function phaseTools(state: IRenderState, phaseState: IWalkthrough) {
+export interface IWalkthroughArgs {
+    state: IRenderState;
+    layout: IGptModelLayout;
+    walkthrough: IWalkthrough;
+    tools: ReturnType<typeof phaseTools>;
+}
+
+export function phaseTools(state: IRenderState) {
+    let phaseState = state.walkthrough;
+
     function c_str(str: string, duration: number = 0.3, style: DimStyle = DimStyle.T) {
         return { str, duration, start: 0, t: 0.0, color: dimStyleColor(style) };
     }
 
     function atTime(start: number, duration?: number, wait?: number): ITimeInfo {
-        duration = duration ?? 1;
-        wait = wait ?? 0;
-        let info: ITimeInfo = {
-            name: '',
-            start,
-            duration,
-            wait,
-            t: clamp((phaseState.time - start) / duration, 0, 1),
-            active: phaseState.time > start,
-         };
-         phaseState.times.push(info);
-         phaseState.phaseLength = Math.max(phaseState.phaseLength, start + duration + wait);
-         return info;
+        return createAtTime(phaseState, start, duration, wait);
     }
 
     function atEvent(evt: { str: string, duration: number, t: number, start: number }): ITimeInfo {
@@ -45,9 +42,17 @@ export function phaseTools(state: IRenderState, phaseState: IWalkthrough) {
         }
     }
 
+    function breakAfter(evt: ITimeInfo) {
+        let breakEvt = afterTime(evt, 0.001, 0);
+        if (evt.t === 1.0 && (phaseState.lastBreakTime === null || phaseState.lastBreakTime <= breakEvt.start)) {
+            phaseState.running = false;
+            phaseState.time = breakEvt.start + breakEvt.duration;
+            phaseState.lastBreakTime = phaseState.time;
+        }
+    }
+
     function commentary(stringsArr: TemplateStringsArray, ...values: any[]) {
-        let res = writeCommentary(state, null, stringsArr, ...values);
-        return res;
+        return writeCommentary(state, null, stringsArr, ...values);
     }
 
     function commentaryPara(c: ICommentaryRes) {
@@ -56,16 +61,35 @@ export function phaseTools(state: IRenderState, phaseState: IWalkthrough) {
         };
     }
 
-    return { atTime, atEvent, afterTime, cleanup, commentary, commentaryPara, c_str };
+    return { atTime, atEvent, afterTime, cleanup, commentary, commentaryPara, c_str, breakAfter };
 }
 
-export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null, stringsArr: TemplateStringsArray, ...values: any[]): ICommentaryRes {
+function createAtTime(wt: IWalkthrough, start: number, duration?: number, wait?: number): ITimeInfo {
+    duration = duration ?? 1;
+    wait = wait ?? 0;
+    let info: ITimeInfo = {
+        name: '',
+        start,
+        duration,
+        wait,
+        t: clamp((wt.time - start) / duration, 0, 1),
+        active: wt.time > start,
+    };
+    wt.times.push(info);
+    wt.phaseLength = Math.max(wt.phaseLength, start + duration + wait);
+    return info;
+}
+
+export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null, stringsArrRaw: TemplateStringsArray, ...values: any[]): ICommentaryRes {
     let t = prev?.duration ?? 0;
-    let lineOffset = prev?.lineOffset ?? 0;
-    let lineNum = prev?.lineNum ?? 0;
-    let fontSize = 20;
-    let maxWidth = 300;
+    let colNum = 0;
+    let fontSize = 17;
+    let maxWidth = 500;
     let charsPerSecond = 400;
+    let lineHeight = fontSize * 1.2;
+
+    let lineOffset = prev ? prev.lineOffset + lineHeight * 1.5 : 10;
+    let stringsArr = stringsArrRaw.map(s => s.replace(/([ \n])+/g, ' '));
 
     for (let i = 0; i < values.length + 1; i++) {
         let str = stringsArr[i];
@@ -81,20 +105,21 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
 
     let targetT = state.walkthrough.time;
 
-    function writeWord(str: string, tStart: number, colOverride?: Vec4, fontOverride?: string) {
+    function writeWord(str: string, tStart: number, tEnd: number, colOverride?: Vec4, fontOverride?: string) {
 
-        while (str.startsWith('\n')) {
-            lineNum += 1;
-            lineOffset = 0;
-            str = str.substring(1);
+        while (str.startsWith('\n\n')) {
+            lineOffset += lineHeight;
+            colNum = 0;
+            str = str.substring(2);
         }
+        str = str.replace(/([ \n])+/g, ' ');
 
         let strToDraw = str;
         let nextOff = 0;
         let w = measureTextWidth(state.modelFontBuf, str, fontSize);
-        if (lineOffset + w > maxWidth) {
-            lineNum += 1;
-            lineOffset = 0;
+        if (colNum + w > maxWidth) {
+            lineOffset += lineHeight;
+            colNum = 0;
             strToDraw = str.trimStart();
             w = measureTextWidth(state.modelFontBuf, strToDraw, fontSize);
             if (w > maxWidth) {
@@ -102,26 +127,32 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
             }
             nextOff = w;
         } else {
-            nextOff = lineOffset + w;
+            nextOff = colNum + w;
         }
 
         let color = new Vec4(0.5, 0.5, 0.5, 1).mul(0.5);
         if (targetT > tStart) {
             let targetColor = colOverride ?? new Vec4(0.1, 0.1, 0.1, 1);
-            color = Vec4.lerp(color, targetColor, clamp((targetT - tStart) * 10, 0, 1));
+            // lerp is 0 at tStart, 1 at tEnd 
+            let x = clamp((targetT - tStart) / (tEnd - tStart), 0, 1);
+            color = Vec4.lerp(color, targetColor, x);
         }
-        writeTextToBuffer(state.overlayFontBuf, strToDraw, color, 10 + lineOffset, 10 + lineNum * fontSize * 1.2, fontSize, undefined, fontOverride);
+        writeTextToBuffer(state.overlayFontBuf, strToDraw, color, 10 + colNum, lineOffset, fontSize, undefined, fontOverride);
 
-        lineOffset = nextOff;
+        colNum = nextOff;
     }
 
     t = prev?.duration ?? 0;
     for (let i = 0; i < values.length + 1; i++) {
-        let words = stringsArr[i].split(/(?=[ \n])/);
+        let words = stringsArr[i].split(/(?=[ \n]+)/).filter(a => a !== ' ');
 
         for (let word of words) {
-            writeWord(word, t);
-            t += word.length / charsPerSecond;
+            if (!prev) {
+                console.log(`word: '${word}'`);
+            }
+            let tEnd = t + word.length / charsPerSecond;
+            writeWord(word, t, tEnd);
+            t = tEnd;
         }
 
         if (i < values.length && 't' in values[i]) {
@@ -133,11 +164,19 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
         }
     }
 
-    let res = { stringsArr, values, duration: t, lineNum, lineOffset };
+    let commentryT = createAtTime(state.walkthrough, 0, t, 0);
+
+    let res: ICommentaryRes = {
+        ...commentryT,
+        stringsArr: stringsArrRaw,
+        values,
+        lineOffset,
+        colNum,
+    };
 
     if (prev) {
-        prev.lineNum = lineNum;
         prev.lineOffset = lineOffset;
+        prev.colNum = colNum;
         prev.duration = t;
     } else {
         state.walkthrough.commentary = res;
@@ -146,12 +185,12 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
     return res;
 }
 
-export interface ICommentaryRes {
+export interface ICommentaryRes extends ITimeInfo {
     stringsArr: TemplateStringsArray;
     values: any[];
     duration: number;
-    lineNum: number;
     lineOffset: number;
+    colNum: number;
 }
 
 export interface ITimeInfo {
@@ -210,7 +249,7 @@ export function hideFromBlock(state: IRenderState, layout: IGptModelLayout, targ
 }
 
 export interface IPhaseGroup {
-    groupId: string;
+    groupId: PhaseGroup;
     title: string;
     phases: IPhaseDef[];
 }

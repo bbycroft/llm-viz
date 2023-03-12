@@ -956,6 +956,20 @@
             "page": 0
         },
         {
+            "id": 8212,
+            "index": 386,
+            "char": "—",
+            "width": 31,
+            "height": 7,
+            "xoffset": 1,
+            "yoffset": 18,
+            "xadvance": 33,
+            "chnl": 15,
+            "x": 158,
+            "y": 249,
+            "page": 0
+        },
+        {
             "id": 58,
             "index": 30,
             "char": ":",
@@ -1189,8 +1203,8 @@
             "yoffset": 34,
             "xadvance": 19,
             "chnl": 15,
-            "x": 158,
-            "y": 249,
+            "x": 80,
+            "y": 145,
             "page": 0
         },
         {
@@ -1287,8 +1301,8 @@
             "yoffset": 20,
             "xadvance": 12,
             "chnl": 15,
-            "x": 182,
-            "y": 249,
+            "x": 29,
+            "y": 35,
             "page": 0
         },
         {
@@ -1434,7 +1448,8 @@
             "|",
             "}",
             "~",
-            "\\"
+            "\\",
+            "—"
         ],
         "unicode": 1,
         "stretchH": 100,
@@ -2110,6 +2125,11 @@
             "amount": -1
         },
         {
+            "first": 75,
+            "second": 8212,
+            "amount": -1
+        },
+        {
             "first": 76,
             "second": 34,
             "amount": -7
@@ -2550,6 +2570,11 @@
             "amount": -1
         },
         {
+            "first": 84,
+            "second": 8212,
+            "amount": -5
+        },
+        {
             "first": 85,
             "second": 65,
             "amount": 0
@@ -2665,6 +2690,11 @@
             "amount": 0
         },
         {
+            "first": 86,
+            "second": 8212,
+            "amount": -1
+        },
+        {
             "first": 87,
             "second": 41,
             "amount": 0
@@ -2750,6 +2780,11 @@
             "amount": 0
         },
         {
+            "first": 87,
+            "second": 8212,
+            "amount": -1
+        },
+        {
             "first": 88,
             "second": 45,
             "amount": -1
@@ -2822,6 +2857,11 @@
         {
             "first": 88,
             "second": 121,
+            "amount": -1
+        },
+        {
+            "first": 88,
+            "second": 8212,
             "amount": -1
         },
         {
@@ -3023,6 +3063,11 @@
             "first": 89,
             "second": 125,
             "amount": 0
+        },
+        {
+            "first": 89,
+            "second": 8212,
+            "amount": -1
         },
         {
             "first": 90,

@@ -24,6 +24,8 @@ export const WalkthroughSidebar: React.FC<{
         let len = baseEl!.clientHeight;
         walkthrough.time = clamp(ds.data + dy / len * totalTime, 0, totalTime);
         walkthrough.running = false;
+        walkthrough.lastBreakTime = walkthrough.time;
+        console.log('lastBreakTime', walkthrough.lastBreakTime);
         ev.preventDefault();
         ev.stopImmediatePropagation();
         walkthrough.markDirty();
@@ -34,6 +36,7 @@ export const WalkthroughSidebar: React.FC<{
         if (walkthrough.phase !== phase.id) {
             walkthrough.phase = phase.id;
             walkthrough.time = 0;
+            walkthrough.lastBreakTime = null;
             walkthrough.running = false;
             walkthrough.markDirty();
             refresh();

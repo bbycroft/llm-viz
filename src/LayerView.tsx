@@ -108,11 +108,13 @@ export function LayerView() {
             let walkthrough = canvasRender.renderState.walkthrough;
             if (ev.key === ' ') {
                 walkthrough.running = !walkthrough.running;
+                walkthrough.lastBreakTime = walkthrough.time;
                 canvasRender.markDirty();
             }
             if (ev.key === 'Backspace' || ev.key === 'Delete') {
                 walkthrough.running = false;
                 walkthrough.time = 0;
+                walkthrough.lastBreakTime = 0;
                 canvasRender.markDirty();
             }
             if (ev.key === 'f' || ev.key === 'F') {
