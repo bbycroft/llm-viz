@@ -1,24 +1,21 @@
 import { IColorMix } from "../Annotations";
-import { IGpuGptModel, IModelShape } from "../GptModel";
-import { genGptModelLayout, IGptModelLayout } from "../GptModelLayout";
+import { IGptModelLayout } from "../GptModelLayout";
 import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "./fontRender";
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, ensureShadersReady, IGLContext } from "../utils/shader";
 import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
-import { initWalkthrough, runWalkthrough } from "../walkthrough/Walkthrough";
+import { initWalkthrough } from "../walkthrough/Walkthrough";
 import { IBlockRender, initBlockRender, renderAllBlocks, renderBlocksSimple } from "./blockRender";
 import { initBlurRender, renderBlur, setupBlurTarget } from "./blurRender";
 import { createLineRender, renderAllLines, resetLineRender } from "./lineRender";
 import { renderAllThreads, initThreadRender } from "./threadRender";
-import { renderTokens } from "./tokenRender";
 import { initSharedRender, writeModelViewUbo } from "./sharedRender";
-import { cameraMoveToDesired, cameraToMatrixView, ICamera } from "../Camera";
-import { renderModelCard } from "../components/ModelCard";
+import { cameraToMatrixView, ICamera } from "../Camera";
 import { SavedState } from "../SavedState";
 import { initTriRender, renderAllTris, resetTriRender } from "./triRender";
-import { drawAllArrows } from "../components/Arrow";
-import { drawBlockLabels } from "../components/BlockLabels";
 import { Subscriptions } from "../utils/data";
+import { createQueryManager, IQueryManager } from "./queryManager";
+import { IProgramState } from "../Program";
 
 export interface IRenderView {
     time: number;
@@ -31,7 +28,6 @@ export interface IRenderState {
     canvasEl: HTMLCanvasElement;
     ctx: IGLContext;
     blockRender: IBlockRender;
-    walkthrough: ReturnType<typeof initWalkthrough>;
     lineRender: ReturnType<typeof createLineRender>;
     threadRender: ReturnType<typeof initThreadRender>;
     blurRender: ReturnType<typeof initBlurRender>;
@@ -41,17 +37,11 @@ export interface IRenderState {
     modelFontBuf: IFontBuffers;
     overlayFontBuf: IFontBuffers;
     quadVao: WebGLVertexArrayObject;
-    query: WebGLQuery;
+    queryManager: IQueryManager;
     tokenColors: IColorMix | null;
 
-    camera: ICamera;
-
-    // factor into query stuff
     lastGpuMs: number;
     lastJsMs: number;
-    hasRunQuery: boolean;
-
-    htmlSubs: Subscriptions;
 }
 
 export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtlasData): IRenderState {
@@ -93,18 +83,9 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
     let blockRender = initBlockRender(ctx);
     let triRender = initTriRender(ctx);
     let blurRender = initBlurRender(ctx, quadVao);
-    let walkthrough = initWalkthrough();
+    let queryManager = createQueryManager(ctx);
 
     ensureShadersReady(shaderManager);
-
-    let query = gl.createQuery()!;
-
-    let prevState = SavedState.state;
-    let camera: ICamera = {
-        angle: prevState?.camera.angle ?? new Vec3(290, 38, 2.5),
-        center: prevState?.camera.center ?? new Vec3(-6, 0, -80),
-        transition: {},
-    }
 
     return {
         canvasEl,
@@ -119,43 +100,26 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         fontAtlas,
         modelFontBuf,
         overlayFontBuf,
-        walkthrough,
         quadVao,
-        query,
+        queryManager,
         tokenColors: null as IColorMix | null,
         lastGpuMs: 0,
         lastJsMs: 0,
-        hasRunQuery: false,
-        htmlSubs: new Subscriptions(),
-        camera,
     };
 }
 
-export function renderModel(view: IRenderView, args: IRenderState, shape: IModelShape, gptGpuModel?: IGpuGptModel) {
-    let timer0 = performance.now();
-    let { gl, blockRender, canvasEl, ctx } = args;
-
-    if (args.walkthrough.running) {
-        cameraMoveToDesired(args.camera, view.dt);
-    }
-
-    let layout = genGptModelLayout(shape, gptGpuModel);
-    let cell = layout.cell;
-
+export function resetRenderBuffers(args: IRenderState) {
     resetLineRender(args.lineRender);
     resetFontBuffers(args.modelFontBuf);
     resetFontBuffers(args.overlayFontBuf);
     resetTriRender(args.triRender);
+}
 
-    runWalkthrough(args, view, layout);
+export function renderModel(state: IProgramState) {
+    let { layout, render: args, camera } = state;
+    let { gl, blockRender, canvasEl } = args;
 
-    drawAllArrows(args, layout);
-    drawBlockLabels(args, layout);
-
-    renderModelCard(args, layout);
-    renderTokens(args, layout, undefined, undefined, args.tokenColors || undefined);
-
-
+    let cell = layout.cell;
     let bb = new BoundingBox3d();
     for (let c of layout.cubes) {
         let tl = new Vec3(c.x, c.y, c.z);
@@ -165,8 +129,8 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     }
     let localDist = bb.size().len();
 
-    let { lookAt, camPos } = cameraToMatrixView(args.camera);
-    let dist = 200 * args.camera.angle.z;
+    let { lookAt, camPos } = cameraToMatrixView(camera);
+    let dist = 200 * camera.angle.z;
 
     let persp = Mat4f.fromPersp(40, args.canvasEl.width / args.canvasEl.height, dist / 100, localDist + Math.max(dist * 2, 10000));
     let viewMtx = persp.mul(lookAt);
@@ -194,27 +158,6 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         modelMtx.mulVec3Proj(lightColor[i]).writeToBuf(lightColorArr, i * 3);
     }
 
-    // pull out timing logic somewhere else
-    let resultAvailable = false;
-
-    if (args.hasRunQuery) {
-        resultAvailable = gl.getQueryParameter(args.query, gl.QUERY_RESULT_AVAILABLE);
-    }
-
-    let queryCanRun = ctx.ext.disjointTimerQuery && (!args.hasRunQuery || resultAvailable);
-
-    if (queryCanRun && ctx.ext.disjointTimerQuery) {
-
-        if (resultAvailable) {
-            let timeElapsed = gl.getQueryParameter(args.query, gl.QUERY_RESULT);
-            args.lastGpuMs = timeElapsed / 1000000;
-        }
-
-        if (queryCanRun) {
-            gl.beginQuery(ctx.ext.disjointTimerQuery.TIME_ELAPSED_EXT, args.query);
-            args.hasRunQuery = true;
-        }
-    }
 
     /// ------ The render pass ------ ///
 
@@ -247,7 +190,7 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
     renderAllBlocks(blockRender, layout, modelMtx, camPos, lightPosArr, lightColorArr);
     renderAllTris(args.triRender);
     renderAllThreads(args.threadRender);
-    renderAllText(gl, args.modelFontBuf);
+    renderAllText(args.modelFontBuf);
     renderAllLines(args.lineRender);
 
     {
@@ -260,13 +203,6 @@ export function renderModel(view: IRenderView, args: IRenderState, shape: IModel
         writeTextToBuffer(args.overlayFontBuf, text, new Vec4(0,0,0,1), w - tw - 4, 4, fontSize, new Mat4f());
 
         writeModelViewUbo(args.sharedRender, new Mat4f(), Mat4f.fromOrtho(0, w, h, 0, -1, 1));
-        renderAllText(gl, args.overlayFontBuf);
+        renderAllText(args.overlayFontBuf);
     }
-
-    if (ctx.ext.disjointTimerQuery && queryCanRun) {
-        gl.endQuery(ctx.ext.disjointTimerQuery.TIME_ELAPSED_EXT);
-    }
-    gl.flush();
-
-    args.lastJsMs = performance.now() - timer0;
 }

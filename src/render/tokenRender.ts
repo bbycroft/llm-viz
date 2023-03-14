@@ -6,7 +6,7 @@ import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { addLine } from "./lineRender";
 import { IRenderState } from "./modelRender";
 
-export function renderTokens(renderState: IRenderState, layout: IGptModelLayout, data?: Float32Array, count?: number, mix?: IColorMix) {
+export function drawTokens(renderState: IRenderState, layout: IGptModelLayout, data?: Float32Array, count?: number, mix?: IColorMix) {
     let { modelFontBuf: fontBuf, lineRender } = renderState;
 
     // Just rendering the 0, 1, 2 tokens, with plans to advance to the GPT text model etc

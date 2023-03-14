@@ -1,12 +1,12 @@
 import React, { ReactNode } from 'react';
 import s from './Commentary.module.css';
-import { useRenderState } from './Sidebar';
+import { useProgramState } from './Sidebar';
 import { phaseToGroup, IWalkthrough } from './walkthrough/Walkthrough';
 import { ICommentaryRes } from './walkthrough/WalkthroughTools';
 
 export const Commentary: React.FC = () => {
-    let renderState = useRenderState();
-    let walkthrough = renderState.walkthrough;
+    let progState = useProgramState();
+    let walkthrough = progState.walkthrough;
 
     return <>
         <div className={s.walkthroughText}>
@@ -57,8 +57,7 @@ export function walkthroughToText(walkthrough: IWalkthrough) {
                     res.push(el);
                 }
                 if (val.color) {
-                    console.log(val);
-                    let el = <span style={{ color: val.color.toHexColor() }}>{markupSimple(val.str)}</span>;
+                    let el = <span key={'i' + i} style={{ color: val.color.toHexColor() }}>{markupSimple(val.str)}</span>;
                     prevItems.push(el);
                 }
             }

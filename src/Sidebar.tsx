@@ -3,14 +3,14 @@ import { useSubscriptions } from './utils/data';
 import React, { createContext, useContext } from 'react';
 import clsx from 'clsx';
 import { IPhaseDef } from './walkthrough/WalkthroughTools';
-import { IRenderState } from './render/modelRender';
 import { PhaseTimeline } from './PhaseTimeline';
 import { Commentary } from './Commentary';
+import { IProgramState } from './Program';
 
 export const WalkthroughSidebar: React.FC = () => {
-    let renderState = useRenderState();
-    let walkthrough = renderState.walkthrough;
-    let camera = renderState.camera;
+    let progState = useProgramState();
+    let walkthrough = progState.walkthrough;
+    let camera = progState.camera;
 
     function handlePhaseClick(ev: React.MouseEvent, phase: IPhaseDef) {
         if (walkthrough.phase !== phase.id) {
@@ -18,7 +18,7 @@ export const WalkthroughSidebar: React.FC = () => {
             walkthrough.time = 0;
             walkthrough.lastBreakTime = null;
             walkthrough.running = false;
-            walkthrough.markDirty();
+            progState.markDirty();
         }
     }
 
@@ -64,10 +64,10 @@ export const WalkthroughSidebar: React.FC = () => {
     </div>;
 };
 
-export let RenderStateContext = createContext<IRenderState>(null!);
+export let ProgramStateContext = createContext<IProgramState>(null!);
 
-export function useRenderState() {
-    let context = useContext(RenderStateContext);
+export function useProgramState() {
+    let context = useContext(ProgramStateContext);
     useSubscriptions(context.htmlSubs);
     return context;
 }

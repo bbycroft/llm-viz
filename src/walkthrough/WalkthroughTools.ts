@@ -1,18 +1,19 @@
 import { IBlkDef, IGptModelLayout } from "@/src/GptModelLayout";
 import { IRenderState } from "@/src/render/modelRender";
 import { clamp } from "@/src/utils/data";
-import { measureTextWidth, writeTextToBuffer } from "@/src/render/fontRender";
+import { measureTextWidth } from "@/src/render/fontRender";
 import { Vec3, Vec4 } from "../utils/vector";
 import { IWalkthrough, Phase, PhaseGroup } from "./Walkthrough";
+import { IProgramState } from "../Program";
 
 export interface IWalkthroughArgs {
-    state: IRenderState;
+    state: IProgramState;
     layout: IGptModelLayout;
     walkthrough: IWalkthrough;
     tools: ReturnType<typeof phaseTools>;
 }
 
-export function phaseTools(state: IRenderState) {
+export function phaseTools(state: IProgramState) {
     let phaseState = state.walkthrough;
 
     function c_str(str: string, duration: number = 0.3, style: DimStyle = DimStyle.T) {
@@ -80,7 +81,7 @@ function createAtTime(wt: IWalkthrough, start: number, duration?: number, wait?:
     return info;
 }
 
-export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null, stringsArrRaw: TemplateStringsArray, ...values: any[]): ICommentaryRes {
+export function writeCommentary(state: IProgramState, prev: ICommentaryRes | null, stringsArrRaw: TemplateStringsArray, ...values: any[]): ICommentaryRes {
     let t = prev?.duration ?? 0;
     let colNum = 0;
     let fontSize = 17;
@@ -116,12 +117,12 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
 
         let strToDraw = str;
         let nextOff = 0;
-        let w = measureTextWidth(state.modelFontBuf, str, fontSize);
+        let w = measureTextWidth(state.render.modelFontBuf, str, fontSize);
         if (colNum + w > maxWidth) {
             lineOffset += lineHeight;
             colNum = 0;
             strToDraw = str.trimStart();
-            w = measureTextWidth(state.modelFontBuf, strToDraw, fontSize);
+            w = measureTextWidth(state.render.modelFontBuf, strToDraw, fontSize);
             if (w > maxWidth) {
                 // ignore for now; single word longer than line: should break at the character level
             }

@@ -1,15 +1,15 @@
 import { useReducer, useState } from 'react';
 import s from './PhaseTimeline.module.css';
-import { useRenderState } from './Sidebar';
+import { useProgramState } from './Sidebar';
 import { clamp, useGlobalDrag } from './utils/data';
 
 export const PhaseTimeline: React.FC = () => {
-    let renderState = useRenderState();
-    let walkthrough = renderState.walkthrough;
+    let progState = useProgramState();
+    let walkthrough = progState.walkthrough;
     let [baseEl, setBaseEl] = useState<HTMLDivElement | null>(null);
     let [, refresh] = useReducer((a: any) => a + 1, 0);
 
-    let camera = renderState.camera;
+    let camera = progState.camera;
     let totalTime = walkthrough.phaseLength;
 
     let toFract = (v: number) => clamp(v / totalTime, 0, 1);

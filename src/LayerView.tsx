@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { IDataAndModel, IModelShape, IModelState, initModel, runModel, setModelInputData } from './GptModel';
+import React, { useCallback, useEffect, useState } from 'react';
+import { IDataAndModel, IModelState, initModel, runModel, setModelInputData } from './GptModel';
 import s from './LayerView.module.css';
-import { initRender, IRenderState, IRenderView, renderModel } from './render/modelRender';
-import { clamp, useGlobalDrag, useRequestAnimationFrame } from './utils/data';
+import { IRenderState, IRenderView } from './render/modelRender';
+import { clamp, useGlobalDrag } from './utils/data';
 import { fetchFontAtlasData, IFontAtlasData } from './render/fontRender';
 import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
-import { IWalkthrough } from './walkthrough/Walkthrough';
-import { RenderStateContext, WalkthroughSidebar } from './Sidebar';
+import { ProgramStateContext, WalkthroughSidebar } from './Sidebar';
+import { initProgramState, IProgramState, runProgram } from './Program';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -28,20 +28,18 @@ export function LayerView() {
     let [dataAndModel, setDataAndModel] = useState<IDataAndModel | null>(null);
     let [canvasRender, setCanvasRender] = useState<CanvasRender | null>(null);
     let [fontAtlasData, setFontAtlasData] = useState<IFontAtlasData | null>(null);
-    let [walkthrough, setWalkthrough] = useState<IWalkthrough | null>(null);
-    let [counter, setCounter] = useReducer((a: number) => a + 1, 0);
 
-    let updateRenderState = useCallback((fn: (rs: IRenderState) => void) => {
+    let updateRenderState = useCallback((fn: (ps: IProgramState) => void) => {
         if (canvasRender) {
-            fn(canvasRender.renderState);
+            fn(canvasRender.progState);
             canvasRender.markDirty();
         }
     }, [canvasRender]);
 
-    let renderState = canvasRender?.renderState;
+    let progState = canvasRender?.progState;
 
     let [dragStart, setDragStart] = useGlobalDrag<{ camAngle: Vec3, camTarget: Vec3 }>(function handleMove(ev, ds) {
-        if (!renderState) {
+        if (!progState) {
             return;
         }
 
@@ -55,8 +53,8 @@ export function LayerView() {
             let sideMul = Math.sin(camAngle.x * Math.PI / 180) > 0 ? 1 : -1;
             target.x = target.x + sideMul * dx * 0.1 * camAngle.z;
 
-            updateRenderState(rs => {
-                rs.camera.center = target;
+            updateRenderState(ps => {
+                ps.camera.center = target;
             });
 
         } else {
@@ -66,8 +64,8 @@ export function LayerView() {
             let x = initial.x - dx * degPerPixel;
             let y = clamp(initial.y + dy * degPerPixel, -87, 87);
 
-            updateRenderState(rs => {
-                rs.camera.angle = new Vec3(x, y, camAngle.z);
+            updateRenderState(ps => {
+                ps.camera.angle = new Vec3(x, y, camAngle.z);
             });
         }
 
@@ -75,14 +73,14 @@ export function LayerView() {
     });
 
     function handleMouseDown(ev: React.MouseEvent) {
-        if (renderState) {
-            setDragStart(ev, { camAngle: renderState.camera.angle, camTarget: renderState.camera.center });
+        if (progState) {
+            setDragStart(ev, { camAngle: progState.camera.angle, camTarget: progState.camera.center });
         }
     }
 
     function handleWheel(ev: React.WheelEvent) {
-        if (renderState) {
-            let camAngle = renderState.camera.angle;
+        if (progState) {
+            let camAngle = progState.camera.angle;
             let zoom = clamp(camAngle.z * Math.pow(1.0013, ev.deltaY), 0.01, 10000);
             updateRenderState(rs => {
                 rs.camera.angle = new Vec3(camAngle.x, camAngle.y, zoom);
@@ -93,10 +91,10 @@ export function LayerView() {
 
     useEffect(() => {
         function handleKeyDown(ev: KeyboardEvent) {
-            if (!canvasRender?.renderState) {
+            if (!canvasRender?.progState) {
                 return;
             }
-            let walkthrough = canvasRender.renderState.walkthrough;
+            let walkthrough = canvasRender.progState.walkthrough;
             if (ev.key === ' ') {
                 walkthrough.running = !walkthrough.running;
                 walkthrough.lastBreakTime = walkthrough.time;
@@ -149,14 +147,9 @@ export function LayerView() {
         return () => { stale = true; };
     }, []);
 
-    let localSetWalkthrough = useCallback((walkthrough: IWalkthrough | null) => {
-        setCounter();
-        setWalkthrough(walkthrough);
-    }, []);
-
     useEffect(() => {
         if (canvasEl && fontAtlasData) {
-            let canvasRenderLocal = new CanvasRender(canvasEl, null!, fontAtlasData, localSetWalkthrough);
+            let canvasRenderLocal = new CanvasRender(canvasEl, null!, fontAtlasData);
             let resizeObserver = new ResizeObserver(() => {
                 canvasRenderLocal.canvasSizeDirty = true;
                 canvasRenderLocal.markDirty();
@@ -181,9 +174,9 @@ export function LayerView() {
 
     return <div className={s.view}>
         <div className={s.sidebar}>
-            {walkthrough && <RenderStateContext.Provider value={renderState!}>
+            {canvasRender && <ProgramStateContext.Provider value={canvasRender.progState}>
                 <WalkthroughSidebar />
-            </RenderStateContext.Provider>}
+            </ProgramStateContext.Provider>}
         </div>
         <div className={s.canvasWrap}>
             <canvas
@@ -205,17 +198,18 @@ interface ICanvasData {
 
 class CanvasRender {
     renderState: IRenderState;
+    progState: IProgramState;
     modelState: IModelState | null = null;
     random: Random;
     stopped = false;
     canvasSizeDirty = true;
 
-    constructor(private canvasEl: HTMLCanvasElement, private canvasData: ICanvasData, fontAtlasData: IFontAtlasData, private phaseInfoCallback: (a: IWalkthrough) => void) {
-        this.renderState = initRender(canvasEl, fontAtlasData);
+    constructor(canvasEl: HTMLCanvasElement, private canvasData: ICanvasData, fontAtlasData: IFontAtlasData) {
+        this.progState = initProgramState(canvasEl, fontAtlasData);
+        this.progState.markDirty = this.markDirty;
+        this.renderState = this.progState.render;
         this.random = new Random(4);
     }
-
-    modelInitRun = false;
 
     destroy() {
         this.stopped = true;
@@ -224,11 +218,10 @@ class CanvasRender {
     setData(data: ICanvasData) {
         this.canvasData = data;
 
-        if (data.dataAndModel && !this.modelInitRun) {
-            this.modelInitRun = true;
-            this.modelState = initModel(this.renderState, data.dataAndModel, 1);
-            setModelInputData(this.renderState, this.modelState, this.random);
-            runModel(this.renderState, this.modelState);
+        if (data.dataAndModel && !this.progState.gptGpuModel) {
+            this.progState.gptGpuModel = initModel(this.renderState, data.dataAndModel, 1);
+            setModelInputData(this.renderState, this.progState.gptGpuModel, this.random);
+            runModel(this.renderState, this.progState.gptGpuModel);
         }
         this.markDirty();
     }
@@ -274,38 +267,9 @@ class CanvasRender {
             this.canvasSizeDirty = false;
         }
 
-        let shape: IModelShape = {
-            B: 1,
-            T: 11,
-            C: 48,
-            nHeads: 3,
-            A: 48 / 3,
-            nBlocks: 3,
-            vocabSize: 3,
-            // vocabSize: 128,
-        };
-
-        // let shapeGpt1: IModelShape = {
-        //     B: 1,
-        //     nBlocks: 12,
-        //     nHeads: 12,
-        //     C: 768,
-        //     A: 768 / 12,
-        //     vocabSize: 50257,
-        //     T: 1024,
-        // };
-
-        let view: IRenderView = {
-            ...this.canvasData,
-            time,
-            dt,
-            markDirty: this.markDirty,
-        }
-
-        renderModel(view, this.renderState, shape, this.modelState || undefined);
-
-        this.phaseInfoCallback(this.renderState.walkthrough);
-        this.renderState.htmlSubs.notify();
+        let view: IRenderView = { time, dt, markDirty: this.markDirty };
+        runProgram(view, this.progState);
+        this.progState.htmlSubs.notify();
 
     }
 

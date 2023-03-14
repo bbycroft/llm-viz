@@ -384,8 +384,9 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Ve
     fontBuf.segmentsUsed += 1;
 }
 
-export function renderAllText(gl: WebGL2RenderingContext, fontBuf: IFontBuffers) {
+export function renderAllText(fontBuf: IFontBuffers) {
     let atlas = fontBuf.atlas;
+    let gl = atlas.gl;
 
     gl.disable(gl.CULL_FACE);
     gl.depthMask(false);

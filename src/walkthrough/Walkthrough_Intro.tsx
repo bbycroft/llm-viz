@@ -1,7 +1,7 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
 import { DimStyle, dimStyleColor, IWalkthroughArgs, phaseTools } from "./WalkthroughTools";
 import s from './Walkthrough.module.css';
-import { useRenderState } from "../Sidebar";
+import { useProgramState } from "../Sidebar";
 
 /*
 Need to re-think how we display & interact with the walkthrough. Current approach just doesn't really work at all.
@@ -24,7 +24,7 @@ Guess we just chuck them into a data structure that we can gen into react/html.
 */
 
 interface IIntroState {
-    
+
 }
 
 function getIntroState(walkthrough: IWalkthrough): IIntroState {

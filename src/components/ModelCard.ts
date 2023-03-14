@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { drawTextOnModel } from "../Annotations";
 import { cameraToMatrixView } from "../Camera";
-import { IGptModelLayout, IModelLayout } from "../GptModelLayout";
+import { IGptModelLayout } from "../GptModelLayout";
+import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText, measureTextWidth, writeTextToBuffer } from "../render/fontRender";
 import { addLine, addLine2 as drawLine, ILineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
@@ -10,7 +9,7 @@ import { Mat4f } from "../utils/matrix";
 import { Vec3, Vec4 } from "../utils/vector";
 import { DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
 
-export function renderModelCard(state: IRenderState, layout: IGptModelLayout) {
+export function drawModelCard(state: IProgramState) {
 
     // a rectangle with rounded corners (how to do the rounded corners?)
     // the title of the model
@@ -25,7 +24,7 @@ export function renderModelCard(state: IRenderState, layout: IGptModelLayout) {
     Not tooo bad actually, but not worth it for now.
     */
 
-    let gl = state.gl;
+    let { render, layout } = state;
     let { camPos } = cameraToMatrixView(state.camera);
     let dist = camPos.dist(new Vec3(0, 0, -30));
 
@@ -44,9 +43,9 @@ export function renderModelCard(state: IRenderState, layout: IGptModelLayout) {
 
     let tl = new Vec3(-110, -97, 0);
     let br = new Vec3( 110, -30, 0);
-    drawLineRect(state, tl, br, lineOpts);
+    drawLineRect(render, tl, br, lineOpts);
 
-    addQuad(state.triRender, new Vec3(tl.x, tl.y, -0.1), new Vec3(br.x, br.y, -0.1), backgroundColor, mtx);
+    addQuad(render.triRender, new Vec3(tl.x, tl.y, -0.1), new Vec3(br.x, br.y, -0.1), backgroundColor, mtx);
 
     let title = "nano-gpt";
 
@@ -66,18 +65,18 @@ export function renderModelCard(state: IRenderState, layout: IGptModelLayout) {
     let paramHeight = 2 + paramLineHeight * paramFontScale * 3 + 1;
 
     let titleFontScale = 13;
-    let titleW = measureTextWidth(state.modelFontBuf, title, titleFontScale);
-    writeTextToBuffer(state.modelFontBuf, title, titleColor, tl.x + 2, tl.y + paramHeight / 2 - titleFontScale / 2 - 1, titleFontScale, mtx);
+    let titleW = measureTextWidth(render.modelFontBuf, title, titleFontScale);
+    writeTextToBuffer(render.modelFontBuf, title, titleColor, tl.x + 2, tl.y + paramHeight / 2 - titleFontScale / 2 - 1, titleFontScale, mtx);
 
     // layout.weightCount = 150000000000;
     let weightSize = 8;
-    let weightTitleW = measureTextWidth(state.modelFontBuf, `n_params = `, paramFontScale);
+    let weightTitleW = measureTextWidth(render.modelFontBuf, `n_params = `, paramFontScale);
     let weightOffX = 80;
     let weightCountText = numberToCommaSep(layout.weightCount);
-    writeTextToBuffer(state.modelFontBuf, `n_params = `, titleColor, tl.x + weightOffX - weightTitleW, tl.y + paramHeight / 2 - paramFontScale / 2, paramFontScale, mtx);
-    writeTextToBuffer(state.modelFontBuf, weightCountText, titleColor, tl.x + weightOffX, tl.y + paramHeight / 2 - weightSize / 2, weightSize, mtx);
+    writeTextToBuffer(render.modelFontBuf, `n_params = `, titleColor, tl.x + weightOffX - weightTitleW, tl.y + paramHeight / 2 - paramFontScale / 2, paramFontScale, mtx);
+    writeTextToBuffer(render.modelFontBuf, weightCountText, titleColor, tl.x + weightOffX, tl.y + paramHeight / 2 - weightSize / 2, weightSize, mtx);
     let infoText = "goal: sort 6 letters from { A, B, C } into ascending order";
-    writeTextToBuffer(state.modelFontBuf, infoText, titleColor, tl.x + 2, tl.y + paramHeight + 2, 4, mtx);
+    writeTextToBuffer(render.modelFontBuf, infoText, titleColor, tl.x + 2, tl.y + paramHeight + 2, 4, mtx);
 
     paramOff = tl.y + 2;
     addParam("C (channels) = ", C.toString(), dimStyleColor(DimStyle.C));
@@ -91,20 +90,20 @@ export function renderModelCard(state: IRenderState, layout: IGptModelLayout) {
 
     function addParam(name: string, value: string, color: Vec4 = borderColor) {
         let y = paramOff;
-        let w = measureTextWidth(state.modelFontBuf, name, paramFontScale);
-        let numW = measureTextWidth(state.modelFontBuf, value, paramFontScale);
+        let w = measureTextWidth(render.modelFontBuf, name, paramFontScale);
+        let numW = measureTextWidth(render.modelFontBuf, value, paramFontScale);
         let left = paramLeft;
-        writeTextToBuffer(state.modelFontBuf, name, color,  left - w        , y, paramFontScale, mtx);
-        writeTextToBuffer(state.modelFontBuf, value, color, left + maxLen * numWidth - numW, y, paramFontScale, mtx);
+        writeTextToBuffer(render.modelFontBuf, name, color,  left - w        , y, paramFontScale, mtx);
+        writeTextToBuffer(render.modelFontBuf, value, color, left + maxLen * numWidth - numW, y, paramFontScale, mtx);
         paramOff += paramFontScale * paramLineHeight;
     }
 
-    addLine(state.lineRender, thick, borderColor, new Vec3(tl.x, tl.y + paramHeight), new Vec3(br.x, tl.y + paramHeight), n, mtx);
+    addLine(render.lineRender, thick, borderColor, new Vec3(tl.x, tl.y + paramHeight), new Vec3(br.x, tl.y + paramHeight), n, mtx);
 
     renderInputOutput(state, layout, new Vec3(tl.x, tl.y + paramHeight + 8, 0), new Vec3(br.x, br.y, 0), lineOpts);
 }
 
-export function renderInputOutput(state: IRenderState, layout: IGptModelLayout, tl: Vec3, br: Vec3, lineOpts: ILineOpts) {
+export function renderInputOutput(state: IProgramState, layout: IGptModelLayout, tl: Vec3, br: Vec3, lineOpts: ILineOpts) {
     // rect with n cells
     // each cell is a rect with a letter & number in it, the number is smaller & below the letter
 
@@ -113,6 +112,8 @@ export function renderInputOutput(state: IRenderState, layout: IGptModelLayout, 
 
     // draw rectangle
     // iter through boxes; draw each one, sampling from the input data
+
+    let render = state.render;
 
     lineOpts = { ...lineOpts, thick: lineOpts.thick * 0.8 };
 
@@ -134,9 +135,9 @@ export function renderInputOutput(state: IRenderState, layout: IGptModelLayout, 
     let inBr = new Vec3(inTl.x + cellW * T, inTl.y + inCellH, 0);
 
     let inputTitle = "Input";
-    drawText(state.modelFontBuf, inputTitle, inTl.x, tl.y, titleTextOpts);
+    drawText(render.modelFontBuf, inputTitle, inTl.x, tl.y, titleTextOpts);
     let tokens = layout.model?.inputBuf;
-    drawLineRect(state, inTl, inBr, lineOpts);
+    drawLineRect(render, inTl, inBr, lineOpts);
 
     function tokenIndexToString(a: number) {
         return String.fromCharCode('A'.charCodeAt(0) + a); // just A, B, C supported!
@@ -146,39 +147,39 @@ export function renderInputOutput(state: IRenderState, layout: IGptModelLayout, 
 
         if (i > 0) {
             let lineX = inTl.x + i * cellW;
-            drawLine(state.lineRender, new Vec3(lineX, inTl.y, 0), new Vec3(lineX, inBr.y, 0), lineOpts);
+            drawLine(render.lineRender, new Vec3(lineX, inTl.y, 0), new Vec3(lineX, inBr.y, 0), lineOpts);
         }
 
         if (tokens && i < layout.model!.activeCount) {
             let cx = inTl.x + (i + 0.5) * cellW;
 
             let tokStr = tokenIndexToString(tokens[i]);
-            let tokW = measureText(state.modelFontBuf, tokStr, tokTextOpts);
-            let idxW = measureText(state.modelFontBuf, tokens[i].toString(), idxTextOpts);
+            let tokW = measureText(render.modelFontBuf, tokStr, tokTextOpts);
+            let idxW = measureText(render.modelFontBuf, tokens[i].toString(), idxTextOpts);
             let totalH = tokTextOpts.size + idxTextOpts.size;
             let top = inTl.y + (inCellH - totalH) / 2;
 
-            drawText(state.modelFontBuf, tokStr, cx - tokW / 2, top, tokTextOpts);
-            drawText(state.modelFontBuf, tokens[i].toString(),  cx - idxW / 2, top + tokTextOpts.size, idxTextOpts);
+            drawText(render.modelFontBuf, tokStr, cx - tokW / 2, top, tokTextOpts);
+            drawText(render.modelFontBuf, tokens[i].toString(),  cx - idxW / 2, top + tokTextOpts.size, idxTextOpts);
         }
 
     }
 
     let outCellH = 20;
     let outputTitle = "Output";
-    drawText(state.modelFontBuf, outputTitle, inTl.x, inBr.y + 1, titleTextOpts);
+    drawText(render.modelFontBuf, outputTitle, inTl.x, inBr.y + 1, titleTextOpts);
 
     let outTl = new Vec3(inTl.x, inBr.y + 1 + titleTextOpts.size + 1);
     let outBr = new Vec3(inBr.x, outTl.y + outCellH, 0);
 
-    drawLineRect(state, outTl, outBr, lineOpts);
+    drawLineRect(render, outTl, outBr, lineOpts);
 
     let sortedOutput = layout.model?.sortedBuf;
 
     for (let i = 0; i < T; i++) {
         if (i > 0) {
             let lineX = outTl.x + i * cellW;
-            drawLine(state.lineRender, new Vec3(lineX, outTl.y, 0), new Vec3(lineX, outBr.y, 0), lineOpts);
+            drawLine(render.lineRender, new Vec3(lineX, outTl.y, 0), new Vec3(lineX, outBr.y, 0), lineOpts);
         }
 
         if (sortedOutput && i < layout.model!.activeCount) {
@@ -197,19 +198,19 @@ export function renderInputOutput(state: IRenderState, layout: IGptModelLayout, 
                 let idxOpts = dimmed ? dimmedIdxTextOpts : idxTextOpts;
 
                 let tokStr = tokenIndexToString(tokIdx);
-                let tokW = measureText(state.modelFontBuf, tokStr, tokOpts);
-                let idxW = measureText(state.modelFontBuf, tokIdx.toString(), idxOpts);
+                let tokW = measureText(render.modelFontBuf, tokStr, tokOpts);
+                let idxW = measureText(render.modelFontBuf, tokIdx.toString(), idxOpts);
                 let textH = tokOpts.size + idxOpts.size;
                 let top = partTop + (partH - textH) / 2;
 
                 if (partH > textH) {
-                    drawText(state.modelFontBuf, tokStr, cx - tokW / 2, top, tokOpts);
-                    drawText(state.modelFontBuf, tokIdx.toString(),  cx - idxW / 2, top + tokOpts.size, idxOpts);
+                    drawText(render.modelFontBuf, tokStr, cx - tokW / 2, top, tokOpts);
+                    drawText(render.modelFontBuf, tokIdx.toString(),  cx - idxW / 2, top + tokOpts.size, idxOpts);
                 }
 
                 usedSoFar += tokProb;
 
-                drawLine(state.lineRender, new Vec3(cx - cellW/2, partTop + partH, 0), new Vec3(cx + cellW/2, partTop + partH, 0), lineOpts);
+                drawLine(render.lineRender, new Vec3(cx - cellW/2, partTop + partH, 0), new Vec3(cx + cellW/2, partTop + partH, 0), lineOpts);
                 if (usedSoFar >= 1.0 - 1e-4) {
                     break;
                 }
@@ -218,14 +219,14 @@ export function renderInputOutput(state: IRenderState, layout: IGptModelLayout, 
     }
 }
 
-export function drawLineRect(state: IRenderState, tl: Vec3, br: Vec3, opts: ILineOpts) {
+export function drawLineRect(render: IRenderState, tl: Vec3, br: Vec3, opts: ILineOpts) {
 
     let corners = [tl, new Vec3(br.x, tl.y, 0), br, new Vec3(tl.x, br.y, 0)];
     for (let i = 0; i < 4; i++) {
         let a = corners[i];
         let b = corners[(i + 1) % 4];
 
-        drawLine(state.lineRender, a, b, opts);
+        drawLine(render.lineRender, a, b, opts);
     }
 }
 
