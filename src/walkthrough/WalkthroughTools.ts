@@ -137,7 +137,7 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
             let x = clamp((targetT - tStart) / (tEnd - tStart), 0, 1);
             color = Vec4.lerp(color, targetColor, x);
         }
-        writeTextToBuffer(state.overlayFontBuf, strToDraw, color, 10 + colNum, lineOffset, fontSize, undefined, fontOverride);
+        // writeTextToBuffer(state.overlayFontBuf, strToDraw, color, 10 + colNum, lineOffset, fontSize, undefined, fontOverride);
 
         colNum = nextOff;
     }
@@ -147,9 +147,6 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
         let words = stringsArr[i].split(/(?=[ \n]+)/).filter(a => a !== ' ');
 
         for (let word of words) {
-            if (!prev) {
-                console.log(`word: '${word}'`);
-            }
             let tEnd = t + word.length / charsPerSecond;
             writeWord(word, t, tEnd);
             t = tEnd;
@@ -172,12 +169,15 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
         values,
         lineOffset,
         colNum,
+        commentaryList: [],
     };
+    res.commentaryList = [res];
 
     if (prev) {
         prev.lineOffset = lineOffset;
         prev.colNum = colNum;
         prev.duration = t;
+        prev.commentaryList = [...prev.commentaryList, res];
     } else {
         state.walkthrough.commentary = res;
     }
@@ -188,6 +188,7 @@ export function writeCommentary(state: IRenderState, prev: ICommentaryRes | null
 export interface ICommentaryRes extends ITimeInfo {
     stringsArr: TemplateStringsArray;
     values: any[];
+    commentaryList: ICommentaryRes[];
     duration: number;
     lineOffset: number;
     colNum: number;
@@ -208,6 +209,7 @@ export function moveCameraTo(state: IRenderState, time: ITimeInfo, rot: Vec3, ta
 
 }
 
+
 export enum DimStyle {
     t,
     T,
@@ -217,6 +219,7 @@ export enum DimStyle {
     n_vocab,
     n_heads,
     n_layers,
+    Token,
 }
 
 export function dimStyleColor(style: DimStyle) {
@@ -226,6 +229,8 @@ export function dimStyleColor(style: DimStyle) {
             return new Vec4(0.4, 0.4, 0.9, 1);
         case DimStyle.C:
             return new Vec4(0.9, 0.3, 0.3, 1);
+        case DimStyle.Token:
+            return new Vec4(0.3, 0.7, 0.3, 1);
         case DimStyle.n_vocab:
             return Vec4.fromHexColor('#7c3c8d'); // new Vec4(0.8, 0.6, 0.3, 1);
     }

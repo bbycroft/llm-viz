@@ -10,7 +10,7 @@ import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
 import { IWalkthrough } from './walkthrough/Walkthrough';
-import { WalkthroughSidebar } from './WalkthroughSidebar';
+import { RenderStateContext, WalkthroughSidebar } from './WalkthroughSidebar';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -30,8 +30,6 @@ export function LayerView() {
     let [fontAtlasData, setFontAtlasData] = useState<IFontAtlasData | null>(null);
     let [walkthrough, setWalkthrough] = useState<IWalkthrough | null>(null);
     let [counter, setCounter] = useReducer((a: number) => a + 1, 0);
-    let [cursorPos, setCursorPos] = useState(new Vec3(0, 0));
-    let [pointPos, setPointPos] = useState(new Vec3(0, 0));
 
     let updateRenderState = useCallback((fn: (rs: IRenderState) => void) => {
         if (canvasRender) {
@@ -79,13 +77,6 @@ export function LayerView() {
     function handleMouseDown(ev: React.MouseEvent) {
         if (renderState) {
             setDragStart(ev, { camAngle: renderState.camera.angle, camTarget: renderState.camera.center });
-        }
-    }
-
-    function handleMouseMove(ev: React.MouseEvent) {
-        if (canvasEl) {
-            let bcr = canvasEl.getBoundingClientRect();
-            setCursorPos(new Vec3(ev.clientX - bcr.x, ev.clientY - bcr.y));
         }
     }
 
@@ -163,22 +154,7 @@ export function LayerView() {
         setWalkthrough(walkthrough);
     }, []);
 
-    let vel = useRef(new Vec3(0, 0));
-    useRequestAnimationFrame(pointPos.dist(cursorPos) > 0.1, (dt) => {
-        let tension = 400;
-        let mass = 10;
-        let friction = 2 * Math.sqrt(mass * tension);
-
-        let dist = pointPos.sub(cursorPos);
-        let springF = (dist.add(dist.normalize().mul(4))).mul(-tension);
-        let dampF = vel.current.mul(-friction);
-        let accel = springF.add(dampF).mul(1.0 / mass);
-        vel.current = vel.current.add(accel.mul(dt));
-        setPointPos(pointPos.add(vel.current.mul(dt)));
-    });
-
     useEffect(() => {
-        console.log('setting up canvas with font', canvasEl, fontAtlasData);
         if (canvasEl && fontAtlasData) {
             let canvasRenderLocal = new CanvasRender(canvasEl, null!, fontAtlasData, localSetWalkthrough);
             let resizeObserver = new ResizeObserver(() => {
@@ -205,13 +181,14 @@ export function LayerView() {
 
     return <div className={s.view}>
         <div className={s.sidebar}>
-            {walkthrough && <WalkthroughSidebar walkthrough={walkthrough} counter={counter} renderState={renderState!} />}
+            {walkthrough && <RenderStateContext.Provider value={renderState!}>
+                <WalkthroughSidebar walkthrough={walkthrough} counter={counter} renderState={renderState!} />
+            </RenderStateContext.Provider>}
         </div>
         <div className={s.canvasWrap}>
             <canvas
                 className={s.canvas}
                 ref={setCanvasEl}
-                onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
                 onWheel={handleWheel}
                 onContextMenu={ev => ev.preventDefault()}
@@ -328,6 +305,7 @@ class CanvasRender {
         renderModel(view, this.renderState, shape, this.modelState || undefined);
 
         this.phaseInfoCallback(this.renderState.walkthrough);
+        this.renderState.htmlSubs.notify();
 
     }
 

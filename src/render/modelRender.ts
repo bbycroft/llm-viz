@@ -18,6 +18,7 @@ import { SavedState } from "../SavedState";
 import { initTriRender, renderAllTris, resetTriRender } from "./triRender";
 import { drawAllArrows } from "../components/Arrow";
 import { drawBlockLabels } from "../components/BlockLabels";
+import { Subscriptions } from "../utils/data";
 
 export interface IRenderView {
     time: number;
@@ -49,12 +50,14 @@ export interface IRenderState {
     lastGpuMs: number;
     lastJsMs: number;
     hasRunQuery: boolean;
+
+    htmlSubs: Subscriptions;
 }
 
 export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtlasData): IRenderState {
     // init shaders for various block types
 
-    console.clear();
+    // console.clear();
     let gl = canvasEl.getContext("webgl2", { antialias: true })!;
 
     let ext: IGLContext['ext'] = {
@@ -123,6 +126,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         lastGpuMs: 0,
         lastJsMs: 0,
         hasRunQuery: false,
+        htmlSubs: new Subscriptions(),
         camera,
     };
 }

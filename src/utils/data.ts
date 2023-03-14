@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 export function makeArray<T = number>(length: number, val?: T): T[] {
     return new Array(length).fill(val ?? 0);
@@ -205,4 +205,22 @@ export function base64ToArrayBuffer(base64: string) {
         bytes[i] = binaryString.charCodeAt(i);
     }
     return bytes.buffer;
+}
+
+export class Subscriptions {
+    subs = new Set<() => void>();
+    subscribe = (fn: () => void): (() => void) => {
+        this.subs.add(fn);
+        return () => this.subs.delete(fn);
+    }
+    notify = () => {
+        for (let sub of this.subs) {
+            sub();
+        }
+    }
+}
+
+export function useSubscriptions(subscription: Subscriptions) {
+    let [, refresh] = useReducer(a => a + 1, 0);
+    useEffect(() => subscription.subscribe(refresh), [subscription]);
 }

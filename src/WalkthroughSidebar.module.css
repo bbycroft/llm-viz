@@ -1,13 +1,10 @@
 @import '@/styles/variables.css';
 
-.title {
-    margin: 8px;
-}
-
 .split {
     display: flex;
     flex-direction: row;
     flex: 1;
+    overflow: hidden;
     align-items: stretch;
 }
 
@@ -16,6 +13,7 @@
     flex-direction: column;
     flex: 1;
     justify-content: stretch;
+    overflow: hidden;
 }
 
 .timelineLeft {
@@ -94,8 +92,11 @@
 }
 
 .content {
+    display: flex;
+    flex-direction: column;
     margin: 8px;
     flex: 1;
+    overflow: hidden;
 }
 
 .phaseGroupTitle {
@@ -125,4 +126,41 @@
 
 .camStats {
     font-size: 12px;
+}
+
+
+.title {
+    margin: 8px 0;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.toc {
+    padding-bottom: 4px;
+    border-bottom: 1px solid #aaa;
+}
+
+.walkthroughText {
+    flex: 0 1 auto;
+    padding: 0 40px 0 20px;
+    text-align: justify;
+    /* font-size: 16px; */
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    scrollbar-width: 10px;
+    scrollbar-color: #f00 #0f0;
+}
+
+.walkthroughText::-webkit-scrollbar {
+    width: 10px;
+    border-radius: 20px;;
+    background-color: #cfcfcf;
+}
+
+.walkthroughText::-webkit-scrollbar-thumb {
+    /* width: 10px; */
+    background-color: rgb(133, 133, 133);
+    border-radius: 20px;
+    cursor: pointer;
 }

@@ -1,0 +1,45 @@
+
+.tableWrap {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+}
+
+
+.table {
+    border-collapse: collapse;
+}
+
+.table :global(th) {
+    text-align: center;
+    padding: 4px 8px;
+    color: #777;
+    font-weight: normal;
+    font-style: italic;
+
+}
+
+.table :global(thead) {
+    border-bottom: 1px solid #999;
+}
+
+.table :global(td) {
+    padding: 2px 8px;
+    text-align: center;
+}
+
+.table tr th {
+    border-right: 1px solid #999;
+}
+
+.table tr:first-child th, .table tr:first-child td {
+    border-bottom: 1px solid #999;
+}
+
+.tokString td {
+    color: #3a3;
+}
+
+.tokIndex {
+    color: #333;
+}

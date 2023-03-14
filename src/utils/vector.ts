@@ -163,6 +163,10 @@ export class Vec4 {
         let z = hexVal & 0xFF;
         return new Vec4(x / 255.0 * alpha, y / 255.0 * alpha, z / 255.0 * alpha, alpha);
     }
+    toHexColor(): string {
+        let toPair = (v: number) => Math.floor(v * 255).toString(16).padStart(2, '0');
+        return `#${toPair(this.x)}${toPair(this.y)}${toPair(this.z)}${toPair(this.w)}`;
+    }
     toString(): string {
         return `Vec4(${numMaxDp(this.x)}, ${numMaxDp(this.y)}, ${numMaxDp(this.z)}, ${numMaxDp(this.w)})`;
     }

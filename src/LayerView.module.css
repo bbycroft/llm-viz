@@ -7,25 +7,25 @@
     flex-direction: row;
     align-items: stretch;
     background-color: #e4edff;
+    overflow: hidden;
     z-index: 0;
 }
 
 .sidebar {
-    flex: 1;
+    flex: 3;
     z-index: 1;
-    min-width: 300px;
-    max-width: 300px;;
+    /* min-width: 300px;
+    max-width: 300px;; */
     display: flex;
     flex-direction: column;
-    font-size: 16px;
-    font-family: Roboto;
+    font-size: 18px;
+    /* font-family: Roboto; */
 }
 
 .canvasWrap {
     flex: 5;
     position: relative;
     height: 100%;
-    flex: 5;
     overflow: hidden;
 }
 

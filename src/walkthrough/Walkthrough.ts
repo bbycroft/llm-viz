@@ -56,7 +56,7 @@ export type IWalkthrough = ReturnType<typeof initWalkthrough>;
 
 export function initWalkthrough() {
     return {
-        phase: SavedState.state?.phase ?? Phase.LayerNorm1,
+        phase: SavedState.state?.phase ?? Phase.Intro_Intro,
         time: SavedState.state?.phaseTime ?? 0,
         running: false,
         lastBreakTime: null as number | null,
@@ -68,7 +68,7 @@ export function initWalkthrough() {
             groupId: PhaseGroup.Intro,
             title: 'Introduction',
             phases: [
-                { id: Phase.Intro_Intro, title: 'The First' },
+                { id: Phase.Intro_Intro, title: 'Overview' },
             ],
         }, {
             groupId: PhaseGroup.Detailed_Input,
@@ -339,14 +339,14 @@ export function runWalkthrough(state: IRenderState, view: IRenderView, layout: I
             let color = dimStyleColor(DimStyle.n_vocab).mul(t3_showTokEmIdx.t);
             indexMappingLines(state, layout, layout.idxObj, layout.tokEmbedObj, color, padTop, padBot, tIdx, tokIdx, 0.5);
 
-            splitGridX(layout, layout.tokEmbedObj, Dim.X, tokIdx + 0.5, 0);
-            let tokSub = findSubBlocks(layout.tokEmbedObj, Dim.X, tokIdx, tokIdx)[0];
+            let tokSub = splitGridX(layout, layout.tokEmbedObj, Dim.X, tokIdx + 0.5, 0);
+            // let tokSub = findSubBlocks(layout.tokEmbedObj, Dim.X, tokIdx, tokIdx)[0];
             if (tokSub) {
                 tokSub.highlight = 0.2;
             }
 
-            splitGridX(layout, layout.posEmbedObj, Dim.X, tIdx + 0.5, 0);
-            let posSub = findSubBlocks(layout.posEmbedObj, Dim.X, tIdx, tIdx)[0];
+            let posSub = splitGridX(layout, layout.posEmbedObj, Dim.X, tIdx + 0.5, 0);
+            // let posSub = findSubBlocks(layout.posEmbedObj, Dim.X, tIdx, tIdx)[0];
             if (posSub) {
                 posSub.highlight = 0.2;
             }
