@@ -64,6 +64,7 @@ export function initWalkthrough() {
         times: [] as ITimeInfo[],
         phaseLength: 0,
         markDirty: () => { }, // bit of a hack to get it to WalkthroughSidebar
+        phaseData: new Map<Phase, any>(),
         phaseList: [{
             groupId: PhaseGroup.Intro,
             title: 'Introduction',

@@ -10,7 +10,7 @@ import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
 import { IWalkthrough } from './walkthrough/Walkthrough';
-import { RenderStateContext, WalkthroughSidebar } from './WalkthroughSidebar';
+import { RenderStateContext, WalkthroughSidebar } from './Sidebar';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -182,7 +182,7 @@ export function LayerView() {
     return <div className={s.view}>
         <div className={s.sidebar}>
             {walkthrough && <RenderStateContext.Provider value={renderState!}>
-                <WalkthroughSidebar walkthrough={walkthrough} counter={counter} renderState={renderState!} />
+                <WalkthroughSidebar />
             </RenderStateContext.Provider>}
         </div>
         <div className={s.canvasWrap}>

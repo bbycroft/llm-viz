@@ -1,0 +1,54 @@
+@import '@/styles/variables.css';
+
+.title {
+    margin: 8px 0;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.walkthroughText {
+    flex: 1;
+    margin-top: 10px;
+    padding: 0 40px 0 20px;
+    text-align: justify;
+    /* font-size: 16px; */
+    display: flex;
+    flex-direction: column;
+    justify-content: stretch;
+    overflow-y: auto;
+    scrollbar-width: 10px;
+    scrollbar-color: #f00 #0f0;
+
+    box-shadow: inset 0 0 5px 0 rgba(0, 0, 0, 0.2);
+}
+
+.walkthroughText::-webkit-scrollbar {
+    width: 10px;
+    border-radius: 20px;;
+    background-color: #cfcfcf;
+}
+
+.walkthroughText::-webkit-scrollbar-thumb {
+    /* width: 10px; */
+    background-color: rgb(133, 133, 133);
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.walkthroughParas {
+    flex: 1;
+}
+
+.controls {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+}
+
+.commentaryBreak {
+    flex: 1;
+    margin: 20px 20%;
+    border-bottom: 1px solid #cfcfcf;
+}

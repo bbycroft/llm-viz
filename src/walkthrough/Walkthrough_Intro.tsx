@@ -1,7 +1,7 @@
-import { Phase } from "./Walkthrough";
+import { IWalkthrough, Phase } from "./Walkthrough";
 import { DimStyle, dimStyleColor, IWalkthroughArgs, phaseTools } from "./WalkthroughTools";
 import s from './Walkthrough.module.css';
-import { useRenderState } from "../WalkthroughSidebar";
+import { useRenderState } from "../Sidebar";
 
 /*
 Need to re-think how we display & interact with the walkthrough. Current approach just doesn't really work at all.
@@ -23,6 +23,14 @@ Guess we just chuck them into a data structure that we can gen into react/html.
 
 */
 
+interface IIntroState {
+    
+}
+
+function getIntroState(walkthrough: IWalkthrough): IIntroState {
+    return walkthrough.phaseData.get(Phase.Intro_Intro) as IIntroState;
+}
+
 export function walkthroughIntro(args: IWalkthroughArgs) {
     let { breakAfter, atEvent, atTime, afterTime, commentary, commentaryPara, c_str } = phaseTools(args.state);
     let { state, layout, walkthrough } = args;
@@ -33,20 +41,24 @@ export function walkthroughIntro(args: IWalkthroughArgs) {
 
         let c0 = commentary`Welcome to the walkthrough of the GPT large language model! Here we'll explore the model _nano-gpt_, with a mere 85,000 parameters.`;
 
-        let c4 = commentaryPara(c0)`It's goal is a simple one: take a sequence of six letters such as "CBABBC"
-            and sort them in alphabetical order, i.e. "ABBBCC".${embed(ExampleInputOutput)}`;
+        let c4 = commentaryPara(c0)`It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputOutput)}
+            and sort them in alphabetical order, i.e. to "ABBBCC".`;
 
         breakAfter(c4);
 
         let tokenStr = c_str('_token_', 0, DimStyle.Token);
 
-        let c5 = commentaryPara(c0)`We call each of these letters a ${tokenStr}, and the set of the model's different tokens make up it's vocabulary:${embed(TokenVocab)}`;
+        let c5 = commentaryPara(c0)`We call each of these letters a ${tokenStr}, and the set of the model's different tokens make up it's _vocabulary_:${embed(TokenVocab)}`;
 
         breakAfter(c5);
 
-        let c6 = commentaryPara(c0)`From this table, each token is assigned a number. And now we can enter this sequence into the model:${embed(ExampleTokenValues)}`;
+        let c6 = commentaryPara(c0)`From this table, each token is assigned a number. And now we can enter this sequence of numbers into the model:${embed(ExampleTokenValues)}`;
 
         breakAfter(c6);
+
+        let c6b = commentaryPara(c0)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. Bright: positive, grey: 0, dark: negative. ${embed(GreenBlueCells)}`;
+
+        breakAfter(c6b);
 
         let c7 = commentaryPara(c0)`Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
 
@@ -92,5 +104,15 @@ const TokenVocab: React.FC = () => {
                 <tr className={s.tokIndex}><th>index</th><td>0</td><td>1</td><td>2</td></tr>
             </tbody>
         </table>
+    </div>
+};
+
+const GreenBlueCells: React.FC = () => {
+
+    return <div className={s.tableWrap}>
+        <div>
+            <div>Green Cell: {'[]'} number; being processed</div>
+            <div>Blue Cell: {'[]'} number; weight</div>
+        </div>
     </div>
 };

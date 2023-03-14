@@ -1,0 +1,87 @@
+@import '@/styles/variables.css';
+
+.split {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    overflow: hidden;
+    align-items: stretch;
+}
+
+.walkthrough {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    justify-content: stretch;
+    overflow: hidden;
+}
+
+.timelineLeft {
+    width: 32px;
+    /* background-color: rgba(255, 0, 0, 0.1); */
+    padding: 8px 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+
+.content {
+    display: flex;
+    flex-direction: column;
+    margin: 8px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.phaseGroupTitle {
+    font-size: 16px;
+    margin: 4px 0;
+}
+
+.phase {
+    height: 30px;
+    border-radius: 2px;
+    background-color: #d1d5e7;
+    display: flex;
+    align-items: center;
+    color: #555;
+    cursor: pointer;
+}
+
+.active {
+    background-color: #8587f7;
+    color: white;
+}
+
+.phaseTitle {
+    font-size: 14px;
+    margin-left: 8px;
+}
+
+.topSplit {
+    display: flex;
+    flex-direction: row;
+}
+
+.camStats {
+    flex: 1 0 auto;
+    font-size: 12px;
+}
+
+
+.title {
+    margin: 8px 0;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.toc {
+    flex: 1 0 0;
+    padding-bottom: 4px;
+}
+
+.helpers {
+    flex: 1 0 0;
+    margin-left: 10px;
+}
