@@ -85,7 +85,8 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     drawModelCard(state);
     drawTokens(state.render, state.layout, undefined, undefined, state.render.tokenColors || undefined);
 
-    // render the model and a few other things
+    // render everything; i.e. here's where we actually do gl draw calls
+    // up until now, we've just been putting data in cpu-side buffers
     renderModel(state);
 
     endQuery(state.render.queryManager, 'render');

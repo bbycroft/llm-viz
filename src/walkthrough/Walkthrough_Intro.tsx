@@ -1,7 +1,9 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
 import { DimStyle, dimStyleColor, IWalkthroughArgs, phaseTools } from "./WalkthroughTools";
 import s from './Walkthrough.module.css';
-import { useProgramState } from "../Sidebar";
+import { Vec4 } from "../utils/vector";
+import { clamp, useGlobalDrag } from "../utils/data";
+import React, { useState } from "react";
 
 /*
 Need to re-think how we display & interact with the walkthrough. Current approach just doesn't really work at all.
@@ -24,7 +26,7 @@ Guess we just chuck them into a data structure that we can gen into react/html.
 */
 
 interface IIntroState {
-
+    
 }
 
 function getIntroState(walkthrough: IWalkthrough): IIntroState {
@@ -109,10 +111,119 @@ const TokenVocab: React.FC = () => {
 
 const GreenBlueCells: React.FC = () => {
 
+    let [blueNums, setBlueNums] = useState([-0.7, 0.7, -0.1]);
+    let [greenNums, setGreenNums] = useState([-0.7, 0.4, 0.8]);
+
+    let blueColor = new Vec4(0.3, 0.3, 1.0);
+    let greenColor = new Vec4(0.3, 0.9, 0.3);
+
     return <div className={s.tableWrap}>
-        <div>
-            <div>Green Cell: {'[]'} number; being processed</div>
-            <div>Blue Cell: {'[]'} number; weight</div>
+        <div className={s.cellInfoCols}>
+            <div className={s.cellInfoCol}>
+                <Cell nums={greenNums} color={greenColor} mul={0.5} />
+                <Graph nums={greenNums} color={greenColor} setNums={setGreenNums} />
+                <div className={s.cellInfoText}>being processed</div>
+            </div>
+            <div className={s.cellInfoCol}>
+                <Cell nums={blueNums} color={blueColor} mul={1} />
+                <Graph nums={blueNums} color={blueColor} setNums={setBlueNums} />
+                <div className={s.cellInfoText}>weights</div>
+            </div>
         </div>
     </div>
+};
+
+const Cell: React.FC<{ nums: number[], color: Vec4, mul?: number }> = ({ color, nums, mul }) => {
+
+    let grey = new Vec4(0.5, 0.5, 0.5, 1.0);
+    let cellLight = Vec4.lerp(color, grey, 0.9);
+    let cellDark = cellLight.mul(0.98);
+    cellDark.w = 1.0;
+
+    let cellColor = (n: number) => {
+        let weight = clamp(Math.abs(n), 0.0, 1.0);
+
+        let negColor = new Vec4(0.0, 0.0, 0.0);
+        let posColor = color;
+        let zeroColor = new Vec4(0.5, 0.5, 0.5);
+        if (n < 0.0) {
+            return Vec4.lerp(zeroColor, negColor, weight).toHexColor();
+        } else {
+            return Vec4.lerp(zeroColor, posColor, weight).toHexColor();
+        }
+    };
+
+    return <div className={s.cellArrayHoriz}>
+        {nums.map((n, i) => {
+            return <div className={s.cellRect} key={i} style={{ backgroundColor: (i % 2 === 0 ? cellLight : cellDark).toHexColor() }}>
+                <div className={s.cellCircle} style={{ backgroundColor: cellColor(n * (mul ?? 1.0)) }} />
+            </div>;
+        })}
+    </div>
+};
+
+const Graph: React.FC<{
+    nums: number[],
+    color: Vec4,
+    max?: number,
+    setNums?: (nums: number[]) => void,
+}> = ({ color, nums, max, setNums }) => {
+    let [graphEl, setGraphEl] = useState<HTMLDivElement | null>(null);
+
+    let ticks = [-1, 0, 1];
+    let cellW = 30;
+    let dispColor = color.mul(1.0);
+    dispColor.w = 0.5;
+
+    interface IDragInitial {
+        index: number;
+        nums: number[];
+    }
+
+    let [, setDragStart] = useGlobalDrag<IDragInitial>(function handleMove(ev, ds) {
+        let dy = ev.clientY - ds.clientY;
+        let h = graphEl!.clientHeight * 0.5;
+        let nums = [...ds.data.nums];
+        nums[ds.data.index] = clamp(nums[ds.data.index] - dy / h, -1.0, 1.0);
+        setNums?.(nums);
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+    })
+
+    return <div className={s.graph} style={{ width: cellW * nums.length }} ref={setGraphEl}>
+
+        <div className={s.axisLeft} />
+
+        <div className={s.axisZero} />
+
+        {nums.map((n, i) => {
+            let nScaled = n / (max ?? 1.0);
+
+            return <div className={s.graphCol} key={i}>
+                <div className={s.graphBar} style={{
+                    backgroundColor: dispColor.toHexColor(),
+                    top: nScaled < 0 ? '50%' : `${(0.5 - nScaled/2) * 100}%`,
+                    height: `${(Math.abs(nScaled)/2) * 100}%`,
+                }} />
+                <div
+                    className={s.graphBarHit}
+                    onMouseDown={ev => {
+                        setDragStart(ev, { index: i, nums });
+                        ev.stopPropagation();
+                        ev.preventDefault();
+                    }}
+                    style={{
+                        top: `${(0.5 - nScaled/2) * 100}%`
+                    }} />
+                <div className={s.graphBarLabel} style={{
+                     bottom: nScaled < 0 ? '50%' : undefined,
+                        top: nScaled > 0 ? '50%' : undefined,
+                }}>
+                    {n.toFixed(1)}
+                </div>
+            </div>;
+        })}
+
+    </div>;
+
 };
