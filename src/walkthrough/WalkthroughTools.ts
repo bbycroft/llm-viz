@@ -28,7 +28,8 @@ export function phaseTools(state: IProgramState) {
         return atTime(evt.start, evt.duration);
     }
 
-    function afterTime(prev: ITimeInfo, duration: number, wait?: number): ITimeInfo {
+    function afterTime(prev: ITimeInfo | null, duration: number, wait?: number): ITimeInfo {
+        prev = prev ?? phaseState.times[phaseState.times.length - 1];
         return atTime(prev.start + prev.duration + prev.wait, duration, wait);
     }
 
@@ -43,9 +44,13 @@ export function phaseTools(state: IProgramState) {
         }
     }
 
-    function breakAfter(evt: ITimeInfo) {
-        let breakEvt = afterTime(evt, 0.001, 0);
-        if (evt.t === 1.0 && (phaseState.lastBreakTime === null || phaseState.lastBreakTime <= breakEvt.start)) {
+    function breakAfter(evt?: ITimeInfo) {
+        evt = evt ?? phaseState.times[phaseState.times.length - 1];
+        if (!evt) {
+            return;
+        }
+        let breakEvt = afterTime(evt, 0.001);
+        if (breakEvt.t === 1.0 && (phaseState.lastBreakTime === null || phaseState.lastBreakTime <= breakEvt.start)) {
             phaseState.running = false;
             phaseState.time = breakEvt.start + breakEvt.duration;
             phaseState.lastBreakTime = phaseState.time;
@@ -66,19 +71,55 @@ export function phaseTools(state: IProgramState) {
 }
 
 function createAtTime(wt: IWalkthrough, start: number, duration?: number, wait?: number): ITimeInfo {
-    duration = duration ?? 1;
+    duration = duration ?? 0;
     wait = wait ?? 0;
     let info: ITimeInfo = {
         name: '',
         start,
         duration,
         wait,
-        t: clamp((wt.time - start) / duration, 0, 1),
+        t: duration === 0 ? (wt.time > start ? 1 : 0) : clamp((wt.time - start) / duration, 0, 1),
         active: wt.time > start,
     };
     wt.times.push(info);
     wt.phaseLength = Math.max(wt.phaseLength, start + duration + wait);
     return info;
+}
+
+export function eventEndTime(evt: ITimeInfo) {
+    return evt.start + evt.duration + evt.wait;
+}
+
+export interface ICommentary extends ITimeInfo {
+    strings: TemplateStringsArray;
+    values: any[];
+}
+
+export function isCommentary(evt: ITimeInfo): evt is ICommentary {
+    return 'strings' in evt;
+}
+
+export function commentary(wt: IWalkthrough, prev?: ITimeInfo | null, duration?: number) {
+    return (stringsArr: TemplateStringsArray, ...values: any[]): ICommentary => {
+        let t = 0;
+        prev = prev ?? wt.times[wt.times.length - 1];
+
+        if (prev) {
+            t = prev.start + prev.duration + prev.wait;
+        }
+
+        let commentaryT = createAtTime(wt, prev ? eventEndTime(prev) : 0, duration ?? 0.2);
+
+        let res: ICommentary = {
+            ...commentaryT,
+            strings: stringsArr,
+            values,
+        };
+
+        wt.times[wt.times.length - 1] = res; // replace the time info with the commentary
+
+        return res;
+    }
 }
 
 export function writeCommentary(state: IProgramState, prev: ICommentaryRes | null, stringsArrRaw: TemplateStringsArray, ...values: any[]): ICommentaryRes {

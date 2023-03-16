@@ -207,6 +207,7 @@ class CanvasRender {
     constructor(canvasEl: HTMLCanvasElement, private canvasData: ICanvasData, fontAtlasData: IFontAtlasData) {
         this.progState = initProgramState(canvasEl, fontAtlasData);
         this.progState.markDirty = this.markDirty;
+        this.progState.walkthrough.markDirty = this.markDirty;
         this.renderState = this.progState.render;
         this.random = new Random(4);
     }

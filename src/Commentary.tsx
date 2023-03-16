@@ -1,18 +1,87 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import s from './Commentary.module.css';
+import { PhaseTimelineHoriz } from './PhaseTimeline';
 import { useProgramState } from './Sidebar';
+import { clamp } from './utils/data';
+import { lerp } from './utils/math';
 import { phaseToGroup, IWalkthrough } from './walkthrough/Walkthrough';
-import { ICommentaryRes } from './walkthrough/WalkthroughTools';
+import { eventEndTime, ICommentary, isCommentary, ITimeInfo } from './walkthrough/WalkthroughTools';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowDown, faPause, faPlay } from '@fortawesome/free-solid-svg-icons';
+import clsx from 'clsx';
 
 export const Commentary: React.FC = () => {
     let progState = useProgramState();
-    let walkthrough = progState.walkthrough;
+    let [parasEl, setParasEl] = React.useState<HTMLDivElement | null>(null);
+    let [curPos, setCurPos] = React.useState(-100);
+    let wt = progState.walkthrough;
+
+    function handleKeyDown(ev: React.KeyboardEvent) {
+        console.log('key down', ev.key);
+        if (ev.key === ' ') {
+            ev.preventDefault(); // prevent scrolling
+        }
+    }
+
+    useEffect(() => {
+
+        function handleChildren() {
+            if (!parasEl?.children) return;
+
+            let lastOffset = -100;
+
+            for (let child of parasEl.children) {
+                let nid = parseInt(child.getAttribute('data-nid')!);
+                let c = nodes[nid];
+                if (!c) {
+                    continue;
+                }
+                let cStart = c.commentary?.start ?? c.times![0].start;
+                let cEnd = eventEndTime(c.commentary ?? c.times![c.times!.length - 1]);
+
+                if (cStart <= wt.time && cEnd >= wt.time) {
+                    let childBcr = child.getBoundingClientRect();
+                    let parasBcr = parasEl.getBoundingClientRect();
+                    let offset = childBcr.top - parasBcr.top + childBcr.height;
+                    lastOffset = offset;
+                }
+            }
+            setCurPos(lastOffset);
+        }
+
+        if (parasEl) {
+            let observer = new ResizeObserver(handleChildren);
+            observer.observe(parasEl);
+            return () => {
+                observer.disconnect();
+            };
+        }
+
+    }, [parasEl, wt.phase, wt.time]);
+
+    
+    let nodes: INode[] = [];
+    let prevIsTime = false
+    for (let c of wt.times) {
+        if (isCommentary(c)) {
+            nodes.push({ commentary: c });
+            prevIsTime = false;
+        } else {
+            !prevIsTime && nodes.push({ times: [] });
+            nodes[nodes.length - 1].times!.push(c);
+            prevIsTime = true;
+        }
+    }
 
     return <>
-        <div className={s.walkthroughText}>
-            <div className={s.title}>{phaseToGroup(walkthrough)?.title}</div>
-            <div className={s.walkthroughParas}>
-                {walkthroughToText(walkthrough)}
+        <div className={s.walkthroughText} tabIndex={0} onKeyDownCapture={handleKeyDown}>
+            <div className={s.title}>{phaseToGroup(wt)?.title}</div>
+            <div className={s.walkthroughParas} ref={setParasEl}>
+                {walkthroughToParagraphs(wt, nodes)}
+                {!wt.running && <>
+                    <div className={s.dividerLine} style={{ top: curPos }} />
+                    <SpaceToContinueHint top={curPos} />
+                </>}
             </div>
         </div>
         <div className={s.controls}>
@@ -31,16 +100,20 @@ export const Commentary: React.FC = () => {
     </>;
 };
 
+interface INode {
+    commentary?: ICommentary;
+    times?: ITimeInfo[];
+}
 
-export function walkthroughToText(walkthrough: IWalkthrough) {
+export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
 
-    function genCommentary(c: ICommentaryRes) {
+    function genCommentary(c: ICommentary, t: number) {
 
         let res: React.ReactNode[] = [];
         let prevItems: ReactNode[] = [];
-        for (let i = 0; i < c.stringsArr.length; i++) {
+        for (let i = 0; i < c.strings.length; i++) {
 
-            let strRaw = c.stringsArr[i];
+            let strRaw = c.strings[i];
             if (strRaw.trim()) {
                 let strPart = markupSimple(strRaw);
                 prevItems.push(strPart);
@@ -71,19 +144,37 @@ export function walkthroughToText(walkthrough: IWalkthrough) {
     }
 
     return <>
-        {walkthrough.commentary?.commentaryList.map((c, i) => {
-            return <React.Fragment key={i}>
-                {genCommentary(c)}
-                <div className={s.commentaryBreak} data-cid={i}></div>
-            </React.Fragment>;
+        {nodes.map((n, i) => {
+            if (n.commentary) {
+                let c = n.commentary;
+                let displayFactor = clamp((wt.time - c.start) / c.duration, 0, 1);
+                let opacity = lerp(0.6, 1, displayFactor);
+                let blur = lerp(2, 0, displayFactor);
+                return <div key={i} style={{ opacity, filter: `blur(${blur}px)` }} data-nid={i}>
+                    {genCommentary(c, wt.time)}
+                </div>;
+            } else {
+                let times = n.times!;
+                let active = wt.time >= times[0].start; // && wt.time <= eventEndTime(times[times.length - 1]);
+                let opacity = active ? 1 : 0.6;
+                let blur = active ? 0 : 2;
+                return <div key={i} className={s.commentaryBreak} data-nid={i} style={{ opacity, filter: `blur(${blur}px)` }}>
+                    <button className={clsx(s.jump, 'btn')}>
+                        <FontAwesomeIcon icon={faArrowDown} />
+                    </button>
+                    <button className={clsx(s.playPause, 'btn')}>
+                        <FontAwesomeIcon icon={wt.running && active ? faPause : faPlay} />
+                    </button>
+                    <PhaseTimelineHoriz times={n.times!} />
+                </div>;
+            }
         })}
     </>;
 }
 
-function markupSimple(inputStr: string) {
+function markupSimple(inputStr: string): React.ReactNode {
     let italicLocs: number[] = [];
     let boldLocs: number[] = [];
-    let res = '';
 
     let prevC = '';
     let idx = 0;
@@ -177,4 +268,15 @@ function markupSimple(inputStr: string) {
     }
 
     return buildReactDom(treeBase, 0);
+}
+
+const SpaceToContinueHint: React.FC<{
+    top: number;
+}> = ({ top }) => {
+
+    return <div className={s.hint} style={{ top }}> 
+        <div className={s.hintText}>
+             Press <span className={s.key}>Space</span> to continue
+        </div>
+    </div>;
 }

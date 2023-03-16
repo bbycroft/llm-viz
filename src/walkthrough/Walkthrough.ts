@@ -7,7 +7,7 @@ import { SavedState } from "../SavedState";
 import { oneHotArray } from "../utils/data";
 import { lerp, lerpSmoothstep } from "../utils/math";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
-import { DimStyle, dimStyleColor, hideFromBlock, ICommentaryRes, IPhaseGroup, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
+import { DimStyle, dimStyleColor, hideFromBlock, ICommentary, ICommentaryRes, IPhaseGroup, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
 import { walkthroughIntro } from "./Walkthrough_Intro";
 
 
@@ -62,7 +62,7 @@ export function initWalkthrough() {
         running: false,
         lastBreakTime: null as number | null,
         commentary: null as ICommentaryRes | null,
-        times: [] as ITimeInfo[],
+        times: [] as (ITimeInfo | ICommentary)[],
         phaseLength: 0,
         markDirty: () => { }, // bit of a hack to get it to WalkthroughSidebar
         phaseData: new Map<Phase, any>(),

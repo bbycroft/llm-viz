@@ -64,3 +64,70 @@
     width: 5px;
     height: 1px;
 }
+
+/* ---------   Everything repeated but *Horiz   --------- */
+.timelineBaseHoriz {
+    position: relative;
+    flex: 1;
+    background-color: rgba(0, 255, 0, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: row;
+    pointer-events: none;
+}
+
+.timelineLineHoriz {
+    height: 5px;
+    border-radius: 8px;
+    flex: 1;
+    background-color: rgb(204, 204, 223);
+}
+
+.timelineCaretHoriz {
+    position: absolute;
+    transform: translateX(-50%);
+    background-color: #888;
+    width: 10px;
+    height: 10px;
+    border-radius: 40px;
+}
+
+.timelineCaretHitHoriz {
+    position: absolute;
+    transform: translateX(-50%);
+    cursor: pointer;
+    background-color: rgba(0,0,0,0);
+    width: 32px;
+    height: 32px;
+    border-radius: 40px;
+    pointer-events: auto;
+}
+
+.timelineEvtHoriz {
+    position: absolute;
+    /* transform: translateY(-50%); */
+    background-color: #a1a1a1;
+    height: 1px;
+    border-radius: 40px;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+}
+
+.timelineEvtStartHoriz {
+    position: absolute;
+    transform: translateX(-50%);
+    background-color: #a1a1a1;
+    width: 5px;
+    height: 5px;
+    border-radius: 40px;
+}
+
+.timelineEvtEndHoriz {
+    position: absolute;
+    right: 0;
+    background-color: #a1a1a1;
+    width: 1px;
+    height: 5px;
+}

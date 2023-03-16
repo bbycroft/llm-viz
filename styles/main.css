@@ -1,3 +1,24 @@
-/* @tailwind base;
+@tailwind base;
 @tailwind components;
-@tailwind utilities; */
+@tailwind utilities;
+
+button {
+    /* clear all the cruft from the default button styles */
+    border: none;
+    background: none;
+    font-size: inherit;
+    color: inherit;
+    padding: 0;
+    cursor: pointer;
+}
+
+.btn {
+    color: #888;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.btn:hover {
+    color: #555;
+}

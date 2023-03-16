@@ -6,7 +6,8 @@
     display: flex;
     flex-direction: row;
     align-items: stretch;
-    background-color: #e4edff;
+    background-color: #f3f3f3;
+    color: rgb(0, 0, 0);
     overflow: hidden;
     z-index: 0;
 }
@@ -45,15 +46,4 @@
     height: 100%;
     touch-action: none;
     /* image-rendering: pixelated; */
-}
-
-.cursorFollow {
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    transform: translate(-50%, -50%);
-    background-color: rgba(175, 95, 95, 0.8);
-    border-radius: 50px;
-    pointer-events: none;
-    z-index: 2;
 }

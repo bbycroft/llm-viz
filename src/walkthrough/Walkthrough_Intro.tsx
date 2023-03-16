@@ -1,7 +1,7 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
-import { DimStyle, dimStyleColor, IWalkthroughArgs, phaseTools } from "./WalkthroughTools";
+import { commentary, DimStyle, dimStyleColor, eventEndTime, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
 import s from './Walkthrough.module.css';
-import { Vec4 } from "../utils/vector";
+import { Vec3, Vec4 } from "../utils/vector";
 import { clamp, useGlobalDrag } from "../utils/data";
 import React, { useState } from "react";
 
@@ -25,6 +25,19 @@ Guess we just chuck them into a data structure that we can gen into react/html.
 
 */
 
+/*
+
+Think about how we do this:
+
+Want our little lines between paragraphs to be little mini-sliders that play the next event
+
+So: need to know all the events between each paragraph.
+
+The paragraphs themselves basically take no time, but end in a break. The event plays and then the
+next paragraph shows, or at least we scroll to it.
+
+*/
+
 interface IIntroState {
     
 }
@@ -34,48 +47,43 @@ function getIntroState(walkthrough: IWalkthrough): IIntroState {
 }
 
 export function walkthroughIntro(args: IWalkthroughArgs) {
-    let { breakAfter, atEvent, atTime, afterTime, commentary, commentaryPara, c_str } = phaseTools(args.state);
-    let { state, layout, walkthrough } = args;
+    let { breakAfter, atEvent, atTime, afterTime, commentaryPara, c_str } = phaseTools(args.state);
+    let { state, layout, walkthrough: wt } = args;
 
 
-    switch (walkthrough.phase) {
+    switch (wt.phase) {
         case Phase.Intro_Intro:
 
-        let c0 = commentary`Welcome to the walkthrough of the GPT large language model! Here we'll explore the model _nano-gpt_, with a mere 85,000 parameters.`;
+        let c0 = commentary(wt, null, 0)`Welcome to the walkthrough of the GPT large language model! Here we'll explore the model _nano-gpt_, with a mere 85,000 parameters.`;
 
-        let c4 = commentaryPara(c0)`It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputOutput)}
+        let c4 = commentary(wt, null, 0)`It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputOutput)}
             and sort them in alphabetical order, i.e. to "ABBBCC".`;
 
-        breakAfter(c4);
+        let t4 = afterTime(c4, 0.8, 0.5);
+        moveCameraTo(args.state.render, t4, new Vec3(), new Vec3());
+
+        let t6 = afterTime(t4, 1.2, 0.4);
 
         let tokenStr = c_str('_token_', 0, DimStyle.Token);
 
-        let c5 = commentaryPara(c0)`We call each of these letters a ${tokenStr}, and the set of the model's different tokens make up it's _vocabulary_:${embed(TokenVocab)}`;
+        commentary(wt, t6)`We call each of these letters a ${tokenStr}, and the set of the model's different tokens make up it's _vocabulary_:${embed(TokenVocab)}`;
 
+        commentary(wt)`From this table, each token is assigned a number. And now we can enter this sequence of numbers into the model:${embed(ExampleTokenValues)}`;
+
+        let c5 = commentary(wt)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. Bright: positive, grey: 0, dark: negative. ${embed(GreenBlueCells)}`;
         breakAfter(c5);
 
-        let c6 = commentaryPara(c0)`From this table, each token is assigned a number. And now we can enter this sequence of numbers into the model:${embed(ExampleTokenValues)}`;
+        afterTime(null, 0.5, 0.5);
+        afterTime(null, 1.0, 0.5);
 
-        breakAfter(c6);
+        commentary(wt)`Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
 
-        let c6b = commentaryPara(c0)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. Bright: positive, grey: 0, dark: negative. ${embed(GreenBlueCells)}`;
+        commentary(wt)`The embedding is then passed through the model, going through a series of layers, called transformers, before reaching the bottom.`;
 
-        breakAfter(c6b);
-
-        let c7 = commentaryPara(c0)`Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
-
-        breakAfter(c7);
-
-        let c8 = commentaryPara(c0)`The embedding is then passed through the model, going through a series of layers, called transformers, before reaching the bottom.`;
-
-        breakAfter(c8);
-
-        let c9 = commentaryPara(c0)`So what's the output? A prediction of the next token in the sequence. So at the 6th entry, we get probabilities that the next token is
+         commentary(wt)`So what's the output? A prediction of the next token in the sequence. So at the 6th entry, we get probabilities that the next token is
             going to be 'A', 'B', or 'C'.`
          
-        breakAfter(c9);
-
-        let c10 = commentaryPara(c0)`In this case, the model is pretty sure it's going to be 'A'.`;
+        let c10 = commentary(wt)`In this case, the model is pretty sure it's going to be 'A'.`;
 
         break;
     }

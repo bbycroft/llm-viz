@@ -3,8 +3,8 @@
 .title {
     margin: 8px 0;
     font-size: 20px;
-    font-weight: bold;
     text-align: center;
+    font-family: 'Merriweather', serif;
 }
 
 .walkthroughText {
@@ -17,8 +17,10 @@
     flex-direction: column;
     justify-content: stretch;
     overflow-y: auto;
+    position: relative;
     scrollbar-width: 10px;
     scrollbar-color: #f00 #0f0;
+    outline: none;
 
     box-shadow: inset 0 0 5px 0 rgba(0, 0, 0, 0.2);
 }
@@ -37,6 +39,7 @@
 }
 
 .walkthroughParas {
+    position: relative;
     flex: 1;
 }
 
@@ -48,7 +51,56 @@
 }
 
 .commentaryBreak {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
     flex: 1;
-    margin: 20px 20%;
-    border-bottom: 1px solid #cfcfcf;
+
+    /* margin: 20px 20%; */
+    /* border-bottom: 1px solid #cfcfcf; */
+}
+
+
+.playPause {
+    color: #8d8d8d;
+    width: 20px;
+    margin-right: 15px;
+}
+
+.jump {
+    color: #8d8d8d;
+    width: 20px;
+    margin-right: 10px;
+}
+
+.hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    transform: translateY(20px);
+}
+
+.hintText {
+    flex: 0 1 auto;
+    padding: 10px;
+    background-color: rgba(189, 208, 245, 0.9);
+    box-shadow: 0 0 5px 0 rgba(130, 143, 170, 0.3);
+    border-radius: 20px;
+    color: black;
+    /* background-color: rgba(0, 146, 244, 0.2); */
+}
+
+.dividerLine {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: rgba(189, 208, 245, 0.9);
+    margin: 5px 0;
+    box-shadow: 0 0 2px 0 rgba(189, 208, 245, 0.9);
+
 }
