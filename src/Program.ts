@@ -3,7 +3,7 @@ import { drawAllArrows } from "./components/Arrow";
 import { drawBlockLabels } from "./components/BlockLabels";
 import { drawModelCard } from "./components/ModelCard";
 import { IGpuGptModel, IModelShape } from "./GptModel";
-import { genGptModelLayout, IGptModelLayout } from "./GptModelLayout";
+import { genGptModelLayout, IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { drawText, IFontAtlasData, IFontOpts, measureText } from "./render/fontRender";
 import { initRender, IRenderState, IRenderView, renderModel, resetRenderBuffers } from "./render/modelRender";
 import { beginQueryAndGetPrevMs, endQuery } from "./render/queryManager";
@@ -38,6 +38,13 @@ export interface IDisplayState {
     tokenIdxColors: IColorMix | null;
     tokenIdxModelOpacity?: number[];
     lines: string[];
+    hoverTarget: IHoverTarget | null;
+}
+
+export interface IHoverTarget {
+    subCube: IBlkDef;
+    mainCube: IBlkDef;
+    mainIdx: Vec3;
 }
 
 export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtlasData): IProgramState {
@@ -81,6 +88,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
             tokenColors: null,
             tokenIdxColors: null,
             lines: [],
+            hoverTarget: null,
         },
     };
 }
@@ -90,6 +98,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
 
     resetRenderBuffers(state.render);
     state.display.lines = [];
+    state.display.hoverTarget = null;
 
     if (state.walkthrough.running) {
         cameraMoveToDesired(state.camera, view.dt);

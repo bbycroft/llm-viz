@@ -135,6 +135,10 @@ export function splitGridX(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit:
     let { x, cx } = dimProps(blk, dim);
     let { vecId, xName, dxName } = dimConsts(dim);
 
+    if (cx <= 1) {
+        return blk;
+    }
+
     let blocks: IBlkDef[] = [];
     let rangeOffsets: [number, number][] = [];
 
@@ -150,7 +154,7 @@ export function splitGridX(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit:
 
         blocks.push({ ...blk,
             access: blk.access && { ...blk.access },
-            localMtx: mtx.mul(blk.localMtx ?? new Mat4f()),
+            localMtx: (blk.localMtx ?? new Mat4f()).mul(mtx),
             [xName]: x + (iStart * layout.cell + xOffset),
             [dxName]: (iEnd - iStart) * layout.cell,
         });

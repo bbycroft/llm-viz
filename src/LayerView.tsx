@@ -9,7 +9,7 @@ import { fetchFontAtlasData, IFontAtlasData } from './render/fontRender';
 import { Random } from './utils/random';
 import { ITensorSet, TensorF32 } from './utils/tensor';
 import { Vec3 } from './utils/vector';
-import { ProgramStateContext, WalkthroughSidebar } from './Sidebar';
+import { ProgramStateContext, useProgramState, WalkthroughSidebar } from './Sidebar';
 import { initProgramState, IProgramState, runProgram } from './Program';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
@@ -28,76 +28,6 @@ export function LayerView() {
     let [dataAndModel, setDataAndModel] = useState<IDataAndModel | null>(null);
     let [canvasRender, setCanvasRender] = useState<CanvasRender | null>(null);
     let [fontAtlasData, setFontAtlasData] = useState<IFontAtlasData | null>(null);
-
-    let updateRenderState = useCallback((fn: (ps: IProgramState) => void) => {
-        if (canvasRender) {
-            fn(canvasRender.progState);
-            canvasRender.markDirty();
-        }
-    }, [canvasRender]);
-
-    let progState = canvasRender?.progState;
-
-    let [dragStart, setDragStart] = useGlobalDrag<{ camAngle: Vec3, camTarget: Vec3 }>(function handleMove(ev, ds) {
-        if (!progState) {
-            return;
-        }
-
-        let dx = ev.clientX - ds.clientX;
-        let dy = ev.clientY - ds.clientY;
-        let camAngle = ds.data.camAngle;
-
-        if (!ds.shiftKey && !(ds.button === 1 || ds.button === 2)) {
-            let target = ds.data.camTarget.clone();
-            target.z = target.z + dy * 0.1 * camAngle.z; // @TODO: clamp to the bounding box of the model
-            let sideMul = Math.sin(camAngle.x * Math.PI / 180) > 0 ? 1 : -1;
-            target.x = target.x + sideMul * dx * 0.1 * camAngle.z;
-
-            updateRenderState(ps => {
-                ps.camera.center = target;
-            });
-
-        } else {
-            let degPerPixel = 0.5;
-
-            let initial = ds.data.camAngle;
-            let x = initial.x - dx * degPerPixel;
-            let y = clamp(initial.y + dy * degPerPixel, -87, 87);
-
-            updateRenderState(ps => {
-                ps.camera.angle = new Vec3(x, y, camAngle.z);
-            });
-        }
-
-        ev.preventDefault();
-    });
-
-    function handleMouseDown(ev: React.MouseEvent) {
-        if (progState) {
-            setDragStart(ev, { camAngle: progState.camera.angle, camTarget: progState.camera.center });
-        }
-    }
-
-    function handleMouseMove(ev: React.MouseEvent) {
-        if (progState) {
-            let canvasBcr = canvasRender!.renderState.canvasEl.getBoundingClientRect();
-            let mousePos = new Vec3(ev.clientX - canvasBcr.left, ev.clientY - canvasBcr.top, 0);
-            updateRenderState(ps => {
-                ps.mouse.mousePos = mousePos;
-            });
-        }
-    }
-
-    function handleWheel(ev: React.WheelEvent) {
-        if (progState) {
-            let camAngle = progState.camera.angle;
-            let zoom = clamp(camAngle.z * Math.pow(1.0013, ev.deltaY), 0.01, 10000);
-            updateRenderState(rs => {
-                rs.camera.angle = new Vec3(camAngle.x, camAngle.y, zoom);
-            });
-        }
-        ev.stopPropagation();
-    }
 
     useEffect(() => {
         function handleKeyDown(ev: KeyboardEvent) {
@@ -186,6 +116,8 @@ export function LayerView() {
         canvasRender?.setData({ dataAndModel });
     }, [canvasRender, dataAndModel]);
 
+    console.log('hoverTarget', canvasRender?.progState?.display?.hoverTarget);
+
     return <div className={s.view}>
         <div className={s.sidebar}>
             {canvasRender && <ProgramStateContext.Provider value={canvasRender.progState}>
@@ -196,15 +128,93 @@ export function LayerView() {
             <canvas
                 className={s.canvas}
                 ref={setCanvasEl}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onWheel={handleWheel}
-                onContextMenu={ev => ev.preventDefault()}
-                style={{ cursor: dragStart ? 'grabbing' : 'grab' }}
             />
             {/* <div className={s.cursorFollow} style={{ top: pointPos.y, left: pointPos.x }} /> */}
+            {canvasRender && <ProgramStateContext.Provider value={canvasRender.progState}>
+                <CanvasEventSurface />
+            </ProgramStateContext.Provider>}
         </div>
     </div>;
+}
+
+export const CanvasEventSurface: React.FC = () => {
+    let progState = useProgramState();
+
+    let updateRenderState = useCallback((fn: (ps: IProgramState) => void) => {
+        fn(progState);
+        progState.markDirty();
+    }, [progState]);
+
+    let [dragStart, setDragStart] = useGlobalDrag<{ camAngle: Vec3, camTarget: Vec3 }>(function handleMove(ev, ds) {
+        if (!progState) {
+            return;
+        }
+
+        let dx = ev.clientX - ds.clientX;
+        let dy = ev.clientY - ds.clientY;
+        let camAngle = ds.data.camAngle;
+
+        if (!ds.shiftKey && !(ds.button === 1 || ds.button === 2)) {
+            let target = ds.data.camTarget.clone();
+            target.z = target.z + dy * 0.1 * camAngle.z; // @TODO: clamp to the bounding box of the model
+            let sideMul = Math.sin(camAngle.x * Math.PI / 180) > 0 ? 1 : -1;
+            target.x = target.x + sideMul * dx * 0.1 * camAngle.z;
+
+            updateRenderState(ps => {
+                ps.camera.center = target;
+            });
+
+        } else {
+            let degPerPixel = 0.5;
+
+            let initial = ds.data.camAngle;
+            let x = initial.x - dx * degPerPixel;
+            let y = clamp(initial.y + dy * degPerPixel, -87, 87);
+
+            updateRenderState(ps => {
+                ps.camera.angle = new Vec3(x, y, camAngle.z);
+            });
+        }
+
+        ev.preventDefault();
+    });
+
+    function handleMouseDown(ev: React.MouseEvent) {
+        if (progState) {
+            setDragStart(ev, { camAngle: progState.camera.angle, camTarget: progState.camera.center });
+        }
+    }
+
+    function handleMouseMove(ev: React.MouseEvent) {
+        if (progState) {
+            let canvasBcr = progState.render.canvasEl.getBoundingClientRect();
+            let mousePos = new Vec3(ev.clientX - canvasBcr.left, ev.clientY - canvasBcr.top, 0);
+            updateRenderState(ps => {
+                ps.mouse.mousePos = mousePos;
+            });
+        }
+    }
+
+    function handleWheel(ev: React.WheelEvent) {
+        if (progState) {
+            let camAngle = progState.camera.angle;
+            let zoom = clamp(camAngle.z * Math.pow(1.0013, ev.deltaY), 0.01, 10000);
+            updateRenderState(rs => {
+                rs.camera.angle = new Vec3(camAngle.x, camAngle.y, zoom);
+            });
+        }
+        ev.stopPropagation();
+    }
+
+    return <div
+        className={s.canvasEventSurface}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onWheel={handleWheel}
+        onContextMenu={ev => ev.preventDefault()}
+        style={{ cursor: dragStart ? 'grabbing' : progState.display.hoverTarget ? 'crosshair' : 'grab' }}
+    
+    />;
 }
 
 interface ICanvasData {

@@ -1,8 +1,10 @@
+import { splitGridX } from "./Annotations";
 import { IBlkDef } from "./GptModelLayout";
 import { IProgramState } from "./Program";
 import { addLine2 } from "./render/lineRender";
+import { clamp } from "./utils/data";
 import { Mat4f } from "./utils/matrix";
-import { Vec3, Vec4 } from "./utils/vector";
+import { Dim, Vec3, Vec4 } from "./utils/vector";
 
 export function runMouseHitTesting(state: IProgramState) {
 
@@ -78,9 +80,57 @@ export function runMouseHitTesting(state: IProgramState) {
     }
 
     if (minCube) {
-        iterVisibleSubCubes(minCube[1], (c) => {
+        let [c, main] = minCube;
+
+        iterVisibleSubCubes(main, (c) => {
             c.highlight = 0.2;
         });
+
+        let tl = new Vec3(c.x, c.y, c.z);
+        let pt = worldA.add(dir.mul(minT));
+
+        let pt2 = new Vec3(
+            clamp((pt.x - tl.x) / c.dx, 0, 1 - 0.1/c.cx),
+            clamp((pt.y - tl.y) / c.dy, 0, 1 - 0.1/c.cy),
+            clamp((pt.z - tl.z) / c.dz, 0, 1 - 0.1/c.cz));
+
+        let pt3 = c.localMtx ? c.localMtx.mulVec3Proj(pt2) : pt2;
+
+        // the main block's index (useful for showing correct info against)
+        let ptIdx = new Vec3(
+            Math.floor(pt3.x * c.cx),
+            Math.floor(pt3.y * c.cy),
+            Math.floor(pt3.z * c.cz),
+        );
+
+        let ptLocalIdx = new Vec3(
+            pt2.x * c.cx * c.dx / main.dx,
+            pt2.y * c.cy * c.dy / main.dy,
+            pt2.z * c.cz * c.dz / main.dz,
+        );
+        // also want the split point in the sub block's local space
+
+        // currently broken otherwise :(
+        if (c === main) {
+            let midX = splitGridX(state.layout, c, Dim.X, ptLocalIdx.x, 0);
+            if (midX) {
+                midX.highlight = 0.4;
+                let midY = splitGridX(state.layout, midX, Dim.Y, ptLocalIdx.y, 0);
+                if (midY) {
+                    let midZ = splitGridX(state.layout, midY, Dim.Z, ptLocalIdx.z, 0);
+                    if (midZ) {
+                        midZ.highlight = 0.6;
+                    }
+                }
+            }
+        }
+
+        state.display.hoverTarget = { mainCube: main, subCube: c, mainIdx: ptIdx };
+        // state.display.lines.push(`pt: ${pt.toString()}`);
+        // state.display.lines.push(`pt2: ${pt2.toString()}`);
+        // state.display.lines.push(`ptIdx: ${ptIdx.toString()}`);
+        // state.display.lines.push(`ptLocalIdx: ${ptLocalIdx.toString()}`);
+
     }
 
 }
