@@ -105,6 +105,10 @@ interface IBlkDefArgs {
     deps?: IBlkDepArgs;
 }
 
+export interface IBlkLabel {
+    visible: number;
+}
+
 export interface IModelLayout {
     cell: number;
     height: number;
@@ -182,6 +186,10 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             opacity: 1.0,
             highlight: 0.0,
         };
+    }
+
+    function mkLabel(init: number): IBlkLabel {
+        return { visible: 0 };
     }
 
     let cubes: IBlkDef[] = [];
@@ -276,7 +284,6 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         let heads = [];
         for (let i = 0; i < nHeads; i++) {
-            let headCubes: IBlkDef[] = [];
             let headZMid = headWidth * i - (nHeads - 1) * headWidth / 2;
             let qMid = headZMid - B * cell - qkvMargin;
             let kMid = headZMid;
@@ -367,15 +374,25 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.scaledVectors, x: [0, 1, 0, i * A], y: [1, 0, T] },
             });
 
+            let headLabel = mkLabel(1.0);
+            let qLabel = mkLabel(1.0);
+            let kLabel = mkLabel(1.0);
+            let vLabel = mkLabel(1.0);
+            let biasLabel = mkLabel(1.0);
+            let mtxLabel = mkLabel(1.0);
+            let vectorLabel = mkLabel(1.0);
+
             let head = {
                 qWeightBlock, kWeightBlock, vWeightBlock,
                 qBiasBlock, kBiasBlock, vBiasBlock,
                 qBlock, kBlock, vBlock,
                 attnMtx, attnMtxAgg, attnMtxSm, vOutBlock,
+                qLabel, kLabel, vLabel, biasLabel, mtxLabel, vectorLabel, headLabel,
                 cubes: [qWeightBlock, kWeightBlock, vWeightBlock,
                     qBiasBlock, kBiasBlock, vBiasBlock,
                     qBlock, kBlock, vBlock,
                     attnMtx, attnMtxAgg, attnMtxSm, vOutBlock],
+                labels: [qLabel, kLabel, vLabel, biasLabel, mtxLabel, vectorLabel, headLabel],
             };
             heads.push(head);
             cubes.push(...head.cubes);
@@ -479,11 +496,21 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         y += C * cell - margin;
 
+        let transformerLabel = mkLabel(1.0);
+        let projLabel = mkLabel(1.0);
+        let selfAttendLabel = mkLabel(1.0);
+        let mlpLabel = mkLabel(1.0);
+
         cubes.push(mlpFc, mlpFcWeight, mlpFcBias, mlpAct, mlpProjWeight, mlpProjBias, mlpResult, mlpResidual);
 
         return {
             ln1,
             heads,
+            labels: [transformerLabel, projLabel, selfAttendLabel, mlpLabel, ...heads.flatMap(h => h.labels)],
+            transformerLabel,
+            projLabel,
+            selfAttendLabel,
+            mlpLabel,
             projWeight,
             projBias,
             attnOut,
@@ -575,6 +602,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         blocks,
         height: y,
         model: gptGpuModel,
+        labels: [...blocks.flatMap(b => b.labels)],
         weightCount,
         shape,
         extraSources: {
@@ -584,3 +612,4 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         },
     };
 }
+

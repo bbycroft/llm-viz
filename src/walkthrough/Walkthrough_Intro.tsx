@@ -1,9 +1,11 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
 import { commentary, DimStyle, dimStyleColor, eventEndTime, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
 import s from './Walkthrough.module.css';
-import { Vec3, Vec4 } from "../utils/vector";
-import { clamp, useGlobalDrag } from "../utils/data";
+import { Dim, Vec3, Vec4 } from "../utils/vector";
+import { clamp, makeArray, useGlobalDrag } from "../utils/data";
 import React, { useState } from "react";
+import { useProgramState } from "../Sidebar";
+import { findSubBlocks, splitGridX } from "../Annotations";
 
 /*
 Need to re-think how we display & interact with the walkthrough. Current approach just doesn't really work at all.
@@ -55,35 +57,132 @@ export function walkthroughIntro(args: IWalkthroughArgs) {
         case Phase.Intro_Intro:
 
         let c0 = commentary(wt, null, 0)`Welcome to the walkthrough of the GPT large language model! Here we'll explore the model _nano-gpt_, with a mere 85,000 parameters.`;
+        moveCameraTo(args.state, c0, new Vec3(-8.4, 0, -481.5), new Vec3(296, 16, 13.5));
+
+        if (c0.t > 0) {
+            for (let cube of layout.cubes) {
+                if (cube.t === 'i' && cube.access) {
+                    cube.access.disable = true;
+                }
+            }
+            state.display.tokenIdxModelOpacity = makeArray(6, 0);
+        }
 
         let c4 = commentary(wt, null, 0)`It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputOutput)}
             and sort them in alphabetical order, i.e. to "ABBBCC".`;
 
-        let t4 = afterTime(c4, 0.8, 0.5);
-        moveCameraTo(args.state.render, t4, new Vec3(), new Vec3());
+        let t4 = afterTime(null, 0.2, 0.3);
+        let t6 = afterTime(null, 1.0, 0.4);
+        moveCameraTo(args.state, t4, new Vec3(1.3, 0, 6.7), new Vec3(281.5, 12.5, 0.4));
 
-        let t6 = afterTime(t4, 1.2, 0.4);
+        if (t6.active && t6.t < 1.0) {
+            let mixes = [0, 0, 0, 0, 0, 0];
+            for (let i = 0; i < 6; i++) {
+                // want to smoothly flash each token in turn (t6.t goes from 0-1, and each token should flash at 0.2, 0.4, 0.6, 0.8, 1.0 etc)
+                let highT = (i + 1.5) / 8;
+                mixes[i] = 1.0 - clamp(Math.abs(t6.t - highT) * 8, 0, 1);
+            }
+            state.display.tokenColors = { mixes, color2: new Vec4(0.8, 0.2, 0.8) };
+        }
+
+        breakAfter();
 
         let tokenStr = c_str('_token_', 0, DimStyle.Token);
+        let tokenIdxStr = c_str('_token index_', 0, DimStyle.TokenIdx);
 
         commentary(wt, t6)`We call each of these letters a ${tokenStr}, and the set of the model's different tokens make up it's _vocabulary_:${embed(TokenVocab)}`;
 
-        commentary(wt)`From this table, each token is assigned a number. And now we can enter this sequence of numbers into the model:${embed(ExampleTokenValues)}`;
+        commentary(wt)`From this table, each token is assigned a number, it's ${tokenIdxStr}. And now we can enter this sequence of numbers into the model:${embed(ExampleTokenValues)}\n`;
+        breakAfter();
 
-        let c5 = commentary(wt)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. Bright: positive, grey: 0, dark: negative. ${embed(GreenBlueCells)}`;
+        let t7 = afterTime(null, 1.5, 0.5);
+
+        if (t7.active) {
+            let opacity = makeArray(6, 0);
+            for (let i = 0; i < 6; i++) {
+                let highT = (i + 1.5) / 8;
+                opacity[i] = clamp((t7.t - highT) * 4, 0, 1);
+            }
+            state.display.tokenIdxModelOpacity = opacity;
+
+            let idxPos = t7.t * 6;
+
+            if (t7.t < 1.0) {
+                splitGridX(layout, layout.idxObj, Dim.X, idxPos, clamp(6 - idxPos, 0, 1));
+                for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, Math.min(5, Math.floor(idxPos)))) {
+                    if (blk.access) {
+                        blk.access.disable = false;
+                    }
+                }
+            } else {
+                if (layout.idxObj.access) {
+                    layout.idxObj.access.disable = false;
+                }
+            }
+        }
+
+        breakAfter();
+
+        let c5 = commentary(wt)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. Bright: +ve, grey: 0, dark: -ve. ${embed(GreenBlueCells)}`;
         breakAfter(c5);
 
-        afterTime(null, 0.5, 0.5);
-        afterTime(null, 1.0, 0.5);
+        let c6 = commentary(wt)`Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
+        breakAfter(c6);
 
-        commentary(wt)`Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
+        {
+            let t_makeVecs = afterTime(null, 2.0, 0.5);
 
+            moveCameraTo(state, t_makeVecs, new Vec3(14.1, 0, -30.4), new Vec3(286, 14.5, 0.8));
+
+            if (t_makeVecs.active) {
+                let idxPos = t_makeVecs.t * 6;
+                let splitWidth = clamp(6 - idxPos, 0, 2);
+                let splitIdx = Math.min(5, Math.floor(idxPos));
+                splitGridX(layout, layout.idxObj, Dim.X, idxPos, splitWidth);
+                for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, splitIdx)) {
+                    if (blk.access) {
+                        blk.access.disable = false;
+                    }
+                }
+
+                if (t_makeVecs.t < 1.0) {
+                    splitGridX(layout, layout.residual0, Dim.X, idxPos, splitWidth);
+                    for (let blk of findSubBlocks(layout.residual0, Dim.X, null, splitIdx)) {
+                        if (blk.access) {
+                            blk.access.disable = false;
+                        }
+                    }
+                } else {
+                    if (layout.residual0.access) {
+                        layout.residual0.access.disable = false;
+                    }
+                }
+            }
+        }
+
+        breakAfter();
         commentary(wt)`The embedding is then passed through the model, going through a series of layers, called transformers, before reaching the bottom.`;
+        breakAfter();
 
-         commentary(wt)`So what's the output? A prediction of the next token in the sequence. So at the 6th entry, we get probabilities that the next token is
+        {
+
+            let t_firstResid = afterTime(null, 2.5, 0.5);
+            moveCameraTo(state, t_firstResid, new Vec3(-20.2, 0, -129), new Vec3(292, 27.5, 2));
+
+            let t_firstTransformer = afterTime(null, 3.0, 0.5);
+            moveCameraTo(state, t_firstTransformer, new Vec3(-80.7, 0, -259.8), new Vec3(299.5, 6.5, 4.3));
+
+            layout.blocks[0].transformerLabel.visible = t_firstTransformer.t;
+
+            let t_fullFrame = afterTime(null, 3.5, 0.5);
+            moveCameraTo(state, t_fullFrame, new Vec3(-149.4, 0, -691.2), new Vec3(299, 20, 10.8));
+
+        }
+
+        commentary(wt)`So what's the output? A prediction of the next token in the sequence. So at the 6th entry, we get probabilities that the next token is
             going to be 'A', 'B', or 'C'.`
          
-        let c10 = commentary(wt)`In this case, the model is pretty sure it's going to be 'A'.`;
+        commentary(wt)`In this case, the model is pretty sure it's going to be 'A'.`;
 
         break;
     }
@@ -94,14 +193,36 @@ function embed(fc: React.FC) {
 }
 
 const ExampleInputOutput: React.FC = () => {
+    let state = useProgramState();
+    let cols = state.display.tokenColors;
+    let chars = 'CBABBC'.split('');
+
     return <div className={s.tableWrap}>
-        <div style={{ color: dimStyleColor(DimStyle.Token).toHexColor() }}>C B A B B C</div>
+        <div>{chars.map((c, i) => {
+            let baseColor = dimStyleColor(DimStyle.Token);
+            if (cols) {
+                baseColor = Vec4.lerp(baseColor, cols.color2, cols.mixes[i]);
+            }
+            return <span key={i} style={{ color: baseColor.toHexColor() }}>{c} </span>;
+        })}</div>
     </div>;
 };
 
 const ExampleTokenValues: React.FC = () => {
+    let state = useProgramState();
+    let cols = state.display.tokenIdxColors;
+    let chars = 'CBABBC'.split('');
+
      return <div className={s.tableWrap}>
-        <div>2 1 0 1 1 2</div>
+        <div>{chars.map((c, i) => {
+            let tokIdx = c.charCodeAt(0) - 'A'.charCodeAt(0);
+
+            let baseColor = dimStyleColor(DimStyle.TokenIdx);
+            if (cols) {
+                baseColor = Vec4.lerp(baseColor, cols.color2, cols.mixes[i]);
+            }
+            return <span key={i} style={{ color: baseColor.toHexColor() }}>{tokIdx} </span>;
+        })}</div>
     </div>;
 };
 
@@ -110,8 +231,12 @@ const TokenVocab: React.FC = () => {
     return <div className={s.tableWrap}>
         <table className={s.table}>
             <tbody>
-                <tr className={s.tokString}><th>token</th><td>A</td><td>B</td><td>C</td></tr>
-                <tr className={s.tokIndex}><th>index</th><td>0</td><td>1</td><td>2</td></tr>
+                <tr className={s.tokString} style={{ color: dimStyleColor(DimStyle.Token).toHexColor() }}>
+                    <th>token</th><td>A</td><td>B</td><td>C</td>
+                </tr>
+                <tr className={s.tokIndex} style={{ color: dimStyleColor(DimStyle.TokenIdx).toHexColor() }}>
+                    <th>index</th><td>0</td><td>1</td><td>2</td>
+                </tr>
             </tbody>
         </table>
     </div>

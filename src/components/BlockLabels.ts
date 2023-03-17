@@ -32,28 +32,28 @@ export function drawBlockLabels(state: IRenderState, layout: IGptModelLayout) {
         let blockLeft = mlpLeft - layout.margin * 6;
 
         {
-            let color = baseColor.mul(block.mlpResidual.opacity);
+            let color = baseColor.mul(block.mlpResidual.opacity * block.mlpLabel.visible);
             let tl = new Vec3(blockLeft, blockTop, 0);
             let br = new Vec3(blockLeft, blockBottom, 0);
             drawSectionLabel(state, `Transformer ${transformerIdx}`, tl, br, { color, fontSize: 26 });
         }
 
         {
-            let color = baseColor.mul(block.attnResidual.opacity);
+            let color = baseColor.mul(block.attnResidual.opacity * block.selfAttendLabel.visible);
             let tl = new Vec3(attnLeft, blockTop, 0);
             let br = new Vec3(attnLeft, attnProjBot, 0);
             drawSectionLabel(state, `Self-attention`, tl, br, { color, fontSize: 12 });
         }
 
         {
-            let color = baseColor.mul(block.mlpAct.opacity);
+            let color = baseColor.mul(block.mlpAct.opacity * block.mlpLabel.visible);
             let tl = new Vec3(mlpLeft, mlpTop, 0);
             let br = new Vec3(mlpLeft, blockBottom, 0);
             drawSectionLabel(state, `MLP`, tl, br, { color, fontSize: 12 });
         }
 
         {
-            let color = baseColor.mul(block.attnOut.opacity);
+            let color = baseColor.mul(block.attnOut.opacity * block.projLabel.visible);
             let tl = new Vec3(attnLabelLeft, attnProjTop, 0);
             let br = new Vec3(attnLabelLeft, attnProjBot, 0);
             drawSectionLabel(state, `Projection`, tl, br, { color, fontSize: 10 });
@@ -63,7 +63,7 @@ export function drawBlockLabels(state: IRenderState, layout: IGptModelLayout) {
         for (let head of block.heads) {
 
             {
-                let color = baseColor.mul(head.attnMtx.opacity);
+                let color = baseColor.mul(head.attnMtx.opacity * head.headLabel.visible);
                 let tl = new Vec3(attnLabelLeft, head.vBlock.y, head.vBlock.z + head.vBlock.dz / 2);
                 let br = new Vec3(attnLabelLeft, head.qBlock.y + head.qBlock.dy, head.qBlock.z + head.qBlock.dz / 2);
                 if (head.qBlock.y !== head.vBlock.y) {
@@ -76,21 +76,21 @@ export function drawBlockLabels(state: IRenderState, layout: IGptModelLayout) {
 
 
             {
-                let color = baseColor.mul(head.qBlock.opacity);
+                let color = baseColor.mul(head.qBlock.opacity * head.qLabel.visible);
                 let tl = new Vec3(headLeft, head.qBlock.y, head.qBlock.z + head.qBlock.dz / 2);
                 let br = new Vec3(headLeft, head.qBlock.y + head.qBlock.dy, head.qBlock.z + head.qBlock.dz / 2);
                 drawSectionLabel(state, `Q`, tl, br, { color, fontSize: 6, pad: 4 });
             }
 
             {
-                let color = baseColor.mul(head.kBlock.opacity);
+                let color = baseColor.mul(head.kBlock.opacity * head.kLabel.visible);
                 let tl = new Vec3(headLeft, head.kBlock.y, head.kBlock.z + head.kBlock.dz / 2);
                 let br = new Vec3(headLeft, head.kBlock.y + head.kBlock.dy, head.kBlock.z + head.kBlock.dz / 2);
                 drawSectionLabel(state, `K`, tl, br, { color, fontSize: 6, pad: 4 });
             }
 
             {
-                let color = baseColor.mul(head.vBlock.opacity);
+                let color = baseColor.mul(head.vBlock.opacity * head.vLabel.visible);
                 let tl = new Vec3(headLeft, head.vBlock.y, head.vBlock.z + head.vBlock.dz / 2);
                 let br = new Vec3(headLeft, head.vBlock.y + head.vBlock.dy, head.vBlock.z + head.vBlock.dz / 2);
                 drawSectionLabel(state, `V`, tl, br, { color, fontSize: 6, pad: 4 });

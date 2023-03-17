@@ -18,9 +18,9 @@
     justify-content: stretch;
     overflow-y: auto;
     position: relative;
-    scrollbar-width: 10px;
+ scrollbar-width: 10px;
     scrollbar-color: #f00 #0f0;
-    outline: none;
+       outline: none;
 
     box-shadow: inset 0 0 5px 0 rgba(0, 0, 0, 0.2);
 }

@@ -149,6 +149,7 @@ export function splitGridX(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit:
         let mtx = Mat4f.fromScaleTranslation(new Vec3(1,1,1).setAt(vecId, scale), new Vec3().setAt(vecId, translate));
 
         blocks.push({ ...blk,
+            access: blk.access && { ...blk.access },
             localMtx: mtx.mul(blk.localMtx ?? new Mat4f()),
             [xName]: x + (iStart * layout.cell + xOffset),
             [dxName]: (iEnd - iStart) * layout.cell,

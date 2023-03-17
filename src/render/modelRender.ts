@@ -38,7 +38,6 @@ export interface IRenderState {
     overlayFontBuf: IFontBuffers;
     quadVao: WebGLVertexArrayObject;
     queryManager: IQueryManager;
-    tokenColors: IColorMix | null;
 
     lastGpuMs: number;
     lastJsMs: number;
@@ -102,7 +101,6 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         overlayFontBuf,
         quadVao,
         queryManager,
-        tokenColors: null as IColorMix | null,
         lastGpuMs: 0,
         lastJsMs: 0,
     };

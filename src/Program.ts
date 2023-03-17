@@ -7,11 +7,12 @@ import { genGptModelLayout, IGptModelLayout } from "./GptModelLayout";
 import { IFontAtlasData } from "./render/fontRender";
 import { initRender, IRenderState, IRenderView, renderModel, resetRenderBuffers } from "./render/modelRender";
 import { beginQueryAndGetPrevMs, endQuery } from "./render/queryManager";
-import { drawTokens } from "./render/tokenRender";
+import { drawTokens } from "./components/Tokens";
 import { SavedState } from "./SavedState";
 import { isNotNil, Subscriptions } from "./utils/data";
 import { Vec3 } from "./utils/vector";
 import { initWalkthrough, runWalkthrough } from "./walkthrough/Walkthrough";
+import { IColorMix } from "./Annotations";
 
 export interface IProgramState {
     render: IRenderState;
@@ -21,7 +22,14 @@ export interface IProgramState {
     layout: IGptModelLayout;
     shape: IModelShape;
     gptGpuModel: IGpuGptModel | null;
+    display: IDisplayState;
     markDirty: () => void;
+}
+
+export interface IDisplayState {
+    tokenColors: IColorMix | null;
+    tokenIdxColors: IColorMix | null;
+    tokenIdxModelOpacity?: number[];
 }
 
 export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtlasData): IProgramState {
@@ -31,8 +39,8 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
 
     let prevState = SavedState.state;
     let camera: ICamera = {
-        angle: prevState?.camera.angle ?? new Vec3(290, 38, 2.5),
-        center: prevState?.camera.center ?? new Vec3(-6, 0, -80),
+        angle: prevState?.camera.angle ?? new Vec3(296, 16, 13.5),
+        center: prevState?.camera.center ?? new Vec3(-8.4, 0, -481.5),
         transition: {},
     }
 
@@ -55,6 +63,10 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         gptGpuModel: null,
         markDirty: () => { },
         htmlSubs: new Subscriptions(),
+        display: {
+            tokenColors: null,
+            tokenIdxColors: null,
+        },
     };
 }
 
@@ -83,7 +95,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     drawBlockLabels(state.render, state.layout);
 
     drawModelCard(state);
-    drawTokens(state.render, state.layout, undefined, undefined, state.render.tokenColors || undefined);
+    drawTokens(state.render, state.layout, state.display);
 
     // render everything; i.e. here's where we actually do gl draw calls
     // up until now, we've just been putting data in cpu-side buffers

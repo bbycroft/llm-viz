@@ -8,13 +8,17 @@ export interface ICamera {
     centerDesired?: Vec3;
     // separated into rotation & zoom since they behave differently, and we want to control them separately
     // probably should just split out the zoom into a separate variable
-    angleRotDesired?: Vec3;
+    angleDesired?: Vec3;
     angleZDesired?: number;
 
     transition: {
-        angleRotVel?: Vec3;
-        centerVel?: Vec3;
-        angleZVel?: number;
+        centerT?: number;
+        angleT?: number;
+        angleZT?: number;
+
+        centerInit?: Vec3;
+        angleInit?: Vec3;
+        angleZInit?: number;
     }
 }
 
@@ -46,7 +50,42 @@ export function cameraMoveToDesired(camera: ICamera, dt: number) {
 
     // We'll use the velocity to check if we've applied the desired value, so we know when to
     // modify the main camera
+    let duration = 1000 * 1;
 
+    if (camera.centerDesired && camera.transition.centerT === undefined) {
+        console.log("cameraMoveToDesired: centerDesired", camera.centerDesired);
+        camera.transition.centerInit = camera.center;
+        camera.transition.centerT = 0.0;
+    }
+    if (camera.transition.centerT !== undefined) {
+        camera.transition.centerT += dt / duration;
+        console.log("cameraMoveToDesired: centerT", camera.transition.centerT);
+        if (camera.transition.centerT > 1.0) {
+            camera.transition.centerT = undefined;
+            camera.transition.centerInit = undefined;
+            camera.centerDesired = undefined;
+        } else if (camera.transition.centerInit && camera.centerDesired) {
+            camera.center = camera.transition.centerInit!.lerp(camera.centerDesired!, camera.transition.centerT);
+        }
+    }
+
+    if (camera.angleDesired && camera.transition.angleT === undefined) {
+        camera.transition.angleInit = camera.angle;
+        camera.transition.angleT = 0.0;
+    }
+    if (camera.transition.angleT !== undefined) {
+        camera.transition.angleT += dt / duration;
+        if (camera.transition.angleT > 1.0) {
+            camera.transition.angleT = undefined;
+            camera.transition.angleInit = undefined;
+            camera.angleDesired = undefined;
+        } else if (camera.transition.angleInit && camera.angleDesired) {
+            camera.angle = camera.transition.angleInit!.lerp(camera.angleDesired!, camera.transition.angleT);
+        }
+    }
+}
+
+    /*
     if (camera.centerDesired && (!camera.transition.centerVel || camera.transition.centerVel.dist(camera.centerDesired) < 0.01)) {
         camera.center = camera.centerDesired;
         camera.transition.centerVel = camera.centerDesired;
@@ -71,6 +110,7 @@ export function cameraMoveToDesired(camera: ICamera, dt: number) {
     } else if (!camera.angleRotDesired) {
         camera.transition.angleRotVel = undefined;
     }
+    */
 
     /*
     if (camera.centerDesired) {
@@ -126,7 +166,7 @@ export function cameraMoveToDesired(camera: ICamera, dt: number) {
         camera.angleRotDesired = undefined;
     }
     */
-}
+
 
 export interface ISpringConfig {
     tension: number;

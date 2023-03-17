@@ -1,12 +1,14 @@
 import { IColorMix } from "../Annotations";
 import { cellPosition, IGptModelLayout } from "../GptModelLayout";
-import { measureTextWidth, writeTextToBuffer } from "./fontRender";
+import { measureTextWidth, writeTextToBuffer } from "../render/fontRender";
 import { Mat4f } from "../utils/matrix";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
-import { addLine } from "./lineRender";
-import { IRenderState } from "./modelRender";
+import { addLine } from "../render/lineRender";
+import { IRenderState } from "../render/modelRender";
+import { DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
+import { IDisplayState } from "../Program";
 
-export function drawTokens(renderState: IRenderState, layout: IGptModelLayout, data?: Float32Array, count?: number, mix?: IColorMix) {
+export function drawTokens(renderState: IRenderState, layout: IGptModelLayout, display: IDisplayState, data?: Float32Array, count?: number) {
     let { modelFontBuf: fontBuf, lineRender } = renderState;
 
     // Just rendering the 0, 1, 2 tokens, with plans to advance to the GPT text model etc
@@ -48,24 +50,34 @@ export function drawTokens(renderState: IRenderState, layout: IGptModelLayout, d
     let mtxRes = new Mat4f();
     let totalOffset = -strOffset / 2 - layout.cell / 2 * (count - 1);
 
-    let color = new Vec4(0.5, 0.6, 0.5, 1);
+    let tokColor = dimStyleColor(DimStyle.Token);
+    let tokIdxColor = dimStyleColor(DimStyle.TokenIdx);
 
     for (let a of strParts) {
-
-        let drawColor = color;
-        if (mix) {
-            let val = mix.mixes[a.i];
+        let tokDrawColor = tokColor;
+        if (display.tokenColors) {
+            let val = display.tokenColors.mixes[a.i];
             if (val > 0.0) {
-                drawColor = Vec4.lerp(color, mix.color2, val);
+                tokDrawColor = Vec4.lerp(tokColor, display.tokenColors.color2, val);
             }
         }
 
-        writeTextToBuffer(fontBuf, a.str, drawColor, totalOffset + a.offset, yUpper, upperFontSize, mtxRes);
+        let tokIdxDrawColor = tokIdxColor;
+        if (display.tokenIdxColors) {
+            let val = display.tokenIdxColors.mixes[a.i];
+            if (val > 0.0) {
+                tokIdxDrawColor = Vec4.lerp(tokIdxColor, display.tokenIdxColors.color2, val);
+            }
+        }
+        if (display.tokenIdxModelOpacity) {
+            tokIdxDrawColor = tokIdxDrawColor.mul(display.tokenIdxModelOpacity[a.i]);
+        }
+
+        writeTextToBuffer(fontBuf, a.str, tokDrawColor, totalOffset + a.offset, yUpper, upperFontSize, mtxRes);
 
         let x = totalOffset + a.offset + a.w / 2 - a.w2 / 2;
 
-        writeTextToBuffer(fontBuf, '' + a.val, drawColor, x, yLower, lowerFontSize, mtxRes);
-
+        writeTextToBuffer(fontBuf, '' + a.val, tokIdxDrawColor, x, yLower, lowerFontSize, mtxRes);
 
         let tx = x + a.w2 / 2;
         let bx = cellPosition(layout, target, Dim.X, a.i) + layout.cell * 0.5;
@@ -73,8 +85,8 @@ export function drawTokens(renderState: IRenderState, layout: IGptModelLayout, d
         let delta = 0.6;
         let bot = -0.3;
         let thick = 4;
-        addLine(lineRender, thick, drawColor, new Vec3(tx, top, 0), new Vec3(tx, top + delta, 0));
-        addLine(lineRender, thick, drawColor, new Vec3(tx, top + delta, 0), new Vec3(bx, bot - delta, 0));
-        addLine(lineRender, thick, drawColor, new Vec3(bx, bot - delta, 0), new Vec3(bx, bot, 0));
+        addLine(lineRender, thick, tokIdxDrawColor, new Vec3(tx, top, 0), new Vec3(tx, top + delta, 0));
+        addLine(lineRender, thick, tokIdxDrawColor, new Vec3(tx, top + delta, 0), new Vec3(bx, bot - delta, 0));
+        addLine(lineRender, thick, tokIdxDrawColor, new Vec3(bx, bot - delta, 0), new Vec3(bx, bot, 0));
     }
 }

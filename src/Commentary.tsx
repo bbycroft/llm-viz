@@ -17,7 +17,6 @@ export const Commentary: React.FC = () => {
     let wt = progState.walkthrough;
 
     function handleKeyDown(ev: React.KeyboardEvent) {
-        console.log('key down', ev.key);
         if (ev.key === ' ') {
             ev.preventDefault(); // prevent scrolling
         }
@@ -158,14 +157,17 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
                 let active = wt.time >= times[0].start; // && wt.time <= eventEndTime(times[times.length - 1]);
                 let opacity = active ? 1 : 0.6;
                 let blur = active ? 0 : 2;
+                let showLine = times.length > 1 || !times[0].isBreak;
                 return <div key={i} className={s.commentaryBreak} data-nid={i} style={{ opacity, filter: `blur(${blur}px)` }}>
-                    <button className={clsx(s.jump, 'btn')}>
-                        <FontAwesomeIcon icon={faArrowDown} />
-                    </button>
-                    <button className={clsx(s.playPause, 'btn')}>
-                        <FontAwesomeIcon icon={wt.running && active ? faPause : faPlay} />
-                    </button>
-                    <PhaseTimelineHoriz times={n.times!} />
+                    {showLine && <>
+                        <button className={clsx(s.jump, 'btn')}>
+                            <FontAwesomeIcon icon={faArrowDown} />
+                        </button>
+                        <button className={clsx(s.playPause, 'btn')}>
+                            <FontAwesomeIcon icon={wt.running && active ? faPause : faPlay} />
+                        </button>
+                        <PhaseTimelineHoriz times={n.times!} />
+                    </>}
                 </div>;
             }
         })}

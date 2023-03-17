@@ -106,7 +106,7 @@ export function phaseToGroup(wt: IWalkthrough) {
 
 
 export function runWalkthrough(state: IProgramState, view: IRenderView) {
-    let { layout, render } = state;
+    let { layout, render, display } = state;
 
     if (state.walkthrough.running) {
         state.walkthrough.time += view.dt / 1000;
@@ -132,8 +132,6 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
     let tools = phaseTools(state);
     let { atTime, atEvent, afterTime, cleanup, commentary, commentaryPara, c_str } = tools;
 
-    render.tokenColors = null;
-
     let wtArgs: IWalkthroughArgs = { state, layout, tools, walkthrough: state.walkthrough };
 
     let groupId = phaseToGroup(phaseState).groupId;
@@ -154,7 +152,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
         if (!t2.active) {
             cam.centerDesired = new Vec3(0, 0, -30);
             cam.angleZDesired = 1.2;
-            cam.angleRotDesired = new Vec3(290, 20);
+            cam.angleDesired = new Vec3(290, 20);
         }
 
         let blocks = layout.cubes.filter(b => b.t === 'i');
@@ -216,7 +214,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
         let tStr = c_str('t', 1);
         let c = commentary`Let's start at the top. To compute the vectors at each time ${tStr} we do a couple of steps:`;
 
-        moveCameraTo(render, atTime(0), new Vec3(0, 0, 0), new Vec3());
+        moveCameraTo(state, atTime(0), new Vec3(0, 0, 0), new Vec3());
 
         let t0_expandAt0 = atTime(0, 0.1, 0.2);
         let t1_totEq3 = afterTime(t0_expandAt0, 1.0, 0.2);
@@ -258,7 +256,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
         if (layout.model && t4_highlightTokEmIdx.t > 0 && t6_cleanup1.t <= 1.0) {
             splitGridX(layout, layout.tokEmbedObj, Dim.X, exampleTokIdx, 0);
             findSubBlocks(layout.tokEmbedObj, Dim.X, exampleTokIdx, exampleTokIdx)[0].highlight = lerp(0, 0.2, t4_highlightTokEmIdx.t);
-            render.tokenColors = { color2: dimStyleColor(DimStyle.n_vocab), mixes: oneHotArray(layout.idxObj.cx, exampleTIdx, t4_highlightTokEmIdx.t) };
+            display.tokenColors = { color2: dimStyleColor(DimStyle.n_vocab), mixes: oneHotArray(layout.idxObj.cx, exampleTIdx, t4_highlightTokEmIdx.t) };
             let padTop = layout.cell * 0.3;
             let padBot = layout.cell * 0.3 + 3;
             let color = dimStyleColor(DimStyle.n_vocab).mul(t4_highlightTokEmIdx.t);
@@ -302,7 +300,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
 
             let tokIdx = layout.model.inputBuf[tIdx];
 
-            render.tokenColors = { color2: dimStyleColor(DimStyle.n_vocab), mixes: oneHotArray(T, tIdx, 1.0) };
+            display.tokenColors = { color2: dimStyleColor(DimStyle.n_vocab), mixes: oneHotArray(T, tIdx, 1.0) };
 
             splitGridX(layout, layout.residual0, Dim.X, tIdx + 0.5, 0.0);
 

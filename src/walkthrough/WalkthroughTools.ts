@@ -55,6 +55,7 @@ export function phaseTools(state: IProgramState) {
             phaseState.time = breakEvt.start + breakEvt.duration;
             phaseState.lastBreakTime = phaseState.time;
         }
+        breakEvt.isBreak = true;
     }
 
     function commentary(stringsArr: TemplateStringsArray, ...values: any[]) {
@@ -245,9 +246,17 @@ export interface ITimeInfo {
     // will change over the course of a phase: used to lerp
     t: number; // 0 - 1
     active: boolean;
+
+    isBreak?: boolean;
 }
 
-export function moveCameraTo(state: IRenderState, time: ITimeInfo, rot: Vec3, target: Vec3) {
+export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3, rot: Vec3) {
+
+    if (time.active && time.t < 1.0) {
+        state.camera.angleDesired = rot;
+        state.camera.angleZDesired = rot.z;
+        state.camera.centerDesired = target;
+    }
 
 }
 
@@ -262,6 +271,7 @@ export enum DimStyle {
     n_heads,
     n_layers,
     Token,
+    TokenIdx,
 }
 
 export function dimStyleColor(style: DimStyle) {
@@ -273,6 +283,8 @@ export function dimStyleColor(style: DimStyle) {
             return new Vec4(0.9, 0.3, 0.3, 1);
         case DimStyle.Token:
             return new Vec4(0.3, 0.7, 0.3, 1);
+        case DimStyle.TokenIdx:
+            return new Vec4(0.3, 0.8, 0.6, 1);
         case DimStyle.n_vocab:
             return Vec4.fromHexColor('#7c3c8d'); // new Vec4(0.8, 0.6, 0.3, 1);
     }

@@ -98,6 +98,13 @@ export class Vec3 {
         let kDotV = k.dot(this);
         return this.mul(c).add(kCrossV.mul(s)).add(k.mul(kDotV * (1 - c)));
     }
+    lerp(a: Vec3, t: number): Vec3 {
+         return new Vec3(
+            a.x * t + this.x * (1 - t),
+            a.y * t + this.y * (1 - t),
+            a.z * t + this.z * (1 - t),
+         );
+    }
     static zero = new Vec3(0, 0, 0);
     static one = new Vec3(1, 1, 1);
 }
