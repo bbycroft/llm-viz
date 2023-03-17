@@ -1,7 +1,12 @@
+import { IModelLayout } from "./GptModelLayout";
+import { IProgramState } from "./Program";
 import { Mat4f } from "./utils/matrix";
-import { Vec3 } from "./utils/vector";
+import { BoundingBox3d, Vec3 } from "./utils/vector";
 
 export interface ICamera {
+    camPos: Vec3;
+    viewMtx: Mat4f;
+    modelMtx: Mat4f;
     center: Vec3;
     angle: Vec3; // x = degrees about z axis, y = degrees above the x-y plane; z = zoom
 
@@ -42,6 +47,36 @@ export function cameraToMatrixView(camera: ICamera) {
         lookAt: Mat4f.fromLookAt(camPos, camLookat, new Vec3(0, 0, 1)),
         camPos,
     };
+}
+
+export function genModelViewMatrices(state: IProgramState) {
+    let { camera, layout } = state;
+
+    let cell = layout.cell;
+    let bb = new BoundingBox3d();
+    for (let c of layout.cubes) {
+        let tl = new Vec3(c.x, c.y, c.z);
+        let br = new Vec3(c.x + c.cx * cell, c.y + c.cy * cell, c.z + c.cz * cell);
+        bb.addInPlace(tl);
+        bb.addInPlace(br);
+    }
+    let localDist = bb.size().len();
+
+    let { lookAt, camPos } = cameraToMatrixView(camera);
+    let dist = 200 * camera.angle.z;
+
+    let persp = Mat4f.fromPersp(40, state.render.canvasEl.width / state.render.canvasEl.height, dist / 100, localDist + Math.max(dist * 2, 10000));
+    let viewMtx = persp.mul(lookAt);
+    let modelMtx = new Mat4f();
+    modelMtx[0] = 1.0;
+    modelMtx[5] = 0.0;
+    modelMtx[6] = -1.0;
+    modelMtx[9] = -1.0;
+    modelMtx[10] = 0.0;
+
+    state.camera.modelMtx = modelMtx;
+    state.camera.viewMtx = viewMtx;
+    state.camera.camPos = camPos;
 }
 
 export function cameraMoveToDesired(camera: ICamera, dt: number) {

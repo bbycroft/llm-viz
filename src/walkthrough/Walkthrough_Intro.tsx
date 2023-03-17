@@ -1,6 +1,6 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
 import { commentary, DimStyle, dimStyleColor, eventEndTime, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
-import s from './Walkthrough.module.css';
+import s from './Walkthrough.module.scss';
 import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { clamp, makeArray, useGlobalDrag } from "../utils/data";
 import React, { useState } from "react";

@@ -1,20 +1,23 @@
-import { cameraMoveToDesired, ICamera } from "./Camera";
+import { cameraMoveToDesired, genModelViewMatrices, ICamera } from "./Camera";
 import { drawAllArrows } from "./components/Arrow";
 import { drawBlockLabels } from "./components/BlockLabels";
 import { drawModelCard } from "./components/ModelCard";
 import { IGpuGptModel, IModelShape } from "./GptModel";
 import { genGptModelLayout, IGptModelLayout } from "./GptModelLayout";
-import { IFontAtlasData } from "./render/fontRender";
+import { drawText, IFontAtlasData, IFontOpts, measureText } from "./render/fontRender";
 import { initRender, IRenderState, IRenderView, renderModel, resetRenderBuffers } from "./render/modelRender";
 import { beginQueryAndGetPrevMs, endQuery } from "./render/queryManager";
 import { drawTokens } from "./components/Tokens";
 import { SavedState } from "./SavedState";
 import { isNotNil, Subscriptions } from "./utils/data";
-import { Vec3 } from "./utils/vector";
+import { Vec3, Vec4 } from "./utils/vector";
 import { initWalkthrough, runWalkthrough } from "./walkthrough/Walkthrough";
 import { IColorMix } from "./Annotations";
+import { Mat4f } from "./utils/matrix";
+import { runMouseHitTesting } from "./Interaction";
 
 export interface IProgramState {
+    mouse: IMouseState;
     render: IRenderState;
     walkthrough: ReturnType<typeof initWalkthrough>;
     camera: ICamera;
@@ -26,10 +29,15 @@ export interface IProgramState {
     markDirty: () => void;
 }
 
+export interface IMouseState {
+    mousePos: Vec3;
+}
+
 export interface IDisplayState {
     tokenColors: IColorMix | null;
     tokenIdxColors: IColorMix | null;
     tokenIdxModelOpacity?: number[];
+    lines: string[];
 }
 
 export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtlasData): IProgramState {
@@ -42,6 +50,9 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         angle: prevState?.camera.angle ?? new Vec3(296, 16, 13.5),
         center: prevState?.camera.center ?? new Vec3(-8.4, 0, -481.5),
         transition: {},
+        modelMtx: new Mat4f(),
+        viewMtx: new Mat4f(),
+        camPos: new Vec3(),
     }
 
     let shape: IModelShape = {
@@ -63,9 +74,13 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         gptGpuModel: null,
         markDirty: () => { },
         htmlSubs: new Subscriptions(),
+        mouse: {
+            mousePos: new Vec3(),
+        },
         display: {
             tokenColors: null,
             tokenIdxColors: null,
+            lines: [],
         },
     };
 }
@@ -74,6 +89,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     let timer0 = performance.now();
 
     resetRenderBuffers(state.render);
+    state.display.lines = [];
 
     if (state.walkthrough.running) {
         cameraMoveToDesired(state.camera, view.dt);
@@ -81,6 +97,8 @@ export function runProgram(view: IRenderView, state: IProgramState) {
 
     // generate the base model, incorporating the gpu-side model if available
     state.layout = genGptModelLayout(state.shape, state.gptGpuModel);
+
+    genModelViewMatrices(state);
 
     let queryRes = beginQueryAndGetPrevMs(state.render.queryManager, 'render');
     if (isNotNil(queryRes)) {
@@ -90,12 +108,23 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     // will modify layout; view; render a few things.
     runWalkthrough(state, view);
 
+    runMouseHitTesting(state);
+
     // these will get modified by the walkthrough (stored where?)
     drawAllArrows(state.render, state.layout);
     drawBlockLabels(state.render, state.layout);
 
     drawModelCard(state);
     drawTokens(state.render, state.layout, state.display);
+
+    let lineNo = 1;
+    let tw = state.render.canvasEl.width;
+    for (let line of state.display.lines) {
+        let opts: IFontOpts = { color: new Vec4(), size: 14 };
+        let w = measureText(state.render.overlayFontBuf, line, opts);
+        drawText(state.render.overlayFontBuf, line, tw - w - 4, lineNo * opts.size * 1.3 + 4, opts)
+        lineNo++;
+    }
 
     // render everything; i.e. here's where we actually do gl draw calls
     // up until now, we've just been putting data in cpu-side buffers

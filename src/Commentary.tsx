@@ -1,5 +1,5 @@
 import React, { ReactNode, useEffect } from 'react';
-import s from './Commentary.module.css';
+import s from './Commentary.module.scss';
 import { PhaseTimelineHoriz } from './PhaseTimeline';
 import { useProgramState } from './Sidebar';
 import { clamp } from './utils/data';

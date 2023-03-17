@@ -1,4 +1,4 @@
-import s from './Sidebar.module.css';
+import s from './Sidebar.module.scss';
 import { useSubscriptions } from './utils/data';
 import React, { createContext, useContext } from 'react';
 import clsx from 'clsx';

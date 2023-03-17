@@ -1,5 +1,5 @@
 import { useReducer, useState } from 'react';
-import s from './PhaseTimeline.module.css';
+import s from './PhaseTimeline.module.scss';
 import { useProgramState } from './Sidebar';
 import { clamp, useGlobalDrag } from './utils/data';
 import { eventEndTime, ITimeInfo } from './walkthrough/WalkthroughTools';

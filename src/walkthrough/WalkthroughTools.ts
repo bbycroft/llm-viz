@@ -284,7 +284,7 @@ export function dimStyleColor(style: DimStyle) {
         case DimStyle.Token:
             return new Vec4(0.3, 0.7, 0.3, 1);
         case DimStyle.TokenIdx:
-            return new Vec4(0.3, 0.8, 0.6, 1);
+            return Vec4.fromHexColor('#1b495d');
         case DimStyle.n_vocab:
             return Vec4.fromHexColor('#7c3c8d'); // new Vec4(0.8, 0.6, 0.3, 1);
     }

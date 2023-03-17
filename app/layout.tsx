@@ -1,6 +1,6 @@
 import React from 'react';
-import s from './layout.module.css';
-import '@/styles/main.css';
+import s from './layout.module.scss';
+import '@/styles/main.scss';
 
 import { config } from '@fortawesome/fontawesome-svg-core'
 import '@fortawesome/fontawesome-svg-core/styles.css'

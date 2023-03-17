@@ -1,19 +1,14 @@
-import { IColorMix } from "../Annotations";
-import { IGptModelLayout } from "../GptModelLayout";
 import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "./fontRender";
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, ensureShadersReady, IGLContext } from "../utils/shader";
-import { BoundingBox3d, Vec3, Vec4 } from "../utils/vector";
-import { initWalkthrough } from "../walkthrough/Walkthrough";
+import { Vec3, Vec4 } from "../utils/vector";
 import { IBlockRender, initBlockRender, renderAllBlocks, renderBlocksSimple } from "./blockRender";
 import { initBlurRender, renderBlur, setupBlurTarget } from "./blurRender";
 import { createLineRender, renderAllLines, resetLineRender } from "./lineRender";
 import { renderAllThreads, initThreadRender } from "./threadRender";
 import { initSharedRender, writeModelViewUbo } from "./sharedRender";
 import { cameraToMatrixView, ICamera } from "../Camera";
-import { SavedState } from "../SavedState";
 import { initTriRender, renderAllTris, resetTriRender } from "./triRender";
-import { Subscriptions } from "../utils/data";
 import { createQueryManager, IQueryManager } from "./queryManager";
 import { IProgramState } from "../Program";
 
@@ -117,27 +112,8 @@ export function renderModel(state: IProgramState) {
     let { layout, render: args, camera } = state;
     let { gl, blockRender, canvasEl } = args;
 
-    let cell = layout.cell;
-    let bb = new BoundingBox3d();
-    for (let c of layout.cubes) {
-        let tl = new Vec3(c.x, c.y, c.z);
-        let br = new Vec3(c.x + c.cx * cell, c.y + c.cy * cell, c.z + c.cz * cell);
-        bb.addInPlace(tl);
-        bb.addInPlace(br);
-    }
-    let localDist = bb.size().len();
-
-    let { lookAt, camPos } = cameraToMatrixView(camera);
-    let dist = 200 * camera.angle.z;
-
-    let persp = Mat4f.fromPersp(40, args.canvasEl.width / args.canvasEl.height, dist / 100, localDist + Math.max(dist * 2, 10000));
-    let viewMtx = persp.mul(lookAt);
-    let modelMtx = new Mat4f();
-    modelMtx[0] = 1.0;
-    modelMtx[5] = 0.0;
-    modelMtx[6] = -1.0;
-    modelMtx[9] = -1.0;
-    modelMtx[10] = 0.0;
+    let { modelMtx, viewMtx } = camera;
+    let { camPos } = cameraToMatrixView(camera);
 
     let lightPos = [
         new Vec3(100, 400, 600),

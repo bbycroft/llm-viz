@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { IDataAndModel, IModelState, initModel, runModel, setModelInputData } from './GptModel';
-import s from './LayerView.module.css';
+import s from './LayerView.module.scss';
 import { IRenderState, IRenderView } from './render/modelRender';
 import { clamp, useGlobalDrag } from './utils/data';
 import { fetchFontAtlasData, IFontAtlasData } from './render/fontRender';
@@ -78,6 +78,16 @@ export function LayerView() {
         }
     }
 
+    function handleMouseMove(ev: React.MouseEvent) {
+        if (progState) {
+            let canvasBcr = canvasRender!.renderState.canvasEl.getBoundingClientRect();
+            let mousePos = new Vec3(ev.clientX - canvasBcr.left, ev.clientY - canvasBcr.top, 0);
+            updateRenderState(ps => {
+                ps.mouse.mousePos = mousePos;
+            });
+        }
+    }
+
     function handleWheel(ev: React.WheelEvent) {
         if (progState) {
             let camAngle = progState.camera.angle;
@@ -110,6 +120,10 @@ export function LayerView() {
                 walkthrough.running = false;
                 walkthrough.time = walkthrough.phaseLength;
                 canvasRender.markDirty();
+            }
+
+            if (ev.key === ' ') {
+                ev.preventDefault();
             }
         }
 
@@ -183,6 +197,7 @@ export function LayerView() {
                 className={s.canvas}
                 ref={setCanvasEl}
                 onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
                 onWheel={handleWheel}
                 onContextMenu={ev => ev.preventDefault()}
                 style={{ cursor: dragStart ? 'grabbing' : 'grab' }}
