@@ -138,14 +138,14 @@ export function walkthroughIntro(args: IWalkthroughArgs) {
                 let idxPos = t_makeVecs.t * 6;
                 let splitWidth = clamp(6 - idxPos, 0, 2);
                 let splitIdx = Math.min(5, Math.floor(idxPos));
-                splitGridX(layout, layout.idxObj, Dim.X, idxPos, splitWidth);
-                for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, splitIdx)) {
-                    if (blk.access) {
-                        blk.access.disable = false;
-                    }
-                }
-
                 if (t_makeVecs.t < 1.0) {
+                    splitGridX(layout, layout.idxObj, Dim.X, idxPos, splitWidth);
+                    for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, splitIdx)) {
+                        if (blk.access) {
+                            blk.access.disable = false;
+                        }
+                    }
+
                     splitGridX(layout, layout.residual0, Dim.X, idxPos, splitWidth);
                     for (let blk of findSubBlocks(layout.residual0, Dim.X, null, splitIdx)) {
                         if (blk.access) {
@@ -172,7 +172,9 @@ export function walkthroughIntro(args: IWalkthroughArgs) {
             let t_firstTransformer = afterTime(null, 3.0, 0.5);
             moveCameraTo(state, t_firstTransformer, new Vec3(-80.7, 0, -259.8), new Vec3(299.5, 6.5, 4.3));
 
-            layout.blocks[0].transformerLabel.visible = t_firstTransformer.t;
+            if (t_firstTransformer.active) {
+                layout.blocks[0].transformerLabel.visible = t_firstTransformer.t;
+            }
 
             let t_fullFrame = afterTime(null, 3.5, 0.5);
             moveCameraTo(state, t_fullFrame, new Vec3(-149.4, 0, -691.2), new Vec3(299, 20, 10.8));

@@ -107,6 +107,7 @@ interface IBlkDefArgs {
 
 export interface IBlkLabel {
     visible: number;
+    cubes: IBlkDef[];
 }
 
 export interface IModelLayout {
@@ -188,8 +189,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         };
     }
 
-    function mkLabel(init: number): IBlkLabel {
-        return { visible: 0 };
+    function mkLabel(init: number, cubes?: IBlkDef[]): IBlkLabel {
+        return { visible: 0, cubes: cubes ?? [] };
     }
 
     let cubes: IBlkDef[] = [];
@@ -257,8 +258,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: resLeftX - cell * 1 - margin, zM: 0,
             access: { src: target?.normBias, x: [1, 0, 0], y: [0, 1, 0] },
         });
-        cubes.push(lnAgg, lnSigma, lnMu, lnResid);
-        return { lnAgg, lnResid, lnSigma, lnMu };
+        let lnCubes = [lnAgg, lnSigma, lnMu, lnResid];
+        return { lnAgg, lnResid, lnSigma, lnMu, cubes: lnCubes };
     }
 
     let lnLeftX = leftX - (T + 2) * cell - 3 * margin;
@@ -374,13 +375,18 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.scaledVectors, x: [0, 1, 0, i * A], y: [1, 0, T] },
             });
 
-            let headLabel = mkLabel(1.0);
-            let qLabel = mkLabel(1.0);
-            let kLabel = mkLabel(1.0);
-            let vLabel = mkLabel(1.0);
-            let biasLabel = mkLabel(1.0);
-            let mtxLabel = mkLabel(1.0);
-            let vectorLabel = mkLabel(1.0);
+            let headCubes = [qWeightBlock, kWeightBlock, vWeightBlock,
+                qBiasBlock, kBiasBlock, vBiasBlock,
+                qBlock, kBlock, vBlock,
+                attnMtx, attnMtxAgg, attnMtxSm, vOutBlock];
+
+            let headLabel = mkLabel(1.0, headCubes);
+            let qLabel = mkLabel(1.0, [qWeightBlock, qBiasBlock, qBlock]);
+            let kLabel = mkLabel(1.0, [kWeightBlock, kBiasBlock, kBlock]);
+            let vLabel = mkLabel(1.0, [vWeightBlock, vBiasBlock, vBlock]);
+            let biasLabel = mkLabel(1.0, [qBiasBlock, kBiasBlock, vBiasBlock]);
+            let mtxLabel = mkLabel(1.0, [attnMtx, attnMtxAgg, attnMtxSm]);
+            let vectorLabel = mkLabel(1.0, [vOutBlock]);
 
             let head = {
                 qWeightBlock, kWeightBlock, vWeightBlock,
@@ -388,14 +394,10 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 qBlock, kBlock, vBlock,
                 attnMtx, attnMtxAgg, attnMtxSm, vOutBlock,
                 qLabel, kLabel, vLabel, biasLabel, mtxLabel, vectorLabel, headLabel,
-                cubes: [qWeightBlock, kWeightBlock, vWeightBlock,
-                    qBiasBlock, kBiasBlock, vBiasBlock,
-                    qBlock, kBlock, vBlock,
-                    attnMtx, attnMtxAgg, attnMtxSm, vOutBlock],
+                cubes: headCubes,
                 labels: [qLabel, kLabel, vLabel, biasLabel, mtxLabel, vectorLabel, headLabel],
             };
             heads.push(head);
-            cubes.push(...head.cubes);
         }
 
         let vOutCombined = mk({
@@ -433,8 +435,6 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: attnTarget?.output, x: [0, 1, 0], y: [1, 0, T] },
             deps: { add: [[attnOut, 'xy'], [ln1.lnResid, 'xy']] }
         });
-
-        cubes.push(projWeight, projBias, attnOut, attnResidual);
 
         y = vFinalZ + C * cell + margin;
 
@@ -496,17 +496,40 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         y += C * cell - margin;
 
-        let transformerLabel = mkLabel(1.0);
-        let projLabel = mkLabel(1.0);
-        let selfAttendLabel = mkLabel(1.0);
-        let mlpLabel = mkLabel(1.0);
+        let blockCubes = [
+            ...ln1.cubes,
+            ...heads.flatMap(h => h.cubes),
+            projWeight,
+            projBias,
+            attnOut,
+            attnResidual,
+            ...ln2.cubes,
+            mlpFcWeight,
+            mlpFcBias,
+            mlpFc,
+            mlpAct,
+            mlpProjWeight,
+            mlpProjBias,
+            mlpResult,
+            mlpResidual,
+        ]
 
-        cubes.push(mlpFc, mlpFcWeight, mlpFcBias, mlpAct, mlpProjWeight, mlpProjBias, mlpResult, mlpResidual);
+        let headCubes = [...ln1.cubes, ...heads.flatMap(h => h.cubes)];
+        let projCubes = [projWeight, projBias, attnOut, attnResidual];
+        let mlpCubes = [...ln2.cubes, mlpFcWeight, mlpFcBias, mlpFc, mlpAct, mlpProjWeight, mlpProjBias, mlpResult, mlpResidual];
+
+        let transformerLabel = mkLabel(1.0, blockCubes);
+        let selfAttendLabel = mkLabel(1.0, [...headCubes, ...projCubes]);
+        let projLabel = mkLabel(1.0, projCubes);
+        let mlpLabel = mkLabel(1.0, [...ln2.cubes, mlpFcWeight, mlpFcBias, mlpFc, mlpAct, mlpProjWeight, mlpProjBias, mlpResult, mlpResidual]);
+
+        cubes.push(...blockCubes);
 
         return {
             ln1,
             heads,
             labels: [transformerLabel, projLabel, selfAttendLabel, mlpLabel, ...heads.flatMap(h => h.labels)],
+            cubes: blockCubes,
             transformerLabel,
             projLabel,
             selfAttendLabel,
@@ -531,7 +554,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
     y += blockHalfMargin;
 
-    let blocks = [];
+    let blocks: ReturnType<typeof createBlock>[] = [];
     for (let i = 0; i < nBlocks; i++) {
         let target = gptGpuModel?.blocks[i];
         y += blockHalfMargin;

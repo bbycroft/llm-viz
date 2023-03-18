@@ -32,7 +32,7 @@ export function drawBlockLabels(state: IRenderState, layout: IGptModelLayout) {
         let blockLeft = mlpLeft - layout.margin * 6;
 
         {
-            let color = baseColor.mul(block.mlpResidual.opacity * block.mlpLabel.visible);
+            let color = baseColor.mul(block.mlpResidual.opacity * block.transformerLabel.visible);
             let tl = new Vec3(blockLeft, blockTop, 0);
             let br = new Vec3(blockLeft, blockBottom, 0);
             drawSectionLabel(state, `Transformer ${transformerIdx}`, tl, br, { color, fontSize: 26 });

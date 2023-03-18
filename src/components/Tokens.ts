@@ -3,7 +3,7 @@ import { cellPosition, IGptModelLayout } from "../GptModelLayout";
 import { measureTextWidth, writeTextToBuffer } from "../render/fontRender";
 import { Mat4f } from "../utils/matrix";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
-import { addLine } from "../render/lineRender";
+import { addLine, addLine2, ILineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
 import { IDisplayState } from "../Program";
@@ -84,9 +84,10 @@ export function drawTokens(renderState: IRenderState, layout: IGptModelLayout, d
         let top = -4;
         let delta = 0.6;
         let bot = -0.3;
-        let thick = 4;
-        addLine(lineRender, thick, tokIdxDrawColor, new Vec3(tx, top, 0), new Vec3(tx, top + delta, 0));
-        addLine(lineRender, thick, tokIdxDrawColor, new Vec3(tx, top + delta, 0), new Vec3(bx, bot - delta, 0));
-        addLine(lineRender, thick, tokIdxDrawColor, new Vec3(bx, bot - delta, 0), new Vec3(bx, bot, 0));
+        let thick = 0.03;
+        let opts: ILineOpts = { color: tokIdxDrawColor, thick, n: new Vec3(0,0,1), mtx: new Mat4f() };
+        addLine2(lineRender, new Vec3(tx, top, 0), new Vec3(tx, top + delta, 0), opts);
+        addLine2(lineRender, new Vec3(tx, top + delta, 0), new Vec3(bx, bot - delta, 0), opts);
+        addLine2(lineRender, new Vec3(bx, bot - delta, 0), new Vec3(bx, bot, 0), opts);
     }
 }

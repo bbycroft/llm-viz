@@ -131,6 +131,13 @@ export function runMouseHitTesting(state: IProgramState) {
         // state.display.lines.push(`ptIdx: ${ptIdx.toString()}`);
         // state.display.lines.push(`ptLocalIdx: ${ptLocalIdx.toString()}`);
 
+        for (let label of state.layout.labels) {
+            for (let c of label.cubes) {
+                if (c === main) {
+                    label.visible = 1.0;
+                }
+            }
+        }
     }
 
 }

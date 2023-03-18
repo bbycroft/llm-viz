@@ -99,6 +99,8 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     resetRenderBuffers(state.render);
     state.display.lines = [];
     state.display.hoverTarget = null;
+    state.display.tokenColors = null;
+    state.display.tokenIdxColors = null;
 
     if (state.walkthrough.running) {
         cameraMoveToDesired(state.camera, view.dt);
