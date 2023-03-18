@@ -16,6 +16,13 @@ export function drawBlockLabels(state: IRenderState, layout: IGptModelLayout) {
 
     let baseColor = new Vec4(0.4, 0.4, 0.4, 1.0);
 
+    {
+        let color = baseColor.mul(layout.embedLabel.visible);
+        let tl = new Vec3(layout.tokEmbedObj.x - layout.margin * 2, layout.tokEmbedObj.y, 0);
+        let br = new Vec3(layout.tokEmbedObj.x - layout.margin * 2, layout.tokEmbedObj.y + layout.tokEmbedObj.dy, 0);
+        drawSectionLabel(state, "Embedding", tl, br, { color, fontSize: 6, pad: 4 });
+    }
+
     let transformerIdx = 0;
     for (let block of layout.blocks) {
         let blockTop = block.ln1.lnResid.y - layout.margin / 2;

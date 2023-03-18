@@ -116,8 +116,6 @@ export function LayerView() {
         canvasRender?.setData({ dataAndModel });
     }, [canvasRender, dataAndModel]);
 
-    console.log('hoverTarget', canvasRender?.progState?.display?.hoverTarget);
-
     return <div className={s.view}>
         <div className={s.sidebar}>
             {canvasRender && <ProgramStateContext.Provider value={canvasRender.progState}>

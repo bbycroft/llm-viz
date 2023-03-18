@@ -229,6 +229,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     });
     cubes.push(idxObj, tokEmbedObj, posEmbedObj, residual0);
 
+    let embedLabel = mkLabel(y, [idxObj, tokEmbedObj, posEmbedObj, residual0]);
+
     y += C * cell + margin;
 
     function createLn(x: number, target?: IGpuLayerNormLayer) {
@@ -622,10 +624,11 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         logits,
         logitsAgg,
         logitsSoftmax,
+        embedLabel,
         blocks,
         height: y,
         model: gptGpuModel,
-        labels: [...blocks.flatMap(b => b.labels)],
+        labels: [embedLabel, ...blocks.flatMap(b => b.labels)],
         weightCount,
         shape,
         extraSources: {
