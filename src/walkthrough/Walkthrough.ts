@@ -446,14 +446,14 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
                     // let zPos = (yPos - yIdx) * dotLength;
                     // let zIdx = Math.floor(zPos);
 
-                    let srcIdx0Mat = deps.dot[0].srcIdx;
-                    let srcIdx1Mat = deps.dot[1].srcIdx;
+                    let srcIdx0Mat = deps.dot[0].srcIdxMtx;
+                    let srcIdx1Mat = deps.dot[1].srcIdxMtx;
 
                     let dotDim0 = srcIdx0Mat.g(0, 3) === 1 ? Dim.Y : Dim.X;
                     let dotDim1 = srcIdx1Mat.g(0, 3) === 1 ? Dim.Y : Dim.X;
 
-                    let srcIdxA = deps.dot[0].srcIdx.mulVec4(new Vec4(xIdx, yIdx, 0, dotLength / 2));
-                    let srcIdxB = deps.dot[1].srcIdx.mulVec4(new Vec4(xIdx, yIdx, 0, dotLength / 2));
+                    let srcIdxA = deps.dot[0].srcIdxMtx.mulVec4(new Vec4(xIdx, yIdx, 0, 0));
+                    let srcIdxB = deps.dot[1].srcIdxMtx.mulVec4(new Vec4(xIdx, yIdx, 0, 0));
 
                     let split = 0.0;
 

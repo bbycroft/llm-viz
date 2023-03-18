@@ -41,7 +41,7 @@ export interface IBlkDeps {
 
 export interface IBlkCellDep {
     src: IBlkDef;
-    srcIdx: Mat4f; // inputs: [x, y, b, [i]], outputs: [x, y, b]
+    srcIdxMtx: Mat4f; // inputs: [x, y, b, [i]], outputs: [x, y, b]
 }
 
 interface IBlkDepArgs {
@@ -65,7 +65,7 @@ function parseDepIdxStr(str: string): Mat4f {
 }
 
 function depArgsToDeps(args: IBlkDepArgs): IBlkDeps {
-    let makeBlkDeps = (src: IBlkDef, depStr: string) => ({ src, srcIdx: parseDepIdxStr(depStr) });
+    let makeBlkDeps = (src: IBlkDef, depStr: string) => ({ src, srcIdxMtx: parseDepIdxStr(depStr) });
     return {
         dot: args.dot && args.dot.map(([src, depStr]) => makeBlkDeps(src, depStr)) as [IBlkCellDep, IBlkCellDep],
         dotLen: args.dotLen,
@@ -233,7 +233,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
     y += C * cell + margin;
 
-    function createLn(x: number, target?: IGpuLayerNormLayer) {
+    function createLn(x: number, src: IBlkDef, target?: IGpuLayerNormLayer) {
         let lnLeftX = leftX + x;
         let resLeftX = lnLeftX - T * cell - margin;
 
@@ -241,15 +241,11 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: T, cz: B, cy: 2, y: y,
             xR: lnLeftX, zM: 0,
             access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0 },
+            deps: { add: [[src, 'xi']] },
         });
 
         y += 2 * cell + margin;
 
-        let lnResid = mk({
-            t: 'i', cx: T, cz: B, cy: C, y: y,
-            xR: lnLeftX, zM: 0,
-            access: { src: target?.output, x: [0, 1, 0], y: [1, 0, T], scale: 1.0 },
-        });
         let lnSigma = mk({
             t: 'w', cx: 1, cz: 1, cy: C, y: y,
             xR: resLeftX, zM: 0,
@@ -260,14 +256,20 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: resLeftX - cell * 1 - margin, zM: 0,
             access: { src: target?.normBias, x: [1, 0, 0], y: [0, 1, 0] },
         });
+        let lnResid = mk({
+            t: 'i', cx: T, cz: B, cy: C, y: y,
+            xR: lnLeftX, zM: 0,
+            access: { src: target?.output, x: [0, 1, 0], y: [1, 0, T], scale: 1.0 },
+            deps: { add: [[src, 'xy'], [lnAgg, 'xi'], [lnSigma, '0y'], [lnMu, '0y']] }, // lnSigma is really mul rather than add
+        });
         let lnCubes = [lnAgg, lnSigma, lnMu, lnResid];
         return { lnAgg, lnResid, lnSigma, lnMu, cubes: lnCubes };
     }
 
     let lnLeftX = leftX - (T + 2) * cell - 3 * margin;
 
-    function createBlock(target?: IGpuGptBlockLayer) {
-        let ln1 = createLn(0, target?.ln_1);
+    function createBlock(src: IBlkDef, target: IGpuGptBlockLayer | undefined) {
+        let ln1 = createLn(0, src, target?.ln_1);
 
         let interHeadMargin = 3 * margin + (C * cell) / 16;
         let qkvMargin = 1 * margin + (C * cell) / 16;
@@ -375,6 +377,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 t: 'i', cx: T, cz: B, cy: A, y: vOutY + i * stepPerHeadY,
                 xR: attnLeftX, zM: headZMid,
                 access: { src: attnTarget?.scaledVectors, x: [0, 1, 0, i * A], y: [1, 0, T] },
+                deps: { dot: [[vBlock, 'iy'], [attnMtxSm, 'ix']], dotLen: A }, 
             });
 
             let headCubes = [qWeightBlock, kWeightBlock, vWeightBlock,
@@ -428,19 +431,24 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: T, cz: B, cy: C, y: vFinalZ,
             xR: attnLeftX, zM: 0,
             access: { src: attnTarget?.proj.output, x: [0, 1, 0], y: [1, 0, T] },
-            deps: { dot: [[projWeight, 'iy'], [vOutCombined, 'xi']], dotLen: C }
+            // deps: { dot: [[projWeight, 'iy'], [vOutCombined, 'xi']], dotLen: C }
+            // vOutCombined isn't displayed atm, so add from the heads instead
+            deps: {
+                dot: [[projWeight, 'iy'], [vOutCombined, 'xi']], dotLen: C,
+                add: [[projBias, '0y'], ...heads.map(h => [h.vOutBlock, 'xi'] as [IBlkDef, string])]
+            },
         });
 
         let attnResidual = mk({
             t: 'i', cx: T, cz: B, cy: C, y: vFinalZ,
             xM: 0, zM: 0,
             access: { src: attnTarget?.output, x: [0, 1, 0], y: [1, 0, T] },
-            deps: { add: [[attnOut, 'xy'], [ln1.lnResid, 'xy']] }
+            deps: { add: [[attnOut, 'xy'], [src, 'xy']] }
         });
 
         y = vFinalZ + C * cell + margin;
 
-        let ln2 = createLn(0, target?.ln_2);
+        let ln2 = createLn(0, attnResidual, target?.ln_2);
 
         let mlpFcWeight = mk({
             t: 'w', cx: C * 4, cz: 1, cy: C, y: y,
@@ -460,6 +468,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: C * 4, cz: B, cy: T, y: y,
             xR: attnLeftX, zM: 0,
             access: { src: target?.mlp.fcLayer.output, x: [1, 0, 0], y: [0, 1, T] },
+            deps: { dot: [[mlpFcWeight, 'xi'], [ln2.lnResid, 'yi']], dotLen: C, add: [[mlpFcBias, 'x']] }
         });
 
         y += T * cell + margin;
@@ -468,6 +477,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: C * 4, cz: B, cy: T, y: y,
             xR: attnLeftX, zM: 0,
             access: { src: target?.mlp.mlpGelu, x: [1, 0, 0], y: [0, 1, T] },
+            deps: { add: [[mlpFc, 'xy']] }
         });
 
         y += T * cell + margin;
@@ -488,12 +498,14 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: T, cz: B, cy: C, y: y,
             xL: attnLeftX + margin, zM: 0,
             access: { src: target?.mlp.projLayer.output, x: [0, 1, 0], y: [1, 0, T] },
+            deps: { dot: [[mlpProjWeight, 'iy'], [mlpAct, 'ix']], dotLen: C, add: [[mlpProjBias, '0y']] }
         });
 
         let mlpResidual = mk({
             t: 'i', cx: T, cz: B, cy: C, y: y,
             xM: 0, zM: 0,
             access: { src: target?.mlp.output, x: [0, 1, 0], y: [1, 0, T] },
+            deps: { add: [[mlpResult, 'xy'], [attnResidual, 'xy']] }
         });
 
         y += C * cell - margin;
@@ -518,7 +530,6 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
         let headCubes = [...ln1.cubes, ...heads.flatMap(h => h.cubes)];
         let projCubes = [projWeight, projBias, attnOut, attnResidual];
-        let mlpCubes = [...ln2.cubes, mlpFcWeight, mlpFcBias, mlpFc, mlpAct, mlpProjWeight, mlpProjBias, mlpResult, mlpResidual];
 
         let transformerLabel = mkLabel(1.0, blockCubes);
         let selfAttendLabel = mkLabel(1.0, [...headCubes, ...projCubes]);
@@ -557,15 +568,18 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     y += blockHalfMargin;
 
     let blocks: ReturnType<typeof createBlock>[] = [];
+    let blockSrc = residual0;
     for (let i = 0; i < nBlocks; i++) {
         let target = gptGpuModel?.blocks[i];
         y += blockHalfMargin;
-        blocks.push(createBlock(target));
+        let block = createBlock(blockSrc, target);
+        blocks.push(block);
+        blockSrc = block.mlpResidual;
         y += blockHalfMargin;
     }
 
     y += blockHalfMargin;
-    let ln_f = createLn(0, gptGpuModel?.ln_f);
+    let ln_f = createLn(0, blockSrc, gptGpuModel?.ln_f);
 
     cubes.push(...ln_f.cubes);
 
@@ -581,6 +595,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         t: 'i', cx: vocabSize, cz: B, cy: T, y: y,
         xR: lnLeftX, zM: 0,
         access: { src: gptGpuModel?.lm_head.output, x: [1, 0, 0], y: [0, 1, T] },
+        deps: { dot: [[lmHeadWeight, 'xi'], [ln_f.lnResid, 'yi']], dotLen: C }
     });
 
     // z += vocabSize * cell + margin;
@@ -588,7 +603,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     let logitsAgg = mk({
         t: 'i', cx: 2, cz: B, cy: T, y: y,
         xL: lnLeftX + 1.5 * margin, zM: -3 * cell,
-        // @TODO: link up
+        access: { src: gptGpuModel?.softmaxFinal.agg, x: [1, 0, 0], y: [0, 1, T] },
+        deps: { add: [[logits, 'iy']] }
     });
 
     y += T * cell + margin;
@@ -596,7 +612,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     let logitsSoftmax = mk({
         t: 'i', cx: vocabSize, cz: B, cy: T, y: y,
         xR: lnLeftX, zM: 0,
-        // @TODO: link up
+        access: { src: gptGpuModel?.softmaxFinal.output, x: [1, 0, 0], y: [0, 1, T] },
+        deps: { add: [[logits, 'xy'], [logitsAgg, 'iy']] }
     });
 
     // let logitsSoftmaxTopN = mk({

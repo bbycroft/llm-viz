@@ -786,6 +786,7 @@ function createSoftmaxLayer(layerBuilder: ILayerBuilder, input: IBufferTex) {
         bufs: [agg, output],
         progs: [softmaxAggProg, softmaxProg],
         phases: [aggPhase, softmaxPhase],
+        agg,
         aggPhase,
         softmaxPhase,
         output,

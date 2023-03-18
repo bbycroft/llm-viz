@@ -159,6 +159,9 @@ export class Vec4 {
     static fromArray(a: ArrayLike<number>, offset: number = 0): Vec4 {
         return new Vec4(a[offset + 0], a[offset + 1], a[offset + 2], a[offset + 3]);
     }
+    static fromVec3(v: Vec3, w: number = 1.0): Vec4 {
+        return new Vec4(v.x, v.y, v.z, w);
+    }
     toArray(): ArrayLike<number> {
         return [this.x, this.y, this.z, this.w];
     }

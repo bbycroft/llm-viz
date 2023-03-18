@@ -1,5 +1,5 @@
-import { splitGridX } from "./Annotations";
-import { IBlkDef } from "./GptModelLayout";
+import { findSubBlocks, splitGridX } from "./Annotations";
+import { IBlkCellDep, IBlkDef, IBlkDeps, IModelLayout } from "./GptModelLayout";
 import { IProgramState } from "./Program";
 import { addLine2 } from "./render/lineRender";
 import { clamp } from "./utils/data";
@@ -83,7 +83,7 @@ export function runMouseHitTesting(state: IProgramState) {
         let [c, main] = minCube;
 
         iterVisibleSubCubes(main, (c) => {
-            c.highlight = 0.2;
+            c.highlight = 0.1;
         });
 
         let tl = new Vec3(c.x, c.y, c.z);
@@ -112,9 +112,12 @@ export function runMouseHitTesting(state: IProgramState) {
 
         // currently broken otherwise :(
         if (c === main) {
+            // need to choose a primary axis (if it makes sense! usually the T axis)
+            // we then highlight that access a little bit
+            // probably need to do that in the GptModelLayout? It's not a super well-defined idea
             let midX = splitGridX(state.layout, c, Dim.X, ptLocalIdx.x, 0);
             if (midX) {
-                midX.highlight = 0.4;
+                midX.highlight = 0.15;
                 let midY = splitGridX(state.layout, midX, Dim.Y, ptLocalIdx.y, 0);
                 if (midY) {
                     let midZ = splitGridX(state.layout, midY, Dim.Z, ptLocalIdx.z, 0);
@@ -126,10 +129,6 @@ export function runMouseHitTesting(state: IProgramState) {
         }
 
         state.display.hoverTarget = { mainCube: main, subCube: c, mainIdx: ptIdx };
-        // state.display.lines.push(`pt: ${pt.toString()}`);
-        // state.display.lines.push(`pt2: ${pt2.toString()}`);
-        // state.display.lines.push(`ptIdx: ${ptIdx.toString()}`);
-        // state.display.lines.push(`ptLocalIdx: ${ptLocalIdx.toString()}`);
 
         for (let label of state.layout.labels) {
             for (let c of label.cubes) {
@@ -138,7 +137,52 @@ export function runMouseHitTesting(state: IProgramState) {
                 }
             }
         }
+
+        drawDependences(state, main, ptIdx);
     }
+
+}
+
+export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
+    let layout = state.layout;
+    let deps = blk.deps;
+    if (!deps) {
+        return;
+    }
+
+    function drawDep(dep: IBlkCellDep, destIdx: Vec3) {
+        let mtx = dep.srcIdxMtx;
+        let hasXDot = mtx.g(0, 3) !== 0;
+        let hasYDot = mtx.g(1, 3) !== 0;
+
+        if (hasXDot || hasYDot) {
+            let dotDim = hasXDot ? Dim.Y : Dim.X;
+            let srcIdx = dep.srcIdxMtx.mulVec4(Vec4.fromVec3(destIdx, 0));
+
+            let sub = splitGridX(layout, dep.src, dotDim, srcIdx.getIdx(dotDim), 0);
+            if (sub) sub.highlight = 0.5;
+        } else {
+            let srcIdx = dep.srcIdxMtx.mulVec4(Vec4.fromVec3(destIdx, 0));
+            let sub = splitGridX(layout, dep.src, Dim.X, srcIdx.x, 0);
+            if (!sub) return;
+            sub = splitGridX(layout, sub, Dim.Y, srcIdx.y, 0);
+            if (!sub) return;
+            sub = splitGridX(layout, sub, Dim.Z, srcIdx.z, 0);
+            if (sub) sub.highlight = 0.5;
+        }
+    }
+
+    if (deps.dot) {
+        for (let dep of deps.dot) {
+            drawDep(dep, idx);
+        }
+    }
+    if (deps.add) {
+        for (let dep of deps.add) {
+            drawDep(dep, idx);
+        }
+    }
+
 
 }
 
