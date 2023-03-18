@@ -567,6 +567,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     y += blockHalfMargin;
     let ln_f = createLn(0, gptGpuModel?.ln_f);
 
+    cubes.push(...ln_f.cubes);
 
     let lmHeadWeight = mk({
         t: 'w', cx: vocabSize, cz: 1, cy: C, y: y,

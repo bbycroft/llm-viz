@@ -94,7 +94,7 @@ export function initBlockRender(ctx: IGLContext) {
         uniform sampler2D u_accessSampler;
 
         void main() {
-            ivec3 blockPos = ivec3(v_blockPos - vec3(v_normal.x, v_normal.y, v_normal.z) * 0.1);
+            ivec3 blockPos = ivec3(v_blockPos - v_normal * 0.1);
 
             bool cellDark = (blockPos.x + blockPos.y + blockPos.z) % 2 == 0;
 
@@ -147,7 +147,7 @@ export function initBlockRender(ctx: IGLContext) {
                 vec3 block256Grid = abs(fract(block256 - 0.5) - 0.5) / fwidth(block256);
                 float line256 = min(min(block256Grid.x, block256Grid.y), block256Grid.z);
 
-                vec3 cube = v_cubePos;
+                vec3 cube = v_cubePos - v_normal * 0.1;
                 vec3 cubeGrid = abs(fract(cube - 0.5) - 0.5) / fwidth(cube);
                 float lineCube = min(min(cubeGrid.x, cubeGrid.x), cubeGrid.z);
 

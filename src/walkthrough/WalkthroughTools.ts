@@ -50,7 +50,7 @@ export function phaseTools(state: IProgramState) {
             return;
         }
         let breakEvt = afterTime(evt, 0.001);
-        if (breakEvt.t === 1.0 && (phaseState.lastBreakTime === null || phaseState.lastBreakTime <= breakEvt.start)) {
+        if (phaseState.running && breakEvt.t === 1.0 && (phaseState.lastBreakTime === null || phaseState.lastBreakTime <= breakEvt.start)) {
             phaseState.running = false;
             phaseState.time = breakEvt.start + breakEvt.duration;
             phaseState.lastBreakTime = phaseState.time;

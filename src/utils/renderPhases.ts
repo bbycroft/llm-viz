@@ -120,10 +120,33 @@ export function readFromRenderPhase(gl: WebGL2RenderingContext, phase: IRenderPh
     gl.bindFramebuffer(gl.FRAMEBUFFER, phase.fbo);
     gl.readBuffer(gl.COLOR_ATTACHMENT0 + index);
     let [format] = channelsToFormat(gl, buffer.channels);
-    gl.readPixels(0, 0, buffer.width, buffer.height, format, gl.FLOAT, out);
+
+    let altFormat = gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_FORMAT);
+    let altType = gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_TYPE);
+
+    if (altType !== gl.FLOAT) {
+        throw new Error(`Implementation does not support reading back float data. Got type ${GlType[altType] ?? altType}`);
+    }
+
+    if (altFormat !== format) {
+        // Sometimes the implementation doesn't support reading back float data for the particular number of channels we're after
+        // In this case, they typically support RGBA32F for channels < 4, so handle that case, and manually down-convert
+        if (altFormat !== gl.RGBA) {
+            throw new Error(`Implementation does not support reading back float data for ${buffer.channels} channels, or 4 channels. Got format ${GlFormat[altFormat] ?? altFormat}.`);
+        }
+        let temp = new Float32Array(buffer.width * buffer.height * 4);
+        gl.readPixels(0, 0, buffer.width, buffer.height, altFormat, gl.FLOAT, temp);
+        for (let c = 0; c < buffer.channels; c++) {
+            for (let i = 0; i < out.length; i++) {
+                out[i] = temp[i * 4 + c];
+            }
+        }
+    } else {
+        gl.readPixels(0, 0, buffer.width, buffer.height, format, gl.FLOAT, out);
+    }
 }
 
-export function channelsToFormat(gl: WebGL2RenderingContext, channels: number): [GLenum, GLenum] {
+export function channelsToFormat(gl: WebGL2RenderingContext, channels: number): [GlFormat, GlInternalFormat] {
     switch (channels) {
         case 1: return [gl.RED, gl.R32F];
         case 2: return [gl.RG, gl.RG32F];
@@ -131,4 +154,23 @@ export function channelsToFormat(gl: WebGL2RenderingContext, channels: number): 
         case 4: return [gl.RGBA, gl.RGBA32F];
         default: throw new Error(`Invalid number of channels: ${channels}. Must be 1, 2, 3, or 4.`);
     }
+}
+
+export enum GlFormat {
+    RED = 0x1903,
+    RG = 0x8227,
+    RGB = 0x1907,
+    RGBA = 0x1908,
+}
+
+export enum GlInternalFormat {
+    R32F = 0x822E,
+    RG32F = 0x8230,
+    RGB32F = 0x8815,
+    RGBA32F = 0x8814,
+}
+
+export enum GlType {
+    UNSIGNED_BYTE = 0x1401,
+    FLOAT = 0x1406,
 }

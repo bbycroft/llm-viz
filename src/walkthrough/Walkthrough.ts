@@ -114,6 +114,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
         if (state.walkthrough.time > state.walkthrough.phaseLength) {
             state.walkthrough.running = false;
             state.walkthrough.time = state.walkthrough.phaseLength;
+            console.log('setting to phaseLength', state.walkthrough.phaseLength);
         }
 
         view.markDirty();
