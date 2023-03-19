@@ -7,7 +7,7 @@ Note that there's limited precision with floats, if we're ever computing js-side
 The matrix is in column-major order, also to match WebGL.
 */
 
-import { Vec3, Vec4 } from "./vector";
+import { IArr, Vec3, Vec4 } from "./vector";
 
 /** Column-major, 16-element float32 matrix, extending a Float32Array.
 Methods will return a copy unless otherwise noted.
@@ -18,6 +18,8 @@ export class Mat4f extends Float32Array {
         super(16);
         this[0] = this[5] = this[10] = this[15] = 1.0;
     }
+
+    static identity = new Mat4f();
 
     g(r: number, c: number) { return this[c * 4 + r]; }
     s(r: number, c: number, v: number) { this[c * 4 + r] = v; }
@@ -78,6 +80,15 @@ export class Mat4f extends Float32Array {
         o.x = x;
         o.y = y;
         o.z = z;
+    }
+
+    mulVec3AffineArr_(a: IArr, aOff: number, out: IArr, outOff: number) {
+        let ax = a[aOff];
+        let ay = a[aOff + 1];
+        let az = a[aOff + 2];
+        out[outOff + 0] = this[0] * ax + this[4] * ay + this[8] * az + this[12];
+        out[outOff + 1] = this[1] * ax + this[5] * ay + this[9] * az + this[13];
+        out[outOff + 2] = this[2] * ax + this[6] * ay + this[10] * az + this[14];
     }
 
     mulVec3AffineVec_(a: Vec3, o: Vec3) {

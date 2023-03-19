@@ -228,3 +228,49 @@ export class BoundingBox3d {
         return this.max.sub(this.min);
     }
 }
+
+// static functions that operate on Float32Arrays (or Float64Arrays)
+// all functions are in-place, and read/write from specified offsets
+// safe to use with the same array for both input and output
+
+export type IArr = Float32Array | Float64Array; 
+
+export class Vec3Buf {
+
+    static add_(a: IArr, aOff: number, b: IArr, bOff: number, out: IArr, outOff: number) {
+        out[outOff + 0] = a[aOff + 0] + b[bOff + 0];
+        out[outOff + 1] = a[aOff + 1] + b[bOff + 1];
+        out[outOff + 2] = a[aOff + 2] + b[bOff + 2];
+    }
+
+    static sub_(a: IArr, aOff: number, b: IArr, bOff: number, out: IArr, outOff: number) {
+        out[outOff + 0] = a[aOff + 0] - b[bOff + 0];
+        out[outOff + 1] = a[aOff + 1] - b[bOff + 1];
+        out[outOff + 2] = a[aOff + 2] - b[bOff + 2];
+    }
+
+    static copy_(a: IArr, aOff: number, out: IArr, outOff: number) {
+        out[outOff + 0] = a[aOff + 0];
+        out[outOff + 1] = a[aOff + 1];
+        out[outOff + 2] = a[aOff + 2];
+    }
+
+    static normalize_(a: IArr, aOff: number, out: IArr, outOff: number) {
+        let x = a[aOff + 0];
+        let y = a[aOff + 1];
+        let z = a[aOff + 2];
+        let lenInv = 1.0 / Math.sqrt(x * x + y * y + z * z);
+        out[outOff + 0] = x * lenInv;
+        out[outOff + 1] = y * lenInv;
+        out[outOff + 2] = z * lenInv;
+    }
+}
+
+export class Vec4Buf {
+    static copy_(a: IArr, aOff: number, out: IArr, outOff: number) {
+        out[outOff + 0] = a[aOff + 0];
+        out[outOff + 1] = a[aOff + 1];
+        out[outOff + 2] = a[aOff + 2];
+        out[outOff + 3] = a[aOff + 3];
+    }
+}

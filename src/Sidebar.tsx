@@ -20,6 +20,7 @@ export const WalkthroughSidebar: React.FC = () => {
             walkthrough.running = false;
             progState.markDirty();
         }
+        ev.preventDefault();
     }
 
     return <div className={s.walkthrough}>

@@ -2,7 +2,7 @@ import { cameraToMatrixView } from "../Camera";
 import { IGptModelLayout } from "../GptModelLayout";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText, measureTextWidth, writeTextToBuffer } from "../render/fontRender";
-import { addLine, addLine2 as drawLine, ILineOpts } from "../render/lineRender";
+import { addLine, addLine2 as drawLine, drawLineSegs, ILineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { addQuad } from "../render/triRender";
 import { Mat4f } from "../utils/matrix";
@@ -219,15 +219,23 @@ export function renderInputOutput(state: IProgramState, layout: IGptModelLayout,
     }
 }
 
+let _lineRectArr = new Float32Array(3 * 4);
 export function drawLineRect(render: IRenderState, tl: Vec3, br: Vec3, opts: ILineOpts) {
 
-    let corners = [tl, new Vec3(br.x, tl.y, 0), br, new Vec3(tl.x, br.y, 0)];
-    for (let i = 0; i < 4; i++) {
-        let a = corners[i];
-        let b = corners[(i + 1) % 4];
+    _lineRectArr[0] = tl.x;
+    _lineRectArr[1] = tl.y;
+    _lineRectArr[2] = 0;
+    _lineRectArr[3] = br.x;
+    _lineRectArr[4] = tl.y;
+    _lineRectArr[5] = 0;
+    _lineRectArr[6] = br.x;
+    _lineRectArr[7] = br.y;
+    _lineRectArr[8] = 0;
+    _lineRectArr[9] = tl.x;
+    _lineRectArr[10] = br.y;
+    _lineRectArr[11] = 0;
 
-        drawLine(render.lineRender, a, b, opts);
-    }
+    drawLineSegs(render.lineRender, _lineRectArr, { ...opts, closed: true });
 }
 
 function numberToCommaSep(a: number) {

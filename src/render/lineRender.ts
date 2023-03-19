@@ -1,15 +1,9 @@
 import { Mat4f } from "../utils/matrix";
 import { bindFloatAttribs, createElementBuffer, createFloatBuffer, createShaderProgram, ensureElementBufferSize, ensureFloatBufferSize, IGLContext, resetElementBufferMap, resetFloatBufferMap, uploadElementBuffer, uploadFloatBuffer } from "../utils/shader";
-import { Vec3, Vec4 } from "../utils/vector";
+import { Vec3, Vec3Buf, Vec4, Vec4Buf } from "../utils/vector";
 import { modelViewUboText, UboBindings } from "./sharedRender";
 
 export type ILineRender = ReturnType<typeof createLineRender>;
-
-const floatsPerVert = 14;
-const floatsPerLine = floatsPerVert * 4;
-
-const bytesPerVert = floatsPerVert * 4;
-const bytesPerLine = floatsPerLine * 4;
 
 export function createLineRender(ctx: IGLContext) {
 
@@ -33,11 +27,13 @@ export function createLineRender(ctx: IGLContext) {
     let lineVbo = gl.createBuffer()!;
     let strideBytes = bindFloatAttribs(gl, lineVbo, { }, [
         { name: 'a_position', size: 3 },
-        { name: 'a_lineDir', size: 3 },
+        { name: 'a_lineDirA', size: 3 },
+        { name: 'a_lineDirB', size: 3 },
         { name: 'a_color', size: 4 },
         { name: 'a_thickness', size: 1 },
+        { name: 'a_firstPair', size: 1 },
         { name: 'a_normal', size: 3 },
-    ])
+    ]);
 
     let lineFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, lineVbo, 1024, strideBytes);
 
@@ -49,10 +45,12 @@ export function createLineRender(ctx: IGLContext) {
         ${modelViewUboText}
         uniform vec2 u_viewSizeInv;
         layout(location = 0) in vec3 a_position;
-        layout(location = 1) in vec3 a_lineDir;
-        layout(location = 2) in vec4 a_color;
-        layout(location = 3) in float a_thickness;
-        layout(location = 4) in vec3 a_normal;
+        layout(location = 1) in vec3 a_lineDirA;
+        layout(location = 2) in vec3 a_lineDirB;
+        layout(location = 3) in vec4 a_color;
+        layout(location = 4) in float a_thickness;
+        layout(location = 5) in float a_firstPair;
+        layout(location = 6) in vec3 a_normal;
         out vec2 v_linePos;
         out vec4 v_color;
         out float v_thickness;
@@ -63,17 +61,38 @@ export function createLineRender(ctx: IGLContext) {
                 mul = -1.0;
             }
 
+            bool firstPair = a_firstPair > 0.0;
+
             float width;
 
             if (length(a_normal) == 0.0) {
-                vec4 lineDirClip = u_view * u_model * vec4(a_lineDir, 0);
-                vec2 lineDir = normalize(lineDirClip.xy);
-
                 vec4 clipPos = u_view * u_model * vec4(a_position, 1);
                 vec2 screenPos = clipPos.xy / clipPos.w;
 
+                vec4 lineDirAClip = u_view * u_model * vec4(a_position + a_lineDirA, 1);
+                vec2 lineDirA = normalize(lineDirAClip.xy / lineDirAClip.w - screenPos);
+                vec4 lineDirBClip = u_view * u_model * vec4(a_position + a_lineDirB, 1);
+                vec2 lineDirB = normalize(lineDirBClip.xy / lineDirBClip.w - screenPos);
+
+                vec2 avgDir = normalize(lineDirA + lineDirB);
+                vec2 activeDir = firstPair ? lineDirA : lineDirB;
+
+                float scale = sqrt(2.0) / length(lineDirA + lineDirB);
+                vec2 offset = vec2(-avgDir.y, avgDir.x);
+
+                if (scale > 5.0) {
+                    bool isOuter = cross(vec3(lineDirA, 0), vec3(lineDirB, 0)).z * mul < 0.0;
+                    if (isOuter) {
+                        offset = vec2(-activeDir.y, activeDir.x);
+                        scale = 1.0 / sqrt(2.0);
+                    } else {
+                        offset = vec2(-activeDir.y, activeDir.x);
+                        scale = 1.0 / sqrt(2.0);
+                    }
+                }
+
                 width = a_thickness * 2.0;
-                vec2 linePos = screenPos + vec2(lineDir.y, -lineDir.x) * u_viewSizeInv * width * mul;
+                vec2 linePos = screenPos + offset * u_viewSizeInv * width * mul * scale;
 
                 gl_Position = vec4(linePos.xy * clipPos.w, clipPos.z, clipPos.w);
                 v_thickness = a_thickness;
@@ -81,8 +100,26 @@ export function createLineRender(ctx: IGLContext) {
             } else {
 
                 width = a_thickness * 2.0;
-                vec3 offset = normalize(cross(a_normal, a_lineDir));
-                vec3 linePos = a_position + offset * mul * width;
+                vec3 activeDir = firstPair ? a_lineDirA : a_lineDirB;
+
+                vec3 avgDir = normalize(a_lineDirA + a_lineDirB);
+                vec3 offset = normalize(cross(a_normal, avgDir));
+                // need to scale by the amount of angle between the two line directions
+                float scale = sqrt(2.0) / length(a_lineDirA + a_lineDirB);
+
+                // if we exceed the miter limit (90 degrees), we need to clamp the line width, and draw a bevel instead.
+                // the inner corner stays the same, but the outer corner is a bevel.
+
+                if (scale > 1.0) {
+                    bool isOuter = cross(a_lineDirA, a_lineDirB).z * mul < 0.0;
+
+                    if (isOuter) {
+                        offset = normalize(cross(a_normal, activeDir));
+                        scale = 1.0 / sqrt(2.0);
+                    }
+                }
+
+                vec3 linePos = a_position + offset * mul * width * scale;
 
                 gl_Position = u_view * u_model * vec4(linePos, 1);
                 v_thickness = 100.0;
@@ -129,6 +166,17 @@ export interface ILineOpts {
     color: Vec4;
     mtx: Mat4f;
     n?: Vec3;
+    closed?: boolean;
+}
+
+export function makeLineOpts(opts: Partial<ILineOpts> = {}): ILineOpts {
+    return {
+        thick: +(opts.thick || 1),
+        color: opts.color || new Vec4(1, 1, 1, 1),
+        mtx: opts.mtx || Mat4f.identity,
+        n: opts.n || undefined,
+        closed: opts.closed || false,
+    };
 }
 
 export function addLine2(render: ILineRender, a: Vec3, b: Vec3, opts: ILineOpts) {
@@ -175,20 +223,118 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
         buf[i + 3] = _lineDir.x;
         buf[i + 4] = _lineDir.y;
         buf[i + 5] = _lineDir.z;
-        buf[i + 6] = color.x;
-        buf[i + 7] = color.y;
-        buf[i + 8] = color.z;
-        buf[i + 9] = color.w;
-        buf[i + 10] = thickness;
-        buf[i + 11] = n.x;
-        buf[i + 12] = n.y;
-        buf[i + 13] = n.z;
+        buf[i + 6] = _lineDir.x;
+        buf[i + 7] = _lineDir.y;
+        buf[i + 8] = _lineDir.z;
+        buf[i + 9] = color.x;
+        buf[i + 10] = color.y;
+        buf[i + 11] = color.z;
+        buf[i + 12] = color.w;
+        buf[i + 13] = thickness;
+        buf[i + 14] = 1.0;
+        buf[i + 15] = n.x;
+        buf[i + 16] = n.y;
+        buf[i + 17] = n.z;
         i += floatBuf.strideFloats;
         idxBuf[k + j] = floatBuf.usedEls + j;
     }
     idxBuf[k + 4] = 0xffffffff;
     floatBuf.usedEls += 4;
     render.indexBuf.usedVerts += 5;
+}
+
+let _lineSegBufs = new Float32Array(2 * 3);
+let _dir = _lineSegBufs.subarray(0, 3);
+let _prevDir = _lineSegBufs.subarray(3, 6);
+let _ptsTransformed = new Float32Array(0);
+export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILineOpts) {
+    let floatVbo = render.floatBuf;
+    let indexVbo = render.indexBuf;
+
+    let buf = floatVbo.localBuf;
+    let idxBuf = indexVbo.localBuf;
+
+    let ptsLen = pts.length;
+
+    if (opts.mtx) {
+        if (_ptsTransformed.length < pts.length) {
+            _ptsTransformed = new Float32Array(pts.length);
+        }
+        for (let i = 0; i < pts.length; i += 3) {
+            opts.mtx.mulVec3AffineArr_(pts, i, _ptsTransformed, i);
+        }
+        pts = _ptsTransformed;
+    }
+ 
+    let nPts = ptsLen / 3 + (opts.closed ? 1 : 0);
+
+    ensureFloatBufferSize(floatVbo, nPts * 4);
+    ensureElementBufferSize(render.indexBuf, nPts * 4 + 1); // +1 for the primitive restart
+
+    if (opts.closed) {
+        Vec3Buf.sub_(pts, 0, pts, ptsLen - 3, _prevDir, 0);
+        Vec3Buf.normalize_(_prevDir, 0, _prevDir, 0);
+    }
+
+    let cx = opts.color.x;
+    let cy = opts.color.y;
+    let cz = opts.color.z;
+    let cw = opts.color.w;
+    let thick = opts.thick;
+    let n = opts.n ?? Vec3.zero;
+    let nx = n.x;
+    let ny = n.y;
+    let nz = n.z;
+
+    for (let i = 0; i < nPts; i++) {
+        let pOff = i * 3;
+        if (opts.closed && i === nPts - 1) {
+            pOff = 0;
+        }
+
+        if ((!opts.closed && i < nPts - 1) || (opts.closed && i !== nPts - 2)) {
+            Vec3Buf.sub_(pts, pOff + 3, pts, pOff, _dir, 0);
+            Vec3Buf.normalize_(_dir, 0, _dir, 0);
+
+        } else if (opts.closed && i === nPts - 2) {
+            // wrap around
+            Vec3Buf.sub_(pts, 0, pts, ptsLen - 3, _dir, 0);
+            Vec3Buf.normalize_(_dir, 0, _dir, 0);
+        }
+
+        let bufOff = floatVbo.usedEls * floatVbo.strideFloats;
+        let idxOff = indexVbo.usedVerts;
+
+        let dirA = (i == 0 && !opts.closed) ? _dir : _prevDir;
+        let dirB = (i == nPts - 1 && !opts.closed) ? _prevDir : _dir;
+
+        let idxCount = opts.closed && i === nPts - 1 ? 2 : 4;
+
+        for (let j = 0; j < idxCount; j++) {
+            Vec3Buf.copy_(pts, pOff, buf, bufOff);
+            Vec3Buf.copy_(dirA, 0, buf, bufOff + 3);
+            Vec3Buf.copy_(dirB, 0, buf, bufOff + 6);
+            buf[bufOff + 9] = cx;
+            buf[bufOff + 10] = cy;
+            buf[bufOff + 11] = cz;
+            buf[bufOff + 12] = cw;
+            buf[bufOff + 13] = thick;
+            buf[bufOff + 14] = j > 2 ? 0.0 : 1.0;
+            buf[bufOff + 15] = nx;
+            buf[bufOff + 16] = ny;
+            buf[bufOff + 17] = nz;
+            bufOff += floatVbo.strideFloats;
+            idxBuf[idxOff + j] = floatVbo.usedEls + j;
+        }
+
+        floatVbo.usedEls += idxCount;
+        indexVbo.usedVerts += idxCount;
+
+        Vec3Buf.copy_(_dir, 0, _prevDir, 0);
+    }
+
+    idxBuf[indexVbo.usedVerts] = 0xffffffff;
+    indexVbo.usedVerts += 1;
 }
 
 export function renderAllLines(render: ILineRender) {

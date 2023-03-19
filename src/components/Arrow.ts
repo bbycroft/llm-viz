@@ -24,12 +24,12 @@ This should be able to be implemented just with lines & tris. Depth buf will be 
 */
 
 import { IBlkDef, IGptModelLayout } from "../GptModelLayout";
-import { addLine } from "../render/lineRender";
+import { addLine, drawLineSegs, ILineOpts, makeLineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { addPrimitiveRestart, addQuad, addVert } from "../render/triRender";
 import { bezierCurveBuild } from "../utils/bezier";
 import { Mat4f } from "../utils/matrix";
-import { Vec3, Vec4 } from "../utils/vector";
+import { Vec3, Vec3Buf, Vec4 } from "../utils/vector";
 
 export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
 
@@ -243,6 +243,7 @@ export interface IEndDir {
     dir: Vec3;
 }
 
+let _bezierLineBuf = new Float32Array(4 * 3);
 export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: number, normal: Vec3, color: Vec4, drawHead: boolean = true, drawCorner: CornerMode = CornerMode.None, endDir?: Vec3) {
 
     let dir = end.sub(start);
@@ -301,11 +302,53 @@ export function drawArrow(state: IRenderState, start: Vec3, end: Vec3, width: nu
         }
         let steps = bezierCurveBuild(p0, p1, p2, p3, 0.1);
         let nPts = steps.length / 3;
+
+        let headNPts = drawHead ? 3 : 0;
+        let nFloats = (nPts * 2 + headNPts) * 3;
+        if (_bezierLineBuf.length < nFloats) {
+            _bezierLineBuf = new Float32Array(nFloats);
+        }
+        let arrowLine = _bezierLineBuf.subarray(0, nFloats);
+
         for (let i = 0; i < nPts - 1; i++) {
             let p0 = new Vec3(steps[i*3+0], steps[i*3+1], steps[i*3+2]);
             let p1 = new Vec3(steps[i*3+3], steps[i*3+4], steps[i*3+5]);
             drawArrowSeg(state, p0, p1, opts);
         }
+
+        let arrowStartIdx = nPts;
+        let arrowEndIdx = arrowStartIdx + headNPts;
+        for (let i = 0; i < nPts; i++) {
+            let j = arrowEndIdx + i;
+            arrowLine[j*3+0] = steps[i*3+0] + opts.width / 2;
+            arrowLine[j*3+1] = steps[i*3+1];
+            arrowLine[j*3+2] = steps[i*3+2];
+            let k = nPts - i - 1;
+            arrowLine[k*3+0] = steps[i*3+0] - opts.width / 2;
+            arrowLine[k*3+1] = steps[i*3+1];
+            arrowLine[k*3+2] = steps[i*3+2];
+        }
+
+        if (drawHead) {
+            let headExtra = 3.0;
+            endDir = endDir ?? new Vec3(0, 1, 0);
+            let endA = end.mulAdd(endDir, -headDepth);
+            let i = arrowStartIdx;
+            arrowLine[i*3+0] = endA.x - opts.width / 2 - headExtra;
+            arrowLine[i*3+1] = endA.y;
+            arrowLine[i*3+2] = endA.z;
+            i += 1;
+            arrowLine[i*3+0] = end.x;
+            arrowLine[i*3+1] = end.y;
+            arrowLine[i*3+2] = end.z;
+            i += 1;
+            arrowLine[i*3+0] = endA.x + opts.width / 2 + headExtra;
+            arrowLine[i*3+1] = endA.y;
+            arrowLine[i*3+2] = endA.z;
+        }
+
+        let lineOpts = makeLineOpts({ thick: opts.lineThick, mtx: opts.mtx, color: opts.borderColor });
+        drawLineSegs(state.lineRender, arrowLine, lineOpts);
     }
 
     if (Math.abs(start.z - end.z) > 0.01 || endDir) {
@@ -350,18 +393,18 @@ export function drawArrowSeg(state: IRenderState, start: Vec3, end: Vec3, opts: 
 
     addQuad(state.triRender, _segTl, _segBr, opts.ribbonColor, opts.mtx);
 
-    _segBl.x = _segTl.x;
-    _segBl.y = _segBr.y;
-    _segBl.z = _segBr.z;
+    // _segBl.x = _segTl.x;
+    // _segBl.y = _segBr.y;
+    // _segBl.z = _segBr.z;
 
-    _segTr.x = _segBr.x;
-    _segTr.y = _segTl.y;
-    _segTr.z = _segTl.z;
+    // _segTr.x = _segBr.x;
+    // _segTr.y = _segTl.y;
+    // _segTr.z = _segTl.z;
 
-    let n = undefined;
-    let thick = opts.lineThick;
-    addLine(state.lineRender, thick, opts.borderColor, _segTl, _segBl, n, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, _segTr, _segBr, n, opts.mtx);
+    // let n = undefined;
+    // let thick = opts.lineThick;
+    // addLine(state.lineRender, thick, opts.borderColor, _segTl, _segBl, n, opts.mtx);
+    // addLine(state.lineRender, thick, opts.borderColor, _segTr, _segBr, n, opts.mtx);
 }
 
 let _headTl = new Vec3();
@@ -392,11 +435,11 @@ export function drawArrowHead(state: IRenderState, a: Vec3, b: Vec3, opts: IArro
     addVert(state.triRender, _headRight, opts.ribbonColor, _headN, opts.mtx);
     addPrimitiveRestart(state.triRender);
 
-    let thick = opts.lineThick;
-    addLine(state.lineRender, thick, opts.borderColor, _headTl, _headLeft, undefined, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, _headTip, _headLeft, undefined, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, _headTip, _headRight, undefined, opts.mtx);
-    addLine(state.lineRender, thick, opts.borderColor, _headTr, _headRight, undefined, opts.mtx);
+    // let thick = opts.lineThick;
+    // addLine(state.lineRender, thick, opts.borderColor, _headTl, _headLeft, undefined, opts.mtx);
+    // addLine(state.lineRender, thick, opts.borderColor, _headTip, _headLeft, undefined, opts.mtx);
+    // addLine(state.lineRender, thick, opts.borderColor, _headTip, _headRight, undefined, opts.mtx);
+    // addLine(state.lineRender, thick, opts.borderColor, _headTr, _headRight, undefined, opts.mtx);
 }
 
 let _cornerPivot = new Vec3();
@@ -427,7 +470,7 @@ export function drawArrowCorner(state: IRenderState, center: Vec3, mode: CornerM
         addVert(state.triRender, _cornerPivot, opts.ribbonColor, _cornerN, opts.mtx);
 
         if (i > 0) {
-            addLine(state.lineRender, opts.lineThick, opts.borderColor, _cornerPrevP, _cornerCurrP, undefined, opts.mtx);
+            // addLine(state.lineRender, opts.lineThick, opts.borderColor, _cornerPrevP, _cornerCurrP, undefined, opts.mtx);
         }
         let tmp = _cornerPrevP;
         _cornerPrevP = _cornerCurrP;
