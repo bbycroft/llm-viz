@@ -22,6 +22,10 @@ export function createQueryManager(ctx: IGLContext): IQueryManager {
 }
 
 export function beginQueryAndGetPrevMs(manager: IQueryManager, name: string): number | null {
+    if (!manager.ctx.ext.disjointTimerQuery) {
+        return null;
+    }
+
     let existing = manager.queries.get(name);
     if (!existing) {
         let query = manager.ctx.gl.createQuery()!;
@@ -50,6 +54,9 @@ export function beginQueryAndGetPrevMs(manager: IQueryManager, name: string): nu
 }
 
 export function endQuery(manager: IQueryManager, name: string) {
+    if (!manager.ctx.ext.disjointTimerQuery) {
+        return;
+    }
     let existing = manager.queries.get(name);
     if (existing && existing.hasRun && existing.hasStarted) {
         manager.ctx.gl.endQuery(manager.TIME_ELAPSED_EXT);

@@ -1,5 +1,4 @@
 import { IBlkDef, IModelLayout } from "../GptModelLayout";
-import { roundUpTo } from "../utils/math";
 import { Mat4f } from "../utils/matrix";
 import { createFloatBuffer, createShaderProgram, ensureFloatBufferSize, IGLContext, resetFloatBufferMap, uploadFloatBuffer } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
@@ -43,11 +42,18 @@ export function initBlockRender(ctx: IGLContext) {
     };`;
 
     let numBlocks = 1024;
-    let blockSize = (1 + 1 + 1 + 4 + 1 + 1) * 4;
+    let blockSize = (1 + 1 + 1 + 4 + 1 + 1) * 4 * 4;
     let blockUbo = createFloatBuffer(gl, gl.UNIFORM_BUFFER, gl.createBuffer()!, numBlocks, blockSize);
 
-    let blockAccessSize = (2 + 1 + 1 + 1) * 4;
+    let blockAccessSize = (2 + 1 + 1 + 1) * 4 * 4;
     let blockAccessUbo = createFloatBuffer(gl, gl.UNIFORM_BUFFER, gl.createBuffer()!, numBlocks, blockAccessSize);
+
+    // Create a dummy texture to bind to the access texture slot. Some drivers (e.g. my phone) will complain if we don't.
+    let dummyTexture = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, dummyTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     let shader = createShaderProgram(ctx, 'block', /*glsl*/`#version 300 es
         precision highp float;
@@ -210,6 +216,7 @@ export function initBlockRender(ctx: IGLContext) {
         simpleShader,
         blockUbo,
         blockAccessUbo,
+        dummyTexture,
     };
 }
 
@@ -379,7 +386,7 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
         let hasAccess = !!cube.access && cube.access.disable !== true;
         if (prevHasAccess || hasAccess) {
             gl.bindBufferRange(gl.UNIFORM_BUFFER, UboBindings.BlockAccess, blockAccessUbo.buf, idx * blockAccessUbo.strideBytes, blockAccessUbo.strideBytes);
-            gl.bindTexture(gl.TEXTURE_2D, hasAccess && cube.access ? cube.access.src.texture : null);
+            gl.bindTexture(gl.TEXTURE_2D, hasAccess && cube.access ? cube.access.src.texture : blockRender.dummyTexture);
             prevHasAccess = hasAccess;
         }
 

@@ -2,10 +2,11 @@ import { IWalkthrough, Phase } from "./Walkthrough";
 import { commentary, DimStyle, dimStyleColor, eventEndTime, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
 import s from './Walkthrough.module.scss';
 import { Dim, Vec3, Vec4 } from "../utils/vector";
-import { clamp, makeArray, useGlobalDrag } from "../utils/data";
+import { clamp, makeArray } from "../utils/data";
 import React, { useState } from "react";
 import { useProgramState } from "../Sidebar";
 import { findSubBlocks, splitGridX } from "../Annotations";
+import { useGlobalDrag } from "../utils/pointer";
 
 /*
 Need to re-think how we display & interact with the walkthrough. Current approach just doesn't really work at all.

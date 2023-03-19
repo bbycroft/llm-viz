@@ -59,6 +59,11 @@ export function createRenderPhase(gl: WebGL2RenderingContext, program: IProgram,
 
     gl.drawBuffers(dest.map((_, i) => gl.COLOR_ATTACHMENT0 + i));
 
+    let status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+        console.log("createRenderPhase: framebuffer not complete: " + status);
+    }
+
     return {
         destBuffers: dest,
         srcBuffers: src,
@@ -82,6 +87,10 @@ export function runRenderPhase(gl: WebGL2RenderingContext, phase: IRenderPhase) 
         gl.bindTexture(gl.TEXTURE_2D, phase.srcBuffers[i].texture);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, phase.fbo);
+    let status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+        console.log("runRenderPhase: framebuffer not complete: " + status);
+    }
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
 }
 

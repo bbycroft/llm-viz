@@ -28,23 +28,24 @@ export function initBlurRender(ctx: IGLContext, quadVao: WebGLVertexArrayObject)
     //  - Render an expanded version of the object to our buffer, with a depth test (no write)
     //    - Write to the stencil buffer
     //  - Now do the blur, applying the stencil test
-    let w = gl.canvas.width;
-    let h = gl.canvas.height;
+    let w = Math.max(gl.canvas.width, 1);
+    let h = Math.max(gl.canvas.height, 1);
 
-    let stencilRenderBuf = gl.createRenderbuffer();
-    gl.bindRenderbuffer(gl.RENDERBUFFER, stencilRenderBuf);
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, w, h);
+    // let stencilRenderBuf = gl.createRenderbuffer();
+    // gl.bindRenderbuffer(gl.RENDERBUFFER, stencilRenderBuf);
+    // gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, w, h);
 
     let initialFbo = gl.createFramebuffer()!;
     let initialTex = gl.createTexture()!;
     gl.bindFramebuffer(gl.FRAMEBUFFER, initialFbo);
     gl.bindTexture(gl.TEXTURE_2D, initialTex);
-    // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, initialTex, 0);
+
     // gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, stencilRenderBuf); // sharing the stencil buffer
     // gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
     // also attach depth buffer of primary scene fbo
@@ -54,7 +55,7 @@ export function initBlurRender(ctx: IGLContext, quadVao: WebGLVertexArrayObject)
         let tex = gl.createTexture()!;
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
         gl.bindTexture(gl.TEXTURE_2D, tex);
-        // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -62,6 +63,13 @@ export function initBlurRender(ctx: IGLContext, quadVao: WebGLVertexArrayObject)
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
         // gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, stencilRenderBuf); // sharing the stencil buffer
         // gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+
+        {
+            let status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+            if (status !== gl.FRAMEBUFFER_COMPLETE) {
+                console.log(`Blur framebuffer not complete: ${status.toString(16)}`);
+            }
+        }
 
         return { fbo, tex };
     }
@@ -156,7 +164,7 @@ export function initBlurRender(ctx: IGLContext, quadVao: WebGLVertexArrayObject)
     return {
         gl,
         quadVao,
-        stencilRenderBuf,
+        // stencilRenderBuf,
         initialFbo,
         initialTex,
         blurFbos,
@@ -176,8 +184,8 @@ export function setupBlurTarget(blur: IBlurRender) {
     let blurH = Math.floor(h * blur.blurFactor);
 
     if (blur.currViewSize.x !== w || blur.currViewSize.y !== h) {
-        gl.bindRenderbuffer(gl.RENDERBUFFER, blur.stencilRenderBuf);
-        gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, blurW, blurH);
+        // gl.bindRenderbuffer(gl.RENDERBUFFER, blur.stencilRenderBuf);
+        // gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, blurW, blurH);
 
         gl.bindTexture(gl.TEXTURE_2D, blur.initialTex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, blurW, blurH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);

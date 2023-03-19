@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 
 export function makeArray<T = number>(length: number, val?: T): T[] {
     return new Array(length).fill(val ?? 0);
@@ -111,90 +111,6 @@ export function useRequestAnimationFrame(active: boolean, cb: (dt: number) => vo
             };
         }
     }, [active, cbRef]);
-}
-
-export interface IDragStart<T> {
-    clientX: number;
-    clientY: number;
-    data: T;
-    button: number;
-    buttons: number;
-    shiftKey: boolean;
-    altKey: boolean;
-    metaKey: boolean;
-    ctrlKey: boolean;
-}
-
-export function useGlobalDrag<T>(
-    handleMove: (ev: MouseEvent, ds: IDragStart<T>, end: boolean) => void,
-    handleClick?: (ev: MouseEvent, ds: IDragStart<T>) => void,
-    handleMoveEnd?: (ev: MouseEvent, ds: IDragStart<T>, end: boolean) => void,
-): [IDragStart<T> | null, (ev: React.MouseEvent, data: T) => void] {
-    let [dragStart, setDragStart] = useState<IDragStart<T> | null>(null);
-    let isDragging = useRef(false);
-    let handleMoveRef = useFunctionRef(handleMove);
-    let handleClickRef = useFunctionRef(handleClick);
-    let handleMoveEndRef = useFunctionRef(handleMoveEnd);
-
-    useEffect(() => {
-        if (!dragStart) {
-            isDragging.current = false;
-            return;
-        }
-
-        function dist(ev1: { clientX: number, clientY: number }, ev2: { clientX: number, clientY: number }) {
-            let dx = ev2.clientX - ev1.clientX;
-            let dy = ev2.clientY - ev1.clientY;
-            return dx * dx + dy * dy;
-        }
-
-        function handleMouseMove(ev: MouseEvent) {
-            if (!isDragging.current && (dist(ev, dragStart!) > 10.0 || !handleClickRef.current)) {
-                isDragging.current = true;
-            }
-            if (isDragging.current) {
-                handleMoveRef.current(ev, dragStart!, false);
-            }
-        }
-
-        function handleMouseUp(ev: MouseEvent) {
-            if (isDragging.current || !handleClickRef.current) {
-                handleMoveRef.current(ev, dragStart!, true);
-                handleMoveEndRef.current?.(ev, dragStart!, true);
-            } else {
-                handleClickRef.current?.(ev, dragStart!);
-            }
-            setDragStart(null);
-        }
-
-        document.addEventListener('mousemove', handleMouseMove, { capture: true });
-        document.addEventListener('mouseup', handleMouseUp, { capture: true });
-        return () => {
-            document.removeEventListener('mousemove', handleMouseMove, { capture: true });
-            document.removeEventListener('mouseup', handleMouseUp, { capture: true });
-        };
-    }, [dragStart, handleMoveRef, handleClickRef, handleMoveEndRef]);
-
-    let setDragStartTarget = useCallback((ev: React.MouseEvent, data: T) => {
-        setDragStart({
-            clientX: ev.clientX,
-            clientY: ev.clientY,
-            data,
-            button: ev.button,
-            buttons: ev.buttons,
-            shiftKey: ev.shiftKey,
-            altKey: ev.altKey,
-            ctrlKey: ev.ctrlKey,
-            metaKey: ev.metaKey,
-        });
-    }, [setDragStart]);
-
-    return [dragStart, setDragStartTarget];
-}
-
-export interface IMouseLocation {
-    clientX: number;
-    clientY: number;
 }
 
 export function base64ToArrayBuffer(base64: string) {

@@ -1,13 +1,15 @@
 import { useReducer, useState } from 'react';
 import s from './PhaseTimeline.module.scss';
 import { useProgramState } from './Sidebar';
-import { clamp, useGlobalDrag } from './utils/data';
+import { clamp } from './utils/data';
+import { useCombinedMouseTouchDrag, useGlobalDrag } from './utils/pointer';
 import { eventEndTime, ITimeInfo } from './walkthrough/WalkthroughTools';
 
 export const PhaseTimeline: React.FC = () => {
     let progState = useProgramState();
     let walkthrough = progState.walkthrough;
     let [baseEl, setBaseEl] = useState<HTMLDivElement | null>(null);
+    let [caretHitEl, setCaretHitEl] = useState<HTMLDivElement | null>(null);
     let [, refresh] = useReducer((a: any) => a + 1, 0);
 
     let camera = progState.camera;
@@ -15,14 +17,14 @@ export const PhaseTimeline: React.FC = () => {
 
     let toFract = (v: number) => clamp(v / totalTime, 0, 1);
 
-    let [dragStart, setDragStart] = useGlobalDrag<number>(function handleMove(ev, ds) {
+    let [dragStart, setDragStart] = useCombinedMouseTouchDrag<number>(caretHitEl, () => walkthrough.time, function handleMove(ev, ds) {
         let dy = ev.clientY - ds.clientY;
         let len = baseEl!.clientHeight;
         walkthrough.time = clamp(ds.data + dy / len * totalTime, 0, totalTime);
         walkthrough.running = false;
         walkthrough.lastBreakTime = walkthrough.time;
         ev.preventDefault();
-        ev.stopImmediatePropagation();
+        ev.stopPropagation();
         walkthrough.markDirty();
         refresh();
     });
@@ -39,10 +41,10 @@ export const PhaseTimeline: React.FC = () => {
             </div>;
         })}
         <div className={s.timelineCaret} style={{ top: `${toFract(walkthrough.time) * 100}%` }} />
-        <div className={s.timelineCaretHit} style={{ top: `${toFract(walkthrough.time) * 100}%` }} onMouseDown={(ev) => {
+        <div ref={setCaretHitEl} className={s.timelineCaretHit} style={{ top: `${toFract(walkthrough.time) * 100}%` }} onMouseDown={(ev) => {
             ev.preventDefault();
             ev.stopPropagation();
-            setDragStart(ev, walkthrough.time);
+            setDragStart(ev);
         }}/>
     </div>;
 }
@@ -52,6 +54,7 @@ export const PhaseTimelineHoriz: React.FC<{ times: ITimeInfo[] }> = ({ times }) 
     let progState = useProgramState();
     let wt = progState.walkthrough;
     let [baseEl, setBaseEl] = useState<HTMLDivElement | null>(null);
+    let [caretHitEl, setCaretHitEl] = useState<HTMLDivElement | null>(null);
     let [, refresh] = useReducer((a: any) => a + 1, 0);
 
     let timeOffset = times[0].start;
@@ -61,14 +64,14 @@ export const PhaseTimelineHoriz: React.FC<{ times: ITimeInfo[] }> = ({ times }) 
 
     let toFract = (v: number) => clamp((v - timeOffset) / totalTime, 0, 1);
 
-    let [dragStart, setDragStart] = useGlobalDrag<number>(function handleMove(ev, ds) {
+    let [dragStart, setDragStart] = useCombinedMouseTouchDrag<number>(caretHitEl, () => wt.time, function handleMove(ev, ds) {
         let dx = ev.clientX - ds.clientX;
         let len = baseEl!.clientWidth;
         wt.time = clamp(ds.data + dx / len * totalTime, timeOffset, timeOffset + totalTime);
         wt.running = false;
         wt.lastBreakTime = wt.time;
         ev.preventDefault();
-        ev.stopImmediatePropagation();
+        ev.stopPropagation();
         wt.markDirty();
         refresh();
     });
@@ -89,7 +92,7 @@ export const PhaseTimelineHoriz: React.FC<{ times: ITimeInfo[] }> = ({ times }) 
             <div className={s.timelineCaretHitHoriz} style={{ left: `${toFract(wt.time) * 100}%` }} onMouseDown={(ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();
-                setDragStart(ev, wt.time);
+                setDragStart(ev);
             }}/>
         </>}
     </div>;

@@ -146,7 +146,7 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
         {nodes.map((n, i) => {
             if (n.commentary) {
                 let c = n.commentary;
-                let displayFactor = clamp((wt.time - c.start) / c.duration, 0, 1);
+                let displayFactor = c.duration === 0 ? (wt.time >= c.start ? 1 : 0) : clamp((wt.time - c.start) / c.duration, 0, 1);
                 let opacity = lerp(0.6, 1, displayFactor);
                 let blur = lerp(2, 0, displayFactor);
                 return <div key={i} style={{ opacity, filter: `blur(${blur}px)` }} data-nid={i}>

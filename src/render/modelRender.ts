@@ -49,6 +49,14 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         disjointTimerQuery: gl.getExtension('EXT_disjoint_timer_query_webgl2'),
     };
 
+    if (!ext.colorBufferFloat) {
+        console.log("initRender: EXT_color_buffer_float not supported: floating point textures will not work.");
+    }
+
+    if (!ext.disjointTimerQuery) {
+        console.log("initRender: EXT_disjoint_timer_query_webgl2 not supported: GPU timing will not work.");
+    }
+
     let shaderManager = createShaderManager(gl);
 
     let ctx: IGLContext = { gl, shaderManager, ext };
