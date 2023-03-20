@@ -33,6 +33,7 @@ export interface IRenderState {
     overlayFontBuf: IFontBuffers;
     quadVao: WebGLVertexArrayObject;
     queryManager: IQueryManager;
+    size: Vec3;
 
     lastGpuMs: number;
     lastJsMs: number;
@@ -104,6 +105,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         overlayFontBuf,
         quadVao,
         queryManager,
+        size: new Vec3(1, 1),
         lastGpuMs: 0,
         lastJsMs: 0,
     };

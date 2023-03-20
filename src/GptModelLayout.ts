@@ -3,6 +3,7 @@ import { isNil } from "./utils/data";
 import { Mat4f } from "./utils/matrix";
 import { Dim } from "./utils/vector";
 import { IBufferTex } from "./utils/renderPhases";
+import { dimProps } from "./Annotations";
 
 export interface IBlkDef {
     t: 'w' | 'i', // weights; intermediate value
@@ -37,6 +38,7 @@ export interface IBlkDeps {
     dot?: [IBlkCellDep, IBlkCellDep];
     dotLen?: number;
     add?: IBlkCellDep[];
+    special: BlKDepSpecial;
 }
 
 export interface IBlkCellDep {
@@ -49,7 +51,15 @@ interface IBlkDepArgs {
     dotLen?: number;
     add?: [IBlkDef, string][];
     lowerTri?: boolean; // only use the lower triangle of the matrix (causal attention matrices)
-    special?: 'softmax' | 'gelu' | 'layerNorm';
+    special?: BlKDepSpecial;
+}
+
+export enum BlKDepSpecial {
+    None,
+    Softmax,
+    Gelu,
+    LayerNorm,
+    InputEmbed,
 }
 
 let depIdxVars = '0xybi';
@@ -70,6 +80,7 @@ function depArgsToDeps(args: IBlkDepArgs): IBlkDeps {
         dot: args.dot && args.dot.map(([src, depStr]) => makeBlkDeps(src, depStr)) as [IBlkCellDep, IBlkCellDep],
         dotLen: args.dotLen,
         add: args.add && args.add.map(([src, depStr]) => makeBlkDeps(src, depStr)),
+        special: args.special ?? BlKDepSpecial.None,
     };
 }
 
@@ -118,12 +129,12 @@ export interface IModelLayout {
 }
 
 export function cellPosition(layout: IModelLayout, blk: IBlkDef, dim: Dim, index: number) {
-    let base = (dim === Dim.X ? blk.x : dim === Dim.Y ? blk.y : blk.z) + layout.cell * index;
-    let offsets = dim === Dim.X ? blk.rangeOffsetsX : dim === Dim.Y ? blk.rangeOffsetsY : blk.rangeOffsetsZ;
-    if (!offsets) {
+    let { x, rangeOffsets } = dimProps(blk, dim);
+    let base = x + layout.cell * index;
+    if (!rangeOffsets) {
         return base;
     }
-    for (let [s, xOff] of offsets!) {
+    for (let [s, xOff] of rangeOffsets!) {
         if (index < s) {
             return base + xOff;
         }
@@ -225,7 +236,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         xM: 0, zM: 0, y: y,
         cx: T, cz: B, cy: C,
         access: { src: gptGpuModel?.add.output, x: [0, 1, 0], y: [1, 0, T] },
-        deps: { add: [[tokEmbedObj, 'iy'], [posEmbedObj, 'xy']] }, // the i comes from the idxObj lookup
+        deps: { add: [[tokEmbedObj, 'iy'], [posEmbedObj, 'xy']], special: BlKDepSpecial.InputEmbed }, // the i comes from the idxObj lookup
     });
     cubes.push(idxObj, tokEmbedObj, posEmbedObj, residual0);
 
@@ -370,7 +381,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 t: 'i', cx: T, cz: B, cy: T, y: attn1Y,
                 xR: attn2LeftX, zM: headZMid,
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [1, 0, 0], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
-                deps: { add: [[attnMtx, 'xy'], [attnMtxAgg, 'iy']], lowerTri: true, special: 'softmax' },
+                deps: { add: [[attnMtx, 'xy'], [attnMtxAgg, 'iy']], lowerTri: true, special: BlKDepSpecial.Softmax },
             });
 
             let vOutBlock = mk({

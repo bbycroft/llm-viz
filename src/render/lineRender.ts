@@ -110,7 +110,7 @@ export function createLineRender(ctx: IGLContext) {
                 // if we exceed the miter limit (90 degrees), we need to clamp the line width, and draw a bevel instead.
                 // the inner corner stays the same, but the outer corner is a bevel.
 
-                if (scale > 1.0) {
+                if (scale > 2.0) {
                     bool isOuter = cross(a_lineDirA, a_lineDirB).z * mul < 0.0;
 
                     if (isOuter) {
@@ -255,6 +255,7 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
     let idxBuf = indexVbo.localBuf;
 
     let ptsLen = pts.length;
+    let n = (opts.n ?? Vec3.zero).clone();
 
     if (opts.mtx) {
         if (_ptsTransformed.length < pts.length) {
@@ -264,6 +265,7 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
             opts.mtx.mulVec3AffineArr_(pts, i, _ptsTransformed, i);
         }
         pts = _ptsTransformed;
+        opts.mtx.mulVec3AffineVec_(n, n);
     }
  
     let nPts = ptsLen / 3 + (opts.closed ? 1 : 0);
@@ -281,7 +283,6 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
     let cz = opts.color.z;
     let cw = opts.color.w;
     let thick = opts.thick;
-    let n = opts.n ?? Vec3.zero;
     let nx = n.x;
     let ny = n.y;
     let nz = n.z;

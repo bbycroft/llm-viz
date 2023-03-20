@@ -73,6 +73,12 @@ export class Mat4f extends Float32Array {
         return new Vec3(v4.x, v4.y, v4.z);
     }
 
+    mulVec3Affine(a: Vec3) {
+        let o = new Vec3();
+        this.mulVec3Affine_(a, o);
+        return o;
+    }
+
     mulVec3Affine_(a: Vec3, o: Vec3) {
         let x = this[0] * a.x + this[4] * a.y + this[8] * a.z + this[12];
         let y = this[1] * a.x + this[5] * a.y + this[9] * a.z + this[13];
@@ -230,7 +236,7 @@ export class Mat4f extends Float32Array {
     //
     // M = T * R * S
     //
-    // Note that we assume that there is now skew or projective components.
+    // Note that we assume that there is no skew or projective components.
     // The rotation is given as a quaternion
     decomposeToTRS(): [Vec3, Vec4, Vec3] {
         let T = Vec3.fromArray(this, 12);

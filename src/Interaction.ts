@@ -1,4 +1,5 @@
 import { findSubBlocks, splitGridX } from "./Annotations";
+import { drawDataFlow } from "./components/DataFlow";
 import { IBlkCellDep, IBlkDef, IBlkDeps, IModelLayout } from "./GptModelLayout";
 import { IProgramState } from "./Program";
 import { addLine2 } from "./render/lineRender";
@@ -183,6 +184,7 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
         }
     }
 
+    drawDataFlow(state, blk, idx);
 
 }
 

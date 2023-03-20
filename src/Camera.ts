@@ -5,6 +5,7 @@ import { BoundingBox3d, Vec3 } from "./utils/vector";
 
 export interface ICamera {
     camPos: Vec3;
+    lookAtMtx: Mat4f;
     viewMtx: Mat4f;
     modelMtx: Mat4f;
     center: Vec3;
@@ -77,6 +78,7 @@ export function genModelViewMatrices(state: IProgramState) {
     state.camera.modelMtx = modelMtx;
     state.camera.viewMtx = viewMtx;
     state.camera.camPos = camPos;
+    state.camera.lookAtMtx = lookAt;
 }
 
 export function cameraMoveToDesired(camera: ICamera, dt: number) {

@@ -8,6 +8,7 @@ import { ITensorSet, TensorF32 } from './utils/tensor';
 import { ProgramStateContext, WalkthroughSidebar } from './Sidebar';
 import { initProgramState, IProgramState, runProgram } from './Program';
 import { CanvasEventSurface } from './CanvasEventSurface';
+import { Vec3 } from './utils/vector';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -245,6 +246,7 @@ class CanvasRender {
             let scale = 1.0;
             canvasEl.width = bcr.width * scale;
             canvasEl.height = bcr.height * scale;
+            this.progState.render.size = new Vec3(canvasEl.width, canvasEl.height);
             this.canvasSizeDirty = false;
         }
 

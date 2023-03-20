@@ -2,7 +2,7 @@ import { cameraToMatrixView } from "../Camera";
 import { IGptModelLayout } from "../GptModelLayout";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText, measureTextWidth, writeTextToBuffer } from "../render/fontRender";
-import { addLine, addLine2 as drawLine, drawLineSegs, ILineOpts } from "../render/lineRender";
+import { addLine, addLine2 as drawLine, drawLineSegs, ILineOpts, makeLineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { addQuad } from "../render/triRender";
 import { Mat4f } from "../utils/matrix";
@@ -235,7 +235,7 @@ export function drawLineRect(render: IRenderState, tl: Vec3, br: Vec3, opts: ILi
     _lineRectArr[10] = br.y;
     _lineRectArr[11] = 0;
 
-    drawLineSegs(render.lineRender, _lineRectArr, { ...opts, closed: true });
+    drawLineSegs(render.lineRender, _lineRectArr, makeLineOpts({ ...opts, closed: true }));
 }
 
 function numberToCommaSep(a: number) {
