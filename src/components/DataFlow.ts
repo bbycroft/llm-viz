@@ -4,6 +4,7 @@ import { drawText, IFontOpts, measureText } from "../render/fontRender";
 import { addLine2, drawLineSegs, makeLineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { addPrimitiveRestart, addQuad, addVert } from "../render/triRender";
+import { makeArray } from "../utils/data";
 import { Mat4f } from "../utils/matrix";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
@@ -57,7 +58,7 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
 
     let resMtx = mtxT.mul(mtx).mul(scaleMtx).mul(mtxTInv).mul(translateMtx);
 
-    let center = cellPos.add(new Vec3(0, -5, -cellPos.z));
+    let center = cellPos.add(new Vec3(0, -6, -cellPos.z));
 
     if (blk.deps.special === BlKDepSpecial.InputEmbed) {
         drawOLAddSymbol(state, center, scale, resMtx);
@@ -205,21 +206,16 @@ export function drawOLPosEmbedLookup(state: IProgramState, center: Vec3, scale: 
 
 export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: number, mtx: Mat4f, blk: IBlkDef) {
 
-    let h = 5;
-    let l = -12.5;
-    let r = 6.5;
-
-    addQuad(state.render.triRender, center.add(new Vec3(l, -h/2)), center.add(new Vec3(r, h/2)), backWhiteColor, mtx);
+    let cellSize = 0.8;
 
     function drawRowCol(pos: Vec3, color: Vec4, isRow: boolean, nCells: number) {
 
         let nCellsX = isRow ? nCells : 1;
         let nCellsY = isRow ? 1 : nCells;
-        let cellSize = 0.8;
         let thick = 0.05 * scale;
 
-        let tl = pos.add(new Vec3(-cellSize * nCellsX / 2, -cellSize * nCellsY / 2));
-        let br = pos.add(new Vec3(cellSize * nCellsX / 2,  cellSize * nCellsY / 2));
+        let tl = pos.add(new Vec3(0                 , -cellSize * nCellsY / 2));
+        let br = pos.add(new Vec3(cellSize * nCellsX,  cellSize * nCellsY / 2));
         let lineOpts = makeLineOpts({ color, mtx, n: new Vec3(0, 0, 1), thick });
 
         drawLineRect(state.render, tl, br, lineOpts);
@@ -227,12 +223,12 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: numbe
 
         for (let i = 1; i < nCellsX; i++) {
             let lineX = tl.x + i * cellSize;
-            addLine2(state.render.lineRender, new Vec3(lineX, tl.y + thick/2, 0), new Vec3(lineX, br.y - thick/2, 0), lineOpts);
+            addLine2(state.render.lineRender, new Vec3(lineX, tl.y, 0), new Vec3(lineX, br.y, 0), lineOpts);
         }
 
         for (let i = 1; i < nCellsY; i++) {
             let lineY = tl.y + i * cellSize;
-            addLine2(state.render.lineRender, new Vec3(tl.x + thick/2, lineY, 0), new Vec3(br.x - thick/2, lineY, 0), lineOpts);
+            addLine2(state.render.lineRender, new Vec3(tl.x, lineY, 0), new Vec3(br.x, lineY, 0), lineOpts);
         }
     }
 
@@ -242,30 +238,129 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: numbe
     let dotAColor = dotA.src.t === 'w' ? weightSrcColor : workingSrcColor;
     let dotBColor = dotB.src.t === 'w' ? weightSrcColor : workingSrcColor;
 
-    let dotAIsCol = dotA.srcIdxMtx.g(0, 3) === 1.0;
-    let dotBIsCol = dotB.srcIdxMtx.g(0, 3) === 1.0;
+    let dotAIsRow = dotA.srcIdxMtx.g(0, 3) === 1.0;
+    let dotBIsRow = dotB.srcIdxMtx.g(0, 3) === 1.0;
+
+    let dotAW = cellSize * (dotAIsRow ? 4 : 1);
+    let dotBW = cellSize * (dotBIsRow ? 4 : 1);
+
+    let pad = 0.8;
 
     let hasAdd = !!blk.deps!.add;
+    let addW = hasAdd ? cellSize : -pad;
 
-    drawRowCol(center.add(new Vec3(-2.5, 0, 0)), dotAColor, dotAIsCol, 4);
-    drawRowCol(center.add(new Vec3(2.5, 0, 0)), dotBColor, dotBIsCol, 4);
     let textOpts: IFontOpts = { color: opColor, mtx, size: 2 };
 
     let textY = center.y - textOpts.size * 0.56;
-    let commaTw = measureText(state.render.modelFontBuf, ',', textOpts);
-    drawText(state.render.modelFontBuf, ',', center.x - commaTw / 2, textY, textOpts);
 
+    let commaText = ',';
+    let commaTw = measureText(state.render.modelFontBuf, commaText, textOpts);
 
-    let dotBeginText = hasAdd ? ' + dot(' : 'dot(';
-
+    let dotBeginText = hasAdd ? '+ dot(' : 'dot(';
     let dotBeginW = measureText(state.render.modelFontBuf, dotBeginText, textOpts);
-    let dotBeginX = center.x - dotBeginW - 4.5;
-    drawText(state.render.modelFontBuf, dotBeginText, dotBeginX, textY, textOpts);
 
-    drawText(state.render.modelFontBuf, ')', center.x + 4.5, textY, textOpts);
+    let dotEndText = ')';
+    let dotEndW = measureText(state.render.modelFontBuf, dotEndText, textOpts);
+
+    let { total, locs: [addX, dotBeginX, dotAX, commaTX, dotBX, dotEndX] } = layout1d({ pad, anchor: center.x, justify: LayoutAlign.Middle }, addW, dotBeginW, dotAW, commaTw, dotBW, dotEndW);
+
+    let h = 5;
+    let halfW = total / 2 + pad * 2;
+    drawRoundedRect(state.render, center.add(new Vec3(-halfW, -h/2)), center.add(new Vec3(halfW, h/2)), backWhiteColor, mtx, 1.0);
+
+    drawRowCol(new Vec3(dotAX, center.y), dotAColor, dotAIsRow, 4);
+    drawRowCol(new Vec3(dotBX, center.y), dotBColor, dotBIsRow, 4);
 
     if (hasAdd) {
-        drawRowCol(new Vec3(dotBeginX - 0.8, center.y), new Vec4(0.3, 0.3, 0.7, 1), false, 1);
+        drawRowCol(new Vec3(addX, center.y), weightSrcColor, false, 1);
     }
+
+    drawText(state.render.modelFontBuf, dotBeginText, dotBeginX, textY, textOpts);
+    drawText(state.render.modelFontBuf, commaText,    commaTX,   textY, textOpts);
+    drawText(state.render.modelFontBuf, dotEndText,   dotEndX,   textY, textOpts);
+
 }
 
+export function drawRoundedRect(state: IRenderState, tl: Vec3, br: Vec3, color: Vec4, mtx: Mat4f, radius: number) {
+
+    if (radius === 0) {
+        addQuad(state.triRender, tl, br, color, mtx);
+        return;
+    }
+
+    radius = Math.min(radius, (br.x - tl.x) / 2, (br.y - tl.y) / 2);
+
+    let n = new Vec3(0, 0, 1);
+    let innerQuadTl = tl.add(new Vec3(radius, radius));
+    let innerQuadBr = br.sub(new Vec3(radius, radius));
+
+    // inner quad
+    addQuad(state.triRender, innerQuadTl, innerQuadBr, color, mtx);
+
+    // bottom right starting point
+    addVert(state.triRender, new Vec3(innerQuadBr.x, br.y), color, n, mtx);
+    addVert(state.triRender, new Vec3(innerQuadBr.x, innerQuadBr.y), color, n, mtx);
+
+    for (let cIdx = 0; cIdx < 4; cIdx++) {
+        let pivot = new Vec3(
+            cIdx < 2 ? innerQuadTl.x : innerQuadBr.x,
+            (cIdx + 1) % 4 < 2 ? innerQuadBr.y : innerQuadTl.y,
+        );
+
+        let startTheta = ((cIdx + 1) % 4) * Math.PI / 2;
+
+        // pivot around each of the 4 corners
+        let nRadiusVerts = 6;
+        for (let i = 0; i < nRadiusVerts + 1; i++) {
+            let pt = new Vec3(
+                pivot.x + radius * Math.cos(startTheta + i * Math.PI / nRadiusVerts / 2),
+                pivot.y + radius * Math.sin(startTheta + i * Math.PI / nRadiusVerts / 2),
+            )
+            addVert(state.triRender, pt, color, n, mtx);
+            addVert(state.triRender, pivot, color, n, mtx);
+        }
+    }
+    addPrimitiveRestart(state.triRender);
+}
+
+
+enum LayoutAlign {
+    Start,
+    Middle,
+    End,
+}
+
+interface ILayout1dOpts {
+    anchor?: number; // default 0
+    pad?: number; // default 0
+    justify?: LayoutAlign; // default: Start
+}
+
+interface ILayout1dRes {
+    total: number;
+    locs: number[];
+}
+
+function layout1d(opts: ILayout1dOpts, ...widths: number[]): ILayout1dRes {
+    let pad = opts.pad || 0;
+    let anchor = opts.anchor || 0;
+    let justify = opts.justify || LayoutAlign.Start;
+
+    let totalWidth = pad * (widths.length - 1);
+    for (let i = 0; i < widths.length; i++) {
+        totalWidth += widths[i];
+    }
+
+    let start = justify === LayoutAlign.Start ? anchor : justify === LayoutAlign.Middle ? anchor - totalWidth / 2 : anchor - totalWidth;
+
+    let locs = makeArray(widths.length, 0.0);
+    let xPos = start;
+
+    for (let i = 0; i < widths.length; i++) {
+        locs[i] = xPos;
+        let w = widths[i];
+        xPos += w + pad;
+    }
+
+    return { total: totalWidth, locs };
+}

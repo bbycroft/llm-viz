@@ -120,14 +120,14 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     // will modify layout; view; render a few things.
     runWalkthrough(state, view);
 
-    runMouseHitTesting(state);
-
     // these will get modified by the walkthrough (stored where?)
     drawAllArrows(state.render, state.layout);
-    drawBlockLabels(state.render, state.layout);
 
     drawModelCard(state);
     drawTokens(state.render, state.layout, state.display);
+
+    runMouseHitTesting(state);
+    drawBlockLabels(state.render, state.layout);
 
     let lineNo = 1;
     let tw = state.render.canvasEl.width;

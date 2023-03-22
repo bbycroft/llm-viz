@@ -236,7 +236,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         xM: 0, zM: 0, y: y,
         cx: T, cz: B, cy: C,
         access: { src: gptGpuModel?.add.output, x: [0, 1, 0], y: [1, 0, T] },
-        deps: { add: [[tokEmbedObj, 'iy'], [posEmbedObj, 'xy']], special: BlKDepSpecial.InputEmbed }, // the i comes from the idxObj lookup
+        deps: { add: [[tokEmbedObj, 'iy'], [posEmbedObj, 'xy'], [idxObj, 'x0']], special: BlKDepSpecial.InputEmbed }, // the i comes from the idxObj lookup
     });
     cubes.push(idxObj, tokEmbedObj, posEmbedObj, residual0);
 
