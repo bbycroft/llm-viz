@@ -1,11 +1,11 @@
 import { Mat4f } from "../utils/matrix";
 import { bindFloatAttribs, createElementBuffer, createFloatBuffer, createShaderProgram, ensureElementBufferSize, ensureFloatBufferSize, IGLContext, resetElementBufferMap, resetFloatBufferMap, uploadElementBuffer, uploadFloatBuffer } from "../utils/shader";
-import { Vec3, Vec3Buf, Vec4, Vec4Buf } from "../utils/vector";
-import { modelViewUboText, UboBindings } from "./sharedRender";
+import { Vec3, Vec3Buf, Vec4 } from "../utils/vector";
+import { ISharedRender, modelViewUboText, RenderPhase, UboBindings } from "./sharedRender";
 
 export type ILineRender = ReturnType<typeof createLineRender>;
 
-export function createLineRender(ctx: IGLContext) {
+export function createLineRender(ctx: IGLContext, sharedRender: ISharedRender) {
 
 
     /* Lines are made up of several quads, 1(?) for each line segment.
@@ -35,7 +35,7 @@ export function createLineRender(ctx: IGLContext) {
         { name: 'a_normal', size: 3 },
     ]);
 
-    let lineFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, lineVbo, 1024, strideBytes);
+    let lineFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, lineVbo, 1024, strideBytes, sharedRender);
 
     let lineIbo = gl.createBuffer()!;
     let lineIndexBuf = createElementBuffer(gl, lineIbo, 1024);
@@ -188,11 +188,12 @@ let _lineB = new Vec3();
 let _lineDir = new Vec3();
 
 export function addLine(render: ILineRender, thickness: number, color: Vec4, a: Vec3, b: Vec3, n?: Vec3, mtx?: Mat4f) {
-    let floatBuf = render.floatBuf;
-    let buf = floatBuf.localBuf;
-    let idxBuf = render.indexBuf.localBuf;
-    ensureFloatBufferSize(floatBuf, 4);
-    ensureElementBufferSize(render.indexBuf, 5);
+    let floatLocalBuf = render.floatBuf.localBufs[0];
+    let buf = floatLocalBuf.buf;
+    let idxLocalBuf = render.indexBuf.localBufs[0];
+    let idxBuf = idxLocalBuf.buf;
+    ensureFloatBufferSize(floatLocalBuf, 4);
+    ensureElementBufferSize(idxLocalBuf, 5);
     if (mtx) {
         mtx.mulVec3Affine_(a, _lineA);
         mtx.mulVec3Affine_(b, _lineB);
@@ -214,8 +215,8 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
     let pt = [_lineA, _lineA, _lineB, _lineB];
     n = n ?? Vec3.zero;
 
-    let i = floatBuf.usedEls * floatBuf.strideFloats;
-    let k = render.indexBuf.usedVerts;
+    let i = floatLocalBuf.usedEls * floatLocalBuf.strideFloats;
+    let k = render.indexBuf.localBufs[0].usedVerts;
     for (let j = 0; j < 4; j++) {
         buf[i + 0] = pt[j].x;
         buf[i + 1] = pt[j].y;
@@ -235,12 +236,12 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
         buf[i + 15] = n.x;
         buf[i + 16] = n.y;
         buf[i + 17] = n.z;
-        i += floatBuf.strideFloats;
-        idxBuf[k + j] = floatBuf.usedEls + j;
+        i += floatLocalBuf.strideFloats;
+        idxBuf[k + j] = floatLocalBuf.usedEls + j;
     }
     idxBuf[k + 4] = 0xffffffff;
-    floatBuf.usedEls += 4;
-    render.indexBuf.usedVerts += 5;
+    floatLocalBuf.usedEls += 4;
+    render.indexBuf.localBufs[0].usedVerts += 5;
 }
 
 let _lineSegBufs = new Float32Array(2 * 3);
@@ -248,11 +249,11 @@ let _dir = _lineSegBufs.subarray(0, 3);
 let _prevDir = _lineSegBufs.subarray(3, 6);
 let _ptsTransformed = new Float32Array(0);
 export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILineOpts) {
-    let floatVbo = render.floatBuf;
-    let indexVbo = render.indexBuf;
+    let floatLocalBuf = render.floatBuf.localBufs[0];
+    let buf = floatLocalBuf.buf;
 
-    let buf = floatVbo.localBuf;
-    let idxBuf = indexVbo.localBuf;
+    let idxLocalBuf = render.indexBuf.localBufs[0];
+    let idxBuf = idxLocalBuf.buf;
 
     let ptsLen = pts.length;
     let n = (opts.n ?? Vec3.zero).clone();
@@ -270,8 +271,8 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
  
     let nPts = ptsLen / 3 + (opts.closed ? 1 : 0);
 
-    ensureFloatBufferSize(floatVbo, nPts * 4);
-    ensureElementBufferSize(render.indexBuf, nPts * 4 + 1); // +1 for the primitive restart
+    ensureFloatBufferSize(floatLocalBuf, nPts * 4);
+    ensureElementBufferSize(idxLocalBuf, nPts * 4 + 1); // +1 for the primitive restart
 
     if (opts.closed) {
         Vec3Buf.sub_(pts, 0, pts, ptsLen - 3, _prevDir, 0);
@@ -303,8 +304,8 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
             Vec3Buf.normalize_(_dir, 0, _dir, 0);
         }
 
-        let bufOff = floatVbo.usedEls * floatVbo.strideFloats;
-        let idxOff = indexVbo.usedVerts;
+        let bufOff = floatLocalBuf.usedEls * floatLocalBuf.strideFloats;
+        let idxOff = idxLocalBuf.usedVerts;
 
         let dirA = (i == 0 && !opts.closed) ? _dir : _prevDir;
         let dirB = (i == nPts - 1 && !opts.closed) ? _prevDir : _dir;
@@ -324,25 +325,28 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
             buf[bufOff + 15] = nx;
             buf[bufOff + 16] = ny;
             buf[bufOff + 17] = nz;
-            bufOff += floatVbo.strideFloats;
-            idxBuf[idxOff + j] = floatVbo.usedEls + j;
+            bufOff += floatLocalBuf.strideFloats;
+            idxBuf[idxOff + j] = floatLocalBuf.usedEls + j;
         }
 
-        floatVbo.usedEls += idxCount;
-        indexVbo.usedVerts += idxCount;
+        floatLocalBuf.usedEls += idxCount;
+        idxLocalBuf.usedVerts += idxCount;
 
         Vec3Buf.copy_(_dir, 0, _prevDir, 0);
     }
 
-    idxBuf[indexVbo.usedVerts] = 0xffffffff;
-    indexVbo.usedVerts += 1;
+    idxBuf[idxLocalBuf.usedVerts] = 0xffffffff;
+    idxLocalBuf.usedVerts += 1;
 }
 
-export function renderAllLines(render: ILineRender) {
+export function uploadAllLines(render: ILineRender) {
     let gl = render.gl;
     uploadFloatBuffer(gl, render.floatBuf);
-    uploadElementBuffer(gl, render.indexBuf)
+    uploadElementBuffer(gl, render.indexBuf, render.floatBuf)
+}
 
+export function renderAllLines(render: ILineRender, renderPhase: RenderPhase) {
+    let gl = render.gl;
     gl.disable(gl.CULL_FACE);
     gl.depthMask(false);
 
@@ -352,8 +356,8 @@ export function renderAllLines(render: ILineRender) {
     let locs = render.lineShader.locs;
     gl.uniform2f(locs.u_viewSizeInv, 1.0 / gl.canvas.width, 1.0 / gl.canvas.height);
 
-    // console.log('rendering lines', render.indexBuf.usedVerts);
-    gl.drawElements(gl.TRIANGLE_STRIP, render.indexBuf.usedVerts, gl.UNSIGNED_INT, 0);
+    let localIdxBuf = render.indexBuf.localBufs[renderPhase];
+    gl.drawElements(gl.TRIANGLE_STRIP, localIdxBuf.usedVerts, gl.UNSIGNED_INT, localIdxBuf.glOffsetVerts);
 
     gl.depthMask(true);
 }

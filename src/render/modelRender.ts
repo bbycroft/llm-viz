@@ -4,11 +4,11 @@ import { createShaderManager, ensureShadersReady, IGLContext } from "../utils/sh
 import { Vec3, Vec4 } from "../utils/vector";
 import { IBlockRender, initBlockRender, renderAllBlocks, renderBlocksSimple } from "./blockRender";
 import { initBlurRender, renderBlur, setupBlurTarget } from "./blurRender";
-import { createLineRender, renderAllLines, resetLineRender } from "./lineRender";
+import { createLineRender, renderAllLines, resetLineRender, uploadAllLines } from "./lineRender";
 import { renderAllThreads, initThreadRender } from "./threadRender";
-import { initSharedRender, writeModelViewUbo } from "./sharedRender";
+import { initSharedRender, RenderPhase, writeModelViewUbo } from "./sharedRender";
 import { cameraToMatrixView, ICamera } from "../Camera";
-import { initTriRender, renderAllTris, resetTriRender } from "./triRender";
+import { initTriRender, renderAllTris, resetTriRender, uploadAllTris } from "./triRender";
 import { createQueryManager, IQueryManager } from "./queryManager";
 import { IProgramState } from "../Program";
 
@@ -76,15 +76,16 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
+    let sharedRender = initSharedRender(ctx);
+
     let fontAtlas = setupFontAtlas(ctx, fontAtlasData);
 
     let modelFontBuf = createFontBuffers(fontAtlas);
     let overlayFontBuf = createFontBuffers(fontAtlas);
-    let sharedRender = initSharedRender(ctx);
     let threadRender = initThreadRender(ctx);
-    let lineRender = createLineRender(ctx);
+    let lineRender = createLineRender(ctx, sharedRender);
     let blockRender = initBlockRender(ctx);
-    let triRender = initTriRender(ctx);
+    let triRender = initTriRender(ctx, sharedRender);
     let blurRender = initBlurRender(ctx, quadVao);
     let queryManager = createQueryManager(ctx);
 
@@ -171,11 +172,14 @@ export function renderModel(state: IProgramState) {
     }
     gl.enable(gl.DEPTH_TEST);
 
+    uploadAllLines(args.lineRender);
+    uploadAllTris(args.triRender);
+
     renderAllBlocks(blockRender, layout, modelMtx, camPos, lightPosArr, lightColorArr);
-    renderAllTris(args.triRender);
+    renderAllTris(args.triRender, RenderPhase.Opaque);
     renderAllThreads(args.threadRender);
     renderAllText(args.modelFontBuf);
-    renderAllLines(args.lineRender);
+    renderAllLines(args.lineRender, RenderPhase.Opaque);
 
     {
         let w = canvasEl.width;

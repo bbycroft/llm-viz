@@ -1,6 +1,6 @@
 import { base64ToArrayBuffer } from "../utils/data";
 import { Mat4f } from "../utils/matrix";
-import { bindFloatAttribs, createFloatBuffer, createShaderProgram, ensureFloatBufferSize, ensureShadersReady, IFloatBuffer, IGLContext, uploadFloatBuffer } from "../utils/shader";
+import { bindFloatAttribs, createFloatBuffer, createShaderProgram, ensureFloatBufferSize, ensureShadersReady, IFloatBuffer, IGLContext, resetFloatBufferMap, uploadFloatBuffer } from "../utils/shader";
 import { Vec4 } from "../utils/vector";
 import { modelViewUboText, UboBindings } from "./sharedRender";
 
@@ -316,14 +316,14 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Ve
         face = fontBuf.atlas.faceInfos[0];
     }
 
-    let vertBuf = fontBuf.vertBuffer;
+    let vertBuf = fontBuf.vertBuffer.localBufs[0];
     ensureFloatBufferSize(vertBuf, text.length * floatsPerVert);
     if (fontBuf.segmentsUsed === Math.floor(texWidth * 4 / floatsPerSegment)) {
         // the last segment on each texel row would overflow (it takes 5 texels), so we skip it
         fontBuf.segmentsUsed += 1;
     }
     let segmentId = fontBuf.segmentsUsed;
-    let buf = vertBuf.localBuf;
+    let buf = vertBuf.buf;
     let bufIdx = vertBuf.usedEls * fontBuf.vertBuffer.strideFloats;
     let atlasWInv = 1.0 / face.common.scaleW;
     let atlasHInv = 1.0 / face.common.scaleH;
@@ -420,13 +420,14 @@ export function renderAllText(fontBuf: IFontBuffers) {
     gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
 
     gl.bindVertexArray(fontBuf.vao);
-    gl.drawArrays(gl.TRIANGLES, 0, fontBuf.vertBuffer.usedEls);
+    let localBuf = fontBuf.vertBuffer.localBufs[0];
+    gl.drawArrays(gl.TRIANGLES, localBuf.glOffsetEls, localBuf.usedEls);
 
     gl.depthMask(true);
     // gl.finish();
 }
 
 export function resetFontBuffers(fontBuf: IFontBuffers) {
-    fontBuf.vertBuffer.usedEls = 0;
+    resetFloatBufferMap(fontBuf.vertBuffer);
     fontBuf.segmentsUsed = 0;
 }

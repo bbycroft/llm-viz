@@ -321,13 +321,13 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
     let allCubes = [...cubes, ...transparentCubes];
     let firstTransparent = cubes.length;
 
-    let blockUbo = blockRender.blockUbo;
-    let blockAccessUbo = blockRender.blockAccessUbo;
+    let blockUbo = blockRender.blockUbo.localBufs[0];
+    let blockAccessUbo = blockRender.blockAccessUbo.localBufs[0];
 
     {
-        resetFloatBufferMap(blockUbo);
+        resetFloatBufferMap(blockRender.blockUbo);
         ensureFloatBufferSize(blockUbo, cubes.length);
-        let blockBuf = blockUbo.localBuf;
+        let blockBuf = blockUbo.buf;
         for (let cube of allCubes) {
             let baseOff = blockUbo.usedEls * blockUbo.strideFloats;
             blockBuf[baseOff + 0] = cube.x;
@@ -351,13 +351,13 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
 
             blockUbo.usedEls += 1;
         }
-        uploadFloatBuffer(gl, blockUbo);
+        uploadFloatBuffer(gl, blockRender.blockUbo);
     }
 
     {
-        resetFloatBufferMap(blockAccessUbo);
+        resetFloatBufferMap(blockRender.blockAccessUbo);
         ensureFloatBufferSize(blockAccessUbo, cubes.length);
-        let blockBuf = blockAccessUbo.localBuf;
+        let blockBuf = blockAccessUbo.buf;
         for  (let cube of allCubes) {
             let baseOff = blockAccessUbo.usedEls * blockAccessUbo.strideFloats;
             if (cube.access && cube.access.disable !== true) {
@@ -371,7 +371,7 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
             }
             blockAccessUbo.usedEls += 1;
         }
-        uploadFloatBuffer(gl, blockAccessUbo);
+        uploadFloatBuffer(gl, blockRender.blockAccessUbo);
     }
 
     let prevHasAccess = true;
@@ -381,11 +381,11 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
             gl.depthMask(false);
         }
 
-        gl.bindBufferRange(gl.UNIFORM_BUFFER, UboBindings.Block, blockUbo.buf, idx * blockUbo.strideBytes, blockUbo.strideBytes);
+        gl.bindBufferRange(gl.UNIFORM_BUFFER, UboBindings.Block, blockRender.blockUbo.buf, idx * blockUbo.strideBytes, blockUbo.strideBytes);
 
         let hasAccess = !!cube.access && cube.access.disable !== true;
         if (prevHasAccess || hasAccess) {
-            gl.bindBufferRange(gl.UNIFORM_BUFFER, UboBindings.BlockAccess, blockAccessUbo.buf, idx * blockAccessUbo.strideBytes, blockAccessUbo.strideBytes);
+            gl.bindBufferRange(gl.UNIFORM_BUFFER, UboBindings.BlockAccess, blockRender.blockAccessUbo.buf, idx * blockAccessUbo.strideBytes, blockAccessUbo.strideBytes);
             gl.bindTexture(gl.TEXTURE_2D, hasAccess && cube.access ? cube.access.src.texture : blockRender.dummyTexture);
             prevHasAccess = hasAccess;
         }

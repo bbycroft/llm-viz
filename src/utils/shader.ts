@@ -1,3 +1,4 @@
+import { ISharedRender } from "../render/sharedRender";
 import { roundUpTo } from "./math";
 
 export interface IGLContext {
@@ -183,19 +184,35 @@ export function bindFloatAttribs(gl: WebGL2RenderingContext, buf: WebGLBuffer, o
     return byteStride;
 }
 
-export interface IFloatBuffer {
-    target: number; // gl.ARRAY_BUFFER, gl.UNIFORM_BUFFER, etc
-    buf: WebGLBuffer;
-    localBuf: Float32Array;
+/*
+We store multiple buffers client-side, each one can grow independently, and each represents the
+data drawn in a specific phase.  Then we can upload the data nicely packed.
+We still have to do multiple draw calls, since each phase is made up of different renderers, but
+just need a single WebGLBuffer with its vertexAttribs etc.
+*/
+export interface IFloatLocalBuffer {
+    buf: Float32Array;
     strideFloats: number;
     strideBytes: number;
     capacityEls: number; // elements
     usedEls: number; // elements
 
-    glCapacityEls: number; // elements in the gl buffer. May lag capacityEls
+    glOffsetEls: number;
 }
 
-export function createFloatBuffer(gl: WebGL2RenderingContext, target: number, buf: WebGLBuffer, capacityEls: number, strideBytes: number): IFloatBuffer {
+export interface IFloatBuffer {
+    target: number; // gl.ARRAY_BUFFER, gl.UNIFORM_BUFFER, etc
+    localBufs: IFloatLocalBuffer[];
+    buf: WebGLBuffer;
+    strideFloats: number;
+    strideBytes: number;
+
+    glCapacityEls: number; // elements in the gl buffer. May lag capacityEls
+    sharedRender?: ISharedRender;
+}
+
+export function createFloatBuffer(gl: WebGL2RenderingContext, target: number, buf: WebGLBuffer, capacityEls: number, strideBytes: number, sharedRender?: ISharedRender): IFloatBuffer {
+    let numPhases = sharedRender?.numPhases || 1;
     if (target === gl.UNIFORM_BUFFER) {
         let uboBlockOffsetAlign = gl.getParameter(gl.UNIFORM_BUFFER_OFFSET_ALIGNMENT);
         strideBytes = roundUpTo(strideBytes, uboBlockOffsetAlign);
@@ -204,87 +221,158 @@ export function createFloatBuffer(gl: WebGL2RenderingContext, target: number, bu
     let strideFloats = strideBytes / 4;
     gl.bindBuffer(target, buf);
     gl.bufferData(target, capacityEls * strideBytes, gl.DYNAMIC_DRAW);
-    let localBuf = new Float32Array(capacityEls * strideFloats);
-    return { target, buf, localBuf, strideFloats, strideBytes, capacityEls, usedEls: 0, glCapacityEls: capacityEls };
+
+    let localBufs: IFloatLocalBuffer[] = [];
+    for (let i = 0; i < numPhases; i++) {
+        localBufs.push({
+            buf: new Float32Array(capacityEls * strideFloats),
+            strideFloats,
+            strideBytes,
+            capacityEls,
+            usedEls: 0,
+            glOffsetEls: 0,
+        });
+    }
+
+    return { target, buf, strideFloats, strideBytes, glCapacityEls: capacityEls, localBufs, sharedRender };
 }
 
-export function ensureFloatBufferSize(bufMap: IFloatBuffer, countEls: number) {
-    let newUsedEls = bufMap.usedEls + countEls;
+export function ensureFloatBufferSize(localBuf: IFloatLocalBuffer, countEls: number) {
+    let newUsedEls = localBuf.usedEls + countEls;
 
-    if (newUsedEls > bufMap.capacityEls) {
-        let newCapacityEls = bufMap.capacityEls * 2;
-        while (newUsedEls > newCapacityEls) {
-            newCapacityEls *= 2;
+    if (newUsedEls > localBuf.capacityEls) {
+        while (newUsedEls > localBuf.capacityEls) {
+            localBuf.capacityEls *= 2;
         }
 
-        let newLocalBuf = new Float32Array(newCapacityEls * bufMap.strideFloats);
-        newLocalBuf.set(bufMap.localBuf);
-
-        bufMap.capacityEls = newCapacityEls;
-        bufMap.localBuf = newLocalBuf;
+        let newLocalBuf = new Float32Array(localBuf.capacityEls * localBuf.strideFloats);
+        newLocalBuf.set(localBuf.buf);
+        localBuf.buf = newLocalBuf;
     }
 }
 
 export function uploadFloatBuffer(gl: WebGL2RenderingContext, bufMap: IFloatBuffer) {
     gl.bindBuffer(bufMap.target, bufMap.buf);
 
-    if (bufMap.capacityEls > bufMap.glCapacityEls) {
-        gl.bufferData(bufMap.target, bufMap.capacityEls * bufMap.strideBytes, gl.DYNAMIC_DRAW);
-        bufMap.glCapacityEls = bufMap.capacityEls;
+    let totalUsed = 0;
+    for (let i = 0; i < bufMap.localBufs.length; i++) {
+        let localBuf = bufMap.localBufs[i];
+        totalUsed += localBuf.usedEls;
     }
 
-    gl.bufferSubData(bufMap.target, 0, bufMap.localBuf.subarray(0, bufMap.usedEls * bufMap.strideFloats).buffer);
+    if (totalUsed > bufMap.glCapacityEls) {
+        while (totalUsed > bufMap.glCapacityEls) {
+            bufMap.glCapacityEls *= 2;
+        }
+        gl.bufferData(bufMap.target, bufMap.glCapacityEls * bufMap.strideBytes, gl.DYNAMIC_DRAW);
+    }
+
+    let offsetEls = 0;
+    for (let i = 0; i < bufMap.localBufs.length; i++) {
+        let localBuf = bufMap.localBufs[i];
+        localBuf.glOffsetEls = offsetEls;
+        gl.bufferSubData(bufMap.target, offsetEls * bufMap.strideBytes, localBuf.buf.subarray(0, localBuf.usedEls * localBuf.strideFloats).buffer);
+        offsetEls += localBuf.usedEls;
+    }
 }
 
 export function resetFloatBufferMap(bufMap: IFloatBuffer) {
-    bufMap.usedEls = 0;
+    for (let i = 0; i < bufMap.localBufs.length; i++) {
+        bufMap.localBufs[i].usedEls = 0;
+    }
+}
+
+export interface IELementLocalBuffer {
+    buf: Uint32Array;
+    capacityVerts: number;
+    usedVerts: number
+
+    glOffsetVerts: number;
 }
 
 export interface IElementBuffer {
     buf: WebGLBuffer;
-    localBuf: Uint32Array;
-
-    capacityVerts: number;
-    usedVerts: number;
-
+    localBufs: IELementLocalBuffer[];
     glCapacityVerts: number; // verts in the gl buffer. May lag capacityVerts
+    sharedRender?: ISharedRender;
 }
 
-export function createElementBuffer(gl: WebGL2RenderingContext, buf: WebGLBuffer, capacityVerts: number): IElementBuffer {
+export function createElementBuffer(gl: WebGL2RenderingContext, buf: WebGLBuffer, capacityVerts: number, sharedRender?: ISharedRender): IElementBuffer {
+    let numPhases = sharedRender?.numPhases || 1;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, capacityVerts * 4, gl.DYNAMIC_DRAW);
-    let localBuf = new Uint32Array(capacityVerts);
-    return { buf, localBuf, capacityVerts, usedVerts: 0, glCapacityVerts: capacityVerts };
+
+    let localBufs: IELementLocalBuffer[] = [];
+    for (let i = 0; i < numPhases; i++) {
+        localBufs.push({
+            buf: new Uint32Array(capacityVerts),
+            capacityVerts,
+            usedVerts: 0,
+            glOffsetVerts: 0,
+        });
+    }
+
+    return { buf, glCapacityVerts: capacityVerts, localBufs };
 }
 
-export function ensureElementBufferSize(bufMap: IElementBuffer, countVerts: number) {
-    let newUsedVerts = bufMap.usedVerts + countVerts;
+export function ensureElementBufferSize(localBuf: IELementLocalBuffer, countVerts: number) {
+    let newUsedVerts = localBuf.usedVerts + countVerts;
 
-    if (newUsedVerts > bufMap.capacityVerts) {
-        let newCapacityVerts = bufMap.capacityVerts * 2;
+    if (newUsedVerts > localBuf.capacityVerts) {
+        let newCapacityVerts = localBuf.capacityVerts * 2;
         while (newUsedVerts > newCapacityVerts) {
             newCapacityVerts *= 2;
         }
 
         let newLocalBuf = new Uint32Array(newCapacityVerts);
-        newLocalBuf.set(bufMap.localBuf);
+        newLocalBuf.set(localBuf.buf);
 
-        bufMap.capacityVerts = newCapacityVerts;
-        bufMap.localBuf = newLocalBuf;
+        localBuf.capacityVerts = newCapacityVerts;
+        localBuf.buf = newLocalBuf;
     }
 }
 
-export function uploadElementBuffer(gl: WebGL2RenderingContext, bufMap: IElementBuffer) {
+export function uploadElementBuffer(gl: WebGL2RenderingContext, bufMap: IElementBuffer, floatBuf: IFloatBuffer) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufMap.buf);
 
-    if (bufMap.capacityVerts > bufMap.glCapacityVerts) {
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, bufMap.capacityVerts * 4, gl.DYNAMIC_DRAW);
-        bufMap.glCapacityVerts = bufMap.capacityVerts;
+    let totalUsed = 0;
+    for (let i = 0; i < bufMap.localBufs.length; i++) {
+        let localBuf = bufMap.localBufs[i];
+        totalUsed += localBuf.usedVerts;
     }
 
-    gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, bufMap.localBuf.subarray(0, bufMap.usedVerts).buffer);
+    if (totalUsed > bufMap.glCapacityVerts) {
+        while (totalUsed > bufMap.glCapacityVerts) {
+            bufMap.glCapacityVerts *= 2;
+        }
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, bufMap.glCapacityVerts * 4, gl.DYNAMIC_DRAW);
+    }
+
+    let offsetIndex = 0;
+    let offsetVert = 0;
+    for (let i = 0; i < bufMap.localBufs.length; i++) {
+        let localBuf = bufMap.localBufs[i];
+        localBuf.glOffsetVerts = offsetIndex;
+        if (offsetVert > 0) {
+            // there are some more sophisticated ways to do this, but this is probably fast enough
+            // (e.g. keeping a high-water-mark on the localBuf and pre-offsetting)
+            applyElementOffset(localBuf.buf, localBuf.usedVerts, offsetVert);
+        }
+
+        gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, offsetIndex * 4, localBuf.buf.subarray(0, localBuf.usedVerts).buffer);
+        offsetIndex += localBuf.usedVerts;
+        offsetVert += floatBuf.localBufs[i].usedEls;
+    }
+}
+
+function applyElementOffset(arr: Uint32Array, used: number, offset: number) {
+    for (let i = 0; i < used; i++) {
+        arr[i] = Math.min(0xffffffff, arr[i] + offset);
+    }
 }
 
 export function resetElementBufferMap(bufMap: IElementBuffer) {
-    bufMap.usedVerts = 0;
+    for (let i = 0; i < bufMap.localBufs.length; i++) {
+        bufMap.localBufs[i].usedVerts = 0;
+    }
 }
