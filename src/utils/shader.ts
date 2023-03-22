@@ -211,7 +211,7 @@ export interface IFloatBuffer {
     sharedRender?: ISharedRender;
 }
 
-export function createFloatBuffer(gl: WebGL2RenderingContext, target: number, buf: WebGLBuffer, capacityEls: number, strideBytes: number, sharedRender?: ISharedRender): IFloatBuffer {
+export function createFloatBuffer(gl: WebGL2RenderingContext, target: number, buf: WebGLBuffer, capacityEls: number, strideBytes: number, sharedRender: ISharedRender | null): IFloatBuffer {
     let numPhases = sharedRender?.numPhases || 1;
     if (target === gl.UNIFORM_BUFFER) {
         let uboBlockOffsetAlign = gl.getParameter(gl.UNIFORM_BUFFER_OFFSET_ALIGNMENT);
@@ -234,7 +234,7 @@ export function createFloatBuffer(gl: WebGL2RenderingContext, target: number, bu
         });
     }
 
-    return { target, buf, strideFloats, strideBytes, glCapacityEls: capacityEls, localBufs, sharedRender };
+    return { target, buf, strideFloats, strideBytes, glCapacityEls: capacityEls, localBufs };
 }
 
 export function ensureFloatBufferSize(localBuf: IFloatLocalBuffer, countEls: number) {
@@ -271,7 +271,9 @@ export function uploadFloatBuffer(gl: WebGL2RenderingContext, bufMap: IFloatBuff
     for (let i = 0; i < bufMap.localBufs.length; i++) {
         let localBuf = bufMap.localBufs[i];
         localBuf.glOffsetEls = offsetEls;
-        gl.bufferSubData(bufMap.target, offsetEls * bufMap.strideBytes, localBuf.buf.subarray(0, localBuf.usedEls * localBuf.strideFloats).buffer);
+        if (localBuf.usedEls > 0) {
+            gl.bufferSubData(bufMap.target, offsetEls * bufMap.strideBytes, localBuf.buf.subarray(0, localBuf.usedEls * localBuf.strideFloats));
+        }
         offsetEls += localBuf.usedEls;
     }
 }
@@ -287,17 +289,16 @@ export interface IELementLocalBuffer {
     capacityVerts: number;
     usedVerts: number
 
-    glOffsetVerts: number;
+    glOffsetBytes: number;
 }
 
 export interface IElementBuffer {
     buf: WebGLBuffer;
     localBufs: IELementLocalBuffer[];
     glCapacityVerts: number; // verts in the gl buffer. May lag capacityVerts
-    sharedRender?: ISharedRender;
 }
 
-export function createElementBuffer(gl: WebGL2RenderingContext, buf: WebGLBuffer, capacityVerts: number, sharedRender?: ISharedRender): IElementBuffer {
+export function createElementBuffer(gl: WebGL2RenderingContext, buf: WebGLBuffer, capacityVerts: number, sharedRender: ISharedRender | null): IElementBuffer {
     let numPhases = sharedRender?.numPhases || 1;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, capacityVerts * 4, gl.DYNAMIC_DRAW);
@@ -308,7 +309,7 @@ export function createElementBuffer(gl: WebGL2RenderingContext, buf: WebGLBuffer
             buf: new Uint32Array(capacityVerts),
             capacityVerts,
             usedVerts: 0,
-            glOffsetVerts: 0,
+            glOffsetBytes: 0,
         });
     }
 
@@ -332,7 +333,7 @@ export function ensureElementBufferSize(localBuf: IELementLocalBuffer, countVert
     }
 }
 
-export function uploadElementBuffer(gl: WebGL2RenderingContext, bufMap: IElementBuffer, floatBuf: IFloatBuffer) {
+export function uploadElementBuffer(gl: WebGL2RenderingContext, bufMap: IElementBuffer) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufMap.buf);
 
     let totalUsed = 0;
@@ -349,25 +350,14 @@ export function uploadElementBuffer(gl: WebGL2RenderingContext, bufMap: IElement
     }
 
     let offsetIndex = 0;
-    let offsetVert = 0;
     for (let i = 0; i < bufMap.localBufs.length; i++) {
         let localBuf = bufMap.localBufs[i];
-        localBuf.glOffsetVerts = offsetIndex;
-        if (offsetVert > 0) {
-            // there are some more sophisticated ways to do this, but this is probably fast enough
-            // (e.g. keeping a high-water-mark on the localBuf and pre-offsetting)
-            applyElementOffset(localBuf.buf, localBuf.usedVerts, offsetVert);
+        localBuf.glOffsetBytes = offsetIndex * 4;
+        let srcBuf = localBuf.buf.subarray(0, localBuf.usedVerts);
+        if (localBuf.usedVerts > 0) {
+            gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, offsetIndex * 4, srcBuf);
         }
-
-        gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, offsetIndex * 4, localBuf.buf.subarray(0, localBuf.usedVerts).buffer);
         offsetIndex += localBuf.usedVerts;
-        offsetVert += floatBuf.localBufs[i].usedEls;
-    }
-}
-
-function applyElementOffset(arr: Uint32Array, used: number, offset: number) {
-    for (let i = 0; i < used; i++) {
-        arr[i] = Math.min(0xffffffff, arr[i] + offset);
     }
 }
 

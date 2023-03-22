@@ -31,7 +31,7 @@ export function initTriRender(ctx: IGLContext, sharedRender: ISharedRender) {
         { name: 'a_color', size: 4 },
         { name: 'a_uv', size: 2 },
     ]);
-    let triFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, triVbo, 1024, byteStride, sharedRender);
+    let triFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, triVbo, 1024, byteStride, null);
 
     let triIbo = gl.createBuffer()!;
     let triIndexBuf = createElementBuffer(gl, triIbo, 1024, sharedRender);
@@ -79,8 +79,9 @@ let defaultN = new Vec3(0, 0, 1);
 let _vertP = new Vec3();
 let _vertN = new Vec3();
 export function addVert(render: ITriRender, p: Vec3, color: Vec4, n?: Vec3, mtx?: Mat4f) {
+    let phase = render.sharedRender.activePhase;
     let vbo = render.vbo.localBufs[0];
-    let ibo = render.ibo.localBufs[0];
+    let ibo = render.ibo.localBufs[phase];
     ensureFloatBufferSize(vbo, 1);
     ensureElementBufferSize(ibo, 1);
     let fBuf = vbo.buf;
@@ -131,14 +132,16 @@ export function addQuad(render: ITriRender, tl: Vec3, br: Vec3, color: Vec4, mtx
     addVert(render, _quadTr, color, undefined, mtx);
     addVert(render, br, color, undefined, mtx);
     if (isEnd) {
-        let localBuf = render.ibo.localBufs[0];
+        let phase = render.sharedRender.activePhase;
+        let localBuf = render.ibo.localBufs[phase];
         ensureElementBufferSize(localBuf, 1);
         localBuf.buf[localBuf.usedVerts++] = 0xffffffff; // primitive restart
     }
 }
 
 export function addPrimitiveRestart(render: ITriRender) {
-    let localBuf = render.ibo.localBufs[0];
+    let phase = render.sharedRender.activePhase;
+    let localBuf = render.ibo.localBufs[phase];
     ensureElementBufferSize(localBuf, 1);
     localBuf.buf[localBuf.usedVerts++] = 0xffffffff; // primitive restart
 }
@@ -146,18 +149,21 @@ export function addPrimitiveRestart(render: ITriRender) {
 export function uploadAllTris(render: ITriRender) {
     let gl = render.gl;
     uploadFloatBuffer(gl, render.vbo);
-    uploadElementBuffer(gl, render.ibo, render.vbo);
+    uploadElementBuffer(gl, render.ibo);
 }
 
 export function renderAllTris(render: ITriRender, renderPhase: RenderPhase) {
     let gl = render.gl;
+    let localIdxBuf = render.ibo.localBufs[renderPhase];
+    if (localIdxBuf.usedVerts === 0) {
+        return;
+    }
 
     gl.depthMask(false);
     gl.disable(gl.CULL_FACE);
     gl.useProgram(render.triShader.program);
     gl.bindVertexArray(render.vao);
-    let localIdxBuf = render.ibo.localBufs[renderPhase];
-    gl.drawElements(gl.TRIANGLE_STRIP, localIdxBuf.usedVerts, gl.UNSIGNED_INT, localIdxBuf.glOffsetVerts);
+    gl.drawElements(gl.TRIANGLE_STRIP, localIdxBuf.usedVerts, gl.UNSIGNED_INT, localIdxBuf.glOffsetBytes);
     gl.depthMask(true);
 }
 
@@ -166,9 +172,11 @@ export function resetTriRender(render: ITriRender) {
     resetFloatBufferMap(render.vbo);
 }
 
-export function checkError(gl: WebGL2RenderingContext) {
+export function checkError(gl: WebGL2RenderingContext, msg: string) {
     let errno = gl.getError();
     if (errno !== gl.NO_ERROR) {
-        debugger;
+        console.error('GLERROR:', msg, '0x' + errno.toString(16));
+        return true;
     }
+    return false;
 }

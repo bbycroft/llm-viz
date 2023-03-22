@@ -8,11 +8,15 @@ export const UboBindings = {
     blur: 3,
 };
 
+
 export enum RenderPhase {
     Opaque,
     Arrows,
-    Overlays,
+    Overlay,
+    Overlay2D,
 } 
+
+const NumRenderPhases = 4;
 
 export type ISharedRender = {
     gl: WebGL2RenderingContext;
@@ -32,7 +36,7 @@ export function initSharedRender(ctx: IGLContext): ISharedRender {
     gl.bindBufferBase(gl.UNIFORM_BUFFER, UboBindings.ModelView, modelViewUbo);
     let modelViewBuf = new Float32Array(2 * 16);
 
-    return { gl, modelViewUbo, modelViewBuf, activePhase: RenderPhase.Opaque, numPhases: 3 };
+    return { gl, modelViewUbo, modelViewBuf, activePhase: RenderPhase.Opaque, numPhases: NumRenderPhases };
 }
 
 export function writeModelViewUbo(sharedRender: ISharedRender, modelMtx: Mat4f, viewMtx: Mat4f) {

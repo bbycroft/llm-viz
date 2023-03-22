@@ -43,10 +43,10 @@ export function initBlockRender(ctx: IGLContext) {
 
     let numBlocks = 1024;
     let blockSize = (1 + 1 + 1 + 4 + 1 + 1) * 4 * 4;
-    let blockUbo = createFloatBuffer(gl, gl.UNIFORM_BUFFER, gl.createBuffer()!, numBlocks, blockSize);
+    let blockUbo = createFloatBuffer(gl, gl.UNIFORM_BUFFER, gl.createBuffer()!, numBlocks, blockSize, null);
 
     let blockAccessSize = (2 + 1 + 1 + 1) * 4 * 4;
-    let blockAccessUbo = createFloatBuffer(gl, gl.UNIFORM_BUFFER, gl.createBuffer()!, numBlocks, blockAccessSize);
+    let blockAccessUbo = createFloatBuffer(gl, gl.UNIFORM_BUFFER, gl.createBuffer()!, numBlocks, blockAccessSize, null);
 
     // Create a dummy texture to bind to the access texture slot. Some drivers (e.g. my phone) will complain if we don't.
     let dummyTexture = gl.createTexture()!;

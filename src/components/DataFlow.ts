@@ -3,6 +3,7 @@ import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
 import { addLine2, drawLineSegs, makeLineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
+import { RenderPhase } from "../render/sharedRender";
 import { addPrimitiveRestart, addQuad, addVert } from "../render/triRender";
 import { makeArray } from "../utils/data";
 import { Mat4f } from "../utils/matrix";
@@ -14,6 +15,7 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
     if (!blk.deps) {
         return;
     }
+    state.render.sharedRender.activePhase = RenderPhase.Overlay;
 
     let cellPos = new Vec3(
         cellPosition(state.layout, blk, Dim.X, destIdx.x) + state.layout.cell * 0.5,

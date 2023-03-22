@@ -35,10 +35,10 @@ export function createLineRender(ctx: IGLContext, sharedRender: ISharedRender) {
         { name: 'a_normal', size: 3 },
     ]);
 
-    let lineFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, lineVbo, 1024, strideBytes, sharedRender);
+    let lineFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, lineVbo, 1024, strideBytes, null);
 
     let lineIbo = gl.createBuffer()!;
-    let lineIndexBuf = createElementBuffer(gl, lineIbo, 1024);
+    let lineIndexBuf = createElementBuffer(gl, lineIbo, 1024, sharedRender);
 
     let lineShader = createShaderProgram(ctx, 'line', /*glsl*/`#version 300 es
         precision highp float;
@@ -158,6 +158,7 @@ export function createLineRender(ctx: IGLContext, sharedRender: ISharedRender) {
         floatBuf: lineFloatBuf,
         indexBuf: lineIndexBuf,
         lineShader,
+        sharedRender,
     };
 }
 
@@ -188,9 +189,10 @@ let _lineB = new Vec3();
 let _lineDir = new Vec3();
 
 export function addLine(render: ILineRender, thickness: number, color: Vec4, a: Vec3, b: Vec3, n?: Vec3, mtx?: Mat4f) {
+    let phase = render.sharedRender.activePhase;
     let floatLocalBuf = render.floatBuf.localBufs[0];
     let buf = floatLocalBuf.buf;
-    let idxLocalBuf = render.indexBuf.localBufs[0];
+    let idxLocalBuf = render.indexBuf.localBufs[phase];
     let idxBuf = idxLocalBuf.buf;
     ensureFloatBufferSize(floatLocalBuf, 4);
     ensureElementBufferSize(idxLocalBuf, 5);
@@ -216,7 +218,7 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
     n = n ?? Vec3.zero;
 
     let i = floatLocalBuf.usedEls * floatLocalBuf.strideFloats;
-    let k = render.indexBuf.localBufs[0].usedVerts;
+    let k = idxLocalBuf.usedVerts;
     for (let j = 0; j < 4; j++) {
         buf[i + 0] = pt[j].x;
         buf[i + 1] = pt[j].y;
@@ -241,7 +243,7 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
     }
     idxBuf[k + 4] = 0xffffffff;
     floatLocalBuf.usedEls += 4;
-    render.indexBuf.localBufs[0].usedVerts += 5;
+    idxLocalBuf.usedVerts += 5;
 }
 
 let _lineSegBufs = new Float32Array(2 * 3);
@@ -249,10 +251,11 @@ let _dir = _lineSegBufs.subarray(0, 3);
 let _prevDir = _lineSegBufs.subarray(3, 6);
 let _ptsTransformed = new Float32Array(0);
 export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILineOpts) {
+    let phase = render.sharedRender.activePhase;
     let floatLocalBuf = render.floatBuf.localBufs[0];
     let buf = floatLocalBuf.buf;
 
-    let idxLocalBuf = render.indexBuf.localBufs[0];
+    let idxLocalBuf = render.indexBuf.localBufs[phase];
     let idxBuf = idxLocalBuf.buf;
 
     let ptsLen = pts.length;
@@ -342,11 +345,16 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
 export function uploadAllLines(render: ILineRender) {
     let gl = render.gl;
     uploadFloatBuffer(gl, render.floatBuf);
-    uploadElementBuffer(gl, render.indexBuf, render.floatBuf)
+    uploadElementBuffer(gl, render.indexBuf)
 }
 
 export function renderAllLines(render: ILineRender, renderPhase: RenderPhase) {
     let gl = render.gl;
+    let localIdxBuf = render.indexBuf.localBufs[renderPhase];
+    if (localIdxBuf.usedVerts === 0) {
+        return;
+    }
+
     gl.disable(gl.CULL_FACE);
     gl.depthMask(false);
 
@@ -355,9 +363,7 @@ export function renderAllLines(render: ILineRender, renderPhase: RenderPhase) {
 
     let locs = render.lineShader.locs;
     gl.uniform2f(locs.u_viewSizeInv, 1.0 / gl.canvas.width, 1.0 / gl.canvas.height);
-
-    let localIdxBuf = render.indexBuf.localBufs[renderPhase];
-    gl.drawElements(gl.TRIANGLE_STRIP, localIdxBuf.usedVerts, gl.UNSIGNED_INT, localIdxBuf.glOffsetVerts);
+    gl.drawElements(gl.TRIANGLE_STRIP, localIdxBuf.usedVerts, gl.UNSIGNED_INT, localIdxBuf.glOffsetBytes);
 
     gl.depthMask(true);
 }

@@ -15,6 +15,7 @@ import { initWalkthrough, runWalkthrough } from "./walkthrough/Walkthrough";
 import { IColorMix } from "./Annotations";
 import { Mat4f } from "./utils/matrix";
 import { runMouseHitTesting } from "./Interaction";
+import { RenderPhase } from "./render/sharedRender";
 
 export interface IProgramState {
     mouse: IMouseState;
@@ -127,6 +128,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     drawTokens(state.render, state.layout, state.display);
 
     runMouseHitTesting(state);
+    state.render.sharedRender.activePhase = RenderPhase.Opaque;
     drawBlockLabels(state.render, state.layout);
 
     let lineNo = 1;

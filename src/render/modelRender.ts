@@ -1,4 +1,4 @@
-import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, writeTextToBuffer } from "./fontRender";
+import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTextWidth, renderAllText, resetFontBuffers, setupFontAtlas, uploadAllText, writeTextToBuffer } from "./fontRender";
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, ensureShadersReady, IGLContext } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
@@ -80,8 +80,8 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
 
     let fontAtlas = setupFontAtlas(ctx, fontAtlasData);
 
-    let modelFontBuf = createFontBuffers(fontAtlas);
-    let overlayFontBuf = createFontBuffers(fontAtlas);
+    let modelFontBuf = createFontBuffers(fontAtlas, sharedRender);
+    let overlayFontBuf = createFontBuffers(fontAtlas, sharedRender);
     let threadRender = initThreadRender(ctx);
     let lineRender = createLineRender(ctx, sharedRender);
     let blockRender = initBlockRender(ctx);
@@ -161,6 +161,15 @@ export function renderModel(state: IProgramState) {
 
     gl.frontFace(gl.CW); // our transform has a -ve determinant, so we switch this for correct rendering
 
+    {
+        let text = `GPU: ${args.lastGpuMs.toFixed(1)}ms JS: ${args.lastJsMs.toFixed(1)}ms`;
+        let w = canvasEl.width;
+        let fontSize = 14;
+        args.sharedRender.activePhase = RenderPhase.Overlay2D;
+        let tw = measureTextWidth(args.modelFontBuf, text, fontSize);
+        writeTextToBuffer(args.modelFontBuf, text, new Vec4(0,0,0,1), w - tw - 4, 4, fontSize, new Mat4f());
+    }
+
     writeModelViewUbo(args.sharedRender, modelMtx, viewMtx);
 
     {
@@ -174,23 +183,24 @@ export function renderModel(state: IProgramState) {
 
     uploadAllLines(args.lineRender);
     uploadAllTris(args.triRender);
+    uploadAllText(args.modelFontBuf);
 
     renderAllBlocks(blockRender, layout, modelMtx, camPos, lightPosArr, lightColorArr);
-    renderAllTris(args.triRender, RenderPhase.Opaque);
     renderAllThreads(args.threadRender);
-    renderAllText(args.modelFontBuf);
-    renderAllLines(args.lineRender, RenderPhase.Opaque);
 
-    {
-        let w = canvasEl.width;
-        let h = canvasEl.height;
+    let phaseOrder = [RenderPhase.Opaque, RenderPhase.Arrows, RenderPhase.Overlay, RenderPhase.Overlay2D];
+    for (let phase of phaseOrder) {
 
-        let text = `GPU: ${args.lastGpuMs.toFixed(2)}ms, JS: ${args.lastJsMs.toFixed(2)}ms`;
-        let fontSize = 14;
-        let tw = measureTextWidth(args.overlayFontBuf, text, fontSize);
-        writeTextToBuffer(args.overlayFontBuf, text, new Vec4(0,0,0,1), w - tw - 4, 4, fontSize, new Mat4f());
+        if (phase === RenderPhase.Overlay2D) {
+            let w = canvasEl.width;
+            let h = canvasEl.height;
+            writeModelViewUbo(args.sharedRender, new Mat4f(), Mat4f.fromOrtho(0, w, h, 0, -1, 1));
+        }
 
-        writeModelViewUbo(args.sharedRender, new Mat4f(), Mat4f.fromOrtho(0, w, h, 0, -1, 1));
-        renderAllText(args.overlayFontBuf);
+        renderAllTris(args.triRender, phase);
+        renderAllText(args.modelFontBuf, phase);
+        renderAllLines(args.lineRender, phase);
     }
+
+    args.sharedRender.activePhase = RenderPhase.Opaque;
 }

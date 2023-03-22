@@ -67,7 +67,7 @@ export function initThreadRender(ctx: IGLContext) {
         { name: 'a_nCells', size: 2 },
         { name: 'a_threadDir', size: 2, nCols: 3 },
     ]);
-    let instanceBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, instanceVbo, 1024, instanceStride);
+    let instanceBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, instanceVbo, 1024, instanceStride, null);
 
     let shader = createShaderProgram(ctx, 'thread', /*glsl*/`#version 300 es
         precision highp float;

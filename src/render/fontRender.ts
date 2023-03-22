@@ -2,7 +2,7 @@ import { base64ToArrayBuffer } from "../utils/data";
 import { Mat4f } from "../utils/matrix";
 import { bindFloatAttribs, createFloatBuffer, createShaderProgram, ensureFloatBufferSize, ensureShadersReady, IFloatBuffer, IGLContext, resetFloatBufferMap, uploadFloatBuffer } from "../utils/shader";
 import { Vec4 } from "../utils/vector";
-import { modelViewUboText, UboBindings } from "./sharedRender";
+import { ISharedRender, modelViewUboText, RenderPhase, UboBindings } from "./sharedRender";
 
 export interface ICharDef {
     id: number;
@@ -47,6 +47,7 @@ export interface IFontBuffers {
     transformTex: WebGLTexture;
     localTexBuffer: Float32Array;
     vertBuffer: IFloatBuffer;
+    sharedRender: ISharedRender;
 
     segmentsUsed: number;
     segmentCapacity: number;
@@ -231,7 +232,7 @@ export function setupFontAtlas(ctx: IGLContext, data: IFontAtlasData) {
     };
 }
 
-export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
+export function createFontBuffers(atlas: IFontAtlas, sharedRender: ISharedRender): IFontBuffers {
     let gl = atlas.gl;
 
     let segmentCapacity = 1024;
@@ -255,7 +256,7 @@ export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
         { name: 'a_uv', size: 2 },
         { name: 'a_texIndex', size: 1 },
     ]);
-    let vertBuffer = createFloatBuffer(gl, gl.ARRAY_BUFFER, vertVbo, glyphCapacity, bytesPerVert);
+    let vertBuffer = createFloatBuffer(gl, gl.ARRAY_BUFFER, vertVbo, glyphCapacity, bytesPerVert, sharedRender);
 
     let localTexBuffer = new Float32Array(segmentCapacity * floatsPerSegment);
 
@@ -268,6 +269,7 @@ export function createFontBuffers(atlas: IFontAtlas): IFontBuffers {
         segmentsUsed: 0,
         segmentCapacity: 1024,
         glSegmentCapacity: 1024,
+        sharedRender,
     };
 }
 
@@ -316,7 +318,8 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Ve
         face = fontBuf.atlas.faceInfos[0];
     }
 
-    let vertBuf = fontBuf.vertBuffer.localBufs[0];
+    let phase = fontBuf.sharedRender.activePhase;
+    let vertBuf = fontBuf.vertBuffer.localBufs[phase];
     ensureFloatBufferSize(vertBuf, text.length * floatsPerVert);
     if (fontBuf.segmentsUsed === Math.floor(texWidth * 4 / floatsPerSegment)) {
         // the last segment on each texel row would overflow (it takes 5 texels), so we skip it
@@ -384,12 +387,9 @@ export function writeTextToBuffer(fontBuf: IFontBuffers, text: string, color: Ve
     fontBuf.segmentsUsed += 1;
 }
 
-export function renderAllText(fontBuf: IFontBuffers) {
+export function uploadAllText(fontBuf: IFontBuffers) {
     let atlas = fontBuf.atlas;
     let gl = atlas.gl;
-
-    gl.disable(gl.CULL_FACE);
-    gl.depthMask(false);
 
     // resize texture if needed
     gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
@@ -408,6 +408,14 @@ export function renderAllText(fontBuf: IFontBuffers) {
     }
 
     uploadFloatBuffer(gl, fontBuf.vertBuffer);
+}
+
+export function renderAllText(fontBuf: IFontBuffers, renderPhase: RenderPhase) {
+    let atlas = fontBuf.atlas;
+    let gl = atlas.gl;
+
+    gl.disable(gl.CULL_FACE);
+    gl.depthMask(false);
 
     gl.useProgram(atlas.program.program);
 
@@ -420,11 +428,10 @@ export function renderAllText(fontBuf: IFontBuffers) {
     gl.bindTexture(gl.TEXTURE_2D, fontBuf.transformTex);
 
     gl.bindVertexArray(fontBuf.vao);
-    let localBuf = fontBuf.vertBuffer.localBufs[0];
+    let localBuf = fontBuf.vertBuffer.localBufs[renderPhase];
     gl.drawArrays(gl.TRIANGLES, localBuf.glOffsetEls, localBuf.usedEls);
 
     gl.depthMask(true);
-    // gl.finish();
 }
 
 export function resetFontBuffers(fontBuf: IFontBuffers) {
