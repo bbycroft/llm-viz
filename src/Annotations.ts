@@ -1,14 +1,15 @@
 import { cellPosition, IBlkDef, IModelLayout } from "./GptModelLayout";
 import { addLine } from "./render/lineRender";
 import { IRenderState } from "./render/modelRender";
-import { clamp } from "./utils/data";
 import { measureTextWidth, writeTextToBuffer } from "./render/fontRender";
 import { lerp, lerpSmoothstep } from "./utils/math";
 import { Mat4f } from "./utils/matrix";
 import { Dim, Vec3, Vec4 } from "./utils/vector";
 import { DimStyle, dimStyleColor } from "./walkthrough/WalkthroughTools";
+import { IProgramState } from "./Program";
 
-export function blockDimension(state: IRenderState, layout: IModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, t: number) {
+export function blockDimension(state: IProgramState, layout: IModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, t: number) {
+    let render = state.render;
 
     // Render |----- T ------| along the appropriate dimension
 
@@ -17,42 +18,52 @@ export function blockDimension(state: IRenderState, layout: IModelLayout, blk: I
 
     let offVecId = vecId === 0 ? 1 : 0;
 
-    let fontSize = 2.5;
     let text = DimStyle[style];
-
-    let tw = measureTextWidth(state.modelFontBuf, text, fontSize);
-    let th = fontSize;
-    let textPad = dim === Dim.X ? tw / 2 + fontSize * 0.4 : dim === Dim.Y ? th / 2 + fontSize * 0.4 : 0;
+    if (style === DimStyle.None) {
+        return;
+    }
 
     let start = cellPosition(layout, blk, dim, 0);
     let end = cellPosition(layout, blk, dim, cx - 1) + layout.cell;
     let mid = (end + start) / 2;
+    let midPos = dim === Dim.X ? new Vec3(mid, blk.y + blk.dz, blk.z + blk.dz) : new Vec3(blk.x, mid, blk.z + blk.dz);
+    let mul = dim === Dim.X ? -1.0 : 1.0;
+
+    let camDist = midPos.dist(state.camera.camPosModel);
+
+    let fontSize = 2.5 * camDist / 130;
+    let tw = measureTextWidth(render.modelFontBuf, text, fontSize);
+    let th = fontSize;
+    let textPad = dim === Dim.X ? tw / 2 + fontSize * 0.4 : dim === Dim.Y ? th / 2 + fontSize * 0.4 : 0;
+
     let botPad = fontSize * 0.3;
     let edgeH2 = fontSize / 2 * 0.5;
 
     let color = dimStyleColor(style).mul(t);
 
-    let textPos = new Vec3(blk.x, blk.y, blk.z + blk.dz)
-        .setAt(vecId, mid)
-        .withAddAt(offVecId, -fontSize / 2 - botPad);
+    let zOffset = 0.1;
 
-    let textZOff = 0;
+    let textPos = new Vec3(blk.x, blk.y + blk.dy, blk.z + blk.dz + zOffset)
+        .setAt(vecId, mid)
+        .withAddAt(offVecId, -mul * (fontSize / 2 + botPad));
+
+    let textYOff = 0;
     let tooSmall = tw > end - start - textPad * 2;
     if (tooSmall) {
-        textZOff = fontSize;
+        textYOff = mul * fontSize;
     }
 
     let mtx = Mat4f.fromTranslation(textPos);
 
     let textDx = dim === Dim.X ? -tw / 2 : dim === Dim.Y ? -tw / 2 : 0;
-    let textDy = dim === Dim.X ? -textZOff - fontSize / 2 : dim === Dim.Y ? -fontSize / 2 : 0;
+    let textDy = dim === Dim.X ? -textYOff - fontSize / 2 : dim === Dim.Y ? -fontSize / 2 : 0;
 
-    writeTextToBuffer(state.modelFontBuf, text, color, textDx, textDy, fontSize, mtx);
+    writeTextToBuffer(render.modelFontBuf, text, color, textDx, textDy, fontSize, mtx);
 
     // let yOff = fontSize / 2 + botPad;
     let lX = blk.x;
-    let lY = blk.y;
-    let lZ = blk.z + blk.dz;
+    let lY = blk.y + blk.dy;
+    let lZ = blk.z + blk.dz + zOffset;
     let thickness = fontSize * 0.02;
     let n = new Vec3(0, 0, 1);
 
@@ -61,16 +72,16 @@ export function blockDimension(state: IRenderState, layout: IModelLayout, blk: I
 
     }
 
-    let base = new Vec3(lX, lY, lZ).withAddAt(offVecId, -fontSize / 2 - botPad);
+    let base = new Vec3(lX, lY, lZ).withAddAt(offVecId, -mul * (fontSize / 2 + botPad));
     let vStart = base.withSetAt(vecId, start);
     let vEnd = base.withSetAt(vecId, end);
     let vMid1 = base.withSetAt(vecId, mid - textPad);
     let vMid2 = base.withSetAt(vecId, mid + textPad);
 
-    addLine(state.lineRender, thickness, color, vStart, vMid1, n);
-    addLine(state.lineRender, thickness, color, vEnd  , vMid2, n);
-    addLine(state.lineRender, thickness, color, vStart.withAddAt(offVecId, edgeH2), vStart.withAddAt(offVecId, -edgeH2), n);
-    addLine(state.lineRender, thickness, color, vEnd.withAddAt(offVecId, edgeH2), vEnd.withAddAt(offVecId, -edgeH2), n);
+    addLine(render.lineRender, thickness, color, vStart, vMid1, n);
+    addLine(render.lineRender, thickness, color, vEnd  , vMid2, n);
+    addLine(render.lineRender, thickness, color, vStart.withAddAt(offVecId, edgeH2), vStart.withAddAt(offVecId, -edgeH2), n);
+    addLine(render.lineRender, thickness, color, vEnd.withAddAt(offVecId, edgeH2), vEnd.withAddAt(offVecId, -edgeH2), n);
 }
 
 export function blockIndex(state: IRenderState, layout: IModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, idx: number, cellOffset: number, t: number) {

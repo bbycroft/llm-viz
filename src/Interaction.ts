@@ -1,4 +1,4 @@
-import { findSubBlocks, splitGridX } from "./Annotations";
+import { blockDimension, findSubBlocks, splitGridX } from "./Annotations";
 import { drawDataFlow } from "./components/DataFlow";
 import { IBlkCellDep, IBlkDef, IBlkDeps, IModelLayout } from "./GptModelLayout";
 import { IProgramState } from "./Program";
@@ -82,6 +82,9 @@ export function runMouseHitTesting(state: IProgramState) {
 
     if (minCube) {
         let [c, main] = minCube;
+
+        blockDimension(state, state.layout, main, Dim.X, main.dimX, 1.0);
+        blockDimension(state, state.layout, main, Dim.Y, main.dimY, 1.0);
 
         iterVisibleSubCubes(main, (c) => {
             c.highlight = 0.1;

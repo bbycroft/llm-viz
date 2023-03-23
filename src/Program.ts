@@ -62,6 +62,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         viewMtx: new Mat4f(),
         lookAtMtx: new Mat4f(),
         camPos: new Vec3(),
+        camPosModel: new Vec3(),
     }
 
     let shape: IModelShape = {

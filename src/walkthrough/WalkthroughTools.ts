@@ -262,6 +262,7 @@ export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3
 
 
 export enum DimStyle {
+    None,
     t,
     T,
     C,
@@ -272,6 +273,7 @@ export enum DimStyle {
     n_layers,
     Token,
     TokenIdx,
+    C4,
 }
 
 export function dimStyleColor(style: DimStyle) {
