@@ -395,7 +395,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
             let targetZ = block.ln1.lnResid.z;
             let strideY = targetHead.qBlock.dy + layout.margin;
             let baseY = targetHead.qBlock.y;
-            let qkvYPos = [0, -strideY, -strideY * 2];
+            let qkvYPos = [-strideY * 2, -strideY, 0];
 
             for (let i = 0; i < 3; i++) {
                 let y = lerpSmoothstep(qkv[i][0].y, baseY + qkvYPos[i], t2_alignqkv.t);

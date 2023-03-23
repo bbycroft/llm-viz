@@ -21,6 +21,7 @@ export interface IBlkDef {
     deps?: IBlkDeps;
     dimX: DimStyle;
     dimY: DimStyle;
+    name: string;
     // implicit dimZ = DimStyle.Batch for t === 'i'
 
     // fields that are post-added by the walk-through for various rendering configurations
@@ -111,6 +112,7 @@ interface IBlkDefArgs {
     zF?: number; // Front
     zB?: number; // Back
     zM?: number; // Middle
+    name?: string;
     y: number;
     cx: number; // units: number of cells
     cz: number;
@@ -195,6 +197,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             cz: args.cz,
             dimX: args.dimX,
             dimY: args.dimY,
+            name: args.name || "<unknown>",
             access: args.access?.src ? {
                 channel: args.access.channel ?? 'r',
                 src: args.access.src,
@@ -265,6 +268,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0 },
             deps: { add: [[src, 'xi']] },
             dimX: DimStyle.T, dimY: DimStyle.None,
+            name: 'LN Agg',
         });
 
         y += 2 * cell + margin;
@@ -274,12 +278,14 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: resLeftX, zM: 0,
             access: { src: target?.normWeight, x: [1, 0, 0], y: [0, 1, 0], scale: 0.5 }, // mostly around 1.0
             dimX: DimStyle.None, dimY: DimStyle.C,
+            name: 'LN σ',
         });
         let lnMu = mk({
             t: 'w', cx: 1, cz: 1, cy: C, y: y,
             xR: resLeftX - cell * 1 - margin, zM: 0,
             access: { src: target?.normBias, x: [1, 0, 0], y: [0, 1, 0] },
             dimX: DimStyle.None, dimY: DimStyle.C,
+            name: 'LN μ',
         });
         let lnResid = mk({
             t: 'i', cx: T, cz: B, cy: C, y: y,
@@ -287,6 +293,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.output, x: [0, 1, 0], y: [1, 0, T], scale: 1.0 },
             deps: { add: [[src, 'xy'], [lnAgg, 'xi'], [lnSigma, '0y'], [lnMu, '0y']] }, // lnSigma is really mul rather than add
             dimX: DimStyle.T, dimY: DimStyle.C,
+            name: 'Layer Norm',
         });
         let lnCubes = [lnAgg, lnSigma, lnMu, lnResid];
         return { lnAgg, lnResid, lnSigma, lnMu, cubes: lnCubes };
@@ -316,15 +323,16 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         let heads = [];
         for (let i = 0; i < nHeads; i++) {
             let headZMid = headWidth * i - (nHeads - 1) * headWidth / 2;
-            let qMid = headZMid - B * cell - qkvMargin;
+            let qMid = headZMid + B * cell + qkvMargin;
             let kMid = headZMid;
-            let vMid = headZMid + B * cell + qkvMargin;
+            let vMid = headZMid - B * cell - qkvMargin;
 
             let qWeightBlock = mk({
                 t: 'w', cx: C, cz: 1, cy: A, y: y,
                 xR: qkvValLeftX, zM: qMid,
                 access: { src: attnTarget?.qkvWeight, x: [1, 0, 0], y: [0, 1, 0, A * i], channel: 'r' },
                 dimX: DimStyle.C, dimY: DimStyle.A,
+                name: 'Q Weights',
             });
 
             let kWeightBlock = mk({
@@ -332,6 +340,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 xR: qkvValLeftX, zM: kMid,
                 access: { src: attnTarget?.qkvWeight, x: [1, 0, 0], y: [0, 1, 0, A * i], channel: 'g' },
                 dimX: DimStyle.C, dimY: DimStyle.A,
+                name: 'K Weights',
             });
 
             let vWeightBlock = mk({
@@ -339,6 +348,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 xR: qkvValLeftX, zM: vMid,
                 access: { src: attnTarget?.qkvWeight, x: [1, 0, 0], y: [0, 1, 0, A * i], channel: 'b' },
                 dimX: DimStyle.C, dimY: DimStyle.A,
+                name: 'V Weights',
             });
 
             let qBiasBlock = mk({
@@ -346,6 +356,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 xR: qkvBiasLeftX, zM: qMid,
                 access: { src: attnTarget?.qkvBias, x: [1, 0, 0], y: [0, 1, 0, A * i], channel: 'r' },
                 dimX: DimStyle.None, dimY: DimStyle.A,
+                name: 'Q Bias',
             });
 
             let kBiasBlock = mk({
@@ -353,6 +364,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 xR: qkvBiasLeftX, zM: kMid,
                 access: { src: attnTarget?.qkvBias, x: [1, 0, 0], y: [0, 1, 0, A * i], channel: 'g' },
                 dimX: DimStyle.None, dimY: DimStyle.A,
+                name: 'K Bias',
             });
 
             let vBiasBlock = mk({
@@ -360,6 +372,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 xR: qkvBiasLeftX, zM: vMid,
                 access: { src: attnTarget?.qkvBias, x: [1, 0, 0], y: [0, 1, 0, A * i], channel: 'b' },
                 dimX: DimStyle.None, dimY: DimStyle.A,
+                name: 'V Bias',
             });
 
             let qBlock = mk({
@@ -368,6 +381,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.qkvOutput, x: [0, 1, 0], y: [1, 0, T * nHeads, 0, T * i], channel: 'r', scale: 1.0 },
                 deps: { dot: [[qWeightBlock, 'iy'], [ln1.lnResid, 'xi']], add: [[qBiasBlock, '0y']], dotLen: C },
                 dimX: DimStyle.T, dimY: DimStyle.A,
+                name: 'Q vectors',
             });
 
             let kBlock = mk({
@@ -376,6 +390,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.qkvOutput, x: [0, 1, 0], y: [1, 0, T * nHeads, T * i], channel: 'g', scale: 1.0 },
                 deps: { dot: [[kWeightBlock, 'iy'], [ln1.lnResid, 'xi']], add: [[kBiasBlock, '0y']], dotLen: C },
                 dimX: DimStyle.T, dimY: DimStyle.A,
+                name: 'K vectors',
             });
 
             let vBlock = mk({
@@ -384,6 +399,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.qkvOutput, x: [0, 1, 0], y: [1, 0, T * nHeads, T * i], channel: 'b', scale: 1.0 },
                 deps: { dot: [[vWeightBlock, 'iy'], [ln1.lnResid, 'xi']], add: [[vBiasBlock, '0y']], dotLen: C },
                 dimX: DimStyle.T, dimY: DimStyle.A,
+                name: 'V vectors',
             });
 
             let attn2LeftX = attnLeftX - (T + 2) * cell - 2 * margin;
@@ -394,6 +410,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.attnMatrix, x: [1, 0, 0], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
                 deps: { dot: [[qBlock, 'yi'], [kBlock, 'xi']], lowerTri: true, dotLen: A },
                 dimX: DimStyle.T, dimY: DimStyle.T,
+                name: 'Attention Matrix',
             });
 
             let attnMtxAgg = mk({
@@ -401,6 +418,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 xR: attnLeftX - T * cell - margin, zM: headZMid,
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
                 dimX: DimStyle.None, dimY: DimStyle.T,
+                name: 'Attention Matrix Agg',
             });
 
             let attnMtxSm = mk({
@@ -409,6 +427,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [1, 0, 0], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
                 deps: { add: [[attnMtx, 'xy'], [attnMtxAgg, 'iy']], lowerTri: true, special: BlKDepSpecial.Softmax },
                 dimX: DimStyle.T, dimY: DimStyle.T,
+                name: 'Attention Matrix Softmax',
             });
 
             let vOutBlock = mk({
@@ -417,6 +436,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.scaledVectors, x: [0, 1, 0, i * A], y: [1, 0, T] },
                 deps: { dot: [[vBlock, 'iy'], [attnMtxSm, 'ix']], dotLen: A }, 
                 dimX: DimStyle.T, dimY: DimStyle.A,
+                name: 'V Output',
             });
 
             let headCubes = [qWeightBlock, kWeightBlock, vWeightBlock,
@@ -448,6 +468,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: T, cz: B, cy: C, y: vOutY,
             xR: attnLeftX, zF: - headWidth * nHeads / 2,
             dimX: DimStyle.T, dimY: DimStyle.C,
+            name: 'V Output Combined',
         });
 
         let vFinalZ = Math.max(
@@ -460,6 +481,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: qkvValLeftX, zM: 0,
             access: { src: attnTarget?.proj.weight, x: [1, 0, 0], y: [0, 1, 0], scale: C * 0.5 },
             dimX: DimStyle.C, dimY: DimStyle.C,
+            name: 'Projection Weights',
         });
 
         let projBias = mk({
@@ -467,6 +489,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: qkvValLeftX - C * cell - margin, zM: 0,
             access: { src: attnTarget?.proj.bias!, x: [0, 0, 0], y: [0, 1, 0], scale: C * 0.5 },
             dimX: DimStyle.None, dimY: DimStyle.C,
+            name: 'Projection Bias',
         });
 
         let attnOut = mk({
@@ -480,6 +503,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 add: [[projBias, '0y'], ...heads.map(h => [h.vOutBlock, 'xi'] as [IBlkDef, string])]
             },
             dimX: DimStyle.T, dimY: DimStyle.C,
+            name: 'Attention Output',
         });
 
         let attnResidual = mk({
@@ -488,6 +512,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: attnTarget?.output, x: [0, 1, 0], y: [1, 0, T] },
             deps: { add: [[attnOut, 'xy'], [src, 'xy']] },
             dimX: DimStyle.T, dimY: DimStyle.C,
+            name: 'Attention Residual',
         });
 
         y = vFinalZ + C * cell + margin;

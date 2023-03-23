@@ -64,7 +64,7 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
             drawHorizArrow(head.kWeightBlock, head.kBlock);
             drawHorizArrow(head.vWeightBlock, head.vBlock);
 
-            drawArrowBotToSide(head.qBlock, head.attnMtx, 0);
+            drawArrowBotToSide(head.qBlock, head.attnMtx, 0, undefined, head.qBlock.y !== head.kBlock.y);
             drawArrowBotToSide(head.kBlock, head.attnMtx, 0, undefined, head.kBlock.y !== head.qBlock.y);
             drawArrowBotToSide(head.vBlock, head.vOutBlock, 0, undefined, head.vBlock.y !== head.kBlock.y);
 

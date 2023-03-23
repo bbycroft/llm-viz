@@ -17,10 +17,16 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
     }
     state.render.sharedRender.activePhase = RenderPhase.Overlay;
 
+    // let cellPos = new Vec3(
+    //     cellPosition(state.layout, blk, Dim.X, destIdx.x) + state.layout.cell * 0.5,
+    //     cellPosition(state.layout, blk, Dim.Y, destIdx.y) + state.layout.cell * 0.5,
+    //     cellPosition(state.layout, blk, Dim.Z, destIdx.z) + state.layout.cell * 1.1,
+    // );
+
     let cellPos = new Vec3(
-        cellPosition(state.layout, blk, Dim.X, destIdx.x) + state.layout.cell * 0.5,
-        cellPosition(state.layout, blk, Dim.Y, destIdx.y) + state.layout.cell * 0.5,
-        cellPosition(state.layout, blk, Dim.Z, destIdx.z) + state.layout.cell * 1.1,
+        (cellPosition(state.layout, blk, Dim.X, 0) + cellPosition(state.layout, blk, Dim.X, blk.cx - 1)) * 0.5,
+        cellPosition(state.layout, blk, Dim.Y, 0) - state.layout.cell * 0.5,
+        cellPosition(state.layout, blk, Dim.Z, 0) + state.layout.cell * 0.5,
     );
 
     // let screenPos = projectToScreen(state, cellPos);
@@ -58,7 +64,7 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
 
     let resMtx = mtxT.mul(mtx).mul(scaleMtx).mul(mtxTInv).mul(translateMtx);
 
-    let center = cellPos.add(new Vec3(0, -6, -cellPos.z));
+    let center = cellPos.add(new Vec3(0, -3, -cellPos.z));
 
     if (blk.deps.special === BlKDepSpecial.InputEmbed) {
         drawOLAddSymbol(state, center, scale, resMtx);
@@ -134,6 +140,7 @@ let workingSrcColor = new Vec4(0.3, 0.7, 0.3, 1);
 
 let opColor = new Vec4(0.7, 0.3, 0.3, 1);
 let backWhiteColor = new Vec4(0.0, 0.0, 0.0, 1).mul(1.0);
+let nameColor = new Vec4(1.0, 1.0, 1.0, 1);
 let embedBlockHeight = 3;
 let tokEmbedBlockWidth = 4.0;
 let posEmbedBlockWidth = 3.5;
@@ -264,9 +271,14 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: numbe
 
     let { total, locs: [addX, dotBeginX, dotAX, commaTX, dotBX, dotEndX] } = layout1d({ pad, anchor: center.x, justify: LayoutAlign.Middle }, addW, dotBeginW, dotAW, commaTw, dotBW, dotEndW);
 
+    let nameTextOpts = { color: nameColor, mtx, size: 2.0 };
+    let nameW = measureText(state.render.modelFontBuf, blk.name, nameTextOpts);
+
     let h = 5;
-    let halfW = total / 2 + pad * 2;
-    drawRoundedRect(state.render, center.add(new Vec3(-halfW, -h/2)), center.add(new Vec3(halfW, h/2)), backWhiteColor, mtx, 1.0);
+    let halfW = Math.max(nameW, total) / 2 + pad * 2;
+    let nameHeight = nameTextOpts.size * 0.9;
+
+    drawRoundedRect(state.render, center.add(new Vec3(-halfW, -h/2 - nameHeight - pad)), center.add(new Vec3(halfW, h/2)), backWhiteColor, mtx, 1.0);
 
     drawRowCol(new Vec3(dotAX, center.y), dotAColor, dotAIsRow, 4);
     drawRowCol(new Vec3(dotBX, center.y), dotBColor, dotBIsRow, 4);
@@ -279,6 +291,7 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: numbe
     drawText(state.render.modelFontBuf, commaText,    commaTX,   textY, textOpts);
     drawText(state.render.modelFontBuf, dotEndText,   dotEndX,   textY, textOpts);
 
+    drawText(state.render.modelFontBuf, blk.name, center.x - nameW / 2, center.y - h / 2 - nameHeight, nameTextOpts);
 }
 
 export function drawRoundedRect(state: IRenderState, tl: Vec3, br: Vec3, color: Vec4, mtx: Mat4f, radius: number) {
