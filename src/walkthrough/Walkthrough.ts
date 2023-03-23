@@ -201,14 +201,14 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
             size: 3,
         });
 
-        blockDimension(render, layout, tokEmbed, Dim.X, DimStyle.n_vocab, t0_showAll.t);
-        blockDimension(render, layout, tokEmbed, Dim.Y, DimStyle.C, t0_showAll.t);
+        blockDimension(state, layout, tokEmbed, Dim.X, DimStyle.n_vocab, t0_showAll.t);
+        blockDimension(state, layout, tokEmbed, Dim.Y, DimStyle.C, t0_showAll.t);
 
-        blockDimension(render, layout, posEmbed, Dim.X, DimStyle.T, t0_showAll.t);
-        blockDimension(render, layout, posEmbed, Dim.Y, DimStyle.C, t0_showAll.t);
+        blockDimension(state, layout, posEmbed, Dim.X, DimStyle.T, t0_showAll.t);
+        blockDimension(state, layout, posEmbed, Dim.Y, DimStyle.C, t0_showAll.t);
 
-        blockDimension(render, layout, layout.residual0, Dim.X, DimStyle.T, t0_showAll.t);
-        blockDimension(render, layout, layout.residual0, Dim.Y, DimStyle.C, t0_showAll.t);
+        blockDimension(state, layout, layout.residual0, Dim.X, DimStyle.T, t0_showAll.t);
+        blockDimension(state, layout, layout.residual0, Dim.Y, DimStyle.C, t0_showAll.t);
 
     } break;
     case Phase.Input_Detail_TokEmbed: {
