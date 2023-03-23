@@ -79,7 +79,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         render,
         walkthrough,
         camera,
-        shape,
+        shape: shape,
         layout: genGptModelLayout(shape),
         gptGpuModel: null,
         markDirty: () => { },
