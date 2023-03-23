@@ -1,6 +1,8 @@
-import React from 'react';
+'use client';
+import React, { useEffect } from 'react';
 import s from './layout.module.scss';
 import '@/styles/main.scss';
+import { inject } from '@vercel/analytics';
 
 import { config } from '@fortawesome/fontawesome-svg-core'
 import '@fortawesome/fontawesome-svg-core/styles.css'
@@ -11,7 +13,11 @@ export default function RootLayout({
 }: {
     children: React.ReactNode;
 }) {
-    return <html lang={"en-US"} className={s.html}>
+    useEffect(() => {
+         inject();
+    }, []);
+
+    return <html lang="en" className={s.html}>
         <head>
             <title>LLM Visualization</title>
             <link rel="preload" href="/fonts/font-atlas.png" as="image" />

@@ -11,6 +11,7 @@
         "@fortawesome/free-regular-svg-icons": "6.3.0",
         "@fortawesome/free-solid-svg-icons": "6.3.0",
         "@fortawesome/react-fontawesome": "0.2.0",
+        "@vercel/analytics": "0.1.11",
         "clsx": "1.2.1",
         "next": "latest",
         "react": "18.2.0",
