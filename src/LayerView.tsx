@@ -9,6 +9,7 @@ import { ProgramStateContext, WalkthroughSidebar } from './Sidebar';
 import { initProgramState, IProgramState, runProgram } from './Program';
 import { CanvasEventSurface } from './CanvasEventSurface';
 import { Vec3 } from './utils/vector';
+import { loadNativeBindings } from './NativeBindings';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -67,7 +68,8 @@ export function LayerView() {
         async function getData() {
             let dataP = fetchTensorData('gpt-nano-sort-t0-partials.json');
             let modelP = fetchTensorData('gpt-nano-sort-model.json');
-            let [data, model] = await Promise.all([dataP, modelP]);
+            let nativeBindingsP = loadNativeBindings();
+            let [data, model, nativeBindings] = await Promise.all([dataP, modelP, nativeBindingsP]);
             if (stale) return;
             setDataAndModel({ data, model });
         }

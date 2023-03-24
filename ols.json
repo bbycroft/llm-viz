@@ -1,0 +1,13 @@
+{
+    "collections": [
+        {
+            "name": "core",
+            "path": "C:\\Software\\odin\\core"
+        }
+    ],
+    "checker_args": "-target:js_wasm32",
+    "enable_document_symbols": true,
+    "enable_semantic_tokens": false,
+    "enable_hover": true,
+    "enable_snippets": true
+}

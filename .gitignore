@@ -39,3 +39,5 @@ yarn-error.log*
 .turbo
 .vscode
 styles/dist.css
+
+*.wat
