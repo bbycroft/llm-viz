@@ -6,7 +6,7 @@ import { addLine2, drawLineSegs, makeLineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { RenderPhase } from "../render/sharedRender";
 import { addPrimitiveRestart, addQuad, addVert } from "../render/triRender";
-import { makeArray } from "../utils/data";
+import { isNil, isNotNil, makeArray } from "../utils/data";
 import { lerp } from "../utils/math";
 import { Mat4f } from "../utils/matrix";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
@@ -85,8 +85,13 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
         drawOLMatrixMul(state, center, scale, resMtx, blk);
     }
     else if (blk.deps.special === BlKDepSpecial.LayerNorm) {
-
-        drawLayerNorm(state, center, scale, resMtx, blk);
+        drawLayerNorm(state, center, resMtx);
+    } else if (blk.deps.special === BlKDepSpecial.LayerNormMu) {
+        drawLayerNormMuAgg(state, center, resMtx);
+    } else if (blk.deps.special === BlKDepSpecial.LayerNormSigma) {
+        drawLayerNormSigmaAgg(state, center, resMtx);
+    } else if (blk.deps.add && blk.deps.add.length === 2) {
+        drawResidualAdd(state, center, resMtx);
     }
 }
 
@@ -411,6 +416,8 @@ interface ITextBlock {
     size: Vec3;
     offset: Vec3;
     subs?: ITextBlock[];
+    cellX?: number;
+    cellY?: number;
 }
 
 interface ITextBlockArgs {
@@ -420,14 +427,16 @@ interface ITextBlockArgs {
     size?: Vec3;
     offset?: Vec3;
     subs?: ITextBlockArgs[];
+    cellX?: number;
+    cellY?: number;
 }
 
 enum TextBlockType {
-    Unknown,
     Line,
     Text,
     Sqrt,
     Divide,
+    Cells,
 }
 
 function lineHeight(fontOpts: IFontOpts) {
@@ -435,9 +444,13 @@ function lineHeight(fontOpts: IFontOpts) {
 }
 
 function mkTextBlock(args: ITextBlockArgs): ITextBlock {
-    let type = args.type ?? (args.text ? TextBlockType.Text : args.subs ? TextBlockType.Line : TextBlockType.Unknown);
+    let type = args.type ?? (
+        args.text ? TextBlockType.Text :
+        args.subs ? TextBlockType.Line :
+        (isNotNil(args.cellX) && isNotNil(args.cellY)) ? TextBlockType.Cells :
+        null);
 
-    if (type === TextBlockType.Unknown) {
+    if (isNil(type)) {
         throw new Error('Unknown text block type');
     }
 
@@ -448,6 +461,8 @@ function mkTextBlock(args: ITextBlockArgs): ITextBlock {
         size: args.size ?? new Vec3(0, 0, 0),
         offset: args.offset ?? new Vec3(0, 0, 0),
         subs: args.subs?.map(a => mkTextBlock({ ...a, opts: a.opts ?? args.opts })),
+        cellX: args.cellX,
+        cellY: args.cellY,
     };
 }
 
@@ -466,9 +481,20 @@ function divideSpacing(opts: IFontOpts, inner: ITextBlock) {
     };
 }
 
+let cellSize = 7.0;
+
+function cellSizing(blk: ITextBlock) {
+    return {
+        size: new Vec3(blk.cellX! * cellSize, blk.cellY! * cellSize),
+        pad: cellSize * 1.0,
+    };
+}
+
 function sizeBlock(render: IRenderState, blk: ITextBlock) {
     let opts = blk.opts;
-    if (blk.type === TextBlockType.Line) {
+    switch (blk.type) {
+    
+    case TextBlockType.Line: {
         let x = 0;
         // middle-align all the sub-blocks
         // so height is the max height
@@ -479,28 +505,43 @@ function sizeBlock(render: IRenderState, blk: ITextBlock) {
             maxH = Math.max(maxH, sub.size.y);
         }
         blk.size = new Vec3(x, maxH, 0);
-    } else if (blk.type === TextBlockType.Text) {
+        break;
+    }
+    case TextBlockType.Text: {
         blk.size = new Vec3(
             measureText(render.modelFontBuf, blk.text!, opts),
             lineHeight(opts),
         );
-    } else if (blk.type === TextBlockType.Sqrt) {
+        break;
+    }
+    case TextBlockType.Sqrt: {
         let sub = blk.subs![0];
         sizeBlock(render, sub);
         let spacing = sqrtSpacing(opts, sub);
         blk.size = sub.size.add(spacing.tl).add(spacing.br);
-    } else if (blk.type === TextBlockType.Divide) {
+        break;
+    }
+    case TextBlockType.Divide: {
         let subA = blk.subs![0];
         let subB = blk.subs![1];
         sizeBlock(render, subA);
         sizeBlock(render, subB);
         let spacing = divideSpacing(opts, subA);
         blk.size = new Vec3(Math.max(subA.size.x, subB.size.x) + spacing.padX, subA.size.y + subB.size.y + spacing.padInnerY, 0);
+        break;
+    }
+    case TextBlockType.Cells: {
+        let spacing = cellSizing(blk);
+        blk.size = new Vec3(spacing.size.x + spacing.pad, spacing.size.y);
+        break;
+    }
+    default: { let _exhaustCheck: never = blk.type; }
     }
 }
 
 function layoutBlock(blk: ITextBlock) {
-    if (blk.type === TextBlockType.Line) {
+    switch (blk.type) {
+    case TextBlockType.Line: {
         let x = blk.offset.x;
         let midY = blk.offset.y + blk.size.y / 2;
         for (let sub of blk.subs!) {
@@ -508,11 +549,15 @@ function layoutBlock(blk: ITextBlock) {
             layoutBlock(sub);
             x += sub.size.x;
         }
-    } else if (blk.type === TextBlockType.Sqrt) {
+        break;
+    }
+    case TextBlockType.Sqrt: {
         let sub = blk.subs![0];
         sub.offset = blk.offset.add(sqrtSpacing(blk.opts, sub).tl).round_();
         layoutBlock(sub);
-    } else if (blk.type === TextBlockType.Divide) {
+        break;
+    }
+    case TextBlockType.Divide: {
         let subA = blk.subs![0];
         let subB = blk.subs![1];
         let midX = blk.size.x / 2;
@@ -520,19 +565,32 @@ function layoutBlock(blk: ITextBlock) {
         subB.offset = blk.offset.add(new Vec3(midX - subB.size.x / 2, blk.size.y - subB.size.y)).round_();
         layoutBlock(subA);
         layoutBlock(subB);
+        break;
+    }
+    case TextBlockType.Text: {
+        break;
+    }
+    case TextBlockType.Cells: {
+        break;
+    }
+    default: { let _exhaustCheck: never = blk.type; }
     }
 }
 
-
 function drawBlock(render: IRenderState, blk: ITextBlock) {
-    if (blk.type === TextBlockType.Line) {
+
+    switch (blk.type) {
+    case TextBlockType.Line: {
         for (let sub of blk.subs!) {
             drawBlock(render, sub);
         }
-    } else if (blk.type === TextBlockType.Text) {
+        break;
+    }
+    case TextBlockType.Text: {
         drawText(render.modelFontBuf, blk.text!, blk.offset.x, blk.offset.y, blk.opts);
-
-    } else if (blk.type === TextBlockType.Sqrt) {
+        break;
+    }
+    case TextBlockType.Sqrt: {
         let sub = blk.subs![0];
         
         let subY = sub.size.y;
@@ -550,21 +608,108 @@ function drawBlock(render: IRenderState, blk: ITextBlock) {
 
         drawText(render.modelFontBuf, '\u0070', sqrtX, sqrtY, mathOpts);
         drawBlock(render, sub);
-    } else if (blk.type === TextBlockType.Divide) {
+        break;
+    }
+    case TextBlockType.Divide: {
         let subA = blk.subs![0];
         let subB = blk.subs![1];
 
         let lineOpts = makeLineOpts({ color: blk.opts.color, n: new Vec3(0,0,1), mtx: blk.opts.mtx, thick: 0.4 });
-        let lineY = lerp(subA.offset.y + subA.size.y, subB.offset.y, 0.5);
+        let lineY = lerp(subA.offset.y + subA.size.y, subB.offset.y, 0.5) + 2.0;
         addLine2(render.lineRender, new Vec3(blk.offset.x, lineY), new Vec3(blk.offset.x + blk.size.x, lineY), lineOpts);
 
         drawBlock(render, blk.subs![0]);
         drawBlock(render, blk.subs![1]);
+        break;
+    }
+    case TextBlockType.Cells: {
+        let nCellsX = blk.cellX!;
+        let nCellsY = blk.cellY!;
+        let thick = 0.4;
+        let center = blk.offset.add(new Vec3(blk.size.x / 2, blk.size.y / 2));
+        let spacing = cellSizing(blk);
+
+        let tl = center.mulAdd(spacing.size, -0.5).add(new Vec3(0.5, 0.5));
+        let br = center.mulAdd(spacing.size, 0.5).add(new Vec3(0.5, 0.5));
+        let lineOpts = makeLineOpts({ color: blk.opts.color, mtx: blk.opts.mtx, n: new Vec3(0, 0, 1), thick });
+
+        drawLineRect(render, tl, br, lineOpts);
+        addQuad(render.triRender, tl, br, blk.opts.color.mul(0.3), blk.opts.mtx);
+
+        for (let i = 1; i < nCellsX; i++) {
+            let lineX = tl.x + i * cellSize;
+            addLine2(render.lineRender, new Vec3(lineX, tl.y, 0), new Vec3(lineX, br.y, 0), lineOpts);
+        }
+
+        for (let i = 1; i < nCellsY; i++) {
+            let lineY = tl.y + i * cellSize;
+            addLine2(render.lineRender, new Vec3(tl.x, lineY, 0), new Vec3(br.x, lineY, 0), lineOpts);
+        }
+        break;
+    }
+    default: { let _exhaustCheck: never = blk.type; }
     }
 }
 
+function drawMaths(state: IProgramState, bottomMiddle: Vec3, mtx: Mat4f, blk: ITextBlock) {
+    sizeBlock(state.render, blk);
 
-function drawLayerNorm(state: IProgramState, center: Vec3, scale: number, mtx: Mat4f, blk2: IBlkDef) {
+    blk.offset = new Vec3(bottomMiddle.x - blk.size.x / 2, bottomMiddle.y - blk.size.y);
+
+    layoutBlock(blk);
+
+    let pad = 4;
+
+    drawRoundedRect(state.render, new Vec3(blk.offset.x - pad, blk.offset.y - pad), blk.offset.add(blk.size).add(new Vec3(pad, pad)), backWhiteColor, mtx, 4);
+
+    drawBlock(state.render, blk);
+}
+
+
+function drawLayerNormMuAgg(state: IProgramState, center: Vec3, mtx: Mat4f) {
+    let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
+
+    let blk: ITextBlock = mkTextBlock({
+        opts: fontOpts,
+        subs: [
+            { text: 'E[', opts: { ...fontOpts, color: workingSrcColor } },
+            { cellX: 1, cellY: 3, opts: { ...fontOpts, color: workingSrcColor } },
+            { text: ']', opts: { ...fontOpts, color: workingSrcColor } },
+
+        ],
+    });
+
+    drawMaths(state, center, mtx, blk);
+}
+
+function drawLayerNormSigmaAgg(state: IProgramState, center: Vec3, mtx: Mat4f) {
+    let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
+
+    let blk: ITextBlock = mkTextBlock({
+        opts: fontOpts,
+        subs: [{
+            type: TextBlockType.Divide,
+            subs: [
+                { text: '1' },
+                {
+                    type: TextBlockType.Sqrt,
+                    subs: [
+                        { type: TextBlockType.Line, subs: [
+                            { text: 'Var[', opts: { ...fontOpts, color: workingSrcColor } },
+                            { cellX: 1, cellY: 3, opts: { ...fontOpts, color: workingSrcColor } },
+                            { text: ']', opts: { ...fontOpts, color: workingSrcColor } },
+                            { text: ' + ε' },
+                        ]}
+                    ],
+                }]
+            },
+        ],
+    });
+
+    drawMaths(state, center, mtx, blk);
+}
+
+function drawLayerNorm(state: IProgramState, center: Vec3, mtx: Mat4f) {
     let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
     let blk: ITextBlock = mkTextBlock({
@@ -573,16 +718,20 @@ function drawLayerNorm(state: IProgramState, center: Vec3, scale: number, mtx: M
             type: TextBlockType.Divide,
             subs: [
                 { subs: [
-                        { text: 'x', opts: { ...fontOpts, color: workingSrcColor } },
+                        { cellX: 1, cellY: 1, opts: { ...fontOpts, color: workingSrcColor } },
                         { text: ' \— ' },
-                        { text: 'E[x]', opts: { ...fontOpts, color: workingSrcColor } },
+                        { text: 'E[', opts: { ...fontOpts, color: workingSrcColor } },
+                        { cellX: 1, cellY: 3, opts: { ...fontOpts, color: workingSrcColor } },
+                        { text: ']', opts: { ...fontOpts, color: workingSrcColor } },
                     ],
                 },
                 {
                     type: TextBlockType.Sqrt,
                     subs: [
                         { type: TextBlockType.Line, subs: [
-                            { text: 'Var[x]', opts: { ...fontOpts, color: workingSrcColor } },
+                            { text: 'Var[', opts: { ...fontOpts, color: workingSrcColor } },
+                            { cellX: 1, cellY: 3, opts: { ...fontOpts, color: workingSrcColor } },
+                            { text: ']', opts: { ...fontOpts, color: workingSrcColor } },
                             { text: ' + ε' },
                         ]}
                     ],
@@ -595,16 +744,20 @@ function drawLayerNorm(state: IProgramState, center: Vec3, scale: number, mtx: M
         ],
     });
 
-    sizeBlock(state.render, blk);
+    drawMaths(state, center, mtx, blk);
+}
 
-    blk.offset = new Vec3(center.x - blk.size.x / 2, center.y - blk.size.y / 2);
+function drawResidualAdd(state: IProgramState, center: Vec3, mtx: Mat4f) {
+    let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
-    layoutBlock(blk);
+    let blk: ITextBlock = mkTextBlock({
+        opts: fontOpts,
+        subs: [
+            { cellX: 1, cellY: 1, opts: { ...fontOpts, color: workingSrcColor } },
+            { text: ' + ' },
+            { cellX: 1, cellY: 1, opts: { ...fontOpts, color: workingSrcColor } },
+        ],
+    });
 
-    let pad = 4;
-
-    drawRoundedRect(state.render, new Vec3(blk.offset.x - pad, blk.offset.y - pad), blk.offset.add(blk.size).add(new Vec3(pad, pad)), backWhiteColor, mtx, 4);
-
-    drawBlock(state.render, blk);
-
+    drawMaths(state, center, mtx, blk);
 }

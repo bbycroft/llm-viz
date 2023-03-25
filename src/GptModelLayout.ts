@@ -58,12 +58,17 @@ interface IBlkDepArgs {
     special?: BlKDepSpecial;
 }
 
+
+
+
 export enum BlKDepSpecial {
     None,
     Softmax,
     Gelu,
     LayerNorm,
     InputEmbed,
+    LayerNormMu,
+    LayerNormSigma,
 }
 
 let depIdxVars = '0xybi';
@@ -270,7 +275,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: T, cz: B, cy: 1, y: y,
             xR: lnLeftX, zM: 0,
             access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0, channel: 'r' },
-            deps: { add: [[src, 'xi']] },
+            deps: { add: [[src, 'xi']], special: BlKDepSpecial.LayerNormMu },
             dimX: DimStyle.T, dimY: DimStyle.None,
             name: 'LN Agg: μ, 1/σ',
         });
@@ -278,7 +283,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: T, cz: B, cy: 1, y: y + cell,
             xR: lnLeftX, zM: 0,
             access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0, channel: 'g' },
-            deps: { add: [[src, 'xi']] },
+            deps: { add: [[src, 'xi']], special: BlKDepSpecial.LayerNormSigma },
             dimX: DimStyle.T, dimY: DimStyle.None,
             name: '',
         });
