@@ -4,6 +4,34 @@
     ],
     "chars": [
         {
+            "id": 112,
+            "index": 36,
+            "char": "p",
+            "width": 37,
+            "height": 46,
+            "xoffset": 1,
+            "yoffset": 30,
+            "xadvance": 35,
+            "chnl": 15,
+            "x": 319,
+            "y": 186,
+            "page": 0
+        },
+        {
+            "id": 106,
+            "index": 47,
+            "char": "j",
+            "width": 6,
+            "height": 46,
+            "xoffset": 3,
+            "yoffset": 1,
+            "xadvance": 12,
+            "chnl": 15,
+            "x": 357,
+            "y": 32,
+            "page": 0
+        },
+        {
             "id": 45,
             "index": 65,
             "char": "-",
@@ -13,8 +41,8 @@
             "yoffset": 2,
             "xadvance": 42,
             "chnl": 15,
-            "x": 349,
-            "y": 214,
+            "x": 364,
+            "y": 32,
             "page": 0
         },
         {
@@ -27,8 +55,8 @@
             "yoffset": 3,
             "xadvance": 26,
             "chnl": 15,
-            "x": 345,
-            "y": 58,
+            "x": 357,
+            "y": 151,
             "page": 0
         },
         {
@@ -41,8 +69,8 @@
             "yoffset": 10,
             "xadvance": 42,
             "chnl": 15,
-            "x": 338,
-            "y": 148,
+            "x": 371,
+            "y": 0,
             "page": 0
         },
         {
@@ -55,8 +83,8 @@
             "yoffset": 10,
             "xadvance": 42,
             "chnl": 15,
-            "x": 352,
-            "y": 0,
+            "x": 366,
+            "y": 117,
             "page": 0
         },
         {
@@ -69,8 +97,22 @@
             "yoffset": 13,
             "xadvance": 33,
             "chnl": 15,
-            "x": 366,
-            "y": 28,
+            "x": 339,
+            "y": 233,
+            "page": 0
+        },
+        {
+            "id": 161,
+            "index": 17,
+            "char": "¡",
+            "width": 30,
+            "height": 6,
+            "xoffset": 1,
+            "yoffset": 21,
+            "xadvance": 33,
+            "chnl": 15,
+            "x": 251,
+            "y": 250,
             "page": 0
         },
         {
@@ -83,8 +125,8 @@
             "yoffset": 11,
             "xadvance": 33,
             "chnl": 15,
-            "x": 394,
-            "y": 0,
+            "x": 357,
+            "y": 193,
             "page": 0
         }
     ],
@@ -99,7 +141,10 @@
             "/",
             "(",
             ")",
-            "£"
+            "£",
+            "p",
+            "¡",
+            "j"
         ],
         "unicode": 1,
         "stretchH": 100,

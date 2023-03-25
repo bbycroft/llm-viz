@@ -1,6 +1,7 @@
 import { camScaleToScreen } from "../Camera";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
+import { IRenderState } from "../render/modelRender";
 import { RenderPhase } from "../render/sharedRender";
 import { Mat4f } from "../utils/matrix";
 import { Vec3, Vec4 } from "../utils/vector";
@@ -37,5 +38,4 @@ export function drawBlockInfo(state: IProgramState) {
         state.render.sharedRender.activePhase = RenderPhase.Overlay;
         drawText(state.render.modelFontBuf, text, -textW / 2, -textOpts.size - pad, textOpts);
     }
-
 }

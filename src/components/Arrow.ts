@@ -47,8 +47,8 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
         let block = layout.blocks[i];
         drawVertArrow(prevResid, block.attnResidual);
         drawArrowResidSplit(prevResid, block.ln1.lnResid);
-        drawArrowResidSplit(prevResid, block.ln1.lnAgg, 2);
-        drawVertArrow(block.ln1.lnAgg, block.ln1.lnResid, 2);
+        drawArrowResidSplit(prevResid, block.ln1.lnAgg2, 2);
+        drawVertArrow(block.ln1.lnAgg2, block.ln1.lnResid, 2);
 
         // let headIdx = 0;
         for (let head of block.heads) {
@@ -86,8 +86,8 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
         drawHorizArrow(block.ln1.lnMu, block.ln1.lnSigma);
         drawHorizArrow(block.ln1.lnSigma, block.ln1.lnResid);
 
-        drawArrowResidSplit(block.attnResidual, block.ln2.lnAgg, 2);
-        drawVertArrow(block.ln2.lnAgg, block.ln2.lnResid, 2);
+        drawArrowResidSplit(block.attnResidual, block.ln2.lnAgg2, 2);
+        drawVertArrow(block.ln2.lnAgg2, block.ln2.lnResid, 2);
         drawHorizArrow(block.ln2.lnMu, block.ln2.lnSigma);
         drawHorizArrow(block.ln2.lnSigma, block.ln2.lnResid);
 
@@ -105,9 +105,9 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
         prevResid = block.mlpResidual;
     }
 
-    drawArrowResidSplit(prevResid, layout.ln_f.lnAgg, 2);
+    drawArrowResidSplit(prevResid, layout.ln_f.lnAgg2, 2);
     drawArrowBetween(prevResid, BlockPos.Bot, layout.ln_f.lnResid, BlockPos.Right);
-    drawVertArrow(layout.ln_f.lnAgg, layout.ln_f.lnResid);
+    drawVertArrow(layout.ln_f.lnAgg2, layout.ln_f.lnResid);
     drawHorizArrow(layout.ln_f.lnMu, layout.ln_f.lnSigma);
     drawHorizArrow(layout.ln_f.lnSigma, layout.ln_f.lnResid);
 

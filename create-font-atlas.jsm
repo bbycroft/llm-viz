@@ -54,7 +54,7 @@ async function runAll() {
 
     files.push(await generateAndSave('fonts/Roboto-Regular.ttf', {
         ...commonOpts,
-        charset: '! "#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~\\—σμ',
+        charset: '! "#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~‧\\—γβσμε',
     }, 'regular'));
 
     // math italic
@@ -66,7 +66,7 @@ async function runAll() {
     // symbols
     files.push(await generateAndSave('fonts/cmsy10.ttf', {
         ...commonOpts,
-        charset: '-+/()\u00a3',
+        charset: '-+/()\u00a3\u0070\u00a1\u006a',
     }, 'math'));
 
     // operators

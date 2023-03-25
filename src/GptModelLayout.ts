@@ -197,7 +197,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             cz: args.cz,
             dimX: args.dimX,
             dimY: args.dimY,
-            name: args.name || "<unknown>",
+            name: args.name ?? "<unknown>",
             access: args.access?.src ? {
                 channel: args.access.channel ?? 'r',
                 src: args.access.src,
@@ -266,13 +266,21 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         let lnLeftX = leftX + x;
         let resLeftX = lnLeftX - T * cell - margin;
 
-        let lnAgg = mk({
-            t: 'i', cx: T, cz: B, cy: 2, y: y,
+        let lnAgg1 = mk({
+            t: 'i', cx: T, cz: B, cy: 1, y: y,
             xR: lnLeftX, zM: 0,
-            access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0 },
+            access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0, channel: 'r' },
             deps: { add: [[src, 'xi']] },
             dimX: DimStyle.T, dimY: DimStyle.None,
-            name: 'LN Agg',
+            name: 'LN Agg: μ, 1/σ',
+        });
+        let lnAgg2 = mk({
+            t: 'i', cx: T, cz: B, cy: 1, y: y + cell,
+            xR: lnLeftX, zM: 0,
+            access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0, channel: 'g' },
+            deps: { add: [[src, 'xi']] },
+            dimX: DimStyle.T, dimY: DimStyle.None,
+            name: '',
         });
 
         y += 2 * cell + margin;
@@ -282,25 +290,25 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: resLeftX, zM: 0,
             access: { src: target?.normWeight, x: [1, 0, 0], y: [0, 1, 0], scale: 0.5 }, // mostly around 1.0
             dimX: DimStyle.None, dimY: DimStyle.C,
-            name: 'σ',
+            name: 'γ',
         });
         let lnMu = mk({
             t: 'w', cx: 1, cz: 1, cy: C, y: y,
             xR: resLeftX - cell * 1 - margin, zM: 0,
             access: { src: target?.normBias, x: [1, 0, 0], y: [0, 1, 0] },
             dimX: DimStyle.None, dimY: DimStyle.C,
-            name: 'μ',
+            name: 'β',
         });
         let lnResid = mk({
             t: 'i', cx: T, cz: B, cy: C, y: y,
             xR: lnLeftX, zM: 0,
             access: { src: target?.output, x: [0, 1, 0], y: [1, 0, T], scale: 1.0 },
-            deps: { add: [[src, 'xy'], [lnAgg, 'xi'], [lnSigma, '0y'], [lnMu, '0y']] }, // lnSigma is really mul rather than add
+            deps: { add: [[src, 'xy'], [lnAgg1, 'xi'], [lnAgg2, 'xi'], [lnSigma, '0y'], [lnMu, '0y']], special: BlKDepSpecial.LayerNorm }, // lnSigma is really mul rather than add
             dimX: DimStyle.T, dimY: DimStyle.C,
             name: 'Layer Norm',
         });
-        let lnCubes = [lnAgg, lnSigma, lnMu, lnResid];
-        return { lnAgg, lnResid, lnSigma, lnMu, cubes: lnCubes };
+        let lnCubes = [lnAgg1, lnAgg2, lnSigma, lnMu, lnResid];
+        return { lnAgg1, lnAgg2, lnResid, lnSigma, lnMu, cubes: lnCubes };
     }
 
     let lnLeftX = leftX - (T + 2) * cell - 3 * margin;
