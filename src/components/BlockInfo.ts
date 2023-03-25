@@ -15,7 +15,7 @@ export function drawBlockInfo(state: IProgramState) {
 
         let scale = camScaleToScreen(state, blkTopMid);
 
-        scale = Math.min(scale, 1);
+        scale = Math.min(scale, 2);
         // have a max scale
 
         let textColor = new Vec4(1, 1, 1, 1).mul(blk.opacity);

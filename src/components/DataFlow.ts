@@ -2,7 +2,7 @@ import { camScaleToScreen } from "../Camera";
 import { BlKDepSpecial, cellPosition, IBlkDef } from "../GptModelLayout";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
-import { addLine2, drawLineSegs, makeLineOpts } from "../render/lineRender";
+import { addLine2, drawLineSegs, ILineOpts, makeLineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { RenderPhase } from "../render/sharedRender";
 import { addPrimitiveRestart, addQuad, addVert } from "../render/triRender";
@@ -10,7 +10,7 @@ import { isNil, isNotNil, makeArray } from "../utils/data";
 import { lerp } from "../utils/math";
 import { Mat4f } from "../utils/matrix";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
-import { DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
+import { Colors, DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
 import { drawLineRect } from "./ModelCard";
 
 export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) {
@@ -411,6 +411,7 @@ Let's first define a simple text block, and see where that leads. We're going to
 
 interface ITextBlock {
     type: TextBlockType;
+    id?: string;
     text?: string;
     opts: IFontOpts;
     size: Vec3;
@@ -418,12 +419,16 @@ interface ITextBlock {
     subs?: ITextBlock[];
     cellX?: number;
     cellY?: number;
+    rectOpts?: ILineOpts;
 }
 
 interface ITextBlockArgs {
     type?: TextBlockType;
+    id?: string;
     text?: string;
     opts?: IFontOpts;
+    rectOpts?: ILineOpts;
+    color?: Vec4;
     size?: Vec3;
     offset?: Vec3;
     subs?: ITextBlockArgs[];
@@ -454,13 +459,20 @@ function mkTextBlock(args: ITextBlockArgs): ITextBlock {
         throw new Error('Unknown text block type');
     }
 
+    let opts = args.opts;
+    if (opts && args.color) {
+        opts = { ...opts, color: args.color };
+    }
+
     return {
         type: type,
+        id: args.id,
         text: args.text,
-        opts: args.opts!,
+        opts: opts!,
         size: args.size ?? new Vec3(0, 0, 0),
         offset: args.offset ?? new Vec3(0, 0, 0),
-        subs: args.subs?.map(a => mkTextBlock({ ...a, opts: a.opts ?? args.opts })),
+        subs: args.subs?.map(a => mkTextBlock({ ...a, opts: a.opts ?? opts })),
+        rectOpts: args.rectOpts,
         cellX: args.cellX,
         cellY: args.cellY,
     };
@@ -469,7 +481,7 @@ function mkTextBlock(args: ITextBlockArgs): ITextBlock {
 
 function sqrtSpacing(opts: IFontOpts, inner: ITextBlock) {
     return {
-        tl: new Vec3(inner.size.y * 1.05, inner.size.y * 0.5),
+        tl: new Vec3(inner.size.y * 0.9, inner.size.y * 0.2),
         br: new Vec3(inner.size.y * 0.1, 0.0),
     };
 }
@@ -477,7 +489,7 @@ function sqrtSpacing(opts: IFontOpts, inner: ITextBlock) {
 function divideSpacing(opts: IFontOpts, inner: ITextBlock) {
     return {
         padX: 0,
-        padInnerY: inner.size.y * 0.1,
+        padInnerY: inner.size.y * 0.3,
     };
 }
 
@@ -505,6 +517,10 @@ function sizeBlock(render: IRenderState, blk: ITextBlock) {
             maxH = Math.max(maxH, sub.size.y);
         }
         blk.size = new Vec3(x, maxH, 0);
+        if (blk.rectOpts) {
+            blk.size.x += cellSize * 0.5;
+            blk.size.y += cellSize * 0.5;
+        }
         break;
     }
     case TextBlockType.Text: {
@@ -542,7 +558,7 @@ function sizeBlock(render: IRenderState, blk: ITextBlock) {
 function layoutBlock(blk: ITextBlock) {
     switch (blk.type) {
     case TextBlockType.Line: {
-        let x = blk.offset.x;
+        let x = blk.offset.x + cellSize * 0.25;
         let midY = blk.offset.y + blk.size.y / 2;
         for (let sub of blk.subs!) {
             sub.offset = new Vec3(x, midY - sub.size.y / 2).round_();
@@ -584,6 +600,13 @@ function drawBlock(render: IRenderState, blk: ITextBlock) {
         for (let sub of blk.subs!) {
             drawBlock(render, sub);
         }
+        if (blk.rectOpts) {
+            let rectOpts = makeLineOpts(blk.rectOpts);
+            let tl = blk.offset;
+            let br = blk.offset.add(blk.size);
+            drawRoundedRect(render, tl, br, rectOpts.color, rectOpts.mtx, 2);
+            // drawLineRect(render, tl, br, rectOpts);
+        }
         break;
     }
     case TextBlockType.Text: {
@@ -596,7 +619,7 @@ function drawBlock(render: IRenderState, blk: ITextBlock) {
         let subY = sub.size.y;
 
         let sqrtX = blk.offset.x;
-        let sqrtY = blk.offset.y - subY * 0.6;
+        let sqrtY = blk.offset.y - subY * 0.9;
         let sqrtSize = subY * 1.8;
 
         let mathOpts: IFontOpts = { ...blk.opts, faceName: 'cmsy10', size: sqrtSize };
@@ -615,7 +638,7 @@ function drawBlock(render: IRenderState, blk: ITextBlock) {
         let subB = blk.subs![1];
 
         let lineOpts = makeLineOpts({ color: blk.opts.color, n: new Vec3(0,0,1), mtx: blk.opts.mtx, thick: 0.4 });
-        let lineY = lerp(subA.offset.y + subA.size.y, subB.offset.y, 0.5) + 2.0;
+        let lineY = lerp(subA.offset.y + subA.size.y, subB.offset.y, 0.5) + 1.0;
         addLine2(render.lineRender, new Vec3(blk.offset.x, lineY), new Vec3(blk.offset.x + blk.size.x, lineY), lineOpts);
 
         drawBlock(render, blk.subs![0]);
@@ -671,10 +694,11 @@ function drawLayerNormMuAgg(state: IProgramState, center: Vec3, mtx: Mat4f) {
 
     let blk: ITextBlock = mkTextBlock({
         opts: fontOpts,
+        color: workingSrcColor,
         subs: [
-            { text: 'E[', opts: { ...fontOpts, color: workingSrcColor } },
-            { cellX: 1, cellY: 3, opts: { ...fontOpts, color: workingSrcColor } },
-            { text: ']', opts: { ...fontOpts, color: workingSrcColor } },
+            { text: 'E[' },
+            { cellX: 1, cellY: 3 },
+            { text: ']' },
 
         ],
     });
@@ -695,13 +719,13 @@ function drawLayerNormSigmaAgg(state: IProgramState, center: Vec3, mtx: Mat4f) {
                     type: TextBlockType.Sqrt,
                     subs: [
                         { type: TextBlockType.Line, subs: [
-                            { text: 'Var[', opts: { ...fontOpts, color: workingSrcColor } },
-                            { cellX: 1, cellY: 3, opts: { ...fontOpts, color: workingSrcColor } },
-                            { text: ']', opts: { ...fontOpts, color: workingSrcColor } },
+                            { text: 'Var[', color: workingSrcColor },
+                            { cellX: 1, cellY: 3, color: workingSrcColor },
+                            { text: ']', color: workingSrcColor },
                             { text: ' + ε' },
-                        ]}
+                        ]},
                     ],
-                }]
+                }],
             },
         ],
     });
@@ -718,29 +742,39 @@ function drawLayerNorm(state: IProgramState, center: Vec3, mtx: Mat4f) {
             type: TextBlockType.Divide,
             subs: [
                 { subs: [
-                        { cellX: 1, cellY: 1, opts: { ...fontOpts, color: workingSrcColor } },
+                        { cellX: 1, cellY: 1, color: workingSrcColor },
                         { text: ' \— ' },
-                        { text: 'E[', opts: { ...fontOpts, color: workingSrcColor } },
-                        { cellX: 1, cellY: 3, opts: { ...fontOpts, color: workingSrcColor } },
-                        { text: ']', opts: { ...fontOpts, color: workingSrcColor } },
+                        {
+                            type: TextBlockType.Line,
+                            rectOpts: { color: Colors.Aggregates.mul(0.3), mtx, thick: 1.0 },
+                            subs: [
+                                { text: 'E[', color: workingSrcColor },
+                                { cellX: 1, cellY: 3, color: workingSrcColor },
+                                { text: ']', color: workingSrcColor },
+                            ],
+                        },
                     ],
                 },
                 {
-                    type: TextBlockType.Sqrt,
-                    subs: [
-                        { type: TextBlockType.Line, subs: [
-                            { text: 'Var[', opts: { ...fontOpts, color: workingSrcColor } },
-                            { cellX: 1, cellY: 3, opts: { ...fontOpts, color: workingSrcColor } },
-                            { text: ']', opts: { ...fontOpts, color: workingSrcColor } },
-                            { text: ' + ε' },
-                        ]}
-                    ],
+                    type: TextBlockType.Line,
+                    rectOpts: { color: Colors.Aggregates.mul(0.3), mtx, thick: 1.0 },
+                    subs: [{
+                        type: TextBlockType.Sqrt,
+                        subs: [
+                            { type: TextBlockType.Line, subs: [
+                                { text: 'Var[', color: workingSrcColor },
+                                { cellX: 1, cellY: 3, color: workingSrcColor },
+                                { text: ']', color: workingSrcColor },
+                                { text: ' + ε' },
+                            ]},
+                        ],
+                    }],
                 }]
             },
             { text: '  ‧ ' },
-            { text: 'γ', opts: { ...fontOpts, color: weightSrcColor } },
+            { text: 'γ', color: weightSrcColor },
             { text: ' + ' },
-            { text: 'β', opts: { ...fontOpts, color: weightSrcColor } },
+            { text: 'β', color: weightSrcColor },
         ],
     });
 

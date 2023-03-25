@@ -302,6 +302,12 @@ export function dimStyleText(style: DimStyle) {
     }
 }
 
+export const Colors = {
+    Weights: new Vec4(0.3, 0.3, 1.0),
+    Intermediates: new Vec4(0.4, 0.8, 0.4),
+    Aggregates: new Vec4(1.0, 0.8, 0.3), // a yellowish color
+}
+
 export function hideFromBlock(state: IRenderState, layout: IGptModelLayout, targetBlk: IBlkDef) {
     let seen = false;
     for (let blk of layout.cubes) {

@@ -2,6 +2,7 @@ import { IBlkDef, IModelLayout } from "../GptModelLayout";
 import { Mat4f } from "../utils/matrix";
 import { createFloatBuffer, createShaderProgram, ensureFloatBufferSize, IGLContext, resetFloatBufferMap, uploadFloatBuffer } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
+import { Colors } from "../walkthrough/WalkthroughTools";
 import { modelViewUboText, UboBindings } from "./sharedRender";
 
 
@@ -344,7 +345,8 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
 
             blockBuf.set(cube.localMtx ?? new Mat4f(), baseOff + 12);
 
-            let baseColor = (cube.t === 'w' ? new Vec4(0.3, 0.3, 1.0, cube.opacity) : new Vec4(0.4, 0.8, 0.4, cube.opacity));
+            let color = (cube.t === 'w' ? Colors.Weights : cube.t === 'i' ? Colors.Intermediates : Colors.Aggregates);
+            let baseColor = new Vec4(color.x, color.y, color.z, cube.opacity);
             baseColor.writeToBuf(blockBuf, baseOff + 28);
 
             blockBuf[baseOff + 32] = cube.highlight;

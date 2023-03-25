@@ -7,7 +7,7 @@ import { dimProps } from "./Annotations";
 import { DimStyle, dimStyleColor } from "./walkthrough/WalkthroughTools";
 
 export interface IBlkDef {
-    t: 'w' | 'i', // weights; intermediate value
+    t: 'w' | 'i' | 'a', // weights; intermediate value; aggregate (just LN & softmax)
     x: number;
     y: number;
     z: number;
@@ -110,7 +110,7 @@ interface IBlkAccessDefArgs {
 }
 
 interface IBlkDefArgs {
-    t: 'w' | 'i', // weights; intermediate value
+    t: 'w' | 'i' | 'a', // weights; intermediate value
     xL?: number; // pos of Left edge
     xR?: number; // Right
     xM?: number; // Middle
@@ -272,7 +272,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         let resLeftX = lnLeftX - T * cell - margin;
 
         let lnAgg1 = mk({
-            t: 'i', cx: T, cz: B, cy: 1, y: y,
+            t: 'a', cx: T, cz: B, cy: 1, y: y,
             xR: lnLeftX, zM: 0,
             access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0, channel: 'r' },
             deps: { add: [[src, 'xi']], special: BlKDepSpecial.LayerNormMu },
@@ -280,7 +280,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             name: 'LN Agg: μ, 1/σ',
         });
         let lnAgg2 = mk({
-            t: 'i', cx: T, cz: B, cy: 1, y: y + cell,
+            t: 'a', cx: T, cz: B, cy: 1, y: y + cell,
             xR: lnLeftX, zM: 0,
             access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0, channel: 'g' },
             deps: { add: [[src, 'xi']], special: BlKDepSpecial.LayerNormSigma },
@@ -431,7 +431,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             });
 
             let attnMtxAgg = mk({
-                t: 'i', cx: 2, cz: B, cy: T, y: attn1Y,
+                t: 'a', cx: 2, cz: B, cy: T, y: attn1Y,
                 xR: attnLeftX - T * cell - margin, zM: headZMid,
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
                 dimX: DimStyle.None, dimY: DimStyle.T,
