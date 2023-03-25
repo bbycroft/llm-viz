@@ -133,7 +133,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     drawBlockLabels(state.render, state.layout);
 
     let lineNo = 1;
-    let tw = state.render.canvasEl.width;
+    let tw = state.render.size.x;
     for (let line of state.display.lines) {
         let opts: IFontOpts = { color: new Vec4(), size: 14 };
         let w = measureText(state.render.overlayFontBuf, line, opts);

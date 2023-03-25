@@ -33,6 +33,16 @@ add_numbers :: proc "c" (a: int, b: int) -> int {
     return a + b + len(arr)
 }
 
+@export
+sinf_custom :: proc "c" (x: f32) -> f32 {
+    return sinf(x)
+}
+
+@export
+cosf_custom :: proc "c" (x: f32) -> f32 {
+    return cosf(x)
+}
+
 
 
 // @export

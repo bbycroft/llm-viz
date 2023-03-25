@@ -5,8 +5,9 @@ import { measureTextWidth, writeTextToBuffer } from "./render/fontRender";
 import { lerp, lerpSmoothstep } from "./utils/math";
 import { Mat4f } from "./utils/matrix";
 import { Dim, Vec3, Vec4 } from "./utils/vector";
-import { DimStyle, dimStyleColor } from "./walkthrough/WalkthroughTools";
+import { DimStyle, dimStyleColor, dimStyleText } from "./walkthrough/WalkthroughTools";
 import { IProgramState } from "./Program";
+import { camScaleToScreen } from "./Camera";
 
 export function blockDimension(state: IProgramState, layout: IModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, t: number) {
     let render = state.render;
@@ -14,11 +15,11 @@ export function blockDimension(state: IProgramState, layout: IModelLayout, blk: 
     // Render |----- T ------| along the appropriate dimension
 
     let { vecId } = dimConsts(dim);
-    let { x, cx } = dimProps(blk, dim);
+    let { cx } = dimProps(blk, dim);
 
     let offVecId = vecId === 0 ? 1 : 0;
 
-    let text = DimStyle[style];
+    let text = dimStyleText(style);
     if (style === DimStyle.None) {
         return;
     }
@@ -29,9 +30,9 @@ export function blockDimension(state: IProgramState, layout: IModelLayout, blk: 
     let midPos = dim === Dim.X ? new Vec3(mid, blk.y + blk.dz, blk.z + blk.dz) : new Vec3(blk.x, mid, blk.z + blk.dz);
     let mul = dim === Dim.X ? -1.0 : 1.0;
 
-    let camDist = midPos.dist(state.camera.camPosModel);
+    let scale = camScaleToScreen(state, midPos);
 
-    let fontSize = 2.5 * camDist / 130;
+    let fontSize = 2.5 * scale;
     let tw = measureTextWidth(render.modelFontBuf, text, fontSize);
     let th = fontSize;
     let textPad = dim === Dim.X ? tw / 2 + fontSize * 0.4 : dim === Dim.Y ? th / 2 + fontSize * 0.4 : 0;

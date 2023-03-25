@@ -47,7 +47,27 @@
     flex: 0 0 auto;
     display: flex;
     flex-direction: row;
-    padding: 10px;
+    padding: 10px 0;
+    justify-content: center;
+}
+
+.btn {
+    border: 1px solid rgba(black, 0.3);
+    border-radius: 4px;
+    padding: 0 8px;
+    height: 40px;
+}
+
+.prevNextBtn {
+    flex: 0 0 auto;
+}
+
+.continueBtn {
+    margin: 0 16px;
+    flex: 1 0 auto;
+    min-width: 200px;
+    background-color: rgba(#8597ff, 0.6);
+    border-color: rgba(#8597ff, 0.8)
 }
 
 .commentaryBreak {

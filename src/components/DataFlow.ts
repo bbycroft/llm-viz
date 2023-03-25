@@ -1,3 +1,4 @@
+import { camScaleToScreen } from "../Camera";
 import { BlKDepSpecial, cellPosition, IBlkDef } from "../GptModelLayout";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
@@ -42,7 +43,6 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
     // console.log(mtx.toString());
 
     let camDir = cellPos.sub(state.camera.camPosModel).normalize();
-    let camDist = cellPos.dist(state.camera.camPosModel);
     let camUp = new Vec3(0, 1, 0);
     let camRight = Vec3.cross(camDir, camUp).normalize();
     let camUp2 = Vec3.cross(camRight, camDir).normalize();
@@ -57,7 +57,7 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
     mtx[9] = camDir.y;
     mtx[10] = camDir.z;
 
-    let scale = camDist / 180.0;
+    let scale = camScaleToScreen(state, cellPos);
 
     let scaleMtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(scale));
     let translateMtx = Mat4f.fromTranslation(new Vec3(0, 0, -20 + cellPos.z));

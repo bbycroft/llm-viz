@@ -282,6 +282,7 @@ export function dimStyleColor(style: DimStyle) {
         case DimStyle.T:
             return new Vec4(0.4, 0.4, 0.9, 1);
         case DimStyle.C:
+        case DimStyle.C4:
             return new Vec4(0.9, 0.3, 0.3, 1);
         case DimStyle.Token:
             return new Vec4(0.3, 0.7, 0.3, 1);
@@ -291,6 +292,14 @@ export function dimStyleColor(style: DimStyle) {
             return Vec4.fromHexColor('#7c3c8d'); // new Vec4(0.8, 0.6, 0.3, 1);
     }
     return new Vec4(0,0,0);
+}
+
+export function dimStyleText(style: DimStyle) {
+    switch (style) {
+        case DimStyle.TokenIdx: return 'Token Index';
+        case DimStyle.C4: return 'C * 4';
+        default: return DimStyle[style];
+    }
 }
 
 export function hideFromBlock(state: IRenderState, layout: IGptModelLayout, targetBlk: IBlkDef) {

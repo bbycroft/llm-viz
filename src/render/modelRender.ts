@@ -121,7 +121,7 @@ export function resetRenderBuffers(args: IRenderState) {
 
 export function renderModel(state: IProgramState) {
     let { layout, render: args, camera } = state;
-    let { gl, blockRender, canvasEl } = args;
+    let { gl, blockRender, size } = args;
 
     let { modelMtx, viewMtx } = camera;
     let { camPos } = cameraToMatrixView(camera);
@@ -147,7 +147,7 @@ export function renderModel(state: IProgramState) {
     /// ------ The render pass ------ ///
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvasEl.width, canvasEl.height);
+    gl.viewport(0, 0, size.x, size.y);
 
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -163,7 +163,7 @@ export function renderModel(state: IProgramState) {
 
     {
         let text = `GPU: ${args.lastGpuMs.toFixed(1)}ms JS: ${args.lastJsMs.toFixed(1)}ms`;
-        let w = canvasEl.width;
+        let w = size.x;
         let fontSize = 14;
         args.sharedRender.activePhase = RenderPhase.Overlay2D;
         let tw = measureTextWidth(args.modelFontBuf, text, fontSize);
@@ -192,8 +192,8 @@ export function renderModel(state: IProgramState) {
     for (let phase of phaseOrder) {
 
         if (phase === RenderPhase.Overlay2D) {
-            let w = canvasEl.width;
-            let h = canvasEl.height;
+            let w = size.x;
+            let h = size.y;
             writeModelViewUbo(args.sharedRender, new Mat4f(), Mat4f.fromOrtho(0, w, h, 0, -1, 1));
         }
 

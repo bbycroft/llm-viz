@@ -22,6 +22,12 @@ export const Commentary: React.FC = () => {
         }
     }
 
+    function handleContinueClick() {
+        wt.running = !wt.running;
+        wt.lastBreakTime = wt.time;
+        progState.markDirty();
+    }
+
     useEffect(() => {
 
         function handleChildren() {
@@ -84,15 +90,15 @@ export const Commentary: React.FC = () => {
             </div>
         </div>
         <div className={s.controls}>
-            <button onClick={() => { }}>
+            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => { }}>
                 <div>Prev Phase</div>
             </button>
 
-            <button onClick={() => { }}>
+            <button className={clsx(s.btn, s.continueBtn)} onClick={handleContinueClick}>
                 <div>Continue</div>
             </button>
 
-            <button onClick={() => { }}>
+            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => { }}>
                 <div>Next Phase</div>
             </button>
         </div>

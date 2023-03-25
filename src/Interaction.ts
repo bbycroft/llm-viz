@@ -1,21 +1,19 @@
-import { blockDimension, findSubBlocks, splitGridX } from "./Annotations";
+import { blockDimension, splitGridX } from "./Annotations";
 import { drawDataFlow } from "./components/DataFlow";
-import { IBlkCellDep, IBlkDef, IBlkDeps, IModelLayout } from "./GptModelLayout";
+import { IBlkCellDep, IBlkDef } from "./GptModelLayout";
 import { IProgramState } from "./Program";
-import { addLine2 } from "./render/lineRender";
 import { clamp } from "./utils/data";
-import { Mat4f } from "./utils/matrix";
+import { IGLContext } from "./utils/shader";
 import { Dim, Vec3, Vec4 } from "./utils/vector";
 
 export function runMouseHitTesting(state: IProgramState) {
 
     let mouse = state.mouse;
 
-    let canvasBcr = state.render.canvasEl.getBoundingClientRect();
+    let canvasSize = state.render.size;
 
-    // Thanks ChatGPT-4!
-    let ndcX = mouse.mousePos.x / canvasBcr.width * 2 - 1;
-    let ndcY = 1 - (mouse.mousePos.y / canvasBcr.height * 2);
+    let ndcX = mouse.mousePos.x / canvasSize.x * 2 - 1;
+    let ndcY = 1 - (mouse.mousePos.y / canvasSize.y * 2);
 
     let viewMtx = state.camera.viewMtx;
     let viewMtxInv = viewMtx.invert();
@@ -70,25 +68,8 @@ export function runMouseHitTesting(state: IProgramState) {
         }
     }
 
-    function iterVisibleSubCubes(c: IBlkDef, cb: (c: IBlkDef) => void) {
-        if (c.subs) {
-            for (let sub of c.subs) {
-                iterVisibleSubCubes(sub, cb);
-            }
-        } else {
-            cb(c);
-        }
-    }
-
     if (minCube) {
         let [c, main] = minCube;
-
-        blockDimension(state, state.layout, main, Dim.X, main.dimX, 1.0);
-        blockDimension(state, state.layout, main, Dim.Y, main.dimY, 1.0);
-
-        iterVisibleSubCubes(main, (c) => {
-            c.highlight = 0.1;
-        });
 
         let tl = new Vec3(c.x, c.y, c.z);
         let pt = worldA.add(dir.mul(minT));
@@ -107,31 +88,6 @@ export function runMouseHitTesting(state: IProgramState) {
             Math.floor(pt3.z * c.cz),
         );
 
-        let ptLocalIdx = new Vec3(
-            pt2.x * c.cx * c.dx / main.dx,
-            pt2.y * c.cy * c.dy / main.dy,
-            pt2.z * c.cz * c.dz / main.dz,
-        );
-        // also want the split point in the sub block's local space
-
-        // currently broken otherwise :(
-        if (c === main) {
-            // need to choose a primary axis (if it makes sense! usually the T axis)
-            // we then highlight that access a little bit
-            // probably need to do that in the GptModelLayout? It's not a super well-defined idea
-            let midX = splitGridX(state.layout, c, Dim.X, ptLocalIdx.x, 0);
-            if (midX) {
-                midX.highlight = 0.15;
-                let midY = splitGridX(state.layout, midX, Dim.Y, ptLocalIdx.y, 0);
-                if (midY) {
-                    let midZ = splitGridX(state.layout, midY, Dim.Z, ptLocalIdx.z, 0);
-                    if (midZ) {
-                        midZ.highlight = 0.6;
-                    }
-                }
-            }
-        }
-
         state.display.hoverTarget = { mainCube: main, subCube: c, mainIdx: ptIdx };
 
         for (let label of state.layout.labels) {
@@ -142,9 +98,55 @@ export function runMouseHitTesting(state: IProgramState) {
             }
         }
 
+        blockDimension(state, state.layout, main, Dim.X, main.dimX, 1.0);
+        blockDimension(state, state.layout, main, Dim.Y, main.dimY, 1.0);
+
+        highlightCellUnderMouse(state, main, c, pt2);
         drawDependences(state, main, ptIdx);
+        drawDataFlow(state, main, ptIdx);
     }
 
+}
+
+
+export function iterVisibleSubCubes(c: IBlkDef, cb: (c: IBlkDef) => void) {
+    if (c.subs) {
+        for (let sub of c.subs) {
+            iterVisibleSubCubes(sub, cb);
+        }
+    } else {
+        cb(c);
+    }
+}
+
+export function highlightCellUnderMouse(state: IProgramState, mainBlk: IBlkDef, blk: IBlkDef, pt2: Vec3) {
+
+    iterVisibleSubCubes(mainBlk, (c) => {
+        c.highlight = 0.1;
+    });
+
+    // currently broken otherwise :(
+    if (blk === mainBlk) {
+        let ptLocalIdx = new Vec3(
+            pt2.x * blk.cx * blk.dx / mainBlk.dx,
+            pt2.y * blk.cy * blk.dy / mainBlk.dy,
+            pt2.z * blk.cz * blk.dz / mainBlk.dz,
+        );
+        // need to choose a primary axis (if it makes sense! usually the T axis)
+        // we then highlight that access a little bit
+        // probably need to do that in the GptModelLayout? It's not a super well-defined idea
+        let midX = splitGridX(state.layout, blk, Dim.X, ptLocalIdx.x, 0);
+        if (midX) {
+            midX.highlight = 0.15;
+            let midY = splitGridX(state.layout, midX, Dim.Y, ptLocalIdx.y, 0);
+            if (midY) {
+                let midZ = splitGridX(state.layout, midY, Dim.Z, ptLocalIdx.z, 0);
+                if (midZ) {
+                    midZ.highlight = 0.6;
+                }
+            }
+        }
+    }
 }
 
 export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
@@ -187,7 +189,6 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
         }
     }
 
-    drawDataFlow(state, blk, idx);
 
 }
 

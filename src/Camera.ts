@@ -67,7 +67,7 @@ export function genModelViewMatrices(state: IProgramState) {
     let { lookAt, camPos } = cameraToMatrixView(camera);
     let dist = 200 * camera.angle.z;
 
-    let persp = Mat4f.fromPersp(40, state.render.canvasEl.width / state.render.canvasEl.height, dist / 100, localDist + Math.max(dist * 2, 10000));
+    let persp = Mat4f.fromPersp(40, state.render.size.x / state.render.size.y, dist / 100, localDist + Math.max(dist * 2, 10000));
     let viewMtx = persp.mul(lookAt);
     let modelMtx = new Mat4f();
     modelMtx[0] = 1.0;
@@ -83,6 +83,11 @@ export function genModelViewMatrices(state: IProgramState) {
     state.camera.lookAtMtx = lookAt;
 }
 
+export function camScaleToScreen(state: IProgramState, modelPt: Vec3) {
+    let camDist = state.camera.camPosModel.dist(modelPt);
+    return camDist / state.render.size.y * 5.0;
+}
+
 export function cameraMoveToDesired(camera: ICamera, dt: number) {
 
     // This is making me nauseous. Gonna do jump-to instead of smooth transition for now.
@@ -92,13 +97,11 @@ export function cameraMoveToDesired(camera: ICamera, dt: number) {
     let duration = 1000 * 1;
 
     if (camera.centerDesired && camera.transition.centerT === undefined) {
-        console.log("cameraMoveToDesired: centerDesired", camera.centerDesired);
         camera.transition.centerInit = camera.center;
         camera.transition.centerT = 0.0;
     }
     if (camera.transition.centerT !== undefined) {
         camera.transition.centerT += dt / duration;
-        console.log("cameraMoveToDesired: centerT", camera.transition.centerT);
         if (camera.transition.centerT > 1.0) {
             camera.transition.centerT = undefined;
             camera.transition.centerInit = undefined;
