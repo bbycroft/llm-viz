@@ -3,7 +3,6 @@ import { drawDataFlow } from "./components/DataFlow";
 import { IBlkCellDep, IBlkDef } from "./GptModelLayout";
 import { IProgramState } from "./Program";
 import { clamp } from "./utils/data";
-import { IGLContext } from "./utils/shader";
 import { Dim, Vec3, Vec4 } from "./utils/vector";
 
 export function runMouseHitTesting(state: IProgramState) {

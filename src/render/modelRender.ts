@@ -30,7 +30,6 @@ export interface IRenderState {
     triRender: ReturnType<typeof initTriRender>;
     fontAtlas: IFontAtlas;
     modelFontBuf: IFontBuffers;
-    overlayFontBuf: IFontBuffers;
     quadVao: WebGLVertexArrayObject;
     queryManager: IQueryManager;
     size: Vec3;
@@ -81,7 +80,6 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
     let fontAtlas = setupFontAtlas(ctx, fontAtlasData);
 
     let modelFontBuf = createFontBuffers(fontAtlas, sharedRender);
-    let overlayFontBuf = createFontBuffers(fontAtlas, sharedRender);
     let threadRender = initThreadRender(ctx);
     let lineRender = createLineRender(ctx, sharedRender);
     let blockRender = initBlockRender(ctx);
@@ -103,7 +101,6 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         sharedRender,
         fontAtlas,
         modelFontBuf,
-        overlayFontBuf,
         quadVao,
         queryManager,
         size: new Vec3(1, 1),
@@ -115,7 +112,6 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
 export function resetRenderBuffers(args: IRenderState) {
     resetLineRender(args.lineRender);
     resetFontBuffers(args.modelFontBuf);
-    resetFontBuffers(args.overlayFontBuf);
     resetTriRender(args.triRender);
 }
 
@@ -188,19 +184,28 @@ export function renderModel(state: IProgramState) {
     renderAllBlocks(blockRender, layout, modelMtx, camPos, lightPosArr, lightColorArr);
     renderAllThreads(args.threadRender);
 
+    gl.polygonOffset(-1.0, -2.0);
+
     let phaseOrder = [RenderPhase.Opaque, RenderPhase.Arrows, RenderPhase.Overlay, RenderPhase.Overlay2D];
     for (let phase of phaseOrder) {
 
         if (phase === RenderPhase.Overlay2D) {
             let w = size.x;
             let h = size.y;
+            gl.clear(gl.DEPTH_BUFFER_BIT);
             writeModelViewUbo(args.sharedRender, new Mat4f(), Mat4f.fromOrtho(0, w, h, 0, -1, 1));
         }
 
+        if (phase === RenderPhase.Overlay || phase === RenderPhase.Overlay2D) {
+            gl.enable(gl.POLYGON_OFFSET_FILL);
+        } else {
+            gl.disable(gl.POLYGON_OFFSET_FILL);
+        }
         renderAllTris(args.triRender, phase);
         renderAllText(args.modelFontBuf, phase);
         renderAllLines(args.lineRender, phase);
     }
+    gl.disable(gl.POLYGON_OFFSET_FILL);
 
     args.sharedRender.activePhase = RenderPhase.Opaque;
 }

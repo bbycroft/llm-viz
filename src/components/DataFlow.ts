@@ -16,19 +16,19 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
     if (!blk.deps) {
         return;
     }
-    state.render.sharedRender.activePhase = RenderPhase.Overlay;
-
-    // let cellPos = new Vec3(
-    //     cellPosition(state.layout, blk, Dim.X, destIdx.x) + state.layout.cell * 0.5,
-    //     cellPosition(state.layout, blk, Dim.Y, destIdx.y) + state.layout.cell * 0.5,
-    //     cellPosition(state.layout, blk, Dim.Z, destIdx.z) + state.layout.cell * 1.1,
-    // );
+    state.render.sharedRender.activePhase = RenderPhase.Overlay2D;
 
     let cellPos = new Vec3(
-        (cellPosition(state.layout, blk, Dim.X, 0) + cellPosition(state.layout, blk, Dim.X, blk.cx - 1)) * 0.5,
-        cellPosition(state.layout, blk, Dim.Y, 0) - state.layout.cell * 0.5,
-        cellPosition(state.layout, blk, Dim.Z, 0) + state.layout.cell * 0.5,
+        cellPosition(state.layout, blk, Dim.X, destIdx.x) + state.layout.cell * 0.5,
+        cellPosition(state.layout, blk, Dim.Y, destIdx.y) + state.layout.cell * 0.5,
+        cellPosition(state.layout, blk, Dim.Z, destIdx.z) + state.layout.cell * 1.1,
     );
+
+    // let cellPos = new Vec3(
+    //     (cellPosition(state.layout, blk, Dim.X, 0) + cellPosition(state.layout, blk, Dim.X, blk.cx - 1)) * 0.5,
+    //     cellPosition(state.layout, blk, Dim.Y, 0) - state.layout.cell * 0.5,
+    //     cellPosition(state.layout, blk, Dim.Z, 0) + state.layout.cell * 0.5,
+    // );
 
     // let screenPos = projectToScreen(state, cellPos);
 
@@ -37,8 +37,8 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
     // mtx[12] = 0.0;
     // mtx[13] = 0.0;
     // mtx[14] = 0.0;
-    let mtxT = Mat4f.fromTranslation(cellPos);
-    let mtxTInv = Mat4f.fromTranslation(cellPos.mul(-1));
+    // let mtxT = Mat4f.fromTranslation(cellPos);
+    // let mtxTInv = Mat4f.fromTranslation(cellPos.mul(-1));
     // mtx = mtx.invert();
     // console.log(mtx.toString());
 
@@ -58,13 +58,20 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
     mtx[10] = camDir.z;
 
     let scale = camScaleToScreen(state, cellPos);
+    scale = 1.0; // Math.min(scale, 1);
+
+    let screenPos = projectToScreen(state, cellPos);
+    let mtxT = Mat4f.fromTranslation(screenPos);
+    let mtxTInv = Mat4f.fromTranslation(screenPos.mul(-1));
 
     let scaleMtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(scale));
-    let translateMtx = Mat4f.fromTranslation(new Vec3(0, 0, -20 + cellPos.z));
+    // let translateMtx = Mat4f.fromTranslation(new Vec3(0, 0, -20 + cellPos.z));
 
-    let resMtx = mtxT.mul(mtx).mul(scaleMtx).mul(mtxTInv).mul(translateMtx);
+    let resMtx = mtxT.mul(scaleMtx).mul(mtxTInv); //.mul(translateMtx);
 
-    let center = cellPos.add(new Vec3(0, -3, -cellPos.z));
+    // console.log(resMtx.toString());
+
+    let center = screenPos.add(new Vec3(0, -50)); // cellPos.add(new Vec3(0, -3, -cellPos.z));
 
     if (blk.deps.special === BlKDepSpecial.InputEmbed) {
         drawOLAddSymbol(state, center, scale, resMtx);
@@ -80,12 +87,12 @@ export function drawOLAddSymbol(state: IProgramState, center: Vec3, scale: numbe
 
     let color = opColor;
     let innerColor = new Vec4(1.0, 1.0, 1.0, 1).mul(0.6);
-    let width = 0.1;
-    let radius = 1.5;
+    let width = 1;
+    let radius = 15;
     drawCircle(state.render, center, radius, width * scale, color, mtx);
     drawCirclePlane(state.render, center, radius, innerColor, mtx);
 
-    let textOpts: IFontOpts = { color: color, mtx, size: 4 };
+    let textOpts: IFontOpts = { color: color, mtx, size: 40 };
     let tw = measureText(state.render.modelFontBuf, '+', textOpts);
 
     drawText(state.render.modelFontBuf, '+', center.x - tw / 2, center.y - textOpts.size * 0.5, textOpts);
@@ -132,36 +139,36 @@ function projectToScreen(state: IProgramState, modelPos: Vec3) {
     return new Vec3(
         (ndc.x + 1) * 0.5 * state.render.size.x,
         (1 - ndc.y) * 0.5 * state.render.size.y,
-        ndc.z);
+        0);
 }
 
 let weightSrcColor = new Vec4(0.3, 0.3, 0.7, 1);
 let workingSrcColor = new Vec4(0.3, 0.7, 0.3, 1);
 
-let opColor = new Vec4(0.7, 0.3, 0.3, 1);
+let opColor = new Vec4(0.9, 0.5, 0.5, 1);
 let backWhiteColor = new Vec4(0.0, 0.0, 0.0, 1).mul(1.0);
 let nameColor = new Vec4(1.0, 1.0, 1.0, 1);
-let embedBlockHeight = 3;
-let tokEmbedBlockWidth = 4.0;
-let posEmbedBlockWidth = 3.5;
+let embedBlockHeight = 30;
+let tokEmbedBlockWidth = 40;
+let posEmbedBlockWidth = 35;
 
 export function drawOLIndexLookup(state: IProgramState, center: Vec3, scale: number, mtx: Mat4f) {
 
-    let pos = center.add(new Vec3(-5, 0, 0));
+    let pos = center.add(new Vec3(-50, 0, 0));
     let color = new Vec4(0.3, 0.3, 0.7, 1);
 
     let tl = pos.add(new Vec3(-tokEmbedBlockWidth/2, -embedBlockHeight/2));
     let br = pos.add(new Vec3(tokEmbedBlockWidth/2,  embedBlockHeight/2));
 
-    drawLineRect(state.render, tl, br, makeLineOpts({ color, mtx, n: new Vec3(0, 0, 1), thick: 0.05 * scale }));
+    drawLineRect(state.render, tl, br, makeLineOpts({ color, mtx, n: new Vec3(0, 0, 1), thick: 0.5 * scale }));
 
     addQuad(state.render.triRender, tl, br, backWhiteColor, mtx);
 
-    let colW = 0.8;
-    let colTl = new Vec3(tl.x + 1.0, tl.y);
+    let colW = 8;
+    let colTl = new Vec3(tl.x + 10, tl.y);
     let colBr = new Vec3(colTl.x + colW, br.y);
 
-    let cellTl = new Vec3(colTl.x, colTl.y + 0.8);
+    let cellTl = new Vec3(colTl.x, colTl.y + 8);
     let cellBr = new Vec3(colBr.x, cellTl.y + colW);
 
     addQuad(state.render.triRender, colTl, colBr, color.mul(0.3), mtx);
@@ -169,9 +176,9 @@ export function drawOLIndexLookup(state: IProgramState, center: Vec3, scale: num
 
     let lineColor = dimStyleColor(DimStyle.TokenIdx);
     let lineEndX = colTl.x + colW / 2;
-    let lineEndY = colTl.y - 0.5;
+    let lineEndY = colTl.y - 5;
     let lineStartX = center.x;
-    let lineHeight = 2.0;
+    let lineHeight = 20;
 
     let pts = new Float32Array([
         lineStartX, lineEndY - 2 * lineHeight, 0,
@@ -179,12 +186,12 @@ export function drawOLIndexLookup(state: IProgramState, center: Vec3, scale: num
         lineEndX, lineEndY - lineHeight, 0,
         lineEndX, lineEndY, 0,
     ]);
-    let lineOpts = makeLineOpts({ color: lineColor, mtx, n: new Vec3(0, 0, 1), thick: 0.15 * scale });
+    let lineOpts = makeLineOpts({ color: lineColor, mtx, n: new Vec3(0, 0, 1), thick: 1.5 * scale });
     drawLineSegs(state.render.lineRender, pts, lineOpts);
 }
 
 export function drawOLPosEmbedLookup(state: IProgramState, center: Vec3, scale: number, mtx: Mat4f) {
-    let pos = center.add(new Vec3(5, 0, 0));
+    let pos = center.add(new Vec3(50, 0, 0));
     let color = weightSrcColor;
 
     let tl = pos.add(new Vec3(-posEmbedBlockWidth/2, -embedBlockHeight/2)); 
@@ -194,32 +201,32 @@ export function drawOLPosEmbedLookup(state: IProgramState, center: Vec3, scale: 
 
     addQuad(state.render.triRender, tl, br, backWhiteColor, mtx);
 
-    let colW = 0.8;
-    let colTl = new Vec3(tl.x + 1.5, tl.y);
+    let colW = 8;
+    let colTl = new Vec3(tl.x + 15, tl.y);
     let colBr = new Vec3(colTl.x + colW, br.y);
 
-    let cellTl = new Vec3(colTl.x, colTl.y + 0.8);
+    let cellTl = new Vec3(colTl.x, colTl.y + 8);
     let cellBr = new Vec3(colBr.x, cellTl.y + colW);
 
     addQuad(state.render.triRender, colTl, colBr, color.mul(0.3), mtx);
     addQuad(state.render.triRender, cellTl, cellBr, color, mtx);
 
-    let textOpts: IFontOpts = { color: color, mtx, size: 2 };
+    let textOpts: IFontOpts = { color: color, mtx, size: 20 };
     let tw = measureText(state.render.modelFontBuf, 't', textOpts);
 
-    drawText(state.render.modelFontBuf, 't', (cellTl.x + cellBr.x) / 2 - tw / 2, colTl.y - 0.3 - textOpts.size, textOpts);
+    drawText(state.render.modelFontBuf, 't', (cellTl.x + cellBr.x) / 2 - tw / 2, colTl.y - 3 - textOpts.size, textOpts);
 }
 
 
 export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: number, mtx: Mat4f, blk: IBlkDef) {
 
-    let cellSize = 0.8;
+    let cellSize = 7.0;
 
     function drawRowCol(pos: Vec3, color: Vec4, isRow: boolean, nCells: number) {
 
         let nCellsX = isRow ? nCells : 1;
         let nCellsY = isRow ? 1 : nCells;
-        let thick = 0.05 * scale;
+        let thick = 0.4 * scale;
 
         let tl = pos.add(new Vec3(0                 , -cellSize * nCellsY / 2));
         let br = pos.add(new Vec3(cellSize * nCellsX,  cellSize * nCellsY / 2));
@@ -251,12 +258,12 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: numbe
     let dotAW = cellSize * (dotAIsRow ? 4 : 1);
     let dotBW = cellSize * (dotBIsRow ? 4 : 1);
 
-    let pad = 0.8;
+    let pad = 4.0;
 
     let hasAdd = !!blk.deps!.add;
     let addW = hasAdd ? cellSize : -pad;
 
-    let textOpts: IFontOpts = { color: opColor, mtx, size: 2 };
+    let textOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
     let textY = center.y - textOpts.size * 0.56;
 
@@ -274,11 +281,11 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: numbe
     let nameTextOpts = { color: nameColor, mtx, size: 2.0 };
     let nameW = measureText(state.render.modelFontBuf, blk.name, nameTextOpts);
 
-    let h = 5;
+    let h = 40;
     let halfW = Math.max(nameW, total) / 2 + pad * 2;
-    let nameHeight = nameTextOpts.size * 0.9;
+    // let nameHeight = nameTextOpts.size * 0.9;
 
-    drawRoundedRect(state.render, center.add(new Vec3(-halfW, -h/2 - nameHeight - pad)), center.add(new Vec3(halfW, h/2)), backWhiteColor, mtx, 1.0);
+    drawRoundedRect(state.render, center.add(new Vec3(-halfW, -h/2)), center.add(new Vec3(halfW, h/2)), backWhiteColor, mtx, 5.0);
 
     drawRowCol(new Vec3(dotAX, center.y), dotAColor, dotAIsRow, 4);
     drawRowCol(new Vec3(dotBX, center.y), dotBColor, dotBIsRow, 4);
@@ -291,7 +298,7 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: numbe
     drawText(state.render.modelFontBuf, commaText,    commaTX,   textY, textOpts);
     drawText(state.render.modelFontBuf, dotEndText,   dotEndX,   textY, textOpts);
 
-    drawText(state.render.modelFontBuf, blk.name, center.x - nameW / 2, center.y - h / 2 - nameHeight, nameTextOpts);
+    // drawText(state.render.modelFontBuf, blk.name, center.x - nameW / 2, center.y - h / 2 - nameHeight, nameTextOpts);
 }
 
 export function drawRoundedRect(state: IRenderState, tl: Vec3, br: Vec3, color: Vec4, mtx: Mat4f, radius: number) {

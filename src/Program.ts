@@ -1,6 +1,6 @@
 import { cameraMoveToDesired, genModelViewMatrices, ICamera } from "./Camera";
 import { drawAllArrows } from "./components/Arrow";
-import { drawBlockLabels } from "./components/BlockLabels";
+import { drawBlockLabels } from "./components/SectionLabels";
 import { drawModelCard } from "./components/ModelCard";
 import { IGpuGptModel, IModelShape } from "./GptModel";
 import { genGptModelLayout, IBlkDef, IGptModelLayout } from "./GptModelLayout";
@@ -16,6 +16,7 @@ import { IColorMix } from "./Annotations";
 import { Mat4f } from "./utils/matrix";
 import { runMouseHitTesting } from "./Interaction";
 import { RenderPhase } from "./render/sharedRender";
+import { drawBlockInfo } from "./components/BlockInfo";
 
 export interface IProgramState {
     mouse: IMouseState;
@@ -100,6 +101,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     let timer0 = performance.now();
 
     resetRenderBuffers(state.render);
+    state.render.sharedRender.activePhase = RenderPhase.Opaque;
     state.display.lines = [];
     state.display.hoverTarget = null;
     state.display.tokenColors = null;
@@ -122,6 +124,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     // will modify layout; view; render a few things.
     runWalkthrough(state, view);
 
+    drawBlockInfo(state);
     // these will get modified by the walkthrough (stored where?)
     drawAllArrows(state.render, state.layout);
 
@@ -134,10 +137,11 @@ export function runProgram(view: IRenderView, state: IProgramState) {
 
     let lineNo = 1;
     let tw = state.render.size.x;
+    state.render.sharedRender.activePhase = RenderPhase.Overlay2D;
     for (let line of state.display.lines) {
         let opts: IFontOpts = { color: new Vec4(), size: 14 };
-        let w = measureText(state.render.overlayFontBuf, line, opts);
-        drawText(state.render.overlayFontBuf, line, tw - w - 4, lineNo * opts.size * 1.3 + 4, opts)
+        let w = measureText(state.render.modelFontBuf, line, opts);
+        drawText(state.render.modelFontBuf, line, tw - w - 4, lineNo * opts.size * 1.3 + 4, opts)
         lineNo++;
     }
 

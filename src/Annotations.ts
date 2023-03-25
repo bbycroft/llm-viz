@@ -31,6 +31,7 @@ export function blockDimension(state: IProgramState, layout: IModelLayout, blk: 
     let mul = dim === Dim.X ? -1.0 : 1.0;
 
     let scale = camScaleToScreen(state, midPos);
+    scale = Math.min(scale, 1);
 
     let fontSize = 2.5 * scale;
     let tw = measureTextWidth(render.modelFontBuf, text, fontSize);

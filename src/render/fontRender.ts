@@ -149,12 +149,16 @@ export function setupFontAtlas(ctx: IGLContext, data: IFontAtlasData) {
         void main() {
             vec3 msd = texture(u_tex, v_uv).rgb;
             float sd = median(msd.r, msd.g, msd.b);
-            float screenPxDistance = screenPxRange()*(sd - 0.5);
+            float screenRange = screenPxRange();
+            float screenPxDistance = screenRange*(sd - 0.5);
             float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
-            if (opacity == 0.0) {
+
+            float blurOpacity = 0.0; //smoothstep(0.5 - 0.4, 0.5, sd);
+
+            if (opacity == 0.0 && blurOpacity == 0.0) {
                 discard;
             }
-            color = mix(v_bgColor, v_fgColor, opacity);
+            color = mix(vec4(0,0,0,1.0) * blurOpacity, v_fgColor, opacity);
         }
     `, ['u_tex', 'u_transformTex', 'pxRange'], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView } })!;
 

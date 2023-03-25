@@ -167,7 +167,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
     let y = 0;
 
     let cell = 1.5;
-    let margin = Math.max(5, C / 6);
+    let margin = Math.max(12, C / 6);
 
     function mk(args: IBlkDefArgs): IBlkDef {
         let xDef = [args.xL, args.xR, args.xM].map(a => +!isNil(a)).reduce((a, b) => a + b, 0);
@@ -221,6 +221,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         xM: 0, zM: 0,
         access: { src: gptGpuModel?.inputTokens, x: [0, 1, 0], y: [1, 0, T], scale: 1 / vocabSize},
         dimX: DimStyle.T, dimY: DimStyle.None,
+        name: 'Tokens',
     });
 
     let leftX = -T * cell / 2 - margin;
@@ -234,6 +235,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         cx: vocabSize, cz: 1, cy: C, // src has shape [vocabSize, C]
         access: { src: gptGpuModel?.vocabEmbed.weight, x: [0, 1, 0], y: [1, 0, 0] },
         dimX: DimStyle.n_vocab, dimY: DimStyle.C,
+        name: 'Token Embed',
     });
 
     let posEmbedObj = mk({
@@ -242,6 +244,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         cx: T, cz: 1, cy: C,
         access: { src: gptGpuModel?.posEmbed.weight, x: [0, 1, 0], y: [1, 0, 0] },
         dimX: DimStyle.T, dimY: DimStyle.C,
+        name: 'Position Embed',
     });
 
     let residual0 = mk({
@@ -251,6 +254,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         access: { src: gptGpuModel?.add.output, x: [0, 1, 0], y: [1, 0, T] },
         deps: { add: [[tokEmbedObj, 'iy'], [posEmbedObj, 'xy'], [idxObj, 'x0']], special: BlKDepSpecial.InputEmbed }, // the i comes from the idxObj lookup
         dimX: DimStyle.T, dimY: DimStyle.C,
+        name: 'Input Embed',
     });
     cubes.push(idxObj, tokEmbedObj, posEmbedObj, residual0);
 
@@ -278,14 +282,14 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: resLeftX, zM: 0,
             access: { src: target?.normWeight, x: [1, 0, 0], y: [0, 1, 0], scale: 0.5 }, // mostly around 1.0
             dimX: DimStyle.None, dimY: DimStyle.C,
-            name: 'LN σ',
+            name: 'σ',
         });
         let lnMu = mk({
             t: 'w', cx: 1, cz: 1, cy: C, y: y,
             xR: resLeftX - cell * 1 - margin, zM: 0,
             access: { src: target?.normBias, x: [1, 0, 0], y: [0, 1, 0] },
             dimX: DimStyle.None, dimY: DimStyle.C,
-            name: 'LN μ',
+            name: 'μ',
         });
         let lnResid = mk({
             t: 'i', cx: T, cz: B, cy: C, y: y,
@@ -418,7 +422,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 xR: attnLeftX - T * cell - margin, zM: headZMid,
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
                 dimX: DimStyle.None, dimY: DimStyle.T,
-                name: 'Attention Matrix Agg',
+                name: 'Attn Agg',
             });
 
             let attnMtxSm = mk({
@@ -427,7 +431,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [1, 0, 0], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
                 deps: { add: [[attnMtx, 'xy'], [attnMtxAgg, 'iy']], lowerTri: true, special: BlKDepSpecial.Softmax },
                 dimX: DimStyle.T, dimY: DimStyle.T,
-                name: 'Attention Matrix Softmax',
+                name: 'Attn Matrix Softmax',
             });
 
             let vOutBlock = mk({
@@ -524,6 +528,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: attnLeftX, zM: 0,
             access: { src: target?.mlp.fcLayer.weight, x: [0, 1, 0], y: [1, 0, 0], scale: C * 0.5 },
             dimX: DimStyle.C4, dimY: DimStyle.C,
+            name: 'MLP Weights',
         });
 
         let mlpFcBias = mk({
@@ -531,6 +536,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: attnLeftX, zM: 0,
             access: { src: target?.mlp.fcLayer.bias!, x: [0, 1, 0], y: [1, 0, 0], scale: C * 0.5 },
             dimX: DimStyle.C4, dimY: DimStyle.None,
+            name: 'MLP Bias',
         });
 
         y += C * cell + margin;
@@ -541,6 +547,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.mlp.fcLayer.output, x: [1, 0, 0], y: [0, 1, T] },
             deps: { dot: [[mlpFcWeight, 'xi'], [ln2.lnResid, 'yi']], dotLen: C, add: [[mlpFcBias, 'x']] },
             dimX: DimStyle.C4, dimY: DimStyle.T,
+            name: 'MLP',
         });
 
         y += T * cell + margin;
@@ -551,6 +558,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.mlp.mlpGelu, x: [1, 0, 0], y: [0, 1, T] },
             deps: { add: [[mlpFc, 'xy']] },
             dimX: DimStyle.C4, dimY: DimStyle.T,
+            name: 'MLP Activation',
         });
 
         y += T * cell + margin;
@@ -560,6 +568,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: attnLeftX, zM: 0,
             access: { src: target?.mlp.projLayer.weight, x: [1, 0, 0], y: [0, 1, 0], scale: C * 0.5 },
             dimX: DimStyle.C4, dimY: DimStyle.C,
+            name: 'MLP Projection Weights',
         });
 
         let mlpProjBias = mk({
@@ -567,6 +576,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             xR: attnLeftX - C * 4 * cell - margin, zM: 0,
             access: { src: target?.mlp.projLayer.bias!, x: [1, 0, 0], y: [0, 1, 0], scale: C * 0.5 },
             dimX: DimStyle.None, dimY: DimStyle.C,
+            name: 'MLP Projection Bias',
         });
 
         let mlpResult = mk({
@@ -575,6 +585,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.mlp.projLayer.output, x: [0, 1, 0], y: [1, 0, T] },
             deps: { dot: [[mlpProjWeight, 'iy'], [mlpAct, 'ix']], dotLen: C, add: [[mlpProjBias, '0y']] },
             dimX: DimStyle.T, dimY: DimStyle.C,
+            name: 'MLP Result',
         });
 
         let mlpResidual = mk({
@@ -583,6 +594,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             access: { src: target?.mlp.output, x: [0, 1, 0], y: [1, 0, T] },
             deps: { add: [[mlpResult, 'xy'], [attnResidual, 'xy']] },
             dimX: DimStyle.T, dimY: DimStyle.C,
+            name: 'MLP Residual',
         });
 
         y += C * cell - margin;
@@ -665,6 +677,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         xR: lnLeftX, zM: 0,
         access: { src: gptGpuModel?.lm_head.weight, x: [0, 1, 0], y: [1, 0, 0], scale: 5.0 },
         dimX: DimStyle.n_vocab, dimY: DimStyle.C,
+        name: 'LM Head Weights',
     });
 
     y += C * cell + margin;
@@ -675,6 +688,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         access: { src: gptGpuModel?.lm_head.output, x: [1, 0, 0], y: [0, 1, T] },
         deps: { dot: [[lmHeadWeight, 'xi'], [ln_f.lnResid, 'yi']], dotLen: C },
         dimX: DimStyle.n_vocab, dimY: DimStyle.T,
+        name: 'Logits',
     });
 
     // z += vocabSize * cell + margin;
@@ -685,6 +699,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         access: { src: gptGpuModel?.softmaxFinal.agg, x: [1, 0, 0], y: [0, 1, T] },
         deps: { add: [[logits, 'iy']] },
         dimX: DimStyle.None, dimY: DimStyle.T,
+        name: 'SM Agg',
     });
 
     y += T * cell + margin;
@@ -695,6 +710,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         access: { src: gptGpuModel?.softmaxFinal.output, x: [1, 0, 0], y: [0, 1, T] },
         deps: { add: [[logits, 'xy'], [logitsAgg, 'iy']] },
         dimX: DimStyle.n_vocab, dimY: DimStyle.T,
+        name: 'Logits Softmax',
     });
 
     // let logitsSoftmaxTopN = mk({

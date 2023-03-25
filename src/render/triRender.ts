@@ -159,7 +159,7 @@ export function renderAllTris(render: ITriRender, renderPhase: RenderPhase) {
         return;
     }
 
-    gl.depthMask(false);
+    gl.depthMask(renderPhase === RenderPhase.Opaque);
     gl.disable(gl.CULL_FACE);
     gl.useProgram(render.triShader.program);
     gl.bindVertexArray(render.vao);
