@@ -68,8 +68,8 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
             drawArrowBotToSide(head.kBlock, head.attnMtx, 0, undefined, head.kBlock.y !== head.qBlock.y);
             drawArrowBotToSide(head.vBlock, head.vOutBlock, 0, undefined, head.vBlock.y !== head.kBlock.y);
 
-            drawArrowBetween(head.attnMtx, BlockPos.Left, head.attnMtxAgg, BlockPos.Right);
-            drawArrowBetween(head.attnMtxAgg, BlockPos.Left, head.attnMtxSm, BlockPos.Right);
+            drawArrowBetween(head.attnMtx, BlockPos.Left, head.attnMtxAgg2, BlockPos.Right);
+            drawArrowBetween(head.attnMtxAgg1, BlockPos.Left, head.attnMtxSm, BlockPos.Right);
             drawArrowBetween(head.attnMtxSm, BlockPos.Bot, head.vOutBlock, BlockPos.Left);
 
             drawArrowBetween(head.vOutBlock, BlockPos.Bot, block.attnOut, BlockPos.Top);
@@ -115,8 +115,8 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
     drawVertArrow(layout.lmHeadWeight, layout.logits);
 
     drawVertArrow(layout.logits, layout.logitsSoftmax);
-    drawHorizArrow(layout.logits, layout.logitsAgg, 2);
-    drawArrowBetween(layout.logitsAgg, BlockPos.Bot, layout.logitsSoftmax, BlockPos.Right, 2);
+    drawHorizArrow(layout.logits, layout.logitsAgg1, 2);
+    drawArrowBetween(layout.logitsAgg2, BlockPos.Bot, layout.logitsSoftmax, BlockPos.Right, 2);
 
     function blkColor(src: IBlkDef) {
         return src.t === 'w' ? weightColor : dataColor;

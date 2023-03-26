@@ -33,6 +33,8 @@ export function createLineRender(ctx: IGLContext, sharedRender: ISharedRender) {
         { name: 'a_thickness', size: 1 },
         { name: 'a_firstPair', size: 1 },
         { name: 'a_normal', size: 3 },
+        { name: 'a_dash', size: 1 },
+        { name: 'a_t', size: 1 },
     ]);
 
     let lineFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, lineVbo, 1024, strideBytes, null);
@@ -51,9 +53,12 @@ export function createLineRender(ctx: IGLContext, sharedRender: ISharedRender) {
         layout(location = 4) in float a_thickness;
         layout(location = 5) in float a_firstPair;
         layout(location = 6) in vec3 a_normal;
+        layout(location = 7) in float a_dash;
+        layout(location = 8) in float a_t;
         out vec2 v_linePos;
         out vec4 v_color;
         out float v_thickness;
+        out float v_dash;
         void main() {
 
             float mul = 1.0;
@@ -126,14 +131,16 @@ export function createLineRender(ctx: IGLContext, sharedRender: ISharedRender) {
 
             }
 
+            v_dash = a_dash;
             v_color = a_color;
-            v_linePos = vec2(mul * width, 0);
+            v_linePos = vec2(mul * width, a_t);
         }
     `, /*glsl*/`#version 300 es
         precision highp float;
         in vec2 v_linePos;
         in vec4 v_color;
         in float v_thickness;
+        in float v_dash;
         out vec4 o_color;
 
         void main() {
@@ -141,6 +148,13 @@ export function createLineRender(ctx: IGLContext, sharedRender: ISharedRender) {
             float edge0 = lineWidth / 2.0;
             float edge1 = lineWidth / 2.0 + fwidth(v_linePos.x);
             float t = 1.0 - smoothstep(edge0, edge1, abs(v_linePos.x));
+
+            if (v_dash > 0.0) {
+                float dashPos = mod(v_linePos.y, v_dash);
+                if (dashPos > v_dash / 2.0) {
+                    t = 0.0;
+                }
+            }
 
             if (t == 0.0) {
                 discard;
@@ -168,6 +182,7 @@ export interface ILineOpts {
     mtx: Mat4f;
     n?: Vec3;
     closed?: boolean;
+    dash?: number;
 }
 
 export function makeLineOpts(opts: Partial<ILineOpts> = {}): ILineOpts {
@@ -177,18 +192,19 @@ export function makeLineOpts(opts: Partial<ILineOpts> = {}): ILineOpts {
         mtx: opts.mtx || Mat4f.identity,
         n: opts.n || undefined,
         closed: opts.closed || false,
+        dash: opts.dash ?? 0,
     };
 }
 
 export function addLine2(render: ILineRender, a: Vec3, b: Vec3, opts: ILineOpts) {
-    addLine(render, opts.thick, opts.color, a, b, opts.n, opts.mtx);
+    addLine(render, opts.thick, opts.color, a, b, opts.n, opts.mtx, opts.dash);
 }
 
 let _lineA = new Vec3();
 let _lineB = new Vec3();
 let _lineDir = new Vec3();
 
-export function addLine(render: ILineRender, thickness: number, color: Vec4, a: Vec3, b: Vec3, n?: Vec3, mtx?: Mat4f) {
+export function addLine(render: ILineRender, thickness: number, color: Vec4, a: Vec3, b: Vec3, n?: Vec3, mtx?: Mat4f, dash?: number, t?: number) {
     let phase = render.sharedRender.activePhase;
     let floatLocalBuf = render.floatBuf.localBufs[0];
     let buf = floatLocalBuf.buf;
@@ -206,10 +222,12 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
         _lineB.copy_(b);
     }
 
+    dash = dash ?? 0;
     _lineDir.x = _lineB.x - _lineA.x;
     _lineDir.y = _lineB.y - _lineA.y;
     _lineDir.z = _lineB.z - _lineA.z;
-    let dirLen = 1.0 / _lineDir.len();
+    let len = _lineDir.len();
+    let dirLen = 1.0 / len;
     _lineDir.x *= dirLen;
     _lineDir.y *= dirLen;
     _lineDir.z *= dirLen;
@@ -238,6 +256,8 @@ export function addLine(render: ILineRender, thickness: number, color: Vec4, a: 
         buf[i + 15] = n.x;
         buf[i + 16] = n.y;
         buf[i + 17] = n.z;
+        buf[i + 18] = dash;
+        buf[i + 19] = j < 2 ? 0 : len;
         i += floatLocalBuf.strideFloats;
         idxBuf[k + j] = floatLocalBuf.usedEls + j;
     }
@@ -282,6 +302,7 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
         Vec3Buf.normalize_(_prevDir, 0, _prevDir, 0);
     }
 
+    let dash = opts.dash ?? 0;
     let cx = opts.color.x;
     let cy = opts.color.y;
     let cz = opts.color.z;
@@ -290,6 +311,7 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
     let nx = n.x;
     let ny = n.y;
     let nz = n.z;
+    let linePos = 0;
 
     for (let i = 0; i < nPts; i++) {
         let pOff = i * 3;
@@ -297,13 +319,16 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
             pOff = 0;
         }
 
+        let segLen = 0.0;
         if ((!opts.closed && i < nPts - 1) || (opts.closed && i !== nPts - 2)) {
             Vec3Buf.sub_(pts, pOff + 3, pts, pOff, _dir, 0);
+            segLen = Vec3Buf.len_(_dir, 0);
             Vec3Buf.normalize_(_dir, 0, _dir, 0);
 
         } else if (opts.closed && i === nPts - 2) {
             // wrap around
             Vec3Buf.sub_(pts, 0, pts, ptsLen - 3, _dir, 0);
+            segLen = Vec3Buf.len_(_dir, 0);
             Vec3Buf.normalize_(_dir, 0, _dir, 0);
         }
 
@@ -328,12 +353,15 @@ export function drawLineSegs(render: ILineRender, pts: Float32Array, opts: ILine
             buf[bufOff + 15] = nx;
             buf[bufOff + 16] = ny;
             buf[bufOff + 17] = nz;
+            buf[bufOff + 18] = dash;
+            buf[bufOff + 19] = linePos;
             bufOff += floatLocalBuf.strideFloats;
             idxBuf[idxOff + j] = floatLocalBuf.usedEls + j;
         }
 
         floatLocalBuf.usedEls += idxCount;
         idxLocalBuf.usedVerts += idxCount;
+        linePos += segLen;
 
         Vec3Buf.copy_(_dir, 0, _prevDir, 0);
     }

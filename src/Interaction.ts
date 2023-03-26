@@ -1,8 +1,8 @@
-import { blockDimension, splitGridX } from "./Annotations";
+import { blockDimension, findSubBlocks, splitGridX } from "./Annotations";
 import { drawDataFlow } from "./components/DataFlow";
 import { IBlkCellDep, IBlkDef } from "./GptModelLayout";
 import { IProgramState } from "./Program";
-import { clamp } from "./utils/data";
+import { clamp, isNotNil } from "./utils/data";
 import { Dim, Vec3, Vec4 } from "./utils/vector";
 
 export function runMouseHitTesting(state: IProgramState) {
@@ -155,19 +155,36 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
         return;
     }
 
-    function drawDep(dep: IBlkCellDep, destIdx: Vec3) {
+    function getSrcIdx(dep: IBlkCellDep, destIdx: Vec3) {
         let mtx = dep.srcIdxMtx;
         let hasXDot = mtx.g(0, 3) !== 0;
         let hasYDot = mtx.g(1, 3) !== 0;
+        let srcIdx = mtx.mulVec4(Vec4.fromVec3(destIdx, 0));
+        let dotDim = hasXDot ? Dim.Y : Dim.X;
+        return { srcIdx, dotDim, otherDim: dotDim === Dim.X ? Dim.Y : Dim.X, isDot: hasXDot || hasYDot };
+    }
 
-        if (hasXDot || hasYDot) {
-            let dotDim = hasXDot ? Dim.Y : Dim.X;
-            let srcIdx = dep.srcIdxMtx.mulVec4(Vec4.fromVec3(destIdx, 0));
+    function drawDep(dep: IBlkCellDep, destIdx: Vec3, dotLen?: number | null) {
+        let { srcIdx, dotDim, otherDim, isDot } = getSrcIdx(dep, destIdx);
+
+        if (isDot) {
+            if (dep.src.deps?.lowerTri) {
+                dotLen = dotLen ?? srcIdx.getIdx(dotDim);
+            }
 
             let sub = splitGridX(layout, dep.src, dotDim, srcIdx.getIdx(dotDim), 0);
-            if (sub) sub.highlight = 0.5;
+
+            if (sub && isNotNil(dotLen)) {
+                // only highlight up to dotLen
+                splitGridX(layout, sub, otherDim, dotLen, 0);
+                for (let parts of findSubBlocks(sub, otherDim, null, dotLen)) {
+                    parts.highlight = 0.5;
+                }
+            } else {
+
+                if (sub) sub.highlight = 0.5;
+            }
         } else {
-            let srcIdx = dep.srcIdxMtx.mulVec4(Vec4.fromVec3(destIdx, 0));
             let sub = splitGridX(layout, dep.src, Dim.X, srcIdx.x, 0);
             if (!sub) return;
             sub = splitGridX(layout, sub, Dim.Y, srcIdx.y, 0);
@@ -178,8 +195,16 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
     }
 
     if (deps.dot) {
+        let dotLen: number | null = null;
+        let triLimit = deps.dot
+            .find((d) => d.src.deps?.lowerTri);
+        if (triLimit) {
+            let { srcIdx, dotDim } = getSrcIdx(triLimit, idx);
+            dotLen = srcIdx.getIdx(dotDim);
+        }
+
         for (let dep of deps.dot) {
-            drawDep(dep, idx);
+            drawDep(dep, idx, dotLen);
         }
     }
     if (deps.add) {

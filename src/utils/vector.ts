@@ -266,6 +266,13 @@ export class Vec3Buf {
         out[outOff + 1] = y * lenInv;
         out[outOff + 2] = z * lenInv;
     }
+
+    static len_(a: Float32Array, aOff: number): number {
+        let x = a[aOff + 0];
+        let y = a[aOff + 1];
+        let z = a[aOff + 2];
+        return Math.sqrt(x * x + y * y + z * z);
+    }
 }
 
 export class Vec4Buf {

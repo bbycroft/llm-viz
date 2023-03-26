@@ -54,7 +54,7 @@ async function runAll() {
 
     files.push(await generateAndSave('fonts/Roboto-Regular.ttf', {
         ...commonOpts,
-        charset: '! "#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~‧\\—γβσμε',
+        charset: '! "#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~‧\\—Σγβσμε',
     }, 'regular'));
 
     // math italic

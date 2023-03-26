@@ -43,6 +43,7 @@ export interface IBlkDeps {
     dotLen?: number;
     add?: IBlkCellDep[];
     special: BlKDepSpecial;
+    lowerTri?: boolean;
 }
 
 export interface IBlkCellDep {
@@ -69,6 +70,8 @@ export enum BlKDepSpecial {
     InputEmbed,
     LayerNormMu,
     LayerNormSigma,
+    SoftmaxAggMax,
+    SoftmaxAggExp,
 }
 
 let depIdxVars = '0xybi';
@@ -90,6 +93,7 @@ function depArgsToDeps(args: IBlkDepArgs): IBlkDeps {
         dotLen: args.dotLen,
         add: args.add && args.add.map(([src, depStr]) => makeBlkDeps(src, depStr)),
         special: args.special ?? BlKDepSpecial.None,
+        lowerTri: args.lowerTri,
     };
 }
 
@@ -430,19 +434,29 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 name: 'Attention Matrix',
             });
 
-            let attnMtxAgg = mk({
-                t: 'a', cx: 2, cz: B, cy: T, y: attn1Y,
-                xR: attnLeftX - T * cell - margin, zM: headZMid,
-                access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
+            let attnMtxAgg1 = mk({
+                t: 'a', cx: 1, cz: B, cy: T, y: attn1Y,
+                xR: attnLeftX - T * cell - margin - cell, zM: headZMid,
+                access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, 1, nHeads * T, T * i], scale: 1.0, channel: 'r' },
+                deps: { add: [[attnMtx, 'iy']], special: BlKDepSpecial.SoftmaxAggExp },
                 dimX: DimStyle.None, dimY: DimStyle.T,
                 name: 'Attn Agg',
+            });
+
+            let attnMtxAgg2 = mk({
+                t: 'a', cx: 1, cz: B, cy: T, y: attn1Y,
+                xR: attnLeftX - T * cell - margin, zM: headZMid,
+                access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, 1, nHeads * T, T * i], scale: 1.0, channel: 'g' },
+                deps: { add: [[attnMtx, 'iy']], special: BlKDepSpecial.SoftmaxAggMax },
+                dimX: DimStyle.None, dimY: DimStyle.T,
+                name: '',
             });
 
             let attnMtxSm = mk({
                 t: 'i', cx: T, cz: B, cy: T, y: attn1Y,
                 xR: attn2LeftX, zM: headZMid,
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [1, 0, 0], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
-                deps: { add: [[attnMtx, 'xy'], [attnMtxAgg, 'iy']], lowerTri: true, special: BlKDepSpecial.Softmax },
+                deps: { add: [[attnMtx, 'xy'], [attnMtxAgg1, 'iy'], [attnMtxAgg2, 'iy']], lowerTri: true, special: BlKDepSpecial.Softmax },
                 dimX: DimStyle.T, dimY: DimStyle.T,
                 name: 'Attn Matrix Softmax',
             });
@@ -459,21 +473,21 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             let headCubes = [qWeightBlock, kWeightBlock, vWeightBlock,
                 qBiasBlock, kBiasBlock, vBiasBlock,
                 qBlock, kBlock, vBlock,
-                attnMtx, attnMtxAgg, attnMtxSm, vOutBlock];
+                attnMtx, attnMtxAgg1, attnMtxAgg2, attnMtxSm, vOutBlock];
 
             let headLabel = mkLabel(1.0, headCubes);
             let qLabel = mkLabel(1.0, [qWeightBlock, qBiasBlock, qBlock]);
             let kLabel = mkLabel(1.0, [kWeightBlock, kBiasBlock, kBlock]);
             let vLabel = mkLabel(1.0, [vWeightBlock, vBiasBlock, vBlock]);
             let biasLabel = mkLabel(1.0, [qBiasBlock, kBiasBlock, vBiasBlock]);
-            let mtxLabel = mkLabel(1.0, [attnMtx, attnMtxAgg, attnMtxSm]);
+            let mtxLabel = mkLabel(1.0, [attnMtx, attnMtxAgg1, attnMtxAgg2, attnMtxSm]);
             let vectorLabel = mkLabel(1.0, [vOutBlock]);
 
             let head = {
                 qWeightBlock, kWeightBlock, vWeightBlock,
                 qBiasBlock, kBiasBlock, vBiasBlock,
                 qBlock, kBlock, vBlock,
-                attnMtx, attnMtxAgg, attnMtxSm, vOutBlock,
+                attnMtx, attnMtxAgg1, attnMtxAgg2, attnMtxSm, vOutBlock,
                 qLabel, kLabel, vLabel, biasLabel, mtxLabel, vectorLabel, headLabel,
                 cubes: headCubes,
                 labels: [qLabel, kLabel, vLabel, biasLabel, mtxLabel, vectorLabel, headLabel],
@@ -706,13 +720,22 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
     // z += vocabSize * cell + margin;
 
-    let logitsAgg = mk({
-        t: 'i', cx: 2, cz: B, cy: T, y: y,
+    let logitsAgg1 = mk({
+        t: 'a', cx: 1, cz: B, cy: T, y: y,
         xL: lnLeftX + 1.5 * margin, zM: -3 * cell,
-        access: { src: gptGpuModel?.softmaxFinal.agg, x: [1, 0, 0], y: [0, 1, T] },
-        deps: { add: [[logits, 'iy']] },
+        access: { src: gptGpuModel?.softmaxFinal.agg, x: [1, 0, 0], y: [0, 1, T], channel: 'r' },
+        deps: { add: [[logits, 'iy']], special: BlKDepSpecial.SoftmaxAggExp },
         dimX: DimStyle.None, dimY: DimStyle.T,
         name: 'SM Agg',
+    });
+
+    let logitsAgg2 = mk({
+        t: 'a', cx: 1, cz: B, cy: T, y: y,
+        xL: lnLeftX + 1.5 * margin + cell, zM: -3 * cell,
+        access: { src: gptGpuModel?.softmaxFinal.agg, x: [1, 0, 0], y: [0, 1, T], channel: 'g' },
+        deps: { add: [[logits, 'iy']], special: BlKDepSpecial.SoftmaxAggMax },
+        dimX: DimStyle.None, dimY: DimStyle.T,
+        name: '',
     });
 
     y += T * cell + margin;
@@ -721,7 +744,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         t: 'i', cx: vocabSize, cz: B, cy: T, y: y,
         xR: lnLeftX, zM: 0,
         access: { src: gptGpuModel?.softmaxFinal.output, x: [1, 0, 0], y: [0, 1, T] },
-        deps: { add: [[logits, 'xy'], [logitsAgg, 'iy']] },
+        deps: { add: [[logits, 'xy'], [logitsAgg1, 'iy'], [logitsAgg2, 'iy']], special: BlKDepSpecial.Softmax },
         dimX: DimStyle.n_vocab, dimY: DimStyle.T,
         name: 'Logits Softmax',
     });
@@ -737,7 +760,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
     // let decoderCount = vocabSize * C; (excluded from the weight count apparently)
 
-    cubes.push(lmHeadWeight, logits, logitsAgg, logitsSoftmax);
+    cubes.push(lmHeadWeight, logits, logitsAgg1, logitsAgg2, logitsSoftmax);
 
     return {
         cubes,
@@ -750,7 +773,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         ln_f,
         lmHeadWeight,
         logits,
-        logitsAgg,
+        logitsAgg1,
+        logitsAgg2,
         logitsSoftmax,
         embedLabel,
         blocks,

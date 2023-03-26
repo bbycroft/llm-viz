@@ -21,7 +21,7 @@ export function drawBlockInfo(state: IProgramState) {
         let textColor = new Vec4(1, 1, 1, 1).mul(blk.opacity);
         let bgColor = new Vec4(0, 0, 0, 1).mul(blk.opacity);
 
-        if (blk.opacity === 0) {
+        if (blk.opacity === 0 || !blk.name) {
             continue;
         }
 
