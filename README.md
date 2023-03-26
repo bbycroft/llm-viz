@@ -4,7 +4,7 @@ This is a web app that displays a 3D model of a working implementation of a GPT-
 is, the network topology that's used in OpenAI's GPT-1, GPT-2 (and maybe GPT-3).
 
 The first network displayed with working weights is a tiny such network, which sorts a small list
-of the integers 0, 1, and 2. This is the demo example model from Andrej Karpathy's
+of the letters A, B, and C. This is the demo example model from Andrej Karpathy's
 [minGPT](https://github.com/karpathy/minGPT) implementation.
 
 The renderer will support visualizing arbitrary sized networks, and works with the smaller gpt2
