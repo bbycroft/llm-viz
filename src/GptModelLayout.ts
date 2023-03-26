@@ -59,9 +59,6 @@ interface IBlkDepArgs {
     special?: BlKDepSpecial;
 }
 
-
-
-
 export enum BlKDepSpecial {
     None,
     Softmax,
@@ -72,6 +69,7 @@ export enum BlKDepSpecial {
     LayerNormSigma,
     SoftmaxAggMax,
     SoftmaxAggExp,
+    Attention,
 }
 
 let depIdxVars = '0xybi';
@@ -429,7 +427,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 t: 'i', cx: T, cz: B, cy: T, y: attn1Y,
                 xR: attnLeftX, zM: headZMid,
                 access: { src: attnTarget?.attnMatrix, x: [1, 0, 0], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
-                deps: { dot: [[qBlock, 'yi'], [kBlock, 'xi']], lowerTri: true, dotLen: A },
+                deps: { dot: [[qBlock, 'yi'], [kBlock, 'xi']], lowerTri: true, dotLen: A, special: BlKDepSpecial.Attention },
                 dimX: DimStyle.T, dimY: DimStyle.T,
                 name: 'Attention Matrix',
             });
@@ -440,7 +438,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, 1, nHeads * T, T * i], scale: 1.0, channel: 'r' },
                 deps: { add: [[attnMtx, 'iy']], special: BlKDepSpecial.SoftmaxAggExp },
                 dimX: DimStyle.None, dimY: DimStyle.T,
-                name: 'Attn Agg',
+                name: '',
             });
 
             let attnMtxAgg2 = mk({

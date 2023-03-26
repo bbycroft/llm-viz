@@ -1,4 +1,4 @@
-import { blockDimension, findSubBlocks, splitGridX } from "./Annotations";
+import { blockDimension, dimProps, findSubBlocks, splitGridX } from "./Annotations";
 import { drawDataFlow } from "./components/DataFlow";
 import { IBlkCellDep, IBlkDef } from "./GptModelLayout";
 import { IProgramState } from "./Program";
@@ -148,6 +148,29 @@ export function highlightCellUnderMouse(state: IProgramState, mainBlk: IBlkDef, 
     }
 }
 
+export function getDepSrcIdx(dep: IBlkCellDep, destIdx: Vec3) {
+    let mtx = dep.srcIdxMtx;
+    let hasXDot = mtx.g(0, 3) !== 0;
+    let hasYDot = mtx.g(1, 3) !== 0;
+    let srcIdx4 = mtx.mulVec4(Vec4.fromVec3(destIdx, 0));
+    let srcIdx = new Vec3(srcIdx4.x, srcIdx4.y, srcIdx4.z);
+    let dotDim = hasXDot ? Dim.Y : Dim.X;
+    return { srcIdx, dotDim, otherDim: dotDim === Dim.X ? Dim.Y : Dim.X, isDot: hasXDot || hasYDot };
+}
+
+export function getDepDotLen(blk: IBlkDef, destIdx: Vec3): number | null {
+    if (!blk.deps?.dot) {
+        return null;
+    }
+    let dotLen: number | null = null;
+    let triLimit = blk.deps.dot.find(d => d.src.deps?.lowerTri);
+    if (triLimit) {
+        let { srcIdx, dotDim } = getDepSrcIdx(triLimit, destIdx);
+        dotLen = srcIdx.getAt(dotDim);
+    }
+    return dotLen;
+}
+
 export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
     let layout = state.layout;
     let deps = blk.deps;
@@ -155,24 +178,15 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
         return;
     }
 
-    function getSrcIdx(dep: IBlkCellDep, destIdx: Vec3) {
-        let mtx = dep.srcIdxMtx;
-        let hasXDot = mtx.g(0, 3) !== 0;
-        let hasYDot = mtx.g(1, 3) !== 0;
-        let srcIdx = mtx.mulVec4(Vec4.fromVec3(destIdx, 0));
-        let dotDim = hasXDot ? Dim.Y : Dim.X;
-        return { srcIdx, dotDim, otherDim: dotDim === Dim.X ? Dim.Y : Dim.X, isDot: hasXDot || hasYDot };
-    }
-
     function drawDep(dep: IBlkCellDep, destIdx: Vec3, dotLen?: number | null) {
-        let { srcIdx, dotDim, otherDim, isDot } = getSrcIdx(dep, destIdx);
+        let { srcIdx, dotDim, otherDim, isDot } = getDepSrcIdx(dep, destIdx);
 
         if (isDot) {
             if (dep.src.deps?.lowerTri) {
-                dotLen = dotLen ?? srcIdx.getIdx(dotDim);
+                dotLen = dotLen ?? srcIdx.getAt(dotDim);
             }
 
-            let sub = splitGridX(layout, dep.src, dotDim, srcIdx.getIdx(dotDim), 0);
+            let sub = splitGridX(layout, dep.src, dotDim, srcIdx.getAt(dotDim), 0);
 
             if (sub && isNotNil(dotLen)) {
                 // only highlight up to dotLen
@@ -195,14 +209,7 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
     }
 
     if (deps.dot) {
-        let dotLen: number | null = null;
-        let triLimit = deps.dot
-            .find((d) => d.src.deps?.lowerTri);
-        if (triLimit) {
-            let { srcIdx, dotDim } = getSrcIdx(triLimit, idx);
-            dotLen = srcIdx.getIdx(dotDim);
-        }
-
+        let dotLen = getDepDotLen(blk, idx);
         for (let dep of deps.dot) {
             drawDep(dep, idx, dotLen);
         }

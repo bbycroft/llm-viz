@@ -86,6 +86,14 @@ export class Vec3 {
         }
         return this;
     }
+    getAt(i: number): number {
+        switch (i) {
+        case 0: return this.x;
+        case 1: return this.y;
+        case 2: return this.z;
+        }
+        return 0.0;
+    }
     withSetAt(i: number, v: number): Vec3 { return this.clone().setAt(i, v); }
     withAddAt(i: number, v: number): Vec3 { return this.clone().addAt(i, v); }
     toString(dp: number = 3): string {
@@ -192,6 +200,11 @@ export class BoundingBox3d {
     public min: Vec3 = new Vec3();
     public max: Vec3 = new Vec3();
     public empty: boolean = true;
+
+    constructor(...args: Array<Vec3>) {
+        for (let v of args)
+            this.addInPlace(v);
+    }
 
     addInPlace(v: Vec3) {
         if (this.empty) {

@@ -1,15 +1,16 @@
-import { camScaleToScreen } from "../Camera";
+import { dimProps } from "../Annotations";
 import { BlKDepSpecial, cellPosition, IBlkCellDep, IBlkDef } from "../GptModelLayout";
+import { getDepDotLen, getDepSrcIdx } from "../Interaction";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
-import { addLine2, drawLineSegs, ILineOpts, makeLineOpts } from "../render/lineRender";
+import { addLine, addLine2, drawLineSegs, makeLineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { RenderPhase } from "../render/sharedRender";
 import { addPrimitiveRestart, addQuad, addVert } from "../render/triRender";
-import { isNil, isNotNil, makeArray } from "../utils/data";
+import { isNotNil } from "../utils/data";
 import { lerp } from "../utils/math";
 import { Mat4f } from "../utils/matrix";
-import { Dim, Vec3, Vec4 } from "../utils/vector";
+import { BoundingBox3d, Dim, Vec3, Vec4 } from "../utils/vector";
 import { Colors, DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
 import { drawLineRect } from "./ModelCard";
 import { ITextBlock, sizeBlock, layoutBlock, drawBlock, mkTextBlock, TextBlockType } from "./TextLayout";
@@ -26,56 +27,14 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
         cellPosition(state.layout, blk, Dim.Z, destIdx.z) + state.layout.cell * 1.1,
     );
 
-    // let cellPos = new Vec3(
-    //     (cellPosition(state.layout, blk, Dim.X, 0) + cellPosition(state.layout, blk, Dim.X, blk.cx - 1)) * 0.5,
-    //     cellPosition(state.layout, blk, Dim.Y, 0) - state.layout.cell * 0.5,
-    //     cellPosition(state.layout, blk, Dim.Z, 0) + state.layout.cell * 0.5,
-    // );
+    let scale = 1.0;
 
-    // let screenPos = projectToScreen(state, cellPos);
+    let resMtx = new Mat4f();
 
-    let mtx = new Mat4f();
-    // let mtx = Mat4f.fromColMajor(state.camera.lookAtMtx);
-    // mtx[12] = 0.0;
-    // mtx[13] = 0.0;
-    // mtx[14] = 0.0;
-    // let mtxT = Mat4f.fromTranslation(cellPos);
-    // let mtxTInv = Mat4f.fromTranslation(cellPos.mul(-1));
-    // mtx = mtx.invert();
-    // console.log(mtx.toString());
+    let screenPos = projectToScreen(state, cellPos).round_();
+    let center = screenPos.add(new Vec3(0, -50));
 
-    let camDir = cellPos.sub(state.camera.camPosModel).normalize();
-    let camUp = new Vec3(0, 1, 0);
-    let camRight = Vec3.cross(camDir, camUp).normalize();
-    let camUp2 = Vec3.cross(camRight, camDir).normalize();
-
-    mtx[0] = camRight.x;
-    mtx[1] = camRight.y;
-    mtx[2] = camRight.z;
-    mtx[4] = camUp2.x;
-    mtx[5] = camUp2.y;
-    mtx[6] = camUp2.z;
-    mtx[8] = camDir.x;
-    mtx[9] = camDir.y;
-    mtx[10] = camDir.z;
-
-    let scale = camScaleToScreen(state, cellPos);
-    scale = 1.0; // Math.min(scale, 1);
-
-    let screenPos = projectToScreen(state, cellPos);
-    screenPos.x = Math.round(screenPos.x);
-    screenPos.y = Math.round(screenPos.y);
-    let mtxT = Mat4f.fromTranslation(screenPos);
-    let mtxTInv = Mat4f.fromTranslation(screenPos.mul(-1));
-
-    let scaleMtx = Mat4f.fromScale(new Vec3(1, 1, 1).mul(scale));
-    // let translateMtx = Mat4f.fromTranslation(new Vec3(0, 0, -20 + cellPos.z));
-
-    let resMtx = mtxT.mul(scaleMtx).mul(mtxTInv); //.mul(translateMtx);
-
-    // console.log(resMtx.toString());
-
-    let center = screenPos.add(new Vec3(0, -50)); // cellPos.add(new Vec3(0, -3, -cellPos.z));
+    let bb = new BoundingBox3d();
 
     if (blk.deps.lowerTri && destIdx.x > destIdx.y) {
         drawZeroSymbol(state, center, resMtx);
@@ -87,29 +46,37 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) 
         drawOLIndexLookup(state, center, scale, resMtx);
         drawOLPosEmbedLookup(state, center, scale, resMtx);
     }
-    else if (blk.deps.dot) {
-        drawOLMatrixMul(state, center, scale, resMtx, blk);
-    }
     else if (blk.deps.special === BlKDepSpecial.LayerNorm) {
-        drawLayerNorm(state, center, resMtx);
+        bb = drawLayerNorm(state, center, resMtx);
 
     } else if (blk.deps.special === BlKDepSpecial.LayerNormMu) {
-        drawLayerNormMuAgg(state, center, resMtx);
+        bb = drawLayerNormMuAgg(state, center, resMtx);
 
     } else if (blk.deps.special === BlKDepSpecial.LayerNormSigma) {
-        drawLayerNormSigmaAgg(state, center, resMtx);
-
-    } else if (blk.deps.add && blk.deps.add.length === 2) {
-        drawResidualAdd(state, center, resMtx);
+        bb = drawLayerNormSigmaAgg(state, center, resMtx);
 
     } else if (blk.deps.special === BlKDepSpecial.SoftmaxAggMax) {
-        drawSoftmaxAggMax(state, center, resMtx);
+        bb = drawSoftmaxAggMax(state, center, resMtx);
 
     } else if (blk.deps.special === BlKDepSpecial.SoftmaxAggExp) {
-        drawSoftmaxAggExp(state, center, resMtx);
+        bb = drawSoftmaxAggExp(state, center, resMtx);
 
     } else if (blk.deps.special === BlKDepSpecial.Softmax) {
-        drawSoftmax(state, center, resMtx);
+        bb = drawSoftmax(state, center, resMtx);
+
+    } else if (blk.deps.special === BlKDepSpecial.Attention) {
+        bb = drawAttention(state, center, resMtx, blk);
+
+    // Standard ones
+    } else if (blk.deps.dot) {
+        bb = drawOLMatrixMul(state, center, resMtx, blk);
+
+    } else if (blk.deps.add && blk.deps.add.length === 2) {
+        bb = drawResidualAdd(state, center, resMtx);
+    }
+
+    if (!bb.empty) {
+        drawDepArrows(state, center, bb, resMtx, blk, destIdx);
     }
 }
 
@@ -248,7 +215,7 @@ export function drawOLPosEmbedLookup(state: IProgramState, center: Vec3, scale: 
 }
 
 
-export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: number, mtx: Mat4f, blk: IBlkDef) {
+export function drawOLMatrixMul(state: IProgramState, center: Vec3, mtx: Mat4f, blk: IBlkDef) {
     let fontOpts = { color: opColor, mtx, size: 16 };
 
     let hasAdd = !!blk.deps!.add;
@@ -268,7 +235,7 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: numbe
         opts: fontOpts,
         subs: [
             hasAdd ? { cellX: 1, cellY: 1, color: weightSrcColor } : null,
-            hasAdd ? { text: '+ dot(' } : { text: 'dot(' },
+            hasAdd ? { text: ' + dot(' } : { text: 'dot(' },
             cellSizeAndColor(dotA),
             { text: ',' },
             cellSizeAndColor(dotB),
@@ -276,7 +243,7 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, scale: numbe
         ].filter(isNotNil),
     });
 
-    drawMaths(state, center, mtx, textBlk);
+    return drawMaths(state, center, mtx, textBlk);
 }
 
 export function drawRoundedRect(state: IRenderState, tl: Vec3, br: Vec3, color: Vec4, mtx: Mat4f, radius: number) {
@@ -328,11 +295,15 @@ function drawMaths(state: IProgramState, bottomMiddle: Vec3, mtx: Mat4f, blk: IT
 
     layoutBlock(blk);
 
-    let pad = 4;
+    let padX = 4;
+    let padY = 4;
 
-    drawRoundedRect(state.render, new Vec3(blk.offset.x - pad, blk.offset.y - pad), blk.offset.add(blk.size).add(new Vec3(pad, pad)), backWhiteColor, mtx, 4);
+    let tl = blk.offset.sub(new Vec3(padX, padY));
+    let br = blk.offset.add(blk.size).add(new Vec3(padX * 2, padY));
+    drawRoundedRect(state.render, tl, br, backWhiteColor, mtx, 4);
 
     drawBlock(state.render, blk);
+    return new BoundingBox3d(tl, br);
 }
 
 
@@ -350,7 +321,7 @@ function drawLayerNormMuAgg(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    drawMaths(state, center, mtx, blk);
+    return drawMaths(state, center, mtx, blk);
 }
 
 function drawLayerNormSigmaAgg(state: IProgramState, center: Vec3, mtx: Mat4f) {
@@ -377,7 +348,7 @@ function drawLayerNormSigmaAgg(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    drawMaths(state, center, mtx, blk);
+    return drawMaths(state, center, mtx, blk);
 }
 
 function drawLayerNorm(state: IProgramState, center: Vec3, mtx: Mat4f) {
@@ -425,7 +396,7 @@ function drawLayerNorm(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    drawMaths(state, center, mtx, blk);
+    return drawMaths(state, center, mtx, blk);
 }
 
 function drawResidualAdd(state: IProgramState, center: Vec3, mtx: Mat4f) {
@@ -440,7 +411,7 @@ function drawResidualAdd(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    drawMaths(state, center, mtx, blk);
+    return drawMaths(state, center, mtx, blk);
 }
 
 function drawZeroSymbol(state: IProgramState, center: Vec3, mtx: Mat4f) {
@@ -453,7 +424,7 @@ function drawZeroSymbol(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    drawMaths(state, center, mtx, blk);
+    return drawMaths(state, center, mtx, blk);
 }
 
 function drawSoftmaxAggMax(state: IProgramState, center: Vec3, mtx: Mat4f) {
@@ -468,7 +439,7 @@ function drawSoftmaxAggMax(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    drawMaths(state, center, mtx, blk);
+    return drawMaths(state, center, mtx, blk);
 }
 
 function drawSoftmaxAggExp(state: IProgramState, center: Vec3, mtx: Mat4f) {
@@ -494,7 +465,7 @@ function drawSoftmaxAggExp(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    drawMaths(state, center, mtx, blk);
+    return drawMaths(state, center, mtx, blk);
 }
 
 function drawSoftmax(state: IProgramState, center: Vec3, mtx: Mat4f) {
@@ -539,5 +510,151 @@ function drawSoftmax(state: IProgramState, center: Vec3, mtx: Mat4f) {
         }],
     });
 
-    drawMaths(state, center, mtx, blk);
+    return drawMaths(state, center, mtx, blk);
+}
+
+export function drawAttention(state: IProgramState, center: Vec3, mtx: Mat4f, blk: IBlkDef) {
+    let fontOpts = { color: opColor, mtx, size: 16 };
+
+    let dotA = blk.deps!.dot![0];
+    let dotB = blk.deps!.dot![1];
+
+    function cellSizeAndColor(dep: IBlkCellDep) {
+        let isRow = dep.srcIdxMtx.g(0, 3) === 1.0;
+        return {
+            cellX: isRow ? 4 : 1,
+            cellY: isRow ? 1 : 4,
+            color: dep.src.t === 'w' ? weightSrcColor : workingSrcColor,
+         };
+    }
+
+    let textBlk = mkTextBlock({
+        opts: fontOpts,
+        subs: [
+            { text: 'dot(' },
+            cellSizeAndColor(dotA),
+            { text: ',' },
+            cellSizeAndColor(dotB),
+            { text: ') / ' },
+            {
+                type: TextBlockType.Sqrt,
+                subs: [{ text: 'A' }],
+            },
+        ],
+    });
+
+    return drawMaths(state, center, mtx, textBlk);
+}
+
+function drawDepArrows(state: IProgramState, center: Vec3, bb: BoundingBox3d, mtx: Mat4f, blk: IBlkDef, destIdx: Vec3) {
+    if (!blk.deps) {
+        return;
+    }
+
+    function drawDepArrow(dep: IBlkCellDep, dotLen?: number | null) {
+        let { srcIdx, otherDim, isDot } = getDepSrcIdx(dep, destIdx);
+
+        if (isDot) {
+            let { cx } = dimProps(dep.src, otherDim);
+            srcIdx.setAt(otherDim, (dotLen ?? cx) / 2);
+        }
+
+        let cellPos = new Vec3(
+            cellPosition(state.layout, dep.src, Dim.X, srcIdx.x) + state.layout.cell * 0.5,
+            cellPosition(state.layout, dep.src, Dim.Y, srcIdx.y) + state.layout.cell * 0.5,
+            cellPosition(state.layout, dep.src, Dim.Z, srcIdx.z) + state.layout.cell * 1.1,
+        );
+
+        // let's just draw a straight line for now
+        let srcT = dep.src.t;
+        let color = srcT === 'w' ? Colors.Weights : srcT === 'i' ? Colors.Intermediates : Colors.Aggregates;
+
+        let lineOpts = makeLineOpts({ n: new Vec3(0,0,1), color, mtx, thick: 0.5, dash: 10 });
+
+        let source = projectToScreen(state, cellPos);
+
+        let center = bb.center();
+        let dir = source.sub(center).normalize();
+        let tVals = [
+            (bb.min.x - center.x) / dir.x,
+            (bb.max.x - center.x) / dir.x,
+            (bb.min.y - center.y) / dir.y,
+            (bb.max.y - center.y) / dir.y,
+        ];
+
+        let actualTarget: Vec3 | null = null;
+        for (let t of tVals) {
+            let p = center.mulAdd(dir, t);
+            let eps = 0.00001;
+            if (t > 0 && p.x > bb.min.x - eps && p.y > bb.min.y - eps && p.x < bb.max.x + eps && p.y < bb.max.y + eps) {
+                actualTarget = center.mulAdd(dir, t + 4);
+                break;
+            }
+        }
+
+        if (actualTarget) {
+            drawArc(state, source, actualTarget, color, mtx, 1.0);
+            // addLine2(state.render.lineRender, source, actualTarget, lineOpts);
+        }
+    }
+
+    if (blk.deps.add) {
+        for (let dep of blk.deps.add) {
+            drawDepArrow(dep);
+        }
+    }
+    if (blk.deps.dot) {
+        let dotLen = getDepDotLen(blk, destIdx);
+        for (let dep of blk.deps.dot) {
+            drawDepArrow(dep, dotLen);
+        }
+    }
+}
+
+// create clockwise arc from a to b
+// have line from a to b, bisect it, and cross dir with z for direction
+// scale bisection by distance
+// this now marks the center of the circle
+// grab radius (easy), and then figure out start/end angles
+
+function drawArc(state: IProgramState, a: Vec3, b: Vec3, color: Vec4, mtx: Mat4f, thick: number) {
+    let dir = b.sub(a).normalize();
+    let bisect = Vec3.cross(dir, new Vec3(0,0,1)).normalize();
+    let center = a.lerp(b, 0.5).add(bisect.mul(a.dist(b) * -2.0));
+
+    let radius = a.dist(center);
+    let endAngle = Math.atan2(b.y - center.y, b.x - center.x);
+    let startAngle = Math.atan2(a.y - center.y, a.x - center.x);
+
+    if (endAngle < startAngle) {
+        endAngle += Math.PI * 2;
+    }
+    if (endAngle - startAngle > Math.PI) {
+        endAngle -= Math.PI * 2;
+    }
+
+    let lineOpts = makeLineOpts({ color, mtx, thick, dash: 0 });
+
+    let nPts = 32;
+    let pts = new Float32Array(3 * nPts);
+
+    for (let i = 0; i < nPts; i++) {
+        let t = i / (nPts - 1);
+        let angle = lerp(startAngle, endAngle, t);
+        let x = center.x + radius * Math.cos(angle);
+        let y = center.y + radius * Math.sin(angle);
+        pts[i * 3 + 0] = x;
+        pts[i * 3 + 1] = y;
+    }
+
+    drawLineSegs(state.render.lineRender, pts, lineOpts);
+
+    let tangent = new Vec3(Math.sin(endAngle), -Math.cos(endAngle));
+
+    let dirA = tangent.rotateAbout(new Vec3(0,0,1), -Math.PI * 0.25);
+    let dirB = tangent.rotateAbout(new Vec3(0,0,1), Math.PI * 0.25);
+
+    let arrowLen = 10;
+    addLine2(state.render.lineRender, b, b.mulAdd(dirA, arrowLen), lineOpts);
+    addLine2(state.render.lineRender, b, b.mulAdd(dirB, arrowLen), lineOpts);
 }
