@@ -160,17 +160,32 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
                 </div>;
             } else {
                 let times = n.times!;
-                let active = wt.time >= times[0].start; // && wt.time <= eventEndTime(times[times.length - 1]);
+                let active = wt.time >= times[0].start;
+                let inRange = wt.time >= times[0].start && wt.time <= eventEndTime(times[times.length - 1]);
                 let opacity = active ? 1 : 0.6;
                 let blur = active ? 0 : 2;
                 let showLine = times.length > 1 || !times[0].isBreak;
+
+                function handlePlayPause() {
+                    if (wt.running) {
+                        wt.running = false;
+                        wt.markDirty();
+                    } else {
+                        wt.running = true;
+                        if (!inRange) {
+                            wt.time = times[0].start;
+                        }
+                    }
+                    wt.markDirty();
+                }
+
                 return <div key={i} className={s.commentaryBreak} data-nid={i} style={{ opacity, filter: `blur(${blur}px)` }}>
                     {showLine && <>
                         <button className={clsx(s.jump, 'btn')}>
                             <FontAwesomeIcon icon={faArrowDown} />
                         </button>
-                        <button className={clsx(s.playPause, 'btn')}>
-                            <FontAwesomeIcon icon={wt.running && active ? faPause : faPlay} />
+                        <button className={clsx(s.playPause, 'btn')} onClick={handlePlayPause}>
+                            <FontAwesomeIcon icon={wt.running && inRange ? faPause : faPlay} />
                         </button>
                         <PhaseTimelineHoriz times={n.times!} />
                     </>}
