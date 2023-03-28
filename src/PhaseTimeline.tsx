@@ -2,7 +2,7 @@ import { useReducer, useState } from 'react';
 import s from './PhaseTimeline.module.scss';
 import { useProgramState } from './Sidebar';
 import { clamp } from './utils/data';
-import { useCombinedMouseTouchDrag, useGlobalDrag } from './utils/pointer';
+import { useCombinedMouseTouchDrag } from './utils/pointer';
 import { eventEndTime, ITimeInfo } from './walkthrough/WalkthroughTools';
 
 export const PhaseTimeline: React.FC = () => {
@@ -22,7 +22,6 @@ export const PhaseTimeline: React.FC = () => {
         let len = baseEl!.clientHeight;
         walkthrough.time = clamp(ds.data + dy / len * totalTime, 0, totalTime);
         walkthrough.running = false;
-        walkthrough.lastBreakTime = walkthrough.time;
         ev.preventDefault();
         ev.stopPropagation();
         walkthrough.markDirty();
@@ -69,7 +68,6 @@ export const PhaseTimelineHoriz: React.FC<{ times: ITimeInfo[] }> = ({ times }) 
         let len = baseEl!.clientWidth;
         wt.time = clamp(ds.data + dx / len * totalTime, timeOffset, timeOffset + totalTime);
         wt.running = false;
-        wt.lastBreakTime = wt.time;
         ev.preventDefault();
         ev.stopPropagation();
         wt.markDirty();

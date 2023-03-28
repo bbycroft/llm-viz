@@ -1,5 +1,5 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
-import { commentary, DimStyle, dimStyleColor, eventEndTime, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
+import { commentary, DimStyle, dimStyleColor, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
 import s from './Walkthrough.module.scss';
 import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { clamp, makeArray } from "../utils/data";
@@ -9,35 +9,29 @@ import { findSubBlocks, splitGridX } from "../Annotations";
 import { useGlobalDrag } from "../utils/pointer";
 
 /*
-Need to re-think how we display & interact with the walkthrough. Current approach just doesn't really work at all.
+We're mostly on the right track here I think.
 
-Think I'll a) switch to rendering in HTML, and b) tie the model viz to the scroll position of the walkthrough text.
+Main things that could do with improvement:
 
-May have to figure out how to have a sort of vertical caret position. May have it position-able vertically, so the
-user can scroll back and forth for the changes, but also specify their vertical reading position.
+ - Make the camera movement more robust. It should basically be on rails when moving the slider.
+ - We store the camera pos at the start of a given movement, and use that as a lerp, and also
+   have a default so we can do a reversal
 
-Will likely chunk the walkthrough into our groups. Main difficulty is how we handle the bottom of the walkthrough page.
+ - Have a highlight-region animation in both the text and the model, to bring attention to a specific
+   point. Probably a rectangle with a rotating border. Could also include a shaded background on the text
 
-How do we pass data from here to the UI?
+ - Scroll the text to the next region to read
 
-Guess we just chuck them into a data structure that we can gen into react/html.
+ - Have more pronounced (& consistent) delays between: camera movement/scroll -> higlight -> action
+   - Can probably combine the camera movement and the highlight into a single action, but still have
+     a delay between the highlight and the action 
 
------
+ - Generally lean on the new display features more. Might need to add a few more (e.g. animate the dot product)
+ - Also probably need to do TeX style layout for maths in the html view :( Could probably reuse the code from the
+   3d layout? Just need to get the glyphs in via css/ttf, and then maybe use canvas for positioning? Hmm should
+   be able to use divs with abs positioning.
 
-
-
-*/
-
-/*
-
-Think about how we do this:
-
-Want our little lines between paragraphs to be little mini-sliders that play the next event
-
-So: need to know all the events between each paragraph.
-
-The paragraphs themselves basically take no time, but end in a break. The event plays and then the
-next paragraph shows, or at least we scroll to it.
+ - For stopping/starting, use t + dt to figure out when it was crossed, rather than storing the lastPauseTime etc
 
 */
 
@@ -50,15 +44,18 @@ function getIntroState(walkthrough: IWalkthrough): IIntroState {
 }
 
 export function walkthroughIntro(args: IWalkthroughArgs) {
-    let { breakAfter, atEvent, atTime, afterTime, commentaryPara, c_str } = phaseTools(args.state);
+    let { breakAfter, afterTime, c_str } = phaseTools(args.state);
     let { state, layout, walkthrough: wt } = args;
 
 
     switch (wt.phase) {
         case Phase.Intro_Intro:
 
-        let c0 = commentary(wt, null, 0)`Welcome to the walkthrough of the GPT large language model! Here we'll explore the model _nano-gpt_, with a mere 85,000 parameters.`;
-        moveCameraTo(args.state, c0, new Vec3(-8.4, 0, -481.5), new Vec3(296, 16, 13.5));
+        let c0 = commentary(wt, null, 0)`Welcome to the walkthrough of the GPT large language model! Here we'll explore the model _nano-gpt_, with a mere 85,000 parameters.
+
+It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputOutput)}
+            and sort them in alphabetical order, i.e. to "ABBBCC".`;
+
 
         if (c0.t > 0) {
             for (let cube of layout.cubes) {
@@ -68,9 +65,6 @@ export function walkthroughIntro(args: IWalkthroughArgs) {
             }
             state.display.tokenIdxModelOpacity = makeArray(6, 0);
         }
-
-        let c4 = commentary(wt, null, 0)`It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputOutput)}
-            and sort them in alphabetical order, i.e. to "ABBBCC".`;
 
         let t4 = afterTime(null, 0.2, 0.3);
         let t6 = afterTime(null, 1.0, 0.4);

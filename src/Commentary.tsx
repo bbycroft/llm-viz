@@ -14,6 +14,7 @@ export const Commentary: React.FC = () => {
     let progState = useProgramState();
     let [parasEl, setParasEl] = React.useState<HTMLDivElement | null>(null);
     let [curPos, setCurPos] = React.useState(-100);
+    let [rangeInfo, setRangeInfo] = React.useState<{ start: number, end: number }>({ start: 0, end: 0 });
     let wt = progState.walkthrough;
 
     function handleKeyDown(ev: React.KeyboardEvent) {
@@ -24,8 +25,39 @@ export const Commentary: React.FC = () => {
 
     function handleContinueClick() {
         wt.running = !wt.running;
-        wt.lastBreakTime = wt.time;
         progState.markDirty();
+    }
+
+    let numTimes = wt.times.length;
+
+    let nodes: INode[] = [];
+    let prevIsTime = false
+    for (let c of wt.times) {
+        if (isCommentary(c)) {
+            nodes.push({ commentary: c, isBreak: false, start: c.start, end: eventEndTime(c) });
+            prevIsTime = false;
+        } else {
+            !prevIsTime && nodes.push({ times: [], isBreak: false, start: c.start, end: c.start });
+            let lastNode = nodes[nodes.length - 1];
+            lastNode.times!.push(c);
+            lastNode.isBreak ||= !!c.isBreak;
+            lastNode.end = eventEndTime(c);
+            prevIsTime = true;
+        }
+    }
+
+    let prevBreak = -1;
+    let nextBreak = -1;
+    for (let i = 0; i < nodes.length; i++) {
+        let node = nodes[i];
+        if (node.isBreak) {
+            if (node.start < wt.time) {
+                prevBreak = i;
+            } else {
+                nextBreak = i;
+                break;
+            }
+        }
     }
 
     useEffect(() => {
@@ -33,7 +65,7 @@ export const Commentary: React.FC = () => {
         function handleChildren() {
             if (!parasEl?.children) return;
 
-            let lastOffset = -100;
+            let parasBcr = parasEl.getBoundingClientRect();
 
             for (let child of parasEl.children) {
                 let nid = parseInt(child.getAttribute('data-nid')!);
@@ -46,12 +78,38 @@ export const Commentary: React.FC = () => {
 
                 if (cStart <= wt.time && cEnd >= wt.time) {
                     let childBcr = child.getBoundingClientRect();
-                    let parasBcr = parasEl.getBoundingClientRect();
                     let offset = childBcr.top - parasBcr.top + childBcr.height;
-                    lastOffset = offset;
+                    setCurPos(offset);
+                    break;
                 }
             }
-            setCurPos(lastOffset);
+
+            function findChild(idx: number) {
+                for (let child of parasEl!.children) {
+                    let nid = parseInt(child.getAttribute('data-nid')!);
+                    if (nid === idx) {
+                        return child;
+                    }
+                }
+            }
+            let startPos = 0;
+            let endPos = 0;
+
+
+            if (prevBreak >= 0) {
+                let child = findChild(prevBreak)!;
+                let childBcr = child.getBoundingClientRect();
+                let offset = childBcr.top - parasBcr.top;
+                startPos = offset;
+            }
+            if (nextBreak >= 0) {
+                let child = findChild(nextBreak)!;
+                let childBcr = child.getBoundingClientRect();
+                let offset = childBcr.bottom - parasBcr.top;
+                endPos = offset;
+            }
+
+            setRangeInfo({ start: startPos, end: endPos });
         }
 
         if (parasEl) {
@@ -62,21 +120,9 @@ export const Commentary: React.FC = () => {
             };
         }
 
-    }, [parasEl, wt.phase, wt.time]);
+    }, [parasEl, wt.phase, wt.time, numTimes, prevBreak, nextBreak]);
 
-    
-    let nodes: INode[] = [];
-    let prevIsTime = false
-    for (let c of wt.times) {
-        if (isCommentary(c)) {
-            nodes.push({ commentary: c });
-            prevIsTime = false;
-        } else {
-            !prevIsTime && nodes.push({ times: [] });
-            nodes[nodes.length - 1].times!.push(c);
-            prevIsTime = true;
-        }
-    }
+    console.log('start', rangeInfo.start, 'end', rangeInfo.end, 'cur', curPos);
 
     return <>
         <div className={s.walkthroughText} tabIndex={0} onKeyDownCapture={handleKeyDown}>
@@ -84,6 +130,9 @@ export const Commentary: React.FC = () => {
             <div className={s.walkthroughParas} ref={setParasEl}>
                 {walkthroughToParagraphs(wt, nodes)}
                 {!wt.running && <>
+                    <div className={s.activeRange} style={{ top: rangeInfo.start, height: rangeInfo.end - rangeInfo.start }}>
+                        <div className={s.beadOfLight} />
+                    </div>
                     <div className={s.dividerLine} style={{ top: curPos }} />
                     <SpaceToContinueHint top={curPos} />
                 </>}
@@ -108,42 +157,55 @@ export const Commentary: React.FC = () => {
 interface INode {
     commentary?: ICommentary;
     times?: ITimeInfo[];
+    isBreak: boolean;
+    start: number;
+    end: number;
 }
 
 export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
 
     function genCommentary(c: ICommentary, t: number) {
 
+        let keyId = 0;
         let res: React.ReactNode[] = [];
-        let prevItems: ReactNode[] = [];
+        let paraItems: ReactNode[] = [];
+
+        function pushParagraph() {
+            if (paraItems.length) {
+                res.push(<p key={keyId++}>{paraItems}</p>);
+                paraItems = [];
+            }
+        }
+
         for (let i = 0; i < c.strings.length; i++) {
 
             let strRaw = c.strings[i];
             if (strRaw.trim()) {
-                let strPart = markupSimple(strRaw);
-                prevItems.push(strPart);
+                let paras = strRaw.split('\n\n');
+                for (let j = 0; j < paras.length; j++) {
+                    let strPart = markupSimple(paras[j]);
+                    if (j > 0) {
+                        pushParagraph();
+                    }
+                    paraItems.push(strPart);
+                }
             }
 
             if (i < c.values.length) {
                 let val = c.values[i];
                 if (val.insert) {
-                    res.push(<p key={i}>{prevItems}</p>);
-                    prevItems = [];
-
+                    pushParagraph();
                     let fnVal = typeof val.insert === 'function' ? val.insert() : val.insert;
                     let el = typeof fnVal === 'string' ? fnVal : React.createElement(fnVal as React.FC, { key: 'i' + i });
                     res.push(el);
                 }
                 if (val.color) {
-                    let el = <span key={'i' + i} style={{ color: val.color.toHexColor() }}>{markupSimple(val.str)}</span>;
-                    prevItems.push(el);
+                    let el = <span key={keyId++} style={{ color: val.color.toHexColor() }}>{markupSimple(val.str)}</span>;
+                    paraItems.push(el);
                 }
             }
         }
-
-        if (prevItems.length) {
-            res.push(<p key={prevItems.length}>{prevItems}</p>);
-        }
+        pushParagraph();
 
         return res;
     }

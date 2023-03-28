@@ -22,7 +22,7 @@ export default function RootLayout({
             <title>LLM Visualization</title>
             <link rel="preload" href="/fonts/font-atlas.png" as="image" />
             <link rel="preload" href="/fonts/font-def.json" as="fetch" />
-            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&family=Merriweather:ital,wght@1,300" />
+            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&family=Merriweather:ital@0;1" />
         </head>
         <body className={s.body}>
             <div className={s.header}>LLM Visualization</div>

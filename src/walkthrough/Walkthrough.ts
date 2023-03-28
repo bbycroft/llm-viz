@@ -59,8 +59,8 @@ export function initWalkthrough() {
     return {
         phase: SavedState.state?.phase ?? Phase.Intro_Intro,
         time: SavedState.state?.phaseTime ?? 0,
+        dt: 0,
         running: false,
-        lastBreakTime: null as number | null,
         commentary: null as ICommentaryRes | null,
         times: [] as (ITimeInfo | ICommentary)[],
         phaseLength: 0,
@@ -109,7 +109,9 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
     let { layout, render, display } = state;
 
     if (state.walkthrough.running) {
-        state.walkthrough.time += view.dt / 1000;
+        let dtSeconds = view.dt / 1000;
+        state.walkthrough.time += dtSeconds;
+        state.walkthrough.dt = dtSeconds;
 
         if (state.walkthrough.time > state.walkthrough.phaseLength) {
             state.walkthrough.running = false;

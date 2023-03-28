@@ -19,7 +19,6 @@ export const WalkthroughSidebar: React.FC = () => {
         if (walkthrough.phase !== phase.id) {
             walkthrough.phase = phase.id;
             walkthrough.time = 0;
-            walkthrough.lastBreakTime = null;
             walkthrough.running = false;
             progState.markDirty();
         }
