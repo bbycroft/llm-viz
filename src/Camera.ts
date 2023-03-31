@@ -29,6 +29,12 @@ export interface ICamera {
     }
 }
 
+export interface ICameraPos {
+    center: Vec3;
+    angle: Vec3;
+}
+
+
 export function cameraToMatrixView(camera: ICamera) {
     while (camera.angle.x < 0) camera.angle.x += 360;
     while (camera.angle.x > 360) camera.angle.x -= 360;

@@ -5,6 +5,7 @@ import { measureTextWidth } from "@/src/render/fontRender";
 import { Vec3, Vec4 } from "../utils/vector";
 import { IWalkthrough, Phase, PhaseGroup } from "./Walkthrough";
 import { IProgramState } from "../Program";
+import { ICameraPos } from "../Camera";
 
 export interface IWalkthroughArgs {
     state: IProgramState;
@@ -251,12 +252,47 @@ export interface ITimeInfo {
 
 export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3, rot: Vec3) {
 
-    if (time.active && time.t < 1.0) {
-        state.camera.angleDesired = rot;
-        state.camera.angleZDesired = rot.z;
-        state.camera.centerDesired = target;
+    let wt = state.walkthrough;
+    let prevTime = [...wt.cameraData.entries()].filter(([t, _]) => t < time.start).pop()?.[1];
+
+    let camData = wt.cameraData.get(time.start);
+    if (!camData) {
+         wt.cameraData.set(time.start, camData = {
+            initialCaptured: prevTime ? undefined : {
+                angle: state.camera.angle,
+                center: state.camera.center,
+            },
+            target: { angle: rot, center: target },
+        });
     }
 
+    // if we transition from before the ITimeInfo to the start of it, we capture the camera position
+    // we store the camera position in a map, keyed by the ITimeInfo name
+    // then we can use that position to lerp from its initial value to the target values
+
+
+    // if we don't get to the start via running (e.g. clicking on a link), we use the camera position
+    // of the last moveCameraTo call (so need to keep track of that!)
+
+    if (wt.running && wt.time - wt.dt < time.start && wt.time >= time.start) {
+        camData.initialCaptured = {
+            angle: state.camera.angle,
+            center: state.camera.center,
+        };
+    }
+
+    let src = camData.initialCaptured ?? prevTime?.target;
+
+    let dest: ICameraPos = {
+        center: target,
+        angle: rot,
+    };
+
+    if (src && (wt.running || wt.time !== wt.prevTime) && time.active && time.t < 1.0) {
+        let t = time.t;
+        state.camera.angle = src.angle.lerp(dest.angle, t);
+        state.camera.center = src.center.lerp(dest.center, t);
+    }
 }
 
 

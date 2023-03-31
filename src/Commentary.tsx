@@ -1,9 +1,9 @@
-import React, { ReactNode, useEffect } from 'react';
+import React, { ReactNode, useLayoutEffect, useState } from 'react';
 import s from './Commentary.module.scss';
 import { PhaseTimelineHoriz } from './PhaseTimeline';
 import { useProgramState } from './Sidebar';
-import { clamp } from './utils/data';
-import { lerp } from './utils/math';
+import { clamp, useRequestAnimationFrame } from './utils/data';
+import { lerp, lerpSmoothstep } from './utils/math';
 import { phaseToGroup, IWalkthrough } from './walkthrough/Walkthrough';
 import { eventEndTime, ICommentary, isCommentary, ITimeInfo } from './walkthrough/WalkthroughTools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -14,7 +14,7 @@ export const Commentary: React.FC = () => {
     let progState = useProgramState();
     let [parasEl, setParasEl] = React.useState<HTMLDivElement | null>(null);
     let [curPos, setCurPos] = React.useState(-100);
-    let [rangeInfo, setRangeInfo] = React.useState<{ start: number, end: number }>({ start: 0, end: 0 });
+    let [rangeInfo, setRangeInfo] = React.useState<{ start: number, end: number, width: number }>({ start: 0, end: 0, width: 1 });
     let wt = progState.walkthrough;
 
     function handleKeyDown(ev: React.KeyboardEvent) {
@@ -48,19 +48,20 @@ export const Commentary: React.FC = () => {
 
     let prevBreak = -1;
     let nextBreak = -1;
+    let lastBreak = -1;
     for (let i = 0; i < nodes.length; i++) {
         let node = nodes[i];
         if (node.isBreak) {
-            if (node.start < wt.time) {
-                prevBreak = i;
-            } else {
-                nextBreak = i;
+            if (node.start >= wt.time) {
+                nextBreak = lastBreak - 1;
                 break;
-            }
+            } 
+            prevBreak = lastBreak + 1;
+            lastBreak = i;
         }
     }
 
-    useEffect(() => {
+    useLayoutEffect(() => {
 
         function handleChildren() {
             if (!parasEl?.children) return;
@@ -95,9 +96,8 @@ export const Commentary: React.FC = () => {
             let startPos = 0;
             let endPos = 0;
 
-
-            if (prevBreak >= 0) {
-                let child = findChild(prevBreak)!;
+            if (nodes.length > 0) {
+                let child = findChild(Math.max(0, prevBreak))!;
                 let childBcr = child.getBoundingClientRect();
                 let offset = childBcr.top - parasBcr.top;
                 startPos = offset;
@@ -109,7 +109,7 @@ export const Commentary: React.FC = () => {
                 endPos = offset;
             }
 
-            setRangeInfo({ start: startPos, end: endPos });
+            setRangeInfo({ start: startPos, end: endPos, width: parasBcr.width });
         }
 
         if (parasEl) {
@@ -122,17 +122,13 @@ export const Commentary: React.FC = () => {
 
     }, [parasEl, wt.phase, wt.time, numTimes, prevBreak, nextBreak]);
 
-    console.log('start', rangeInfo.start, 'end', rangeInfo.end, 'cur', curPos);
-
     return <>
         <div className={s.walkthroughText} tabIndex={0} onKeyDownCapture={handleKeyDown}>
             <div className={s.title}>{phaseToGroup(wt)?.title}</div>
             <div className={s.walkthroughParas} ref={setParasEl}>
                 {walkthroughToParagraphs(wt, nodes)}
+                <SectionHighlight key={nextBreak} top={rangeInfo.start} height={rangeInfo.end - rangeInfo.start} width={rangeInfo.width} />
                 {!wt.running && <>
-                    <div className={s.activeRange} style={{ top: rangeInfo.start, height: rangeInfo.end - rangeInfo.start }}>
-                        <div className={s.beadOfLight} />
-                    </div>
                     <div className={s.dividerLine} style={{ top: curPos }} />
                     <SpaceToContinueHint top={curPos} />
                 </>}
@@ -363,5 +359,36 @@ const SpaceToContinueHint: React.FC<{
         <div className={s.hintText}>
              Press <span className={s.key}>Space</span> to continue
         </div>
+    </div>;
+}
+
+const SectionHighlight: React.FC<{
+    top: number;
+    height: number;
+    width: number;
+}> = ({ top, height, width }) => {
+    let [tick, setTick] = useState(0);
+
+    useRequestAnimationFrame(tick < 2, (dt) => {
+        setTick(tick + dt);
+    });
+
+    let rectPad = 12;
+    let svgW = width + rectPad * 2;
+    let svgH = height + rectPad * 2;
+
+    let pad = 3;
+    let x0 = pad;
+    let y0 = pad;
+    let x1 = svgW - pad;
+    let y1 = svgH - pad;
+
+    let strokeWidth = lerpSmoothstep(3, 0, tick);
+
+    return <div className={s.sectionHighlightWrap} style={{ top: top - rectPad, height: svgH, width: svgW, left: -rectPad }}>
+        <svg viewBox={`0 0 ${svgW} ${svgH}`} className={s.sectionHighlight}>
+            <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="none" stroke="blue" strokeWidth={strokeWidth} opacity={strokeWidth} rx={5} ry={5} />
+            {/* <path d={`M ${x0} ${y0} L ${x1} ${y0} L ${x1} ${y1} L ${x0} ${y1} Z`} fill="none" stroke="blue" strokeWidth="3" /> */}
+        </svg>
     </div>;
 }

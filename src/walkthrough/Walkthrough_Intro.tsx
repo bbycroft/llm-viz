@@ -1,5 +1,5 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
-import { commentary, DimStyle, dimStyleColor, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
+import { commentary, DimStyle, dimStyleColor, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
 import s from './Walkthrough.module.scss';
 import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { clamp, makeArray } from "../utils/data";
@@ -7,6 +7,11 @@ import React, { useState } from "react";
 import { useProgramState } from "../Sidebar";
 import { findSubBlocks, splitGridX } from "../Annotations";
 import { useGlobalDrag } from "../utils/pointer";
+import { IBlkDef } from "../GptModelLayout";
+import { IProgramState } from "../Program";
+import { lerp } from "../utils/math";
+import { drawDependences } from "../Interaction";
+import { drawDataFlow } from "../components/DataFlow";
 
 /*
 We're mostly on the right track here I think.
@@ -66,9 +71,9 @@ It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputO
             state.display.tokenIdxModelOpacity = makeArray(6, 0);
         }
 
-        let t4 = afterTime(null, 0.2, 0.3);
-        let t6 = afterTime(null, 1.0, 0.4);
+        let t4 = afterTime(null, 1.5, 1.0);
         moveCameraTo(args.state, t4, new Vec3(1.3, 0, 6.7), new Vec3(281.5, 12.5, 0.4));
+        let t6 = afterTime(null, 1.0, 0.4);
 
         if (t6.active && t6.t < 1.0) {
             let mixes = [0, 0, 0, 0, 0, 0];
@@ -85,9 +90,9 @@ It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputO
         let tokenStr = c_str('_token_', 0, DimStyle.Token);
         let tokenIdxStr = c_str('_token index_', 0, DimStyle.TokenIdx);
 
-        commentary(wt, t6)`We call each of these letters a ${tokenStr}, and the set of the model's different tokens make up it's _vocabulary_:${embed(TokenVocab)}`;
+        commentary(wt, t6)`We call each of these letters a ${tokenStr}, and the set of the model's different tokens make up it's _vocabulary_:${embed(TokenVocab)}
 
-        commentary(wt)`From this table, each token is assigned a number, it's ${tokenIdxStr}. And now we can enter this sequence of numbers into the model:${embed(ExampleTokenValues)}\n`;
+        From this table, each token is assigned a number, it's ${tokenIdxStr}. And now we can enter this sequence of numbers into the model:${embed(ExampleTokenValues)}\n`;
         breakAfter();
 
         let t7 = afterTime(null, 1.5, 0.5);
@@ -118,16 +123,15 @@ It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputO
 
         breakAfter();
 
-        let c5 = commentary(wt)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. Bright: +ve, grey: 0, dark: -ve. ${embed(GreenBlueCells)}`;
+        let c5 = commentary(wt)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. ${embed(GreenBlueCells)}
+        Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
         breakAfter(c5);
 
-        let c6 = commentary(wt)`Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
-        breakAfter(c6);
-
         {
+            let t_camMove = afterTime(null, 1.0, 0.5);
             let t_makeVecs = afterTime(null, 2.0, 0.5);
 
-            moveCameraTo(state, t_makeVecs, new Vec3(14.1, 0, -30.4), new Vec3(286, 14.5, 0.8));
+            moveCameraTo(state, t_camMove, new Vec3(14.1, 0, -30.4), new Vec3(286, 14.5, 0.8));
 
             if (t_makeVecs.active) {
                 let idxPos = t_makeVecs.t * 6;
@@ -161,19 +165,31 @@ It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputO
 
         {
 
-            let t_firstResid = afterTime(null, 2.5, 0.5);
-            moveCameraTo(state, t_firstResid, new Vec3(-20.2, 0, -129), new Vec3(292, 27.5, 2));
+            let t_firstResid = afterTime(null, 1.0, 0.5);
+            moveCameraTo(state, t_firstResid, new Vec3(-22.2, 0, -143.5), new Vec3(292.3, 26.8, 2.4));
+            let t_firstResidWalk = afterTime(null, 5.0, 0.5);
 
-            let t_firstTransformer = afterTime(null, 3.0, 0.5);
-            moveCameraTo(state, t_firstTransformer, new Vec3(-80.7, 0, -259.8), new Vec3(299.5, 6.5, 4.3));
+            let processState = processUpTo(state, t_firstResidWalk, layout.blocks[0].attnResidual);
+
+            let t_firstTransformer = afterTime(null, 1.0, 0.5);
+            moveCameraTo(state, t_firstTransformer, new Vec3(-78.7, 0, -274.2), new Vec3(299.4, 14.7, 4.3));
+            let t_firstTransformerWalk = afterTime(null, 3.5, 0.5);
+            processUpTo(state, t_firstTransformerWalk, layout.blocks[0].mlpResidual, processState);
 
             if (t_firstTransformer.active) {
                 layout.blocks[0].transformerLabel.visible = t_firstTransformer.t;
             }
 
-            let t_fullFrame = afterTime(null, 3.5, 0.5);
-            moveCameraTo(state, t_fullFrame, new Vec3(-149.4, 0, -691.2), new Vec3(299, 20, 10.8));
+            let t_fullFrame = afterTime(null, 1.0, 0.5);
+            moveCameraTo(state, t_fullFrame, new Vec3(-147, 0, -744.1), new Vec3(298.5, 23.4, 12.2));
+            let t_fullFrameWalk = afterTime(null, 5.0, 0.5);
+            processUpTo(state, t_fullFrameWalk, layout.blocks[2].mlpResidual, processState);
 
+
+            let t_endFrame = afterTime(null, 1.0, 0.5);
+            moveCameraTo(state, t_endFrame, new Vec3(-18.3, 0, -1576), new Vec3(280.6, 9.7, 1.9));
+            let t_endFrameWalk = afterTime(null, 2.0, 0.5);
+            processUpTo(state, t_endFrameWalk, layout.logitsSoftmax, processState);
         }
 
         commentary(wt)`So what's the output? A prediction of the next token in the sequence. So at the 6th entry, we get probabilities that the next token is
@@ -183,6 +199,103 @@ It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputO
 
         break;
     }
+}
+
+interface IProcessInfo {
+    lastBlockIdx: number;
+}
+
+function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkDef, prevInfo?: IProcessInfo): IProcessInfo {
+
+    let activeBlocks = state.layout.cubes.filter(a => a.t !== 'w');
+
+    let firstIdx = prevInfo ? prevInfo.lastBlockIdx + 1 : 0;
+    let lastIdx = activeBlocks.indexOf(block);
+
+    let numIdx = lastIdx - firstIdx + 1;
+
+    // actually want to weight the time on each block by the number of cells in the block
+
+    let cellCounts = activeBlocks
+        .filter((_, i) => i >= firstIdx && i <= lastIdx)
+        .map(a => a.cx * a.cy);
+    let totalCells = cellCounts.reduce((a, b) => a + b, 0);
+
+    let accCell = 0;
+    let currIdx = firstIdx;
+    let subPos = 0; // 0 -> 1
+    for (let i = firstIdx; i <= lastIdx; i++) {
+        let blockFract = cellCounts[i - firstIdx] / totalCells;
+        accCell += blockFract;
+        if (timer.t < accCell) {
+            currIdx = i;
+            subPos = (timer.t - (accCell - blockFract)) / blockFract;
+            break;
+        }
+    }
+
+    // let currPos = lerp(firstIdx, lastIdx, timer.t);
+    // let currIdx = Math.floor(currPos);
+
+    let blk = activeBlocks[currIdx];
+
+    let horizPos = lerp(0, blk.cx, subPos);
+    let horizIdx = Math.floor(horizPos);
+
+    let vertPos = lerp(0, blk.cy, horizPos - horizIdx);
+    let vertIdx = Math.floor(vertPos);
+
+    let blockPos = new Vec3(horizIdx, vertIdx, 0);
+    let pinPos = new Vec3(Math.floor(blk.cx / 2), 0, 0);
+
+    if (timer.t >= 1.0) {
+        currIdx = lastIdx;
+    }
+
+    for (let i = firstIdx; i < currIdx; i++) {
+        let blk = activeBlocks[i];
+        if (blk.access) {
+            blk.access.disable = false;
+        }
+    }
+
+    if (timer.active && timer.t < 1.0) {
+        drawDependences(state, blk, blockPos);
+        drawDataFlow(state, blk, blockPos, pinPos);
+
+        blk.highlight = 0.3;
+
+        let column = splitGridX(state.layout, blk, Dim.X, horizPos, 0);
+        if (column) {
+            for (let col of findSubBlocks(blk, Dim.X, null, horizIdx)) {
+                if (col.access) {
+                    col.access.disable = false;
+                }
+            }
+            column.highlight = 0.4;
+
+            let curr = splitGridX(state.layout, column, Dim.Y, vertPos, 0);
+            for (let blk of findSubBlocks(column, Dim.Y, null, vertIdx)) {
+                if (blk.access) {
+                    blk.access.disable = false;
+                }
+            }
+            if (curr) {
+                curr.highlight = 0.7;
+            }
+        }
+
+
+    } else if (timer.active) {
+        let blk = activeBlocks[lastIdx];
+        if (blk.access) {
+            blk.access.disable = false;
+        }
+    }
+
+    let info = prevInfo ?? { lastBlockIdx: currIdx };
+    info.lastBlockIdx = lastIdx;
+    return info;
 }
 
 function embed(fc: React.FC) {

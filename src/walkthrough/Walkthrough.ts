@@ -1,4 +1,5 @@
 import { addSourceDestCurveLine, blockDimension, blockIndex, drawTextOnModel, findSubBlocks, indexMappingLines, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "../Annotations";
+import { ICamera, ICameraPos } from "../Camera";
 import { IBlkDef } from "../GptModelLayout";
 import { IProgramState } from "../Program";
 import { IRenderView } from "../render/modelRender";
@@ -60,12 +61,14 @@ export function initWalkthrough() {
         phase: SavedState.state?.phase ?? Phase.Intro_Intro,
         time: SavedState.state?.phaseTime ?? 0,
         dt: 0,
+        prevTime: 0,
         running: false,
         commentary: null as ICommentaryRes | null,
         times: [] as (ITimeInfo | ICommentary)[],
         phaseLength: 0,
         markDirty: () => { }, // bit of a hack to get it to WalkthroughSidebar
         phaseData: new Map<Phase, any>(),
+        cameraData: new Map<number, ICameraData>(),
         phaseList: [{
             groupId: PhaseGroup.Intro,
             title: 'Introduction',
@@ -83,6 +86,11 @@ export function initWalkthrough() {
             ],
         }] as IPhaseGroup[],
     };
+}
+
+interface ICameraData {
+    initialCaptured?: ICameraPos;
+    target: ICameraPos;
 }
 
 export enum PhaseGroup {
@@ -129,21 +137,32 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
     };
 
     let cam = state.camera;
-    let phaseState = state.walkthrough;
-    phaseState.times = [];
+    let wt = state.walkthrough;
+
+    wt.times = [];
 
     let tools = phaseTools(state);
     let { atTime, atEvent, afterTime, cleanup, commentary, commentaryPara, c_str } = tools;
 
     let wtArgs: IWalkthroughArgs = { state, layout, tools, walkthrough: state.walkthrough };
 
-    let groupId = phaseToGroup(phaseState).groupId;
+    let groupId = phaseToGroup(wt).groupId;
     if (groupId === PhaseGroup.Intro) {
         walkthroughIntro(wtArgs);
-        return;
+    } else {
+        walkthroughDetailed(wtArgs);
     }
 
-    switch (phaseState.phase) {
+    wt.prevTime = wt.time;
+}
+
+export function walkthroughDetailed(args: IWalkthroughArgs) {
+    let { walkthrough: wt, tools: { c_str, afterTime, atTime, atEvent, commentary, commentaryPara, cleanup }, layout, state } = args;
+    let cam = state.camera;
+    let render = state.render;
+    let display = state.display;
+
+    switch (wt.phase) {
 
     case Phase.Input_First: {
         let t0 = c_str('', 0);

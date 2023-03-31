@@ -15,16 +15,19 @@ import { Colors, DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools
 import { drawLineRect } from "./ModelCard";
 import { ITextBlock, sizeBlock, layoutBlock, drawBlock, mkTextBlock, TextBlockType } from "./TextLayout";
 
-export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3) {
+export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3, pinIdx?: Vec3) {
     if (!blk.deps) {
         return;
     }
     state.render.sharedRender.activePhase = RenderPhase.Overlay2D;
 
+    // the point where we draw the overlay
+    pinIdx = pinIdx ?? destIdx;
+
     let cellPos = new Vec3(
-        cellPosition(state.layout, blk, Dim.X, destIdx.x) + state.layout.cell * 0.5,
-        cellPosition(state.layout, blk, Dim.Y, destIdx.y) + state.layout.cell * 0.5,
-        cellPosition(state.layout, blk, Dim.Z, destIdx.z) + state.layout.cell * 1.1,
+        cellPosition(state.layout, blk, Dim.X, pinIdx.x) + state.layout.cell * 0.5,
+        cellPosition(state.layout, blk, Dim.Y, pinIdx.y) + state.layout.cell * 0.5,
+        cellPosition(state.layout, blk, Dim.Z, pinIdx.z) + state.layout.cell * 1.1,
     );
 
     let scale = 1.0;
@@ -559,15 +562,24 @@ function drawDepArrows(state: IProgramState, center: Vec3, bb: BoundingBox3d, mt
             srcIdx.setAt(otherDim, (dotLen ?? cx) / 2);
         }
 
+        let srcT = dep.src.t;
+        let color = srcT === 'w' ? Colors.Weights : srcT === 'i' ? Colors.Intermediates : Colors.Aggregates;
+
+        drawArrow(dep.src, srcIdx, color, false);
+    }
+
+    function drawFinalArrow() {
+        drawArrow(blk, destIdx, new Vec4(0,0,0,1), true);
+    }
+
+    function drawArrow(blk: IBlkDef, idx: Vec3, color: Vec4, reverse?: boolean) {
         let cellPos = new Vec3(
-            cellPosition(state.layout, dep.src, Dim.X, srcIdx.x) + state.layout.cell * 0.5,
-            cellPosition(state.layout, dep.src, Dim.Y, srcIdx.y) + state.layout.cell * 0.5,
-            cellPosition(state.layout, dep.src, Dim.Z, srcIdx.z) + state.layout.cell * 1.1,
+            cellPosition(state.layout, blk, Dim.X, idx.x) + state.layout.cell * 0.5,
+            cellPosition(state.layout, blk, Dim.Y, idx.y) + state.layout.cell * 0.5,
+            cellPosition(state.layout, blk, Dim.Z, idx.z) + state.layout.cell * 1.1,
         );
 
         // let's just draw a straight line for now
-        let srcT = dep.src.t;
-        let color = srcT === 'w' ? Colors.Weights : srcT === 'i' ? Colors.Intermediates : Colors.Aggregates;
 
         let lineOpts = makeLineOpts({ n: new Vec3(0,0,1), color, mtx, thick: 0.5, dash: 10 });
 
@@ -593,6 +605,11 @@ function drawDepArrows(state: IProgramState, center: Vec3, bb: BoundingBox3d, mt
         }
 
         if (actualTarget) {
+            if (reverse) {
+                let tmp = source;
+                source = actualTarget;
+                actualTarget = tmp;
+            }
             drawArc(state, source, actualTarget, color, mtx, 1.0);
             // addLine2(state.render.lineRender, source, actualTarget, lineOpts);
         }
@@ -609,6 +626,7 @@ function drawDepArrows(state: IProgramState, center: Vec3, bb: BoundingBox3d, mt
             drawDepArrow(dep, dotLen);
         }
     }
+    drawFinalArrow();
 }
 
 // create clockwise arc from a to b

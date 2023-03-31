@@ -107,9 +107,9 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     state.display.tokenColors = null;
     state.display.tokenIdxColors = null;
 
-    if (state.walkthrough.running) {
-        cameraMoveToDesired(state.camera, view.dt);
-    }
+    // if (state.walkthrough.running) {
+    //     cameraMoveToDesired(state.camera, view.dt);
+    // }
 
     // generate the base model, incorporating the gpu-side model if available
     state.layout = genGptModelLayout(state.shape, state.gptGpuModel);

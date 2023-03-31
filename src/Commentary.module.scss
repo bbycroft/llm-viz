@@ -76,6 +76,7 @@
     flex-direction: row;
     align-items: center;
     flex: 1;
+    margin: 16px 0;
 
     /* margin: 20px 20%; */
     /* border-bottom: 1px solid #cfcfcf; */
@@ -168,4 +169,10 @@
         top: -6px;
         left: -6px;
     }
+}
+
+.sectionHighlightWrap {
+    position: absolute;
+    pointer-events: none;
+    // background-color: rgba(black, 0.1);
 }
