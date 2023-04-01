@@ -7,6 +7,7 @@ import { IRenderState } from "../render/modelRender";
 import { addQuad } from "../render/triRender";
 import { isNotNil, isNil } from "../utils/data";
 import { lerp } from "../utils/math";
+import { Mat4f } from "../utils/matrix";
 import { Vec3, Vec4 } from "../utils/vector";
 import { drawRoundedRect } from "./DataFlow";
 import { drawLineRect } from "./ModelCard";
@@ -257,30 +258,33 @@ export function drawBlock(render: IRenderState, blk: ITextBlock) {
         break;
     }
     case TextBlockType.Cells: {
-        let nCellsX = blk.cellX!;
-        let nCellsY = blk.cellY!;
-        let thick = 0.4;
         let center = blk.offset.add(new Vec3(blk.size.x / 2, blk.size.y / 2));
         let spacing = cellSizing(blk);
 
-        let tl = center.mulAdd(spacing.size, -0.5).add(new Vec3(0.5, 0.5));
-        let br = center.mulAdd(spacing.size, 0.5).add(new Vec3(0.5, 0.5));
-        let lineOpts = makeLineOpts({ color: blk.opts.color, mtx: blk.opts.mtx, n: new Vec3(0, 0, 1), thick });
+        drawCells(render, new Vec3(blk.cellX!, blk.cellY!), center, spacing.size, blk.opts.color, blk.opts.mtx);
 
-        drawLineRect(render, tl, br, lineOpts);
-        addQuad(render.triRender, tl, br, blk.opts.color.mul(0.3), blk.opts.mtx);
-
-        for (let i = 1; i < nCellsX; i++) {
-            let lineX = tl.x + i * cellSize;
-            addLine2(render.lineRender, new Vec3(lineX, tl.y, 0), new Vec3(lineX, br.y, 0), lineOpts);
-        }
-
-        for (let i = 1; i < nCellsY; i++) {
-            let lineY = tl.y + i * cellSize;
-            addLine2(render.lineRender, new Vec3(tl.x, lineY, 0), new Vec3(br.x, lineY, 0), lineOpts);
-        }
         break;
     }
     default: { let _exhaustCheck: never = blk.type; }
     }
+}
+
+export function drawCells(render: IRenderState, nCells: Vec3, center: Vec3, size: Vec3, color: Vec4, mtx?: Mat4f) {
+        let thick = 0.4;
+        let tl = center.mulAdd(size, -0.5).add(new Vec3(0.5, 0.5));
+        let br = center.mulAdd(size, 0.5).add(new Vec3(0.5, 0.5));
+        let lineOpts = makeLineOpts({ color, mtx, n: new Vec3(0, 0, 1), thick });
+
+        drawLineRect(render, tl, br, lineOpts);
+        addQuad(render.triRender, tl, br, color.mul(0.3), mtx);
+
+        for (let i = 1; i < nCells.x; i++) {
+            let lineX = tl.x + i * cellSize;
+            addLine2(render.lineRender, new Vec3(lineX, tl.y, 0), new Vec3(lineX, br.y, 0), lineOpts);
+        }
+
+        for (let i = 1; i < nCells.y; i++) {
+            let lineY = tl.y + i * cellSize;
+            addLine2(render.lineRender, new Vec3(tl.x, lineY, 0), new Vec3(br.x, lineY, 0), lineOpts);
+        }
 }
