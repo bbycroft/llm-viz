@@ -70,6 +70,9 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3, 
     } else if (blk.deps.special === BlKDepSpecial.Attention) {
         bb = drawAttention(state, center, resMtx, blk);
 
+    } else if (blk.deps.special === BlKDepSpecial.Gelu) {
+        bb = drawGeluActivation(state, center, resMtx);
+
     // Standard ones
     } else if (blk.deps.dot) {
         bb = drawOLMatrixMul(state, center, resMtx, blk);
@@ -547,6 +550,69 @@ export function drawAttention(state: IProgramState, center: Vec3, mtx: Mat4f, bl
     });
 
     return drawMaths(state, center, mtx, textBlk);
+}
+
+export function drawGeluActivation(state: IProgramState, center: Vec3, mtx: Mat4f) {
+
+    // ugly
+    // let fontOpts = { color: opColor, mtx, size: 16 };
+    // let textBlk = mkTextBlock({
+    //     opts: fontOpts,
+    //     subs: [
+    //         { text: '0.5' },
+    //         { cellX: 1, cellY: 1, color: workingSrcColor },
+    //         { text: '(1 + tanh(' },
+    //         { type: TextBlockType.Sqrt, subs: [{ text: '2/π' }], },
+    //         { text: '(' },
+    //         { cellX: 1, cellY: 1, color: workingSrcColor },
+    //         { text: ' + 0.044715' },
+    //         { cellX: 1, cellY: 1, color: workingSrcColor },
+    //         { text: '^3)' },
+    //     ],
+    // });
+    // return drawMaths(state, center, mtx, textBlk);
+
+    let geluX = (x: number) => x * 0.5 * (1.0 + Math.tanh(Math.sqrt(2.0 / Math.PI) * (x + 0.044715 * x * x * x)))
+
+    let w = 70;
+    let h = 50;
+
+    let tl = center.sub(new Vec3(w / 2, h, 0));
+    let br = center.add(new Vec3(w / 2, 0, 0));
+
+    drawRoundedRect(state.render, tl, br, backWhiteColor, mtx, 4);
+
+    let halfW = 3;
+    let halfH = halfW * h / w;
+    let hOffset = 1.2;
+    let mappingX = createMapping(tl.x, br.x, -halfW, halfW);
+    let mappingY = createMapping(br.y, tl.y, -halfH + hOffset, halfH + hOffset);
+
+    let nPts = 30;
+    let pts = new Float32Array(nPts * 3);
+    for (let i = 0; i < nPts; i++) {
+        let x = -halfW + i * halfW * 2 / (nPts - 1);
+        let y = geluX(x);
+        pts[i * 3 + 0] = mappingX(x);
+        pts[i * 3 + 1] = mappingY(y);
+    }
+
+    let axisLineOpts = makeLineOpts({ color: new Vec4(0.5,0.5,0.5,1), mtx, thick: 1.5 });
+    addLine2(state.render.lineRender, new Vec3(tl.x, mappingY(0)), new Vec3(br.x, mappingY(0)), axisLineOpts);
+    addLine2(state.render.lineRender, new Vec3(mappingX(0), tl.y), new Vec3(mappingX(0), br.y), axisLineOpts);
+
+    let curveLineOpts = makeLineOpts({ color: Colors.Intermediates, mtx, thick: 3.5 });
+    drawLineSegs(state.render.lineRender, pts, curveLineOpts);
+
+    let bb = new BoundingBox3d(tl, br);
+
+    return bb;
+}
+
+export function createMapping(range0: number, range1: number, domain0: number, domain1: number) {
+    let m = (range1 - range0) / (domain1 - domain0);
+    let b = range0 - m * domain0;
+    return (x: number) => m * x + b;
 }
 
 function drawDepArrows(state: IProgramState, center: Vec3, bb: BoundingBox3d, mtx: Mat4f, blk: IBlkDef, destIdx: Vec3) {

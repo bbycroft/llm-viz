@@ -581,7 +581,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
             t: 'i', cx: C * 4, cz: B, cy: T, y: y,
             xR: attnLeftX, zM: 0,
             access: { src: target?.mlp.mlpGelu, x: [1, 0, 0], y: [0, 1, T] },
-            deps: { add: [[mlpFc, 'xy']] },
+            deps: { add: [[mlpFc, 'xy']], special: BlKDepSpecial.Gelu },
             dimX: DimStyle.C4, dimY: DimStyle.T,
             name: 'MLP Activation',
         });
