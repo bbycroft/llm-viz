@@ -263,6 +263,14 @@ function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkDef, pre
         drawDependences(state, blk, blockPos);
         drawDataFlow(state, blk, blockPos, pinPos);
 
+        for (let label of state.layout.labels) {
+            for (let c of label.cubes) {
+                if (c === blk) {
+                    label.visible = 1.0;
+                }
+            }
+        }
+
         blk.highlight = 0.3;
 
         let column = splitGridX(state.layout, blk, Dim.X, horizPos, 0);

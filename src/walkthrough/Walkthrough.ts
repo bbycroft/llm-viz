@@ -9,7 +9,16 @@ import { oneHotArray } from "../utils/data";
 import { lerp, lerpSmoothstep } from "../utils/math";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { DimStyle, dimStyleColor, hideFromBlock, ICommentary, ICommentaryRes, IPhaseGroup, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
-import { walkthroughIntro } from "./Walkthrough_Intro";
+import { walkthroughIntro } from "./Walkthrough00_Intro";
+import { walkthrough01_Prelim } from "./Walkthrough01_Prelim";
+import { walkthrough02_Embedding } from "./Walkthrough02_Embedding";
+import { walkthrough03_LayerNorm } from "./Walkthrough03_LayerNorm";
+import { walkthrough04_SelfAttention } from "./Walkthrough04_SelfAttention";
+import { walkthrough05_Softmax } from "./Walkthrough05_Softmax";
+import { walkthrough06_Projection } from "./Walkthrough06_Projection";
+import { walkthrough07_Mlp } from "./Walkthrough07_Mlp";
+import { walkthrough08_Transformer } from "./Walkthrough08_Transformer";
+import { walkthrough09_Output } from "./Walkthrough09_Output";
 
 
 /**
@@ -74,14 +83,23 @@ export function initWalkthrough() {
             title: 'Introduction',
             phases: [
                 { id: Phase.Intro_Intro, title: 'Overview' },
+                { id: Phase.Intro_Prelim, title: 'Preliminary' },
             ],
         }, {
             groupId: PhaseGroup.Detailed_Input,
             title: 'Detailed - Input',
             phases: [
-                { id: Phase.Input_First, title: 'The First' },
-                { id: Phase.Input_Detail_Tables, title: 'Embedding Tables' },
-                { id: Phase.Input_Detail_TokEmbed, title: 'Embedding Action' },
+                { id: Phase.Input_Detail_Embedding, title: 'Embedding' },
+                { id: Phase.Input_Detail_LayerNorm, title: 'Layer Norm' },
+                { id: Phase.Input_Detail_SelfAttention, title: 'Self Attention' },
+                { id: Phase.Input_Detail_Softmax, title: 'Softmax' },
+                { id: Phase.Input_Detail_Projection, title: 'Projection' },
+                { id: Phase.Input_Detail_Mlp, title: 'MLP' },
+                { id: Phase.Input_Detail_Transformer, title: 'Transformer' },
+                { id: Phase.Input_Detail_Output, title: 'Output' },
+                // { id: Phase.Input_First, title: 'The First' },
+                // { id: Phase.Input_Detail_Tables, title: 'Embedding Tables' },
+                // { id: Phase.Input_Detail_TokEmbed, title: 'Embedding Action' },
                 { id: Phase.LayerNorm1, title: 'First Layer Norm' },
             ],
         }] as IPhaseGroup[],
@@ -98,7 +116,6 @@ export enum PhaseGroup {
     Detailed_Input,
 }
 
-
 export enum Phase {
     Intro_Intro,
 
@@ -106,6 +123,15 @@ export enum Phase {
     Input_Detail_Tables,
     Input_Detail_TokEmbed,
     LayerNorm1,
+    Intro_Prelim,
+    Input_Detail_Embedding,
+    Input_Detail_LayerNorm,
+    Input_Detail_SelfAttention,
+    Input_Detail_Softmax,
+    Input_Detail_Projection,
+    Input_Detail_Mlp,
+    Input_Detail_Transformer,
+    Input_Detail_Output,
 }
 
 export function phaseToGroup(wt: IWalkthrough) {
@@ -114,43 +140,41 @@ export function phaseToGroup(wt: IWalkthrough) {
 
 
 export function runWalkthrough(state: IProgramState, view: IRenderView) {
-    let { layout, render, display } = state;
+    let wt = state.walkthrough;
 
-    if (state.walkthrough.running) {
+    if (wt.running) {
         let dtSeconds = view.dt / 1000;
-        state.walkthrough.time += dtSeconds;
-        state.walkthrough.dt = dtSeconds;
+        wt.time += dtSeconds;
+        wt.dt = dtSeconds;
 
-        if (state.walkthrough.time > state.walkthrough.phaseLength) {
-            state.walkthrough.running = false;
-            state.walkthrough.time = state.walkthrough.phaseLength;
-            console.log('setting to phaseLength', state.walkthrough.phaseLength);
+        if (wt.time > wt.phaseLength) {
+            wt.running = false;
+            wt.time = wt.phaseLength;
         }
 
         view.markDirty();
     }
 
-    SavedState.state = {
-        phase: state.walkthrough.phase,
-        phaseTime: state.walkthrough.time,
-        camera: state.camera,
-    };
-
-    let cam = state.camera;
-    let wt = state.walkthrough;
+    SavedState.state = { phase: wt.phase, phaseTime: wt.time, camera: state.camera };
 
     wt.times = [];
 
-    let tools = phaseTools(state);
-    let { atTime, atEvent, afterTime, cleanup, commentary, commentaryPara, c_str } = tools;
-
-    let wtArgs: IWalkthroughArgs = { state, layout, tools, walkthrough: state.walkthrough };
+    let wtArgs: IWalkthroughArgs = { state, layout: state.layout, tools: phaseTools(state), walkthrough: wt };
 
     let groupId = phaseToGroup(wt).groupId;
     if (groupId === PhaseGroup.Intro) {
         walkthroughIntro(wtArgs);
-    } else {
+        walkthrough01_Prelim(wtArgs);
+    } else if (groupId === PhaseGroup.Detailed_Input) {
         walkthroughDetailed(wtArgs);
+        walkthrough02_Embedding(wtArgs);
+        walkthrough03_LayerNorm(wtArgs);
+        walkthrough04_SelfAttention(wtArgs);
+        walkthrough05_Softmax(wtArgs);
+        walkthrough06_Projection(wtArgs);
+        walkthrough07_Mlp(wtArgs);
+        walkthrough08_Transformer(wtArgs);
+        walkthrough09_Output(wtArgs);
     }
 
     wt.prevTime = wt.time;
