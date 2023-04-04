@@ -111,12 +111,19 @@ export function drawAllArrows(state: IRenderState, layout: IGptModelLayout) {
     drawHorizArrow(layout.ln_f.lnMu, layout.ln_f.lnSigma);
     drawHorizArrow(layout.ln_f.lnSigma, layout.ln_f.lnResid);
 
-    drawArrowBetween(layout.ln_f.lnResid, BlockPos.Bot, layout.logits, BlockPos.Right);
-    drawVertArrow(layout.lmHeadWeight, layout.logits);
+    if (layout.logitsTransposed) {
+        drawArrowBetween(layout.ln_f.lnResid, BlockPos.Bot, layout.logits, BlockPos.Right);
+        drawVertArrow(layout.lmHeadWeight, layout.logits);
 
-    drawVertArrow(layout.logits, layout.logitsSoftmax);
-    drawHorizArrow(layout.logits, layout.logitsAgg1, 2);
-    drawArrowBetween(layout.logitsAgg2, BlockPos.Bot, layout.logitsSoftmax, BlockPos.Right, 2);
+        drawVertArrow(layout.logits, layout.logitsSoftmax);
+        drawHorizArrow(layout.logits, layout.logitsAgg1, 2);
+        drawArrowBetween(layout.logitsAgg2, BlockPos.Bot, layout.logitsSoftmax, BlockPos.Right, 2);
+    } else {
+        drawVertArrow(layout.ln_f.lnResid, layout.logits);
+        drawHorizArrow(layout.lmHeadWeight, layout.logits);
+        drawVertArrow(layout.logits, layout.logitsAgg2);
+        drawVertArrow(layout.logitsAgg1, layout.logitsSoftmax);
+    }
 
     function blkColor(src: IBlkDef) {
         return src.t === 'w' ? weightColor : dataColor;

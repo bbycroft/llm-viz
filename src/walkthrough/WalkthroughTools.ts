@@ -288,7 +288,7 @@ export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3
         angle: rot,
     };
 
-    if (src && (wt.running || wt.time !== wt.prevTime) && time.active && time.t < 1.0) {
+    if (src && (wt.running || wt.time !== wt.prevTime) && time.active && (time.t < 1.0 || (wt.time - wt.dt < time.start + time.duration && wt.time >= time.start + time.duration))) {
         let t = time.t;
         state.camera.angle = src.angle.lerp(dest.angle, t);
         state.camera.center = src.center.lerp(dest.center, t);

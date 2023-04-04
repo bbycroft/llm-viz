@@ -86,10 +86,10 @@ export const Commentary: React.FC = () => {
     let prevBreak = -1;
     let nextBreak = -1;
     let lastBreak = -1;
-    for (let i = 0; i < nodes.length; i++) {
+    for (let i = 0; i < nodes.length + 1; i++) {
         let node = nodes[i];
-        if (node.isBreak) {
-            if (node.start >= wt.time) {
+        if (node?.isBreak || i === nodes.length) {
+            if (i === nodes.length || node.start >= wt.time) {
                 nextBreak = lastBreak - 1;
                 break;
             } 

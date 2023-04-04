@@ -1,12 +1,13 @@
 import { cameraToMatrixView } from "../Camera";
-import { IGptModelLayout } from "../GptModelLayout";
+import { cellPosition, IGptModelLayout } from "../GptModelLayout";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText, measureTextWidth, writeTextToBuffer } from "../render/fontRender";
 import { addLine, addLine2 as drawLine, drawLineSegs, ILineOpts, makeLineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { addQuad } from "../render/triRender";
+import { lerp } from "../utils/math";
 import { Mat4f } from "../utils/matrix";
-import { Vec3, Vec4 } from "../utils/vector";
+import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
 
 export function drawModelCard(state: IProgramState) {
@@ -101,6 +102,8 @@ export function drawModelCard(state: IProgramState) {
     addLine(render.lineRender, thick, borderColor, new Vec3(tl.x, tl.y + paramHeight), new Vec3(br.x, tl.y + paramHeight), n, mtx);
 
     renderInputOutput(state, layout, new Vec3(tl.x, tl.y + paramHeight + 8, 0), new Vec3(br.x, br.y, 0), lineOpts);
+
+    renderOutputAtBottom(state);
 }
 
 export function renderInputOutput(state: IProgramState, layout: IGptModelLayout, tl: Vec3, br: Vec3, lineOpts: ILineOpts) {
@@ -122,8 +125,6 @@ export function renderInputOutput(state: IProgramState, layout: IGptModelLayout,
     let tokTextOpts: IFontOpts = { color: Vec4.fromHexColor("#000000", 1.0), mtx: lineOpts.mtx, size: 5 };
     let idxTextOpts: IFontOpts = { color: Vec4.fromHexColor("#666666", 1.0), mtx: lineOpts.mtx, size: 3 };
 
-    let dimmedTokTextOpts: IFontOpts = { ...tokTextOpts, color: tokTextOpts.color.mul(0.3) };
-    let dimmedIdxTextOpts: IFontOpts = { ...idxTextOpts, color: idxTextOpts.color.mul(0.3) };
 
     let { T, vocabSize } = layout.shape;
 
@@ -139,10 +140,6 @@ export function renderInputOutput(state: IProgramState, layout: IGptModelLayout,
     let tokens = layout.model?.inputBuf;
     drawLineRect(render, inTl, inBr, lineOpts);
 
-    function tokenIndexToString(a: number) {
-        return String.fromCharCode('A'.charCodeAt(0) + a); // just A, B, C supported!
-    }
-
     for (let i = 0; i < T; i++) {
 
         if (i > 0) {
@@ -153,7 +150,7 @@ export function renderInputOutput(state: IProgramState, layout: IGptModelLayout,
         if (tokens && i < layout.model!.activeCount) {
             let cx = inTl.x + (i + 0.5) * cellW;
 
-            let tokStr = tokenIndexToString(tokens[i]);
+            let tokStr = sortABCInputTokenToString(tokens[i]);
             let tokW = measureText(render.modelFontBuf, tokStr, tokTextOpts);
             let idxW = measureText(render.modelFontBuf, tokens[i].toString(), idxTextOpts);
             let totalH = tokTextOpts.size + idxTextOpts.size;
@@ -165,39 +162,57 @@ export function renderInputOutput(state: IProgramState, layout: IGptModelLayout,
 
     }
 
-    let outCellH = 20;
     let outputTitle = "Output";
     drawText(render.modelFontBuf, outputTitle, inTl.x, inBr.y + 1, titleTextOpts);
 
+    let outCellH = 20;
+    let outFontSize = 5;
     let outTl = new Vec3(inTl.x, inBr.y + 1 + titleTextOpts.size + 1);
     let outBr = new Vec3(inBr.x, outTl.y + outCellH, 0);
+    renderOutputBoxes(state, layout, outTl, outBr, cellW, outFontSize, lineOpts);
+}
 
-    drawLineRect(render, outTl, outBr, lineOpts);
+export function sortABCInputTokenToString(a: number) {
+    return String.fromCharCode('A'.charCodeAt(0) + a); // just A, B, C supported!
+}
+
+export function renderOutputBoxes(state: IProgramState, layout: IGptModelLayout, tl: Vec3, br: Vec3, cellW: number, fontSize: number, lineOpts: ILineOpts) {
+    let render = state.render;
+    let { T, vocabSize } = layout.shape;
+    let outCellH = br.y - tl.y;
+
+    let tokTextOpts: IFontOpts = { color: Vec4.fromHexColor("#000000", 1.0), mtx: lineOpts.mtx, size: fontSize };
+    let idxTextOpts: IFontOpts = { color: Vec4.fromHexColor("#666666", 1.0), mtx: lineOpts.mtx, size: fontSize * 0.6 };
+
+    let dimmedTokTextOpts: IFontOpts = { ...tokTextOpts, color: tokTextOpts.color.mul(0.3) };
+    let dimmedIdxTextOpts: IFontOpts = { ...idxTextOpts, color: idxTextOpts.color.mul(0.3) };
+
+    drawLineRect(render, tl, br, lineOpts);
 
     let sortedOutput = layout.model?.sortedBuf;
 
     for (let i = 0; i < T; i++) {
         if (i > 0) {
-            let lineX = outTl.x + i * cellW;
-            drawLine(render.lineRender, new Vec3(lineX, outTl.y, 0), new Vec3(lineX, outBr.y, 0), lineOpts);
+            let lineX = tl.x + i * cellW;
+            drawLine(render.lineRender, new Vec3(lineX, tl.y, 0), new Vec3(lineX, br.y, 0), lineOpts);
         }
 
         if (sortedOutput && i < layout.model!.activeCount) {
             let usedSoFar = 0.0;
-            let cx = outTl.x + (i + 0.5) * cellW;
+            let cx = tl.x + (i + 0.5) * cellW;
 
             for (let j = 0; j < vocabSize; j++) {
                 let tokIdx = sortedOutput[(i * vocabSize + j) * 2 + 0];
                 let tokProb = sortedOutput[(i * vocabSize + j) * 2 + 1];
 
-                let partTop = outTl.y + usedSoFar * outCellH;
+                let partTop = tl.y + usedSoFar * outCellH;
                 let partH = tokProb * outCellH;
 
                 let dimmed = i < layout.model!.activeCount - 1;
                 let tokOpts = dimmed ? dimmedTokTextOpts : tokTextOpts;
                 let idxOpts = dimmed ? dimmedIdxTextOpts : idxTextOpts;
 
-                let tokStr = tokenIndexToString(tokIdx);
+                let tokStr = sortABCInputTokenToString(tokIdx);
                 let tokW = measureText(render.modelFontBuf, tokStr, tokOpts);
                 let idxW = measureText(render.modelFontBuf, tokIdx.toString(), idxOpts);
                 let textH = tokOpts.size + idxOpts.size;
@@ -248,4 +263,46 @@ function numberToCommaSep(a: number) {
         out += s[i];
     }
     return out;
+}
+
+
+function renderOutputAtBottom(state: IProgramState) {
+    let layout = state.layout;
+
+    let softmax = layout.logitsSoftmax;
+
+
+    let topMid = new Vec3(softmax.x + softmax.dx/2, softmax.y + softmax.dy + layout.margin);
+
+    let outCellH = 10;
+    let outCellW = 6;
+
+    let nCells = layout.shape.T;
+    let tl = new Vec3(topMid.x - outCellW * nCells / 2, topMid.y);
+    let br = new Vec3(topMid.x + outCellW * nCells / 2, topMid.y + outCellH);
+
+    let lineOpts = makeLineOpts({ color: Vec4.fromHexColor("#000000", 0.2), mtx: new Mat4f(), thick: 1.5 });
+
+    renderOutputBoxes(state, layout, tl, br, outCellW, 4, lineOpts);
+
+    for (let i = 0; i < nCells; i++) {
+        let tx = cellPosition(layout, softmax, Dim.X, i) + 0.5 * layout.cell;
+        let ty = softmax.y + softmax.dy + 0.5 * layout.cell;
+        let bx = tl.x + (i + 0.5) * outCellW;
+        let by = tl.y - layout.cell;
+
+        let midY1 = lerp(ty, by, 1/6);
+        let midY2 = lerp(ty, by, 3/4);
+
+        drawLine(state.render.lineRender, new Vec3(tx, ty), new Vec3(tx, midY1), lineOpts);
+        drawLine(state.render.lineRender, new Vec3(tx, midY1), new Vec3(bx, midY2), lineOpts);
+        drawLine(state.render.lineRender, new Vec3(bx, midY2), new Vec3(bx, by), lineOpts);
+
+        let arrLen = 0.6;
+        let arrowLeft = new Vec3(bx - arrLen, by - arrLen);
+        let arrowRight = new Vec3(bx + arrLen, by - arrLen);
+        drawLine(state.render.lineRender, arrowLeft, new Vec3(bx, by), lineOpts);
+        drawLine(state.render.lineRender, arrowRight, new Vec3(bx, by), lineOpts);
+    }
+
 }

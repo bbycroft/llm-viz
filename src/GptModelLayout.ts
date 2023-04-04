@@ -697,55 +697,115 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
 
     cubes.push(...ln_f.cubes);
 
-    let lmHeadWeight = mk({
-        t: 'w', cx: vocabSize, cz: 1, cy: C, y: y,
-        xR: lnLeftX, zM: 0,
-        access: { src: gptGpuModel?.lm_head.weight, x: [0, 1, 0], y: [1, 0, 0], scale: 5.0 },
-        dimX: DimStyle.n_vocab, dimY: DimStyle.C,
-        name: 'LM Head Weights',
-    });
+    let logitsTransposed = false;
 
-    y += C * cell + margin;
+    let lmHeadWeight: IBlkDef, logits: IBlkDef, logitsAgg1: IBlkDef, logitsAgg2: IBlkDef, logitsSoftmax: IBlkDef;
 
-    let logits = mk({
-        t: 'i', cx: vocabSize, cz: B, cy: T, y: y,
-        xR: lnLeftX, zM: 0,
-        access: { src: gptGpuModel?.lm_head.output, x: [1, 0, 0], y: [0, 1, T] },
-        deps: { dot: [[lmHeadWeight, 'xi'], [ln_f.lnResid, 'yi']], dotLen: C },
-        dimX: DimStyle.n_vocab, dimY: DimStyle.T,
-        name: 'Logits',
-    });
+    if (logitsTransposed) {
+        lmHeadWeight = mk({
+            t: 'w', cx: vocabSize, cz: 1, cy: C, y: y,
+            xR: lnLeftX, zM: 0,
+            access: { src: gptGpuModel?.lm_head.weight, x: [0, 1, 0], y: [1, 0, 0], scale: 5.0 },
+            dimX: DimStyle.n_vocab, dimY: DimStyle.C,
+            name: 'LM Head Weights',
+        });
 
-    // z += vocabSize * cell + margin;
+        y += C * cell + margin;
 
-    let logitsAgg1 = mk({
-        t: 'a', cx: 1, cz: B, cy: T, y: y,
-        xL: lnLeftX + 1.5 * margin, zM: -3 * cell,
-        access: { src: gptGpuModel?.softmaxFinal.agg, x: [1, 0, 0], y: [0, 1, T], channel: 'r' },
-        deps: { add: [[logits, 'iy']], special: BlKDepSpecial.SoftmaxAggExp },
-        dimX: DimStyle.None, dimY: DimStyle.T,
-        name: 'SM Agg',
-    });
+        logits = mk({
+            t: 'i', cx: vocabSize, cz: B, cy: T, y: y,
+            xR: lnLeftX, zM: 0,
+            access: { src: gptGpuModel?.lm_head.output, x: [1, 0, 0], y: [0, 1, T] },
+            deps: { dot: [[lmHeadWeight, 'xi'], [ln_f.lnResid, 'yi']], dotLen: C },
+            dimX: DimStyle.n_vocab, dimY: DimStyle.T,
+            name: 'Logits',
+        });
 
-    let logitsAgg2 = mk({
-        t: 'a', cx: 1, cz: B, cy: T, y: y,
-        xL: lnLeftX + 1.5 * margin + cell, zM: -3 * cell,
-        access: { src: gptGpuModel?.softmaxFinal.agg, x: [1, 0, 0], y: [0, 1, T], channel: 'g' },
-        deps: { add: [[logits, 'iy']], special: BlKDepSpecial.SoftmaxAggMax },
-        dimX: DimStyle.None, dimY: DimStyle.T,
-        name: '',
-    });
+        // z += vocabSize * cell + margin;
 
-    y += T * cell + margin;
+        logitsAgg1 = mk({
+            t: 'a', cx: 1, cz: B, cy: T, y: y,
+            xL: lnLeftX + 1.5 * margin, zM: -3 * cell,
+            access: { src: gptGpuModel?.softmaxFinal.agg, x: [1, 0, 0], y: [0, 1, T], channel: 'r' },
+            deps: { add: [[logits, 'iy']], special: BlKDepSpecial.SoftmaxAggExp },
+            dimX: DimStyle.None, dimY: DimStyle.T,
+            name: 'SM Agg',
+        });
 
-    let logitsSoftmax = mk({
-        t: 'i', cx: vocabSize, cz: B, cy: T, y: y,
-        xR: lnLeftX, zM: 0,
-        access: { src: gptGpuModel?.softmaxFinal.output, x: [1, 0, 0], y: [0, 1, T] },
-        deps: { add: [[logits, 'xy'], [logitsAgg1, 'iy'], [logitsAgg2, 'iy']], special: BlKDepSpecial.Softmax },
-        dimX: DimStyle.n_vocab, dimY: DimStyle.T,
-        name: 'Logits Softmax',
-    });
+        logitsAgg2 = mk({
+            t: 'a', cx: 1, cz: B, cy: T, y: y,
+            xL: lnLeftX + 1.5 * margin + cell, zM: -3 * cell,
+            access: { src: gptGpuModel?.softmaxFinal.agg, x: [1, 0, 0], y: [0, 1, T], channel: 'g' },
+            deps: { add: [[logits, 'iy']], special: BlKDepSpecial.SoftmaxAggMax },
+            dimX: DimStyle.None, dimY: DimStyle.T,
+            name: '',
+        });
+
+        y += T * cell + margin;
+
+        logitsSoftmax = mk({
+            t: 'i', cx: vocabSize, cz: B, cy: T, y: y,
+            xR: lnLeftX, zM: 0,
+            access: { src: gptGpuModel?.softmaxFinal.output, x: [1, 0, 0], y: [0, 1, T] },
+            deps: { add: [[logits, 'xy'], [logitsAgg1, 'iy'], [logitsAgg2, 'iy']], special: BlKDepSpecial.Softmax },
+            dimX: DimStyle.n_vocab, dimY: DimStyle.T,
+            name: 'Logits Softmax',
+        });
+
+    } else {
+        y += C * cell + margin;
+        let leftX2 = leftX - T * cell - margin;
+
+        lmHeadWeight = mk({
+            t: 'w', cx: C, cy: vocabSize, cz: 1, y: y,
+            xR: leftX2, zM: 0,
+            access: { src: gptGpuModel?.lm_head.weight, x: [1, 0, 0], y: [0, 1, 0], scale: 5.0 },
+            dimX: DimStyle.C, dimY: DimStyle.n_vocab,
+            name: 'LM Head Weights',
+        });
+
+
+        logits = mk({
+            t: 'i', cx: T, cy: vocabSize, cz: B, y: y,
+            xR: leftX, zM: 0,
+            access: { src: gptGpuModel?.lm_head.output, x: [0, 1, 0], y: [1, 0, T] },
+            deps: { dot: [[lmHeadWeight, 'iy'], [ln_f.lnResid, 'xi']], dotLen: C },
+            dimX: DimStyle.T, dimY: DimStyle.n_vocab,
+            name: 'Logits',
+        });
+
+        y += vocabSize * cell + margin;
+
+        logitsAgg2 = mk({
+            t: 'a', cx: T, cy: 1, cz: B, y: y,
+            xR: leftX, zM: 0,
+            access: { src: gptGpuModel?.softmaxFinal.agg, x: [0, 1, 0], y: [1, 0, T], channel: 'g' },
+            deps: { add: [[logits, 'xi']], special: BlKDepSpecial.SoftmaxAggMax },
+            dimX: DimStyle.T, dimY: DimStyle.None,
+            name: 'SM Agg',
+        });
+
+        logitsAgg1 = mk({
+            t: 'a', cx: T, cy: 1, cz: B, y: y + cell,
+            xR: leftX, zM: 0,
+            access: { src: gptGpuModel?.softmaxFinal.agg, x: [0, 1, 0], y: [1, 0, T], channel: 'r' },
+            deps: { add: [[logits, 'xi'], [logitsAgg2, 'x0']], special: BlKDepSpecial.SoftmaxAggExp },
+            dimX: DimStyle.T, dimY: DimStyle.None,
+            name: '',
+        });
+
+        y += 2 * cell + margin;
+
+        logitsSoftmax = mk({
+            t: 'i', cx: T, cy: vocabSize, cz: B, y: y,
+            xR: leftX, zM: 0,
+            access: { src: gptGpuModel?.softmaxFinal.output, x: [0, 1, 0], y: [1, 0, T] },
+            deps: { add: [[logits, 'xy'], [logitsAgg1, 'xi'], [logitsAgg2, 'xi']], special: BlKDepSpecial.Softmax },
+            dimX: DimStyle.T, dimY: DimStyle.n_vocab,
+            name: 'Logits Softmax',
+        });
+
+    }
 
     // let logitsSoftmaxTopN = mk({
     //     t: 'i', cx: T, cz: B, cy: Math.min(32, vocabSize), y: y,
@@ -777,6 +837,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGpuGptModel 
         embedLabel,
         blocks,
         height: y,
+        logitsTransposed,
         model: gptGpuModel,
         labels: [embedLabel, ...blocks.flatMap(b => b.labels)],
         weightCount,

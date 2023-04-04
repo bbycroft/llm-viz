@@ -1,7 +1,6 @@
 import { camScaleToScreen } from "../Camera";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
-import { IRenderState } from "../render/modelRender";
 import { RenderPhase } from "../render/sharedRender";
 import { Mat4f } from "../utils/matrix";
 import { Vec3, Vec4 } from "../utils/vector";
@@ -15,7 +14,7 @@ export function drawBlockInfo(state: IProgramState) {
 
         let scale = camScaleToScreen(state, blkTopMid);
 
-        scale = Math.min(scale, 2);
+        scale = Math.min(scale, 1.45);
         // have a max scale
 
         let textColor = new Vec4(1, 1, 1, 1).mul(blk.opacity);

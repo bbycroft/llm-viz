@@ -183,20 +183,28 @@ It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputO
             let t_fullFrame = afterTime(null, 1.0, 0.5);
             moveCameraTo(state, t_fullFrame, new Vec3(-147, 0, -744.1), new Vec3(298.5, 23.4, 12.2));
             let t_fullFrameWalk = afterTime(null, 5.0, 0.5);
-            processUpTo(state, t_fullFrameWalk, layout.blocks[2].mlpResidual, processState);
+            processUpTo(state, t_fullFrameWalk, layout.ln_f.lnResid, processState);
 
 
-            let t_endFrame = afterTime(null, 1.0, 0.5);
-            moveCameraTo(state, t_endFrame, new Vec3(-18.3, 0, -1576), new Vec3(280.6, 9.7, 1.9));
-            let t_endFrameWalk = afterTime(null, 2.0, 0.5);
-            processUpTo(state, t_endFrameWalk, layout.logitsSoftmax, processState);
+            // let t_endFrame = afterTime(null, 1.0, 0.5);
+            // moveCameraTo(state, t_endFrame, new Vec3(-18.3, 0, -1576), new Vec3(280.6, 9.7, 1.9));
+            // let t_endFrameWalk = afterTime(null, 2.0, 0.5);
+            // processUpTo(state, t_endFrameWalk, layout.ln_f.lnResid, processState);
+
+            let t_output = afterTime(null, 1.0, 0.5);
+            moveCameraTo(state, t_output, new Vec3(-58.4, 0, -1654.9), new Vec3(271.3, 6.4, 1.1));
+            // moveCameraTo(state, t_output, new Vec3(-53.9, 0, -1654.1), new Vec3(270.9, 6.2, 1.1));
+            let t_outputWalk = afterTime(null, 2.0, 0.5);
+            processUpTo(state, t_outputWalk, layout.logitsSoftmax, processState);
         }
 
         commentary(wt)`So what's the output? A prediction of the next token in the sequence. So at the 6th entry, we get probabilities that the next token is
             going to be 'A', 'B', or 'C'.`
-         
-        commentary(wt)`In this case, the model is pretty sure it's going to be 'A'.`;
 
+        commentary(wt)`In this case, the model is pretty sure it's going to be 'A'. Now, we can feed this prediction back into the top of the model, and repeat
+        the entire process.`;
+
+        breakAfter();
         break;
     }
 }
@@ -218,7 +226,7 @@ function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkDef, pre
 
     let cellCounts = activeBlocks
         .filter((_, i) => i >= firstIdx && i <= lastIdx)
-        .map(a => a.cx * a.cy);
+        .map(a => (a.cx * a.cy) * Math.pow(a.deps?.dotLen ?? 1, 0.25));
     let totalCells = cellCounts.reduce((a, b) => a + b, 0);
 
     let accCell = 0;
@@ -278,6 +286,7 @@ function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkDef, pre
             for (let col of findSubBlocks(blk, Dim.X, null, horizIdx)) {
                 if (col.access) {
                     col.access.disable = false;
+                    col.highlight = 0.1;
                 }
             }
             column.highlight = 0.4;
