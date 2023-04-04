@@ -1,20 +1,45 @@
-import React, { ReactNode, useLayoutEffect, useState } from 'react';
+import React, { ReactNode, useLayoutEffect, useMemo, useState } from 'react';
 import s from './Commentary.module.scss';
 import { PhaseTimelineHoriz } from './PhaseTimeline';
 import { useProgramState } from './Sidebar';
 import { clamp, useRequestAnimationFrame } from './utils/data';
 import { lerp, lerpSmoothstep } from './utils/math';
-import { phaseToGroup, IWalkthrough } from './walkthrough/Walkthrough';
+import { phaseToGroup, IWalkthrough, Phase } from './walkthrough/Walkthrough';
 import { eventEndTime, ICommentary, isCommentary, ITimeInfo } from './walkthrough/WalkthroughTools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowDown, faPause, faPlay } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
 
+export function jumpPhase(wt: IWalkthrough, phaseDelta: number) {
+    let group = phaseToGroup(wt);
+    let groupIdx = wt.phaseList.indexOf(group);
+    let phaseGroupIdx = group.phases.findIndex(p => p.id === wt.phase);
+    let newPhaseGroupIdx = phaseGroupIdx + phaseDelta;
+
+    if (newPhaseGroupIdx < 0) {
+        if (groupIdx > 0) {
+            let newGroup = wt.phaseList[groupIdx - 1];
+            wt.phase = newGroup.phases[newGroup.phases.length - 1].id;
+        }
+    } else if (newPhaseGroupIdx >= group.phases.length) {
+        if (groupIdx < wt.phaseList.length - 1) {
+            let newGroup = wt.phaseList[groupIdx + 1];
+            wt.phase = newGroup.phases[0].id;
+        }
+    } else {
+        wt.phase = group.phases[newPhaseGroupIdx].id;
+    }
+
+    console.log(`new phase is ${Phase[wt.phase]}`);
+
+    wt.time = 0;
+    wt.running = false;
+}
+
 export const Commentary: React.FC = () => {
     let progState = useProgramState();
     let [parasEl, setParasEl] = React.useState<HTMLDivElement | null>(null);
-    let [curPos, setCurPos] = React.useState(-100);
-    let [rangeInfo, setRangeInfo] = React.useState<{ start: number, end: number, width: number }>({ start: 0, end: 0, width: 1 });
+    // let [rangeInfo, setRangeInfo] = React.useState<{ start: number, end: number, width: number }>({ start: 0, end: 0, width: 1 });
     let wt = progState.walkthrough;
 
     function handleKeyDown(ev: React.KeyboardEvent) {
@@ -24,7 +49,19 @@ export const Commentary: React.FC = () => {
     }
 
     function handleContinueClick() {
-        wt.running = !wt.running;
+        if (wt.time >= wt.phaseLength) {
+            jumpPhase(wt, 1);
+            wt.time = 0;
+        } else {
+            wt.running = !wt.running;
+        }
+        progState.markDirty();
+    }
+
+    function handlePhaseDeltaClick(delta: number) {
+        jumpPhase(wt, delta);
+        wt.time = 0;
+        wt.running = false;
         progState.markDirty();
     }
 
@@ -61,12 +98,31 @@ export const Commentary: React.FC = () => {
         }
     }
 
+    interface IGuideLayout {
+        width: number;
+        height: number;
+        childRanges: IChildRange[];
+    }
+
+    interface IChildRange {
+        top: number;
+        bottom: number;
+        height: number;
+        nodeId: number;
+        startT: number;
+        endT: number;
+    }
+
+    let [guideLayout, setGuideLayout] = useState<IGuideLayout>({ width: 0, height: 0, childRanges: [] });
+
     useLayoutEffect(() => {
 
         function handleChildren() {
             if (!parasEl?.children) return;
 
             let parasBcr = parasEl.getBoundingClientRect();
+
+            let ranges: IChildRange[] = [];
 
             for (let child of parasEl.children) {
                 let nid = parseInt(child.getAttribute('data-nid')!);
@@ -76,40 +132,15 @@ export const Commentary: React.FC = () => {
                 }
                 let cStart = c.commentary?.start ?? c.times![0].start;
                 let cEnd = eventEndTime(c.commentary ?? c.times![c.times!.length - 1]);
-
-                if (cStart <= wt.time && cEnd >= wt.time) {
-                    let childBcr = child.getBoundingClientRect();
-                    let offset = childBcr.top - parasBcr.top + childBcr.height;
-                    setCurPos(offset);
-                    break;
-                }
-            }
-
-            function findChild(idx: number) {
-                for (let child of parasEl!.children) {
-                    let nid = parseInt(child.getAttribute('data-nid')!);
-                    if (nid === idx) {
-                        return child;
-                    }
-                }
-            }
-            let startPos = 0;
-            let endPos = 0;
-
-            if (nodes.length > 0) {
-                let child = findChild(Math.max(0, prevBreak))!;
                 let childBcr = child.getBoundingClientRect();
-                let offset = childBcr.top - parasBcr.top;
-                startPos = offset;
-            }
-            if (nextBreak >= 0) {
-                let child = findChild(nextBreak)!;
-                let childBcr = child.getBoundingClientRect();
-                let offset = childBcr.bottom - parasBcr.top;
-                endPos = offset;
-            }
 
-            setRangeInfo({ start: startPos, end: endPos, width: parasBcr.width });
+                ranges.push({ top: childBcr.top - parasBcr.top, bottom: childBcr.bottom - parasBcr.top, nodeId: nid, startT: cStart, endT: cEnd, height: childBcr.height });
+            }
+            setGuideLayout({
+                width: parasBcr.width,
+                height: parasBcr.height,
+                childRanges: ranges,
+            });
         }
 
         if (parasEl) {
@@ -120,22 +151,66 @@ export const Commentary: React.FC = () => {
             };
         }
 
-    }, [parasEl, wt.phase, wt.time, numTimes, prevBreak, nextBreak]);
+    }, [parasEl, wt.phase, numTimes]);
+
+    interface IRangeInfo {
+        start: number;
+        end: number;
+        width: number;
+    }
+
+    let { rangeInfo, currPos } = useMemo(() => {
+        let rangeInfo: IRangeInfo = { start: 0, end: 0, width: 1 };
+        let currPos = 0;
+
+        for (let range of guideLayout.childRanges) {
+            if (range.startT <= wt.time && range.endT >= wt.time) {
+                currPos = range.bottom;
+                break;
+            }
+        }
+
+        let startPos = 0;
+        let endPos = 0;
+
+        function findChild(nid: number) {
+            return guideLayout.childRanges.find(c => c.nodeId === nid);
+        }
+
+        if (nodes.length > 0) {
+            let child = findChild(Math.max(0, prevBreak))!;
+            if (child) {
+                startPos = child.top;
+            }
+        }
+        if (nextBreak >= 0) {
+            let child = findChild(nextBreak)!;
+            if (child) {
+                endPos = child.bottom;
+            }
+        }
+
+        rangeInfo = { start: startPos, end: endPos, width: guideLayout.width };
+        return { rangeInfo, currPos };
+    }, [wt.time, guideLayout]);
+
+    let group = phaseToGroup(wt);
+    let phase = group?.phases.find(p => p.id === wt.phase)!;
 
     return <>
         <div className={s.walkthroughText} tabIndex={0} onKeyDownCapture={handleKeyDown}>
-            <div className={s.title}>{phaseToGroup(wt)?.title}</div>
+            <div className={s.title}>{group.title}: {phase.title}</div>
             <div className={s.walkthroughParas} ref={setParasEl}>
                 {walkthroughToParagraphs(wt, nodes)}
                 <SectionHighlight key={nextBreak} top={rangeInfo.start} height={rangeInfo.end - rangeInfo.start} width={rangeInfo.width} />
                 {!wt.running && <>
-                    <div className={s.dividerLine} style={{ top: curPos }} />
-                    <SpaceToContinueHint top={curPos} />
+                    <div className={s.dividerLine} style={{ top: currPos }} />
+                    <SpaceToContinueHint top={currPos} />
                 </>}
             </div>
         </div>
         <div className={s.controls}>
-            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => { }}>
+            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => handlePhaseDeltaClick(-1)}>
                 <div>Prev Phase</div>
             </button>
 
@@ -143,7 +218,7 @@ export const Commentary: React.FC = () => {
                 <div>Continue</div>
             </button>
 
-            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => { }}>
+            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => handlePhaseDeltaClick(1)}>
                 <div>Next Phase</div>
             </button>
         </div>
@@ -237,9 +312,16 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
                     wt.markDirty();
                 }
 
+                function handleArrowTo() {
+                    if (!inRange) {
+                        wt.time = times[0].start;
+                        wt.markDirty();
+                    }
+                }
+
                 return <div key={i} className={s.commentaryBreak} data-nid={i} style={{ opacity, filter: `blur(${blur}px)` }}>
                     {showLine && <>
-                        <button className={clsx(s.jump, 'btn')}>
+                        <button className={clsx(s.jump, 'btn')} onClick={handleArrowTo}>
                             <FontAwesomeIcon icon={faArrowDown} />
                         </button>
                         <button className={clsx(s.playPause, 'btn')} onClick={handlePlayPause}>
@@ -262,8 +344,8 @@ function markupSimple(inputStr: string): React.ReactNode {
     for (let c of inputStr) {
         if (c === '_' && prevC !== '_') {
             italicLocs.push(idx);
-        } else if (c === '*' && prevC !== '*') {
-            boldLocs.push(idx);
+        // } else if (c === '*' && prevC !== '*') {
+        //     boldLocs.push(idx);
         }
         idx++;
     }
@@ -384,6 +466,10 @@ const SectionHighlight: React.FC<{
     let y1 = svgH - pad;
 
     let strokeWidth = lerpSmoothstep(3, 0, tick);
+
+    if (height <= 0) {
+        return null;
+    }
 
     return <div className={s.sectionHighlightWrap} style={{ top: top - rectPad, height: svgH, width: svgW, left: -rectPad }}>
         <svg viewBox={`0 0 ${svgW} ${svgH}`} className={s.sectionHighlight}>

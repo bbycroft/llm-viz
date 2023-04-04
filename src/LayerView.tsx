@@ -243,7 +243,7 @@ class CanvasRender {
 
         if (this.canvasSizeDirty) {
             let bcr = canvasEl.getBoundingClientRect();
-            let scale = 1.0;
+            let scale = window.devicePixelRatio;
             canvasEl.width = bcr.width * scale;
             canvasEl.height = bcr.height * scale;
             this.progState.render.size = new Vec3(canvasEl.width, canvasEl.height);

@@ -87,7 +87,7 @@ export function initWalkthrough() {
             ],
         }, {
             groupId: PhaseGroup.Detailed_Input,
-            title: 'Detailed - Input',
+            title: 'Detailed',
             phases: [
                 { id: Phase.Input_Detail_Embedding, title: 'Embedding' },
                 { id: Phase.Input_Detail_LayerNorm, title: 'Layer Norm' },
@@ -158,6 +158,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
     SavedState.state = { phase: wt.phase, phaseTime: wt.time, camera: state.camera };
 
     wt.times = [];
+    wt.phaseLength = 0;
 
     let wtArgs: IWalkthroughArgs = { state, layout: state.layout, tools: phaseTools(state), walkthrough: wt };
 
