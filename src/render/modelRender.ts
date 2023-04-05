@@ -11,6 +11,7 @@ import { cameraToMatrixView, ICamera } from "../Camera";
 import { initTriRender, renderAllTris, resetTriRender, uploadAllTris } from "./triRender";
 import { createQueryManager, IQueryManager } from "./queryManager";
 import { IProgramState } from "../Program";
+import { ISyncObject } from "./syncObjects";
 
 export interface IRenderView {
     time: number;
@@ -32,6 +33,7 @@ export interface IRenderState {
     modelFontBuf: IFontBuffers;
     quadVao: WebGLVertexArrayObject;
     queryManager: IQueryManager;
+    syncObjects: ISyncObject[];
     size: Vec3;
 
     lastGpuMs: number;
@@ -103,6 +105,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         modelFontBuf,
         quadVao,
         queryManager,
+        syncObjects: [],
         size: new Vec3(1, 1),
         lastGpuMs: 0,
         lastJsMs: 0,

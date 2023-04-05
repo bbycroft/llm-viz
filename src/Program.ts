@@ -1,8 +1,8 @@
-import { cameraMoveToDesired, genModelViewMatrices, ICamera } from "./Camera";
+import { genModelViewMatrices, ICamera } from "./Camera";
 import { drawAllArrows } from "./components/Arrow";
 import { drawBlockLabels } from "./components/SectionLabels";
 import { drawModelCard } from "./components/ModelCard";
-import { IGpuGptModel, IModelShape } from "./GptModel";
+import { createCopyOutputToInputLayer, IGpuGptModel, IModelShape, loopModelOutputToInput, readModelResultsBackWhenReady, runModel } from "./GptModel";
 import { genGptModelLayout, IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { drawText, IFontAtlasData, IFontOpts, measureText } from "./render/fontRender";
 import { initRender, IRenderState, IRenderView, renderModel, resetRenderBuffers } from "./render/modelRender";
@@ -17,8 +17,10 @@ import { Mat4f } from "./utils/matrix";
 import { runMouseHitTesting } from "./Interaction";
 import { RenderPhase } from "./render/sharedRender";
 import { drawBlockInfo } from "./components/BlockInfo";
+import { ISyncObject } from "./render/syncObjects";
 
 export interface IProgramState {
+    stepModel: boolean;
     mouse: IMouseState;
     render: IRenderState;
     walkthrough: ReturnType<typeof initWalkthrough>;
@@ -83,6 +85,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         shape: shape,
         layout: genGptModelLayout(shape),
         gptGpuModel: null,
+        stepModel: false,
         markDirty: () => { },
         htmlSubs: new Subscriptions(),
         mouse: {
@@ -110,6 +113,16 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     // if (state.walkthrough.running) {
     //     cameraMoveToDesired(state.camera, view.dt);
     // }
+
+    if (state.gptGpuModel) {
+        readModelResultsBackWhenReady(state.gptGpuModel);
+    }
+
+    if (state.stepModel && state.gptGpuModel) {
+        state.stepModel = false;
+        loopModelOutputToInput(state.render, state.gptGpuModel);
+        runModel(state.render, state.gptGpuModel);
+    }
 
     // generate the base model, incorporating the gpu-side model if available
     state.layout = genGptModelLayout(state.shape, state.gptGpuModel);

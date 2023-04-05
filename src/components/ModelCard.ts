@@ -147,7 +147,7 @@ export function renderInputOutput(state: IProgramState, layout: IGptModelLayout,
             drawLine(render.lineRender, new Vec3(lineX, inTl.y, 0), new Vec3(lineX, inBr.y, 0), lineOpts);
         }
 
-        if (tokens && i < layout.model!.activeCount) {
+        if (tokens && i < layout.model!.inputLen) {
             let cx = inTl.x + (i + 0.5) * cellW;
 
             let tokStr = sortABCInputTokenToString(tokens[i]);
@@ -197,7 +197,7 @@ export function renderOutputBoxes(state: IProgramState, layout: IGptModelLayout,
             drawLine(render.lineRender, new Vec3(lineX, tl.y, 0), new Vec3(lineX, br.y, 0), lineOpts);
         }
 
-        if (sortedOutput && i < layout.model!.activeCount) {
+        if (sortedOutput && i < layout.model!.inputLen) {
             let usedSoFar = 0.0;
             let cx = tl.x + (i + 0.5) * cellW;
 
@@ -208,7 +208,7 @@ export function renderOutputBoxes(state: IProgramState, layout: IGptModelLayout,
                 let partTop = tl.y + usedSoFar * outCellH;
                 let partH = tokProb * outCellH;
 
-                let dimmed = i < layout.model!.activeCount - 1;
+                let dimmed = i < layout.model!.inputLen - 1;
                 let tokOpts = dimmed ? dimmedTokTextOpts : tokTextOpts;
                 let idxOpts = dimmed ? dimmedIdxTextOpts : idxTextOpts;
 

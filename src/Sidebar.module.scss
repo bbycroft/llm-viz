@@ -105,6 +105,11 @@
     cursor: pointer;
 }
 
+.menuTopBar {
+    display: flex;
+    flex-direction: row;
+}
+
 .popupBackdrop {
     position: absolute;
     top: 0;

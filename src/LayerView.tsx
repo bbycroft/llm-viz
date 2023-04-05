@@ -211,6 +211,8 @@ class CanvasRender {
     prevTime: number = performance.now();
     rafHandle: number = 0;
     isDirty = false;
+    isWaitingForSync = false;
+
     markDirty = () => {
         if (!this.canvasData || this.stopped) {
             return;
@@ -224,18 +226,60 @@ class CanvasRender {
     }
 
     loop = (time: number) => {
-        if (!this.isDirty || this.stopped) {
+        if (!(this.isDirty || this.isWaitingForSync) || this.stopped) {
             this.rafHandle = 0;
             return;
         }
+        let wasDirty = this.isDirty;
+
         this.isDirty = false;
+        this.isWaitingForSync = false;
+
         let dt = time - this.prevTime;
         this.prevTime = time;
-        if (dt < 8) dt = 16;
+        if (dt < 8) dt = 16; // sometimes we get -ve dt due to perf.now() vs requestAnimationFrame() timing, so put to 16ms in that case
 
-        this.render(time, dt);
+        // we separate waitingForSync from dirty, so we don't have to render if we're only waiting for sync
+        this.checkSyncObjects();
+        let prevSyncCount = this.progState.render.syncObjects.length;
+
+        if (wasDirty || this.isDirty) {
+            this.render(time, dt);
+        }
+
+        let newSyncCount = this.progState.render.syncObjects.length;
+        if (newSyncCount !== prevSyncCount) {
+            this.isWaitingForSync = true;
+        }
 
         this.rafHandle = requestAnimationFrame(this.loop);
+    }
+
+    checkSyncObjects() {
+        let gl = this.renderState.gl;
+        let objs = this.progState.render.syncObjects;
+        let anyToRemove = false;
+
+        for (let i = 0; i < objs.length; i++) {
+            let obj = objs[i];
+            if (obj.isReady) {
+                anyToRemove = true;
+                continue;
+            }
+            let syncStatus = gl.clientWaitSync(obj.sync, 0, 0);
+            if (syncStatus === gl.TIMEOUT_EXPIRED) {
+                this.isWaitingForSync = true;
+            } else {
+                obj.isReady = true;
+                obj.elapsedMs = performance.now() - obj.startTime;
+                gl.deleteSync(obj.sync);
+                anyToRemove = true;
+            }
+        }
+        if (anyToRemove) {
+            this.progState.render.syncObjects = objs.filter(o => !o.isReady);
+            this.markDirty();
+        }
     }
 
     render(time: number, dt: number) {
@@ -253,7 +297,6 @@ class CanvasRender {
         let view: IRenderView = { time, dt, markDirty: this.markDirty };
         runProgram(view, this.progState);
         this.progState.htmlSubs.notify();
-
     }
 
 }

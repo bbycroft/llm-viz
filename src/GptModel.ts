@@ -1,8 +1,8 @@
-import exp from "constants";
 import { IRenderState } from "./render/modelRender";
+import { createSyncObject, ISyncObject } from "./render/syncObjects";
 import { nonNil } from "./utils/basic";
 import { Random } from "./utils/random";
-import { createBufferTex, writeToBufferTex, createRenderPhase, IBufferTex, runRenderPhase, readFromRenderPhase, arraysEqual, IRenderPhase, logArr } from "./utils/renderPhases";
+import { createBufferTex, writeToBufferTex, createRenderPhase, IBufferTex, runRenderPhase, readFromRenderPhase, arraysEqual, IRenderPhase, logArr, RenderPhaseStats } from "./utils/renderPhases";
 import { createShaderProgram, ensureShadersReady, IShaderManager } from "./utils/shader";
 import { ITensorSet } from "./utils/tensor";
 
@@ -65,6 +65,7 @@ export function setModelInputData(renderState: IRenderState, gptModel: IGpuGptMo
     buf.set([2, 1, 0, 1, 1, 2, 0, 0, 0, 0, 0]);
 
     gptModel.inputBuf = buf;
+    gptModel.inputLen = 6;
     writeToBufferTex(gl, inputTokens, buf);
 }
 
@@ -88,6 +89,7 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
 
     let allValid = true;
 
+    RenderPhaseStats.bindAndDrawCount = 0;
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
     gl.disable(gl.BLEND);
@@ -103,11 +105,13 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
     runRenderPhase(gl, posEmbed.phase);
     runRenderPhase(gl, add.addPhase);
 
-    // validate('x', add.addPhase);
+    // gl.flush();
+    validate('x', add.addPhase);
 
     for (let blockId = 0; blockId < blocks.length; blockId++) {
         let { ln_1, attn, ln_2, mlp } = blocks[blockId];
 
+        gl.flush();
         runRenderPhase(gl, ln_1.aggPhase);
         runRenderPhase(gl, ln_1.applyPhase);
         runRenderPhase(gl, attn.qkvPhase);
@@ -116,6 +120,7 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
         runRenderPhase(gl, attn.attnMatrixSoftmaxPhase);
         runRenderPhase(gl, attn.scaledVectorsPhase);
         runRenderPhase(gl, attn.proj.linearPhase);
+        gl.flush();
         runRenderPhase(gl, attn.add.addPhase);
         runRenderPhase(gl, ln_2.aggPhase);
         runRenderPhase(gl, ln_2.applyPhase);
@@ -124,12 +129,15 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
         runRenderPhase(gl, mlp.projLayer.linearPhase);
         runRenderPhase(gl, mlp.addLayer.addPhase);
 
-        // validate(`block${blockId}`, mlp.addLayer.addPhase);
+        gl.flush();
+        validate(`block${blockId}`, mlp.addLayer.addPhase);
     }
 
     runRenderPhase(gl, ln_f.aggPhase);
     runRenderPhase(gl, ln_f.applyPhase);
     runRenderPhase(gl, lm_head.linearPhase);
+
+    gl.flush();
 
     runRenderPhase(gl, softmaxFinal.aggPhase);
     runRenderPhase(gl, softmaxFinal.softmaxPhase);
@@ -169,7 +177,28 @@ export function runModel(renderState: IRenderState, gptModel: IGpuGptModel, vali
     }
 
     if (!validationData) {
-        readModelResultsBack(gptModel); // Expensive!! Should defer
+        gptModel.readbackSync = createSyncObject(renderState);
+        gl.flush();
+    }
+
+    console.log(`---- done running GPT model drawCount = ${RenderPhaseStats.bindAndDrawCount} ----`);
+}
+
+export function loopModelOutputToInput(renderState: IRenderState, model: IGpuGptModel) {
+    let gl = model.gl;
+
+    gl.useProgram(model.copyOutputToInput.copyPhase.program.program);
+    gl.uniform1i(model.copyOutputToInput.copyPhase.program.locs['u_targetTIdx'], model.inputLen);
+    runRenderPhase(gl, model.copyOutputToInput.copyPhase);
+
+    model.inputLen++;
+}
+
+export function readModelResultsBackWhenReady(model: IGpuGptModel) {
+    if (model.readbackSync && model.readbackSync.isReady) {
+        console.log('sync is ready after', model.readbackSync.elapsedMs.toFixed(1), 'ms');
+        readModelResultsBack(model);
+        model.readbackSync = null;
     }
 }
 
@@ -258,6 +287,8 @@ export function createGptModel(shaderManager: IShaderManager, model: ITensorSet,
 
     let softmaxFinal = createSoftmaxLayer(layerBuilder, lm_head.output);
 
+    let copyOutputToInput = createCopyOutputToInputLayer(layerBuilder, softmaxFinal.output, inputTokens);
+
     ensureShadersReady(shaderManager);
 
     return {
@@ -272,10 +303,12 @@ export function createGptModel(shaderManager: IShaderManager, model: ITensorSet,
         lm_head,
         shape,
         softmaxFinal,
+        copyOutputToInput,
         output: softmaxFinal.output,
-        activeCount: 6,
+        inputLen: 6,
         resultBuf: null as Float32Array | null,
         sortedBuf: null as Float32Array | null,
+        readbackSync: null as ISyncObject | null,
     };
 }
 
@@ -790,5 +823,44 @@ function createSoftmaxLayer(layerBuilder: ILayerBuilder, input: IBufferTex) {
         aggPhase,
         softmaxPhase,
         output,
+    };
+}
+
+export function createCopyOutputToInputLayer(layerBuilder: ILayerBuilder, prevOutput: IBufferTex, currInput: IBufferTex) {
+    let { gl, shape: { T, vocabSize }, shaderManager } = layerBuilder;
+
+    let copyProg = createShaderProgram(shaderManager, 'copy', basicVertexShader, /*glsl*/`#version 300 es
+        precision highp float;         //    y    x
+        uniform sampler2D prevOutput;  // (B, T) (n_vocab)
+        uniform int u_targetTIdx;
+        out float currInput;           // (B, T) (1)
+
+        void main() {
+            ivec2 pos = ivec2(gl_FragCoord.xy);
+
+            int tIdx = pos.y % ${T};
+
+            if (tIdx != u_targetTIdx) {
+                discard;
+            }
+
+            int maxVocabI = 0;
+            float maxVocabP = 0.0;
+            for (int i = 0; i < ${vocabSize}; i++) {
+                float p = texelFetch(prevOutput, ivec2(i, pos.y), 0).r;
+                if (p > maxVocabP) {
+                    maxVocabP = p;
+                    maxVocabI = i;
+                }
+            }
+
+            currInput = float(maxVocabI);
+        }
+    `)!;
+
+    let copyPhase = createRenderPhase(gl, copyProg, [currInput], [prevOutput], ['prevOutput']);
+
+    return {
+        copyPhase,
     };
 }

@@ -74,6 +74,10 @@ export function createRenderPhase(gl: WebGL2RenderingContext, program: IProgram,
     };
 }
 
+export let RenderPhaseStats = {
+    bindAndDrawCount: 0,
+};
+
 export function runRenderPhase(gl: WebGL2RenderingContext, phase: IRenderPhase) {
     gl.useProgram(phase.program.program);
 
@@ -87,11 +91,12 @@ export function runRenderPhase(gl: WebGL2RenderingContext, phase: IRenderPhase) 
         gl.bindTexture(gl.TEXTURE_2D, phase.srcBuffers[i].texture);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, phase.fbo);
-    let status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-    if (status !== gl.FRAMEBUFFER_COMPLETE) {
-        console.log("runRenderPhase: framebuffer not complete: " + status);
-    }
+    // let status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    // if (status !== gl.FRAMEBUFFER_COMPLETE) {
+    //     console.log("runRenderPhase: framebuffer not complete: " + status);
+    // }
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+    RenderPhaseStats.bindAndDrawCount += 1;
 }
 
 export function createBufferTex(gl: WebGL2RenderingContext, width: number, height: number, channels: number): IBufferTex {
