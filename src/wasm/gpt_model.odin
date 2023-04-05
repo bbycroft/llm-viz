@@ -14,6 +14,12 @@ GptModel :: struct {
 
     layers: []GptLayer,
 
+    ln_f: LayerNorm,
+
+    lmHeadW: Tensor,
+
+    logits: Tensor,
+    logitsSm: Tensor, // softmax
 }
 
 GptLayer :: struct {
@@ -86,11 +92,11 @@ Tensor :: struct {
 
 
 run_model :: proc(model: ^GptModel) {
-
+    T := model.gptConfig.T
+    C := model.gptConfig.C
+    n_vocab := model.gptConfig.n_vocab
 
     run_input_embedding(model)
-
-
 
     layerInput := &model.inputEmbed
     for i := 0; i < model.gptConfig.n_layers; i += 1 {
@@ -98,7 +104,9 @@ run_model :: proc(model: ^GptModel) {
         layerInput = &model.layers[i].mlp.residual
     }
 
-
+    run_layer_norm(model, &model.ln_f, layerInput)
+    run_matrix_mul(model, layerInput, &model.lmHeadW, nil, &model.logits, T, C, n_vocab)
+    run_softmax(model, &model.logits, &model.logitsSm, T, n_vocab)
 }
 
 run_input_embedding :: proc(model: ^GptModel) {
@@ -223,8 +231,14 @@ run_matrix_mul :: proc(model: ^GptModel, input: ^Tensor, w: ^Tensor, b: ^Tensor,
 
     inputData := input.data
     wData := w.data
-    bData := b.data
+    bData: []f32 = {0.0}
     outputData := output.data
+    bDataMul := 0
+
+    if (b != nil) {
+        bData = b.data
+        bDataMul = 1
+    }
 
     for b := 0; b < B; b += 1 {
         for t := 0; t < T; t += 1 {
@@ -236,7 +250,7 @@ run_matrix_mul :: proc(model: ^GptModel, input: ^Tensor, w: ^Tensor, b: ^Tensor,
                 for c := 0; c < C; c += 1 {
                     sum += inputData[cStride + c] * wData[c * C2 + c2]
                 }
-                outputData[c2Stride + c2] = sum + bData[c2]
+                outputData[c2Stride + c2] = sum + bData[c2 * bDataMul]
             }
         }
     }
@@ -288,7 +302,7 @@ run_layer_norm :: proc(model: ^GptModel, layerNorm: ^LayerNorm, input: ^Tensor) 
     beta := layerNorm.beta.data
     normalized := layerNorm.normalized.data
     inputData := input.data
-    
+
     for b := 0; b < B; b += 1 {
         for t := 0; t < T; t += 1 {
             cStride := b * T * C + t * C
@@ -310,5 +324,32 @@ run_layer_norm :: proc(model: ^GptModel, layerNorm: ^LayerNorm, input: ^Tensor) 
             }
         }
     }
+}
 
+run_softmax :: proc(model: ^GptModel, input: ^Tensor, output: ^Tensor, T: int, C: int) {
+    B := model.gptConfig.B
+
+    inputData := input.data
+    outputData := output.data
+
+    for b := 0; b < B; b += 1 {
+        for t := 0; t < T; t += 1 {
+            cStride := b * T * C + t * C
+
+            max: f32 = 0.0
+            for c := 0; c < C; c += 1 {
+                max = math.max(max, inputData[cStride + c])
+            }
+
+            sumExp: f32 = 0.0
+            for c := 0; c < C; c += 1 {
+                sumExp += math.exp(inputData[cStride + c] - max)
+            }
+            sumExpInv: f32 = 1.0 / sumExp
+
+            for c := 0; c < C; c += 1 {
+                outputData[cStride + c] = math.exp(inputData[cStride + c] - max) * sumExpInv
+            }
+        }
+    }
 }
