@@ -13,12 +13,16 @@ export async function loadNativeBindings() {
                 let mem = new Uint8Array(importObject.env.memory.buffer, ptr, len);
                 console.log('ODIN:', new TextDecoder().decode(mem));
             },
+            time_now: () => {
+                return Date.now() * 1e6;
+            },
+            exp: Math.exp,
         },
         odin_dom: {
             init_event_raw: (ptr: number) => {
                 console.log('ODIN: init_event_raw', ptr);
             },
-        }
+        },
     };
 
     let module = await WebAssembly.instantiateStreaming(resp, importObject);

@@ -43,7 +43,56 @@ cosf_custom :: proc "c" (x: f32) -> f32 {
     return cosf(x)
 }
 
+@export wasm_create_model :: proc "c" (B: int, T: int, C: int, n_layers: int, n_heads: int, n_vocab: int) -> ^GptModel {
+    context = main_context
 
+    config := GptConfig {
+        B = B,
+        T = T,
+        C = C,
+        n_layers = n_layers,
+        n_heads = n_heads,
+        n_vocab = n_vocab,
+        A = C / n_heads,
+    }
+
+    modelVal := create_model_from_empty(config)
+
+    modelPtr := new_clone(modelVal)
+
+    return modelPtr
+}
+
+WasmTensorResult :: struct {
+    data: rawptr,
+    shapeArrPtr: rawptr,
+    strideArrPtr: rawptr,
+    size: int,
+}
+
+wasm_tensor_res := WasmTensorResult{}
+
+@export wasm_get_model_tensor :: proc "c" (model: ^GptModel, target: GptModelTarget, index: int) -> rawptr {
+    context = main_context
+
+    tensor := get_model_tensor(model, target, index)
+
+    wasm_tensor_res := WasmTensorResult {
+        data = &tensor.data[0],
+        shapeArrPtr = &tensor.shape[0],
+        strideArrPtr = &tensor.stride[0],
+        size = len(tensor.data),
+    }
+
+    return &wasm_tensor_res
+}
+
+@export wasm_run_model :: proc "c" (model: ^GptModel) -> int {
+    context = main_context
+
+    run_model(model, nil)
+    return 0
+}
 
 // @export
 // addArrow :: proc "c" (ptr: rawptr, ) -> int {

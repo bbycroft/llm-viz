@@ -77,7 +77,8 @@ def block_forward_with_capture(tModule, x):
 
 def transformer_forward_with_capture(tModule, x):
     B, T, C = x.shape
-    q, k, v = tModule.c_attn(x).split(n_embd, dim=2)
+    qkv = tModule.c_attn(x)
+    q, k, v = qkv.split(n_embd, dim=2)
     k = k.view(B, T, n_head, C // n_head).transpose(1, 2) # (B, nh, T, hs)
     q = q.view(B, T, n_head, C // n_head).transpose(1, 2) # (B, nh, T, hs)
     v = v.view(B, T, n_head, C // n_head).transpose(1, 2) # (B, nh, T, hs)
@@ -95,6 +96,7 @@ def transformer_forward_with_capture(tModule, x):
 
     partials = {
         'q': q, 'k': k, 'v': v, # projected vectors (B, nh, T, hs)
+        'qkv': qkv,
         'att': att, 'attSm': attSm, # attention (B, nh, T, T)
         'y': y, 'yProj': yProj, # output (B, T, C)
     }
@@ -125,7 +127,8 @@ extraIdx = torch.cat([
     torch.randint(0, 3, (B - 1, 6), dtype=torch.long),
     torch.zeros((B - 1, 5), dtype=torch.long),
 ], dim=1)
-extraIdx[1, 0] = 1
+if B > 1:
+    extraIdx[1, 0] = 1
 idx = torch.cat([idx, extraIdx], dim=0)
 print(idx)
 

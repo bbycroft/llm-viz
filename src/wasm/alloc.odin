@@ -6,7 +6,11 @@ import "core:intrinsics"
 PAGE_SIZE :: 64 * 1024
 
 page_alloc :: proc(page_count: int) -> (data: []byte, err: mem.Allocator_Error) {
-    prev_page_count := intrinsics.wasm_memory_grow(0, uintptr(page_count))
+	when ODIN_OS == .WASI {
+		prev_page_count := intrinsics.wasm_memory_grow(0, uintptr(page_count))
+	} else {
+		prev_page_count := -1 
+	}
     if prev_page_count < 0 {
         return nil, .Out_Of_Memory
     }

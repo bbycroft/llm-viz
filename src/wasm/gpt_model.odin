@@ -1,6 +1,9 @@
 package main
 
 import "core:math"
+import "core:fmt"
+import "core:time"
+// import "core:debug"
 
 GptModel :: struct {
     gptConfig: GptConfig,
@@ -91,22 +94,381 @@ Tensor :: struct {
 }
 
 
-run_model :: proc(model: ^GptModel) {
+tprintJoin :: proc(args: ..any) -> string {
+    return fmt.tprint(args=args, sep="")
+}
+
+create_tensor :: proc(shape: []int, data: []f32 = nil) -> Tensor {
+    size := 1
+    shapeCopy := make([]int, len(shape))
+    for i := 0; i < len(shape); i += 1 {
+        size *= shape[i]
+        shapeCopy[i] = shape[i]
+    }
+
+    stride := 1
+    strides := make([]int, len(shape))
+    for i := len(shape) - 1; i >= 0; i -= 1 {
+        strides[i] = stride
+        stride *= shape[i]
+    }
+
+    data := data
+
+    if data == nil {
+        data = make([]f32, size)
+    } else {
+        if len(data) != size {
+            panic("data size does not match shape")
+        }
+    }
+
+    return Tensor{
+        data = data,
+        shape = shapeCopy,
+        stride = strides,
+    }
+}
+
+TensorsAndConfig :: struct {
+    config: GptConfig,
+    tensors: map[string]Tensor,
+}
+
+create_model_from_data :: proc(tensors: TensorsAndConfig, b_override: int) -> GptModel {
+    gptConfig := tensors.config
+    B := b_override > 0 ? b_override : gptConfig.B
+    gptConfig.B = B
+
+    T := gptConfig.T
+    C := gptConfig.C
+    A := gptConfig.A
+    n_heads := gptConfig.n_heads
+    n_layers := gptConfig.n_layers
+    n_vocab := gptConfig.n_vocab
+
+    model: GptModel = {
+        gptConfig = gptConfig,
+        wte = tensors.tensors["transformer.wte.weight"],
+        wpe = tensors.tensors["transformer.wpe.weight"],
+        lmHeadW = tensors.tensors["lm_head.weight"],
+        layers = make([]GptLayer, n_layers),
+
+        inputTokens = create_tensor([]int{B, T}),
+        inputTokenEmbed = create_tensor([]int{B, T, C}),
+        inputEmbed = create_tensor([]int{B, T, C}),
+
+        ln_f = create_layer_norm(gptConfig, tensors, "transformer.ln_f."),
+
+        logits = create_tensor([]int{B, T, n_vocab}),
+        logitsSm = create_tensor([]int{B, T, n_vocab}),
+    }
+
+    // fmt.printf("model: %#v\n", model)
+
+    for i := 0; i < n_layers; i += 1 {
+        model.layers[i] = create_layer(gptConfig, tensors, tprintJoin("transformer.h.", i, ".")) 
+    }
+
+    create_layer :: proc(gptConfig: GptConfig, tensors: TensorsAndConfig, prefix: string) -> GptLayer {
+        attn := create_attention(gptConfig, tensors, tprintJoin(prefix, "attn."))
+        mlp := create_mlp(gptConfig, tensors, tprintJoin(prefix, "mlp."))
+
+        attn.layerNorm = create_layer_norm(gptConfig, tensors, tprintJoin(prefix, "ln_1."))
+        mlp.layerNorm = create_layer_norm(gptConfig, tensors, tprintJoin(prefix, "ln_2."))
+
+        return GptLayer{ attn, mlp }
+    }
+
+    create_attention :: proc(gptConfig: GptConfig, tensors: TensorsAndConfig, prefix: string) -> GptAttention {
+        B := gptConfig.B
+        T := gptConfig.T
+        C := gptConfig.C
+        A := gptConfig.A
+        n_heads := gptConfig.n_heads
+
+        attn := GptAttention{
+            qkvW = tensors.tensors[tprintJoin(prefix, "c_attn.weight")],
+            qkvB = tensors.tensors[tprintJoin(prefix, "c_attn.bias")],
+            projW = tensors.tensors[tprintJoin(prefix, "c_proj.weight")],
+            projB = tensors.tensors[tprintJoin(prefix, "c_proj.bias")],
+
+            attn = create_tensor([]int{B, n_heads, T, T}),
+            attnSm = create_tensor([]int{B, n_heads, T, T}),
+            proj = create_tensor([]int{B, T, C}),
+            residual = create_tensor([]int{B, T, C}),
+            qkv = create_tensor([]int{B, T, 3 * n_heads * A}),
+            vOut = create_tensor([]int{B, T, n_heads * A}),
+        }
+
+        return attn
+    }
+
+    create_mlp :: proc(gptConfig: GptConfig, tensors: TensorsAndConfig, prefix: string) -> GptMlp {
+        B := gptConfig.B
+        T := gptConfig.T
+        C := gptConfig.C
+
+        mlp := GptMlp{
+            mlpW = tensors.tensors[tprintJoin(prefix, "c_fc.weight")],
+            mlpB = tensors.tensors[tprintJoin(prefix, "c_fc.bias")],
+            projW = tensors.tensors[tprintJoin(prefix, "c_proj.weight")],
+            projB = tensors.tensors[tprintJoin(prefix, "c_proj.bias")],
+
+            mlp = create_tensor([]int{B, T, C * 4}),
+            act = create_tensor([]int{B, T, C * 4}),
+            proj = create_tensor([]int{B, T, C}),
+            residual = create_tensor([]int{B, T, C}),
+        }
+
+        return mlp
+    }
+
+    create_layer_norm :: proc(gptConfig: GptConfig, tensors: TensorsAndConfig, prefix: string) -> LayerNorm {
+        B := gptConfig.B
+        T := gptConfig.T
+        C := gptConfig.C
+
+        ln := LayerNorm{
+            gamma = tensors.tensors[tprintJoin(prefix, "weight")],
+            beta = tensors.tensors[tprintJoin(prefix, "bias")],
+            normalized = create_tensor([]int{B, T, C}),
+        }
+
+        return ln
+    }
+
+    return model
+}
+
+create_model_from_empty :: proc(gptConfig: GptConfig) -> GptModel {
+    B := gptConfig.B
+    T := gptConfig.T
+    C := gptConfig.C
+    A := gptConfig.A
+    n_heads := gptConfig.n_heads
+    n_layers := gptConfig.n_layers
+    n_vocab := gptConfig.n_vocab
+
+    model: GptModel = {
+        gptConfig = gptConfig,
+        wte = create_tensor([]int{n_vocab, C}),
+        wpe = create_tensor([]int{T, C}),
+        lmHeadW = create_tensor([]int{n_vocab, C}),
+        layers = make([]GptLayer, n_layers),
+
+        inputTokens = create_tensor([]int{B, T}),
+        inputTokenEmbed = create_tensor([]int{B, T, C}),
+        inputEmbed = create_tensor([]int{B, T, C}),
+
+        ln_f = create_layer_norm(gptConfig),
+
+        logits = create_tensor([]int{B, T, n_vocab}),
+        logitsSm = create_tensor([]int{B, T, n_vocab}),
+    }
+
+    for i := 0; i < n_layers; i += 1 {
+        model.layers[i] = create_layer(gptConfig)
+    }
+
+    create_layer :: proc(gptConfig: GptConfig) -> GptLayer {
+        B := gptConfig.B
+        T := gptConfig.T
+        C := gptConfig.C
+        A := gptConfig.A
+        n_heads := gptConfig.n_heads
+
+        attn := GptAttention {
+            qkvW = create_tensor([]int{3 * n_heads * A, C}),
+            qkvB = create_tensor([]int{3 * n_heads * A}),
+            projW = create_tensor([]int{C, n_heads * A}),
+            projB = create_tensor([]int{C}),
+
+            qkv = create_tensor([]int{B, T, 3 * n_heads * A}),
+            attn = create_tensor([]int{B, n_heads, T, T}),
+            attnSm = create_tensor([]int{B, n_heads, T, T}),
+            vOut = create_tensor([]int{B, T, n_heads * A}),
+            proj = create_tensor([]int{B, T, C}),
+            residual = create_tensor([]int{B, T, C}),
+            layerNorm = create_layer_norm(gptConfig),
+        }
+
+        mlp := GptMlp {
+            mlpW = create_tensor([]int{C * 4, C}),
+            mlpB = create_tensor([]int{C * 4}),
+            projW = create_tensor([]int{C, C * 4}),
+            projB = create_tensor([]int{C}),
+
+            mlp = create_tensor([]int{B, T, C * 4}),
+            act = create_tensor([]int{B, T, C * 4}),
+            proj = create_tensor([]int{B, T, C}),
+            residual = create_tensor([]int{B, T, C}),
+            layerNorm = create_layer_norm(gptConfig),
+        }
+
+        return GptLayer{ attn, mlp }
+    }
+
+    create_layer_norm :: proc(gptConfig: GptConfig) -> LayerNorm {
+        B := gptConfig.B
+        T := gptConfig.T
+        C := gptConfig.C
+
+        ln := LayerNorm{
+            gamma = create_tensor([]int{C}),
+            beta = create_tensor([]int{C}),
+            normalized = create_tensor([]int{B, T, C}),
+        }
+
+        return ln
+    }
+
+    return model
+}
+
+GptModelTarget :: enum {
+    // weights
+    Wte,
+    Wpe,
+    LmHeadW,
+    AttnQkvW,
+    AttnQkvB,
+    AttnProjW,
+    AttnProjB,
+    MlpW,
+    MlpB,
+    MlpProjW,
+    MlpProjB,
+    Ln1Gamma,
+    Ln1Beta,
+    Ln2Gamma,
+    Ln2Beta,
+    LnFGamma,
+    LnFBeta,
+
+    // intermediate values
+    InputTokens,
+    InputTokenEmbed,
+    InputEmbed,
+
+    // per-layer (requires layer index)
+
+    Ln1Norm,
+    AttnQkv,
+    Attn,
+    AttnSm,
+    AttnVOut,
+    AttnProj,
+    AttnResidual,
+
+    Ln2Norm,
+    MlpMlp,
+    MlpAct,
+    MlpProj,
+    MlpResidual,
+
+    LnFNorm,
+    Logits,
+    LogitsSm,
+}
+
+get_model_tensor :: proc(model: ^GptModel, target: GptModelTarget, index: int) -> (^Tensor) {
+    layer := &model.layers[index]
+    switch target {
+    case .Wte: return &model.wte
+    case .Wpe: return &model.wpe
+    case .LmHeadW: return &model.lmHeadW
+    case .AttnQkvW: return &layer.attn.qkvW
+    case .AttnQkvB: return &layer.attn.qkvB
+    case .AttnProjW: return &layer.attn.projW
+    case .AttnProjB: return &layer.attn.projB
+    case .MlpW: return &layer.mlp.mlpW
+    case .MlpB: return &layer.mlp.mlpB
+    case .MlpProjW: return &layer.mlp.projW
+    case .MlpProjB: return &layer.mlp.projB
+    case .Ln1Gamma: return &layer.attn.layerNorm.gamma
+    case .Ln1Beta: return &layer.attn.layerNorm.beta
+    case .Ln2Gamma: return &layer.mlp.layerNorm.gamma
+    case .Ln2Beta: return &layer.mlp.layerNorm.beta
+    case .LnFGamma: return &model.ln_f.gamma
+    case .LnFBeta: return &model.ln_f.beta
+     
+    case .InputTokens: return &model.inputTokens
+    case .InputTokenEmbed: return &model.inputTokenEmbed
+    case .InputEmbed: return &model.inputEmbed
+    case .Ln1Norm: return &layer.attn.layerNorm.normalized
+    case .AttnQkv: return &layer.attn.qkv
+    case .Attn: return &layer.attn.attn
+    case .AttnSm: return &layer.attn.attnSm
+    case .AttnVOut: return &layer.attn.vOut
+    case .AttnProj: return &layer.attn.proj
+    case .AttnResidual: return &layer.attn.residual
+    case .Ln2Norm: return &layer.mlp.layerNorm.normalized
+    case .MlpMlp: return &layer.mlp.mlp
+    case .MlpAct: return &layer.mlp.act
+    case .MlpProj: return &layer.mlp.proj
+    case .MlpResidual: return &layer.mlp.residual
+    case .LnFNorm: return &model.ln_f.normalized
+    case .Logits: return &model.logits
+    case .LogitsSm: return &model.logitsSm
+    }
+    return nil
+}
+
+tensor_get_data_ptr :: proc(t: ^Tensor) -> rawptr {
+    return &t.data[0]
+}
+
+check_tensor :: proc(name: string, a: Tensor, b: Tensor) {
+    when true {
+        return
+    } else {
+    fmt.printf("CHECK %s\n", name)
+    if len(a.data) != len(b.data) {
+        fmt.printf("CHECK %v: size mismatch: %v != %v (%v, %v)\n", name, len(a.data), len(b.data), a, b)
+    }
+    for i := 0; i < len(a.data); i += 1 {
+        delta := math.abs(a.data[i] - b.data[i])
+        if delta > 1e-5 {
+            fmt.printf("CHECK %v: mismatch at idx %v: %v != %v (delta = %e), (%v, %v)\n", name, i, a.data[i], b.data[i], delta, a, b)
+            break
+        }
+    }
+}
+}
+
+run_model :: proc(model: ^GptModel, partials: ^TensorsAndConfig) {
+    start_time := time.now()
     T := model.gptConfig.T
     C := model.gptConfig.C
     n_vocab := model.gptConfig.n_vocab
+
+
+    if partials != nil {
+        inputIdx := partials.tensors["idx"]
+        for i := 0; i < len(model.inputTokens.data); i += 1 {
+            model.inputTokens.data[i] = inputIdx.data[i]
+        }
+    }
 
     run_input_embedding(model)
 
     layerInput := &model.inputEmbed
     for i := 0; i < model.gptConfig.n_layers; i += 1 {
-        run_layer(model, &model.layers[i], layerInput)
+        run_layer(model, &model.layers[i], i, layerInput, partials)
         layerInput = &model.layers[i].mlp.residual
+        // blkName := tprintJoin("block", i)
+        // check_tensor(tprintJoin(blkName, "_output"), layerInput^, partials.tensors[blkName])
     }
 
     run_layer_norm(model, &model.ln_f, layerInput)
-    run_matrix_mul(model, layerInput, &model.lmHeadW, nil, &model.logits, T, C, n_vocab)
+    run_matrix_mul(model, &model.ln_f.normalized, &model.lmHeadW, nil, &model.logits, T, C, n_vocab)
     run_softmax(model, &model.logits, &model.logitsSm, T, n_vocab)
+
+    // check_tensor("logitsSm", model.logitsSm, partials.tensors["probs"])
+
+    elapsed := time.duration_milliseconds(time.since(start_time))
+    // fmt.printf("run_model took %f ms\n", elapsed)
 }
 
 run_input_embedding :: proc(model: ^GptModel) {
@@ -136,12 +498,12 @@ run_input_embedding :: proc(model: ^GptModel) {
     }
 }
 
-run_layer :: proc(model: ^GptModel, layer: ^GptLayer, input: ^Tensor) {
-    run_attention(model, &layer.attn, input)
-    run_mlp(model, &layer.mlp, &layer.attn.residual)
+run_layer :: proc(model: ^GptModel, layer: ^GptLayer, layerIdx: int, input: ^Tensor, partials: ^TensorsAndConfig) {
+    run_attention(model, &layer.attn, layerIdx, input, partials)
+    run_mlp(model, &layer.mlp, layerIdx, &layer.attn.residual, partials)
 }
 
-run_attention :: proc(model: ^GptModel, attention: ^GptAttention, input: ^Tensor) {
+run_attention :: proc(model: ^GptModel, attention: ^GptAttention, layerIdx: int, input: ^Tensor, partials: ^TensorsAndConfig) {
     B := model.gptConfig.B
     T := model.gptConfig.T
     C := model.gptConfig.C
@@ -150,7 +512,7 @@ run_attention :: proc(model: ^GptModel, attention: ^GptAttention, input: ^Tensor
 
     run_layer_norm(model, &attention.layerNorm, input)
 
-    run_matrix_mul(model, input, &attention.qkvW, &attention.qkvB, &attention.qkv, T, C, C * 3)
+    run_matrix_mul(model, &attention.layerNorm.normalized, &attention.qkvW, &attention.qkvB, &attention.qkv, T, C, C * 3)
 
     qkv := attention.qkv.data
     attn := attention.attn.data
@@ -164,19 +526,19 @@ run_attention :: proc(model: ^GptModel, attention: ^GptAttention, input: ^Tensor
     for b := 0; b < B; b += 1 {
         for h := 0; h < n_heads; h += 1 {
             for t := 0; t < T; t += 1 {
-                cStride := b * T * C + t * C
+                qStride := b * T * C * 3 + t * C * 3 + h * A
 
-                headStride := b * T * C * n_heads + t * C * n_heads + h * C
-                attnStride := b * T * T * n_heads + t * T * n_heads + h * T
+                attnStride := b * n_heads * T * T + h * T * T + t * T
 
                 maxDot: f32 = math.inf_f32(-1)
-                for t2 := 0; t2 < t; t2 += 1 {
-                    cStride2 := b * T * C + t2 * C
+                for t2 := 0; t2 <= t; t2 += 1 {
+                    kStride := b * T * C * 3 + t2 * C * 3 + h * A + C
 
                     qkDot: f32 = 0.0
                     for a := 0; a < A; a += 1 {
-                        q := qkv[cStride + a]
-                        k := qkv[cStride2 + A + a]
+                        // fmt.printf("At b=%d, h=%d, t=%d, t2=%d, a=%d, qPos=%d, kPos=%d\n", b, h, t, t2, a, qStride + a, kStride + a)
+                        q := qkv[qStride + a]
+                        k := qkv[kStride + a]
                         qkDot += q * k
                     }
                     qkDot *= attnScale
@@ -185,27 +547,32 @@ run_attention :: proc(model: ^GptModel, attention: ^GptAttention, input: ^Tensor
 
                     attn[attnStride + t2] = qkDot
                 }
+                for t2 := t + 1; t2 < T; t2 += 1 {
+                    attn[attnStride + t2] = math.inf_f32(-1)
+                }
 
                 // calc the sum of exp(a - maxDot) for the softmax
                 sumExp: f32 = 0.0
-                for t2 := 0; t2 < t; t2 += 1 {
+                for t2 := 0; t2 <= t; t2 += 1 {
                     sumExp += math.exp(attn[attnStride + t2] - maxDot)
                 }
 
                 sumExpInv: f32 = 1.0 / sumExp
 
-                for t2 := 0; t2 < t; t2 += 1 {
+                for t2 := 0; t2 <= t; t2 += 1 {
                     attnSm[attnStride + t2] = math.exp(attn[attnStride + t2] - maxDot) * sumExpInv
                 }
+
+                vOutStride := b * T * C + t * C + h * A
 
                 // now to calc the output
                 for a := 0; a < A; a += 1 {
                     v: f32 = 0.0
-                    for t2 := 0; t2 < t; t2 += 1 {
-                        cStride2 := b * T * C + t2 * C + A * 2
-                        v += attnSm[attnStride + t2] * qkv[cStride2 + a]
+                    for t2 := 0; t2 <= t; t2 += 1 {
+                        vStride := b * T * C * 3 + t2 * C * 3 + h * A + C * 2
+                        v += attnSm[attnStride + t2] * qkv[vStride + a]
                     }
-                    vOut[headStride + a] = v
+                    vOut[vOutStride + a] = v
                 }
             }
         }
@@ -215,12 +582,12 @@ run_attention :: proc(model: ^GptModel, attention: ^GptAttention, input: ^Tensor
     run_residual_add(model, input, &attention.proj, &attention.residual, T, C)
 }
 
-run_mlp :: proc(model: ^GptModel, mlp: ^GptMlp, input: ^Tensor) {
+run_mlp :: proc(model: ^GptModel, mlp: ^GptMlp, layerIdx: int, input: ^Tensor, partials: ^TensorsAndConfig) {
     T := model.gptConfig.T
     C := model.gptConfig.C
 
     run_layer_norm(model, &mlp.layerNorm, input)
-    run_matrix_mul(model, input, &mlp.mlpW, &mlp.mlpB, &mlp.mlp, T, C, C * 4)
+    run_matrix_mul(model, &mlp.layerNorm.normalized, &mlp.mlpW, &mlp.mlpB, &mlp.mlp, T, C, C * 4)
     run_gelu_activation(model, &mlp.mlp, &mlp.act, T, C * 4)
     run_matrix_mul(model, &mlp.act, &mlp.projW, &mlp.projB, &mlp.proj, T, C * 4, C)
     run_residual_add(model, input, &mlp.proj, &mlp.residual, T, C)
@@ -246,11 +613,11 @@ run_matrix_mul :: proc(model: ^GptModel, input: ^Tensor, w: ^Tensor, b: ^Tensor,
             c2Stride := b * T * C2 + t * C2
 
             for c2 := 0; c2 < C2; c2 += 1 {
-                sum: f32 = 0.0
+                sum: f32 = bData[c2 * bDataMul]
                 for c := 0; c < C; c += 1 {
-                    sum += inputData[cStride + c] * wData[c * C2 + c2]
+                    sum += wData[c2 * C + c] * inputData[cStride + c]
                 }
-                outputData[c2Stride + c2] = sum + bData[c2 * bDataMul]
+                outputData[c2Stride + c2] = sum
             }
         }
     }
