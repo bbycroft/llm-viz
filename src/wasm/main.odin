@@ -9,8 +9,13 @@ import "core:mem"
 dyn_pool: mem.Dynamic_Pool = {}
 main_context: runtime.Context
 
+foreign import env "__stack_pointer";
+
+__stack_pointer: rawptr
+
 @export
-init_allocator :: proc "c" () -> int {
+init_allocator :: proc "c" (heapBase: int) -> int {
+
     main_context = runtime.default_context()
     context = main_context
     page_alloc := page_allocator()
@@ -30,7 +35,12 @@ add_numbers :: proc "c" (a: int, b: int) -> int {
         append(&arr, i) 
     }
 
-    return a + b + len(arr)
+    arr2 : []int = make([]int, 10)
+    for i := 0; i < 10; i += 1 {
+        arr2[i] = i
+    }
+
+    return a + b + len(arr) * len(arr2)
 }
 
 @export

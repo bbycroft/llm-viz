@@ -1,6 +1,7 @@
 package main
 
 import "core:math"
+import "core:runtime"
 import "core:fmt"
 import "core:time"
 // import "core:debug"
@@ -101,6 +102,18 @@ tprintJoin :: proc(args: ..any) -> string {
 create_tensor :: proc(shape: []int, data: []f32 = nil) -> Tensor {
     size := 1
     shapeCopy := make([]int, len(shape))
+
+    runtime.print_string("shape: ")
+    runtime.print_int(len(shape))
+    runtime.print_string(", ")
+    runtime.print_int(len(shapeCopy))
+    runtime.print_string(" [")
+    for i := 0; i < len(shape); i += 1 {
+        runtime.print_int(shape[i])
+        if i < len(shape) - 1 do runtime.print_string(", ")
+    }
+    runtime.print_string("]\n")
+
     for i := 0; i < len(shape); i += 1 {
         size *= shape[i]
         shapeCopy[i] = shape[i]
@@ -249,6 +262,22 @@ create_model_from_empty :: proc(gptConfig: GptConfig) -> GptModel {
     n_heads := gptConfig.n_heads
     n_layers := gptConfig.n_layers
     n_vocab := gptConfig.n_vocab
+
+    runtime.print_string("B, T, C, A, n_heads, n_layers, n_vocab:\n")
+    runtime.print_int(B)
+    runtime.print_string(", ")
+    runtime.print_int(T)
+    runtime.print_string(", ")
+    runtime.print_int(C)
+    runtime.print_string(", ")
+    runtime.print_int(A)
+    runtime.print_string(", ")
+    runtime.print_int(n_heads)
+    runtime.print_string(", ")
+    runtime.print_int(n_layers)
+    runtime.print_string(", ")
+    runtime.print_int(n_vocab)
+    runtime.print_string("\n")
 
     model: GptModel = {
         gptConfig = gptConfig,

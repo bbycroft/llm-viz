@@ -1,17 +1,27 @@
+import { IGpuGptModel } from "./GptModel";
+import { IGptModelConfig } from "./utils/tensor";
 
 export async function loadNativeBindings() {
 
     let resp = await fetch('/native.wasm');
     // load wasm file and return the module
 
+    let lineStr = "";
+
     let importObject = {
         env: {
-            memory: new WebAssembly.Memory({ initial: 1, maximum: 20 }), //{ initial: 1, maximum: 1 }),
+            memory: new WebAssembly.Memory({ initial: 1, maximum: 256 }), //{ initial: 1, maximum: 1 }),
         },
         odin_env: {
             write: (fd: number, ptr: number, len: number) => {
                 let mem = new Uint8Array(importObject.env.memory.buffer, ptr, len);
-                console.log('ODIN:', new TextDecoder().decode(mem));
+                let strPart = new TextDecoder().decode(mem);
+                let lines = strPart.split('\n');
+                for (let i = 0; i < lines.length - 1; i++) {
+                    console.log(lineStr + lines[i]);
+                    lineStr = "";
+                }
+                lineStr += lines[lines.length - 1];
             },
             time_now: () => {
                 return Date.now() * 1e6;
@@ -28,22 +38,48 @@ export async function loadNativeBindings() {
     let module = await WebAssembly.instantiateStreaming(resp, importObject);
 
     let exports = module.instance.exports as unknown as INativeExports;
-    let initRes = exports.init_allocator();
+    let initRes = exports.init_allocator(exports.__heap_base);
     let res = exports.add_numbers(4, 5);
     let sin = exports.sinf_custom(0.25);
 
     console.log(module);
     console.log(initRes, res, sin);
 
+    let nativeFuncs = new NativeFunctions(exports);
+
+    nativeFuncs.create_model({
+        block_size: 11,
+        n_embd: 48,
+        model_type: 'GPT',
+        n_head: 3,
+        n_layer: 3,
+        vocab_size: 3,
+        B: 1,
+    });
+
     checkNativeFns(exports);
 }
 
 interface INativeExports {
-    init_allocator: () => number;
+    __heap_base: number;
+    init_allocator: (heapBase: number) => number;
     add_numbers: (a: number, b: number) => number;
     sinf_custom: (a: number) => number;
     cosf_custom: (a: number) => number;
+    wasm_create_model: (B: number, T: number, C: number, n_layers: number, n_heads: number, n_vocab: number) => number;
+    wasm_run_model: (model: number) => number;
+    wasm_get_model_tensor: (model: number, tensor: number, index: number) => number;
 }
+
+class NativeFunctions {
+    constructor(private exports: INativeExports) {
+    }
+
+    create_model(config: IGptModelConfig) {
+        let model = this.exports.wasm_create_model(config.B ?? 1, config.block_size, config.n_embd, config.n_layer, config.n_head, config.vocab_size)
+        return model;
+    }
+} 
 
 function checkNativeFns(exports: INativeExports) {
      checkFn((f) => [Math.sin(f), exports.sinf_custom(f)], 'sinf');

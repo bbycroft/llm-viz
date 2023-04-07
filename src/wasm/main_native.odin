@@ -9,6 +9,10 @@ import "core:encoding/json"
 import "core:encoding/base64"
 
 main :: proc() {
+    test_me_malloc()
+    return
+
+    /*
     fmt.set_user_formatters(new(map[typeid]fmt.User_Formatter))
     fmt.register_user_formatter(type_info_of(Tensor).id, tensor_formatter)
 
@@ -27,6 +31,7 @@ main :: proc() {
     model2 := create_model_from_empty(partials.config)
 
     run_model(&model2, nil)
+    */
 }
 
 load_tensors_and_config :: proc(file_path: string) -> (TensorsAndConfig, Error) {
