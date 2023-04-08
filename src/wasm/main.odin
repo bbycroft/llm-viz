@@ -6,21 +6,32 @@ import "core:runtime"
 import "core:mem"
 // import "core:fmt"
 
-dyn_pool: mem.Dynamic_Pool = {}
+meMallocMaster: MeMallocMaster = {}
 main_context: runtime.Context
-
-foreign import env "__stack_pointer";
-
-__stack_pointer: rawptr
 
 @export
 init_allocator :: proc "c" (heapBase: int) -> int {
 
     main_context = runtime.default_context()
     context = main_context
+
     page_alloc := page_allocator()
-    mem.dynamic_pool_init(&dyn_pool, page_alloc, page_alloc, mem.DEFAULT_PAGE_SIZE, mem.DEFAULT_PAGE_SIZE);
-    main_context.allocator = mem.dynamic_pool_allocator(&dyn_pool)
+
+    me_malloc_init(&meMallocMaster)
+    meMallocMaster.pageAllocator = page_alloc
+
+    my_allocator := me_malloc_allocator(&meMallocMaster)
+
+    mem.dynamic_pool_init(&meMallocMaster.dynamicPool, page_alloc, my_allocator, mem.DEFAULT_PAGE_SIZE);
+
+    data, ok := mem.alloc_bytes(PAGE_SIZE, 0, page_alloc)
+    arena := mem.Arena{}
+    mem.arena_init(&arena, data)
+    arenaAlloc := mem.arena_allocator(&arena)
+
+    main_context.temp_allocator = arenaAlloc
+
+    main_context.allocator = my_allocator
     context = main_context
 
     return 0

@@ -3,8 +3,8 @@ import { createSyncObject, ISyncObject } from "./render/syncObjects";
 import { nonNil } from "./utils/basic";
 import { Random } from "./utils/random";
 import { createBufferTex, writeToBufferTex, createRenderPhase, IBufferTex, runRenderPhase, readFromRenderPhase, arraysEqual, IRenderPhase, logArr, RenderPhaseStats } from "./utils/renderPhases";
-import { createShaderProgram, ensureShadersReady, IShaderManager } from "./utils/shader";
-import { ITensorSet } from "./utils/tensor";
+import { createShaderProgram, ensureShadersReady, IProgram, IShaderManager } from "./utils/shader";
+import { IGptModelConfig, ITensorSet } from "./utils/tensor";
 
 export interface IModelShape {
     B: number;
@@ -239,9 +239,96 @@ void main() {
 }
 `;
 
-export type IGpuGptModel = ReturnType<typeof createGptModel>;
+export interface IEmbedLayerLink {
+    weight: IBufferTex;
+    input: IBufferTex;
+    output: IBufferTex;
+}
 
-export function createGptModel(shaderManager: IShaderManager, model: ITensorSet, B: number) {
+export interface ILinearLayerLink {
+    weight: IBufferTex;
+    bias: IBufferTex | null;
+    output: IBufferTex;
+}
+
+export interface ILayerNormLayerLink {
+    normAgg: IBufferTex;
+    normWeight: IBufferTex;
+    normBias: IBufferTex;
+    output: IBufferTex;
+}
+
+export interface ISoftmaxLayerLink {
+    agg: IBufferTex;
+    output: IBufferTex;
+}
+
+export interface IAddLayerLink {
+    output: IBufferTex;
+}
+
+export interface IBlockLayerLink {
+    input: IBufferTex;
+    output: IBufferTex;
+    ln_1: ILayerNormLayerLink;
+    ln_2: ILayerNormLayerLink;
+    attn: IAttentionLayerLink;
+    mlp: IMlpLayerLink;
+}
+
+export interface IAttentionLayerLink {
+    qkvWeight: IBufferTex;
+    qkvBias: IBufferTex;
+    qkvOutput: IBufferTex;
+    attnMatrix: IBufferTex;
+    attnMatrixAgg: IBufferTex;
+    attnMatrixSoftmax: IBufferTex;
+    scaledVectors: IBufferTex;
+    proj: ILinearLayerLink;
+    add: IAddLayerLink;
+    output: IBufferTex;
+}
+
+export interface IMlpLayerLink {
+    fcLayer: ILinearLayerLink;
+    mlpGelu: IBufferTex;
+    projLayer: ILinearLayerLink;
+    addLayer: IAddLayerLink;
+    output: IBufferTex;
+}
+
+export interface IGptModelLink {
+    gl: WebGL2RenderingContext;
+    inputBuf: Float32Array;
+    inputTokens: IBufferTex;
+    vocabEmbed: IEmbedLayerLink;
+    posEmbed: IEmbedLayerLink;
+    add: IAddLayerLink;
+    blocks: IBlockLayerLink[],
+    ln_f: ILayerNormLayerLink;
+    lm_head: ILinearLayerLink;
+    softmaxFinal: ISoftmaxLayerLink;
+    shape: IModelShape;
+    output: IBufferTex;
+    resultBuf: Float32Array | null;
+    sortedBuf: Float32Array | null;
+    inputLen: number;
+}
+
+export interface IGpuGptModel extends IGptModelLink {
+    vocabEmbed: IGpuEmbeddingLayer;
+    posEmbed: IGpuEmbeddingLayer;
+    add: IGpuAddLayer;
+    ln_f: IGpuLayerNormLayer;
+    lm_head: IGpuLinearLayer;
+    softmaxFinal: IGpuSoftmaxLayer;
+    blocks: IGpuGptBlockLayer[];
+
+    copyOutputToInput: { copyPhase: IRenderPhase };
+    readbackSync: ISyncObject | null;
+}
+
+export function createGptModel(shaderManager: IShaderManager, model: ITensorSet, B: number): IGpuGptModel {
     let gl = shaderManager.gl;
     let prefix = 'transformer';
 
@@ -312,9 +399,14 @@ export function createGptModel(shaderManager: IShaderManager, model: ITensorSet,
     };
 }
 
-export type IGpuGptBlockLayer = ReturnType<typeof createBlockLayer>;
+export interface IGpuGptBlockLayer extends IBlockLayerLink {
+    ln_1: IGpuLayerNormLayer;
+    ln_2: IGpuLayerNormLayer;
+    attn: IGpuAttnLayer;
+    mlp: IGpuMlpLayer;
+}
 
-export function createBlockLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex) {
+function createBlockLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex): IGpuGptBlockLayer {
     let ln_1 = createLayerNorm(layerBuilder, prefix + '.ln_1', input);
     let attn = createAttnLayer(layerBuilder, prefix + '.attn', ln_1.output, input);
     let ln_2 = createLayerNorm(layerBuilder, prefix + '.ln_2', attn.output);
@@ -330,9 +422,17 @@ export function createBlockLayer(layerBuilder: ILayerBuilder, prefix: string, in
     };
 }
 
-export type IGpuAttnLayer = ReturnType<typeof createAttnLayer>;
+export interface IGpuAttnLayer extends IAttentionLayerLink {
+    qkvPhase: IRenderPhase;
+    selfAttendPhase: IRenderPhase;
+    attnMatrixAggPhase: IRenderPhase;
+    attnMatrixSoftmaxPhase: IRenderPhase;
+    scaledVectorsPhase: IRenderPhase;
+    proj: IGpuLinearLayer;
+    add: IGpuAddLayer;
+}
 
-export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex) {
+function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex): IGpuAttnLayer {
     let { gl, model, shape: { B, T, C, nHeads, A }, shaderManager } = layerBuilder;
 
     // move the 1st dim to the end, i.e. the QKV split will be packed into RGB tex channels
@@ -516,9 +616,52 @@ export function createAttnLayer(layerBuilder: ILayerBuilder, prefix: string, inp
     };
 }
 
-export type IGpuLayerNormLayer = ReturnType<typeof createLayerNorm>;
+export interface IGpuMlpLayer extends IMlpLayerLink {
+    fcLayer: IGpuLinearLayer;
+    geluPhase: IRenderPhase;
+    projLayer: IGpuLinearLayer;
+    addLayer: IGpuAddLayer;
+}
 
-export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string, input: IBufferTex) {
+function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex): IGpuMlpLayer {
+    let { gl, shape: { B, T, C }, shaderManager } = layerBuilder;
+
+    // operating memory
+    let mlpGelu = createBufferTex(gl, C * 4, B * T, 1); // (B, T) (4C)
+
+    let geluProg = createShaderProgram(shaderManager, 'mlpGelu', basicVertexShader, /*glsl*/`#version 300 es
+        precision highp float;
+        uniform sampler2D geluInput;  // (B, T) (C * 4)
+        out float geluOutput; // (B, T) (C * 4)
+
+        void main() {
+            ivec2 pos = ivec2(gl_FragCoord.xy);
+            float x = texelFetch(geluInput, pos, 0).r;
+            geluOutput = x * 0.5 * (1.0 + tanh(sqrt(2.0 / 3.14159265358) * (x + 0.044715 * x * x * x)));
+        }
+    `)!;
+
+    let fcLayer = createLinearLayer(layerBuilder, prefix + '.c_fc', C, C * 4, input);
+    let geluPhase = createRenderPhase(gl, geluProg, [mlpGelu], [fcLayer.output], ['geluInput']);
+    let projLayer = createLinearLayer(layerBuilder, prefix + '.c_proj', C * 4, C, mlpGelu);
+    let addLayer = createAddLayer(layerBuilder, projLayer.output, residual);
+
+    return {
+        fcLayer,
+        mlpGelu,
+        geluPhase,
+        projLayer,
+        addLayer,
+        output: addLayer.output,
+    };
+}
+
+export interface IGpuLayerNormLayer extends ILayerNormLayerLink {
+    aggPhase: IRenderPhase;
+    applyPhase: IRenderPhase;
+}
+
+function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string, input: IBufferTex): IGpuLayerNormLayer {
     let { gl, model, shape: { B, T, C }, shaderManager } = layerBuilder;
 
     let tWeight = model[layerPrefix + '.weight'];
@@ -597,44 +740,12 @@ export function createLayerNorm(layerBuilder: ILayerBuilder, layerPrefix: string
     };
 }
 
-export type IGpuMLPLayer = ReturnType<typeof createMLP>;
 
-export function createMLP(layerBuilder: ILayerBuilder, prefix: string, input: IBufferTex, residual: IBufferTex) {
-    let { gl, shape: { B, T, C }, shaderManager } = layerBuilder;
-
-    // operating memory
-    let mlpGelu = createBufferTex(gl, C * 4, B * T, 1); // (B, T) (4C)
-
-    let geluProg = createShaderProgram(shaderManager, 'mlpGelu', basicVertexShader, /*glsl*/`#version 300 es
-        precision highp float;
-        uniform sampler2D geluInput;  // (B, T) (C * 4)
-        out float geluOutput; // (B, T) (C * 4)
-
-        void main() {
-            ivec2 pos = ivec2(gl_FragCoord.xy);
-            float x = texelFetch(geluInput, pos, 0).r;
-            geluOutput = x * 0.5 * (1.0 + tanh(sqrt(2.0 / 3.14159265358) * (x + 0.044715 * x * x * x)));
-        }
-    `)!;
-
-    let fcLayer = createLinearLayer(layerBuilder, prefix + '.c_fc', C, C * 4, input);
-    let geluPhase = createRenderPhase(gl, geluProg, [mlpGelu], [fcLayer.output], ['geluInput']);
-    let projLayer = createLinearLayer(layerBuilder, prefix + '.c_proj', C * 4, C, mlpGelu);
-    let addLayer = createAddLayer(layerBuilder, projLayer.output, residual);
-
-    return {
-        fcLayer,
-        mlpGelu,
-        geluPhase,
-        projLayer,
-        addLayer,
-        output: addLayer.output,
-    };
+export interface IGpuLinearLayer extends ILinearLayerLink {
+    linearPhase: IRenderPhase;
 }
 
-export type IGpuLinearLayer = ReturnType<typeof createLinearLayer>;
-
-export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex, bias?: boolean) {
+function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, nIn: number, nOut: number, input: IBufferTex, residual?: IBufferTex, bias?: boolean): IGpuLinearLayer {
     let { gl, model, shape: { B, T }, shaderManager } = layerBuilder;
 
     bias = bias ?? true;
@@ -687,9 +798,11 @@ export function createLinearLayer(layerBuilder: ILayerBuilder, prefix: string, n
     };
 }
 
-export type IGpuEmbeddingLayer = ReturnType<typeof createEmbeddingLayer>;
+export interface IGpuEmbeddingLayer extends IEmbedLayerLink {
+    phase: IRenderPhase;
+}
 
-export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string, nEmbed: number, nDims: number, input: IBufferTex) {
+function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string, nEmbed: number, nDims: number, input: IBufferTex): IGpuEmbeddingLayer {
     let { gl, model, shape: { B, T }, shaderManager } = layerBuilder;
 
     let tWeight = model[prefix + '.weight'];
@@ -728,7 +841,11 @@ export function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string
     };
 }
 
-export function createAddLayer(layerBuilder: ILayerBuilder, inputA: IBufferTex, inputB: IBufferTex) {
+export interface IGpuAddLayer extends IAddLayerLink {
+    addPhase: IRenderPhase;
+}
+
+function createAddLayer(layerBuilder: ILayerBuilder, inputA: IBufferTex, inputB: IBufferTex): IGpuAddLayer {
     let { gl, shape: { B, T, C }, shaderManager } = layerBuilder;
 
     // operating memory
@@ -757,7 +874,15 @@ export function createAddLayer(layerBuilder: ILayerBuilder, inputA: IBufferTex, 
     };
 }
 
-function createSoftmaxLayer(layerBuilder: ILayerBuilder, input: IBufferTex) {
+export interface IGpuSoftmaxLayer extends ISoftmaxLayerLink {
+    bufs: IBufferTex[];
+    progs: IProgram[];
+    phases: IRenderPhase[];
+    aggPhase: IRenderPhase;
+    softmaxPhase: IRenderPhase;
+}
+
+function createSoftmaxLayer(layerBuilder: ILayerBuilder, input: IBufferTex): IGpuSoftmaxLayer {
     let { gl, shape: { B, T, C, vocabSize }, shaderManager } = layerBuilder;
 
     // operating memory
@@ -826,7 +951,7 @@ function createSoftmaxLayer(layerBuilder: ILayerBuilder, input: IBufferTex) {
     };
 }
 
-export function createCopyOutputToInputLayer(layerBuilder: ILayerBuilder, prevOutput: IBufferTex, currInput: IBufferTex) {
+function createCopyOutputToInputLayer(layerBuilder: ILayerBuilder, prevOutput: IBufferTex, currInput: IBufferTex) {
     let { gl, shape: { T, vocabSize }, shaderManager } = layerBuilder;
 
     let copyProg = createShaderProgram(shaderManager, 'copy', basicVertexShader, /*glsl*/`#version 300 es

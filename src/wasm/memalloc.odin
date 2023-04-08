@@ -1,7 +1,13 @@
 
 package main
 
+ME_DEBUG :: false && ODIN_ARCH != .wasm32 && ODIN_ARCH != .wasm64
+
 import "core:mem"
+when ME_DEBUG {
+import "core:fmt"
+}
+
 import "core:math"
 import "core:runtime"
 import "core:intrinsics"
@@ -25,15 +31,15 @@ MeMallocMaster :: struct {
 
 	pageList: list.List,
 	freePageList: ^MeMallocPage, // singly linked list of all pages with free segments
+    pageMap: map[uintptr]^MeMallocPage, // map of page start addresses to page metadata
 
-    buddy: MeBuddyState,
+    dynamicPool: mem.Dynamic_Pool,
 }
 
 ME_MALLOC_PAGE_SIZE :: 64 * 1024 // 64KiB, to match wasm page size
 ME_MALLOC_SEG_SIZE :: 4096 // means we fit 16 segments in a page
 ME_MALLOC_SEGS_PER_PAGE :: ME_MALLOC_PAGE_SIZE / ME_MALLOC_SEG_SIZE // 16
 ME_MALLOC_PAGE_MAGIC :: 0x12345678
-ME_DEBUG :: true
 
 me_malloc_allocator :: proc(master: ^MeMallocMaster) -> mem.Allocator {
 	procedure :: proc(allocator_data: rawptr, mode: mem.Allocator_Mode,
@@ -51,7 +57,6 @@ me_malloc_allocator :: proc(master: ^MeMallocMaster) -> mem.Allocator {
             me_malloc_free(master, old_memory)
             return nil, nil
 		case .Resize, .Free_All, .Query_Info:
-			runtime.print_string(".Resize NOT IMPLEMENTED\n")
 			return nil, .Mode_Not_Implemented
 		case .Query_Features:
 			set := (^mem.Allocator_Mode_Set)(old_memory)
@@ -156,9 +161,9 @@ LARGE_STEP :: 512
 LARGE_MAX :: 4096
 
 me_malloc_alloc :: proc(master: ^MeMallocMaster, size: uint) -> rawptr {
-    when ME_DEBUG {
-        // fmt.printf("me_malloc_alloc: %d\n", size)
-    }
+    // when ME_DEBUG {
+    // fmt.printf("me_malloc_alloc: %d\n", size)
+    // }
 
     if size <= LARGE_MAX {
         blkIndex, blockSize := me_malloc_to_block_idx_size(size)
@@ -170,19 +175,26 @@ me_malloc_alloc :: proc(master: ^MeMallocMaster, size: uint) -> rawptr {
             return me_malloc_alloc_block_from_segment(master, seg)
         }
     } else {
-        // TODO: large allocation
-        return nil
+        return mem.dynamic_pool_alloc(&master.dynamicPool, int(size))
     }
 
     _, blockSize := me_malloc_to_block_idx_size(size)
 
     // find a free segment in existing pages
     seg, page := me_malloc_find_small_segment(master, blockSize)
+    page_alloced := false
 
     if (seg == nil) {
         // allocate a new page
         page = me_malloc_alloc_page(master)
+        page_alloced = true
         seg, page = me_malloc_find_small_segment(master, blockSize)
+    }
+
+    if (page_alloced) {
+        // need to ensure we do this after setting up the page, since it calls into the allocator
+        // itself...
+        master.pageMap[uintptr(page)] = page
     }
 
     me_malloc_init_small_segment(master, page, seg, blockSize)
@@ -194,6 +206,11 @@ me_malloc_free :: proc(master: ^MeMallocMaster, ptr: rawptr) {
     // will need to query a hash table with the page pointer to find out
 
     page := (^MeMallocPage)(mem.align_backward_uintptr(uintptr(ptr), ME_MALLOC_PAGE_SIZE))
+
+    if !(uintptr(page) in master.pageMap) {
+        // oops, dynamic pool allocater doesn't support free
+        return;
+    }
 
     assert(page.magic == ME_MALLOC_PAGE_MAGIC)
 
@@ -361,15 +378,19 @@ me_malloc_init_small_segment :: proc(master: ^MeMallocMaster, page: ^MeMallocPag
     }
 }
 
-import "core:fmt"
 
 
 test_me_malloc :: proc() {
 
+when ME_DEBUG {
     my_master := MeMallocMaster{}
     me_malloc_init(&my_master)
-    my_master.pageAllocator = context.allocator
+    page_allocator := context.allocator
+    my_master.pageAllocator = page_allocator
+
     my_allocator := me_malloc_allocator(&my_master)
+
+    mem.dynamic_pool_init(&my_master.dynamicPool, page_allocator, my_allocator, PAGE_SIZE)
 
     track := mem.Tracking_Allocator{}
     mem.tracking_allocator_init(&track, my_allocator)
@@ -401,55 +422,11 @@ test_me_malloc :: proc() {
     mem.alloc(180, 0, allocator)
     mem.alloc(180, 0, allocator)
     mem.alloc(180, 0, allocator)
+
+    fmt.printf("Now allocating several massssive blocks\n")
+    bigMemPtr := mem.alloc(100000, 0, allocator)
+
+    mem.free(bigMemPtr)
 }
 
-
-ME_MALLOC_BUDDY_MAX_ORDER :: 20 // 2^20 = 1MB * 4096 = 4GB
-
-MeBuddyState :: struct {
-    pages: map[uintptr]uintptr,
-    freeList: [ME_MALLOC_BUDDY_MAX_ORDER]^MeBuddyBlock,
-    freeListCount: [ME_MALLOC_BUDDY_MAX_ORDER]uint,
-    freeListTotal: uint,
-}
-
-MeBuddyBlock :: struct {
-    next: ^MeBuddyBlock,
-    blockId: uint,
-    size: uint,
-}
-
-me_buddy_alloc :: proc(master: ^MeMallocMaster, size: uint) -> rawptr {
-    blockSize := math.next_power_of_two(int(size))
-
-    // 4096 is handled by the small block allocator, so we start at 8192
-
-    // 0: 8192, 1: 65536, ...
-    order := intrinsics.count_trailing_zeros(uint(blockSize)) - 12
-
-    if order >= ME_MALLOC_BUDDY_MAX_ORDER {
-        return nil
-    }
-
-    // find the first free block that is big enough
-    for i in order..<ME_MALLOC_BUDDY_MAX_ORDER {
-        if master.buddy.freeListCount[i] > 0 {
-            // we found a block that is big enough
-            // remove it from the free list
-            block := master.buddy.freeList[i]
-            master.buddy.freeList[i] = block.next
-            master.buddy.freeListCount[i] -= 1
-            master.buddy.freeListTotal -= 1
-
-            // split the block until we get to the right size
-            for j in i-1..=order {
-                // split the block
-            }
-
-            // return the block
-            // return master.buddy.pages[block.next][block.blockId].next
-        }
-    }
-
-    return nil
 }

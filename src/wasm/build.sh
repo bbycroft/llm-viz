@@ -18,4 +18,4 @@ set -x
 
 odin build . -out:./main-native -debug
 odin build . -no-entry-point -target:js_wasm32 -extra-linker-flags:"$LINKER_FLAGS" -out:../../public/native.wasm
-wasm2wat ../../public/native.wasm > native.wat
+# wasm2wat ../../public/native.wasm > native.wat
