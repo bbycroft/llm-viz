@@ -2,7 +2,7 @@ import { genModelViewMatrices, ICamera } from "./Camera";
 import { drawAllArrows } from "./components/Arrow";
 import { drawBlockLabels } from "./components/SectionLabels";
 import { drawModelCard } from "./components/ModelCard";
-import { createCopyOutputToInputLayer, IGpuGptModel, IModelShape, loopModelOutputToInput, readModelResultsBackWhenReady, runModel } from "./GptModel";
+import { IGpuGptModel, IModelShape, loopModelOutputToInput, readModelResultsBackWhenReady, runModel } from "./GptModel";
 import { genGptModelLayout, IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { drawText, IFontAtlasData, IFontOpts, measureText } from "./render/fontRender";
 import { initRender, IRenderState, IRenderView, renderModel, resetRenderBuffers } from "./render/modelRender";
@@ -17,7 +17,6 @@ import { Mat4f } from "./utils/matrix";
 import { runMouseHitTesting } from "./Interaction";
 import { RenderPhase } from "./render/sharedRender";
 import { drawBlockInfo } from "./components/BlockInfo";
-import { ISyncObject } from "./render/syncObjects";
 
 export interface IProgramState {
     stepModel: boolean;
