@@ -18,7 +18,7 @@ import { runMouseHitTesting } from "./Interaction";
 import { RenderPhase } from "./render/sharedRender";
 import { drawBlockInfo } from "./components/BlockInfo";
 import { NativeFunctions } from "./NativeBindings";
-import { IWasmGptModel, syncWasmDataWithJsAndGpu } from "./GptModelWasm";
+import { IWasmGptModel, stepWasmModel, syncWasmDataWithJsAndGpu } from "./GptModelWasm";
 
 export interface IProgramState {
     native: NativeFunctions | null;
@@ -128,10 +128,11 @@ export function runProgram(view: IRenderView, state: IProgramState) {
         syncWasmDataWithJsAndGpu(state.wasmGptModel, state.jsGptModel);
     }
 
-    if (state.stepModel && state.gptGpuModel) {
+    if (state.stepModel && state.wasmGptModel && state.jsGptModel) {
         state.stepModel = false;
-        loopModelOutputToInput(state.render, state.gptGpuModel);
-        runModel(state.render, state.gptGpuModel);
+        // loopModelOutputToInput(state.render, state.gptGpuModel);
+        // runModel(state.render, state.gptGpuModel);
+        stepWasmModel(state.wasmGptModel, state.jsGptModel);
     }
 
     // generate the base model, incorporating the gpu-side model if available

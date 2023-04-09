@@ -131,7 +131,14 @@ export function dimProps(blk: IBlkDef, dim: Dim) {
     }
 }
 
-export function splitGridX(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: number, splitAmt: number) {
+export function duplicateGrid(layout: IModelLayout, blk: IBlkDef) {
+    let newBlk = { ...blk };
+    newBlk.name = '';
+    layout.cubes.push(newBlk);
+    return newBlk;
+}
+
+export function splitGrid(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: number, splitAmt: number) {
     // generate several new blocks (let's say up to 5) that are neighbouring the zSplit point
 
     // main-left, left, center, right, main-right
@@ -192,11 +199,22 @@ export function splitGridX(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit:
         midBlock = addSubBlock(xc, xc + 1, 0.0);
         addSubBlock(xc + 1, cx, 0.0);
     } else {
-        addSubBlock(0     , xc - 1, offset + 0.0);
-        addSubBlock(xc - 1, xc    , offset + lerpSmoothstep(splitAmt, 0, fract + scale));
+        let addMidBlockBefore = fract + scale < 1.0;
+        let addMidBlockAfter = fract - scale > 0.0;
+
+        addSubBlock(0     , xc - (addMidBlockBefore ? 1 : 0), offset + 0.0);
+
+        if (addMidBlockBefore) {
+            addSubBlock(xc - 1, xc    , offset + lerpSmoothstep(splitAmt, 0, fract + scale));
+        }
+
         midBlock = addSubBlock(xc    , xc + 1, offset + lerpSmoothstep(splitAmt, 0, fract));
-        addSubBlock(xc + 1, xc + 2, offset + lerpSmoothstep(splitAmt, 0, fract - scale));
-        addSubBlock(xc + 2, cx, offset + splitAmt);
+
+        if (addMidBlockAfter) {
+            addSubBlock(xc + 1, xc + 2, offset + lerpSmoothstep(splitAmt, 0, fract - scale));
+        }
+
+        addSubBlock(xc + (addMidBlockAfter ? 2 : 1), cx, offset + splitAmt);
     }
 
     if (blocks.length > 0) {

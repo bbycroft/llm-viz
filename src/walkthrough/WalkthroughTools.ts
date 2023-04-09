@@ -14,6 +14,10 @@ export interface IWalkthroughArgs {
     tools: ReturnType<typeof phaseTools>;
 }
 
+export function embed(fc: React.FC) {
+    return { insert: () => fc };
+}
+
 export function phaseTools(state: IProgramState) {
     let phaseState = state.walkthrough;
 
@@ -296,6 +300,8 @@ export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3
 }
 
 
+
+
 export enum DimStyle {
     None,
     t,
@@ -309,6 +315,9 @@ export enum DimStyle {
     Token,
     TokenIdx,
     C4,
+    Intermediates,
+    Weights,
+    Aggregates,
 }
 
 export function dimStyleColor(style: DimStyle) {
@@ -327,6 +336,12 @@ export function dimStyleColor(style: DimStyle) {
             return Vec4.fromHexColor('#1b495d');
         case DimStyle.n_vocab:
             return Vec4.fromHexColor('#7c3c8d'); // new Vec4(0.8, 0.6, 0.3, 1);
+        case DimStyle.Intermediates:
+            return Colors.Intermediates;
+        case DimStyle.Weights:
+            return Colors.Weights;
+        case DimStyle.Aggregates:
+            return Colors.Aggregates;
     }
     return new Vec4(0,0,0);
 }

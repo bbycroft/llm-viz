@@ -1,11 +1,11 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
-import { commentary, DimStyle, dimStyleColor, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
+import { commentary, DimStyle, dimStyleColor, embed, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
 import s from './Walkthrough.module.scss';
 import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { clamp, makeArray } from "../utils/data";
 import React, { useState } from "react";
 import { useProgramState } from "../Sidebar";
-import { findSubBlocks, splitGridX } from "../Annotations";
+import { findSubBlocks, splitGrid } from "../Annotations";
 import { useGlobalDrag } from "../utils/pointer";
 import { IBlkDef } from "../GptModelLayout";
 import { IProgramState } from "../Program";
@@ -108,7 +108,7 @@ It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputO
             let idxPos = t7.t * 6;
 
             if (t7.t < 1.0) {
-                splitGridX(layout, layout.idxObj, Dim.X, idxPos, clamp(6 - idxPos, 0, 1));
+                splitGrid(layout, layout.idxObj, Dim.X, idxPos, clamp(6 - idxPos, 0, 1));
                 for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, Math.min(5, Math.floor(idxPos)))) {
                     if (blk.access) {
                         blk.access.disable = false;
@@ -138,14 +138,14 @@ It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputO
                 let splitWidth = clamp(6 - idxPos, 0, 2);
                 let splitIdx = Math.min(5, Math.floor(idxPos));
                 if (t_makeVecs.t < 1.0) {
-                    splitGridX(layout, layout.idxObj, Dim.X, idxPos, splitWidth);
+                    splitGrid(layout, layout.idxObj, Dim.X, idxPos, splitWidth);
                     for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, splitIdx)) {
                         if (blk.access) {
                             blk.access.disable = false;
                         }
                     }
 
-                    splitGridX(layout, layout.residual0, Dim.X, idxPos, splitWidth);
+                    splitGrid(layout, layout.residual0, Dim.X, idxPos, splitWidth);
                     for (let blk of findSubBlocks(layout.residual0, Dim.X, null, splitIdx)) {
                         if (blk.access) {
                             blk.access.disable = false;
@@ -213,7 +213,15 @@ interface IProcessInfo {
     lastBlockIdx: number;
 }
 
-function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkDef, prevInfo?: IProcessInfo): IProcessInfo {
+export function startProcessBefore(state: IProgramState, block: IBlkDef): IProcessInfo {
+    let activeBlocks = state.layout.cubes.filter(a => a.t !== 'w');
+
+    return {
+        lastBlockIdx: activeBlocks.indexOf(block) - 1,
+    };
+}
+
+export function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkDef, prevInfo?: IProcessInfo): IProcessInfo {
 
     let activeBlocks = state.layout.cubes.filter(a => a.t !== 'w');
 
@@ -281,7 +289,7 @@ function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkDef, pre
 
         blk.highlight = 0.3;
 
-        let column = splitGridX(state.layout, blk, Dim.X, horizPos, 0);
+        let column = splitGrid(state.layout, blk, Dim.X, horizPos, 0);
         if (column) {
             for (let col of findSubBlocks(blk, Dim.X, null, horizIdx)) {
                 if (col.access) {
@@ -291,7 +299,7 @@ function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkDef, pre
             }
             column.highlight = 0.4;
 
-            let curr = splitGridX(state.layout, column, Dim.Y, vertPos, 0);
+            let curr = splitGrid(state.layout, column, Dim.Y, vertPos, 0);
             for (let blk of findSubBlocks(column, Dim.Y, null, vertIdx)) {
                 if (blk.access) {
                     blk.access.disable = false;
@@ -313,10 +321,6 @@ function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkDef, pre
     let info = prevInfo ?? { lastBlockIdx: currIdx };
     info.lastBlockIdx = lastIdx;
     return info;
-}
-
-function embed(fc: React.FC) {
-    return { insert: () => fc };
 }
 
 const ExampleInputOutput: React.FC = () => {

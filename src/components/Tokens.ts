@@ -13,7 +13,7 @@ export function drawTokens(renderState: IRenderState, layout: IGptModelLayout, d
 
     // Just rendering the 0, 1, 2 tokens, with plans to advance to the GPT text model etc
 
-    data = data ?? layout.model?.inputBuf ?? new Float32Array([0, 1, 2]);
+    data = data ?? layout.model?.inputTokens?.localBuffer ?? new Float32Array([0, 1, 2]);
     count = count || 6;
 
     // may scale with view

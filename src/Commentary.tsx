@@ -264,6 +264,9 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
 
             if (i < c.values.length) {
                 let val = c.values[i];
+                if (val.insertInline) {
+                    paraItems.push(val.insertInline);
+                }
                 if (val.insert) {
                     pushParagraph();
                     let fnVal = typeof val.insert === 'function' ? val.insert() : val.insert;

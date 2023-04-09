@@ -1,4 +1,4 @@
-import { blockDimension, dimProps, findSubBlocks, splitGridX } from "./Annotations";
+import { blockDimension, dimProps, findSubBlocks, splitGrid } from "./Annotations";
 import { drawDataFlow } from "./components/DataFlow";
 import { IBlkCellDep, IBlkDef } from "./GptModelLayout";
 import { IProgramState } from "./Program";
@@ -134,12 +134,12 @@ export function highlightCellUnderMouse(state: IProgramState, mainBlk: IBlkDef, 
         // need to choose a primary axis (if it makes sense! usually the T axis)
         // we then highlight that access a little bit
         // probably need to do that in the GptModelLayout? It's not a super well-defined idea
-        let midX = splitGridX(state.layout, blk, Dim.X, ptLocalIdx.x, 0);
+        let midX = splitGrid(state.layout, blk, Dim.X, ptLocalIdx.x, 0);
         if (midX) {
             midX.highlight = 0.15;
-            let midY = splitGridX(state.layout, midX, Dim.Y, ptLocalIdx.y, 0);
+            let midY = splitGrid(state.layout, midX, Dim.Y, ptLocalIdx.y, 0);
             if (midY) {
-                let midZ = splitGridX(state.layout, midY, Dim.Z, ptLocalIdx.z, 0);
+                let midZ = splitGrid(state.layout, midY, Dim.Z, ptLocalIdx.z, 0);
                 if (midZ) {
                     midZ.highlight = 0.6;
                 }
@@ -186,11 +186,11 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
                 dotLen = dotLen ?? srcIdx.getAt(dotDim);
             }
 
-            let sub = splitGridX(layout, dep.src, dotDim, srcIdx.getAt(dotDim), 0);
+            let sub = splitGrid(layout, dep.src, dotDim, srcIdx.getAt(dotDim), 0);
 
             if (sub && isNotNil(dotLen)) {
                 // only highlight up to dotLen
-                splitGridX(layout, sub, otherDim, dotLen, 0);
+                splitGrid(layout, sub, otherDim, dotLen, 0);
                 for (let parts of findSubBlocks(sub, otherDim, null, dotLen)) {
                     parts.highlight = 0.5;
                 }
@@ -199,11 +199,11 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
                 if (sub) sub.highlight = 0.5;
             }
         } else {
-            let sub = splitGridX(layout, dep.src, Dim.X, srcIdx.x, 0);
+            let sub = splitGrid(layout, dep.src, Dim.X, srcIdx.x, 0);
             if (!sub) return;
-            sub = splitGridX(layout, sub, Dim.Y, srcIdx.y, 0);
+            sub = splitGrid(layout, sub, Dim.Y, srcIdx.y, 0);
             if (!sub) return;
-            sub = splitGridX(layout, sub, Dim.Z, srcIdx.z, 0);
+            sub = splitGrid(layout, sub, Dim.Z, srcIdx.z, 0);
             if (sub) sub.highlight = 0.5;
         }
     }

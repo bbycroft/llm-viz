@@ -1,4 +1,4 @@
-import { addSourceDestCurveLine, blockDimension, blockIndex, drawTextOnModel, findSubBlocks, indexMappingLines, renderIndexes, splitGridX, TextAlignHoriz, TextAlignVert } from "../Annotations";
+import { addSourceDestCurveLine, blockDimension, blockIndex, drawTextOnModel, findSubBlocks, indexMappingLines, renderIndexes, splitGrid, TextAlignHoriz, TextAlignVert } from "../Annotations";
 import { ICamera, ICameraPos } from "../Camera";
 import { IBlkDef } from "../GptModelLayout";
 import { IProgramState } from "../Program";
@@ -284,8 +284,8 @@ export function walkthroughDetailed(args: IWalkthroughArgs) {
             let idx = lerp(0, 3, t1_totEq3.t);
             let split = lerpSmoothstep(t0_expandAt0.t * 1.0, exampleTIdx, t2_expandSplit.t);
             blockIndex(render, layout, layout.residual0, Dim.X, DimStyle.t, idx, split / 2, t0_expandAt0.t);
-            splitGridX(layout, layout.residual0, Dim.X, idx + 0.5, split);
-            splitGridX(layout, layout.idxObj   , Dim.X, idx + 0.5, split);
+            splitGrid(layout, layout.residual0, Dim.X, idx + 0.5, split);
+            splitGrid(layout, layout.idxObj   , Dim.X, idx + 0.5, split);
         }
 
         let embedMtx = c_str('token embedding matrix');
@@ -301,7 +301,7 @@ export function walkthroughDetailed(args: IWalkthroughArgs) {
         }
 
         if (layout.model && t4_highlightTokEmIdx.t > 0 && t6_cleanup1.t <= 1.0) {
-            splitGridX(layout, layout.tokEmbedObj, Dim.X, exampleTokIdx, 0);
+            splitGrid(layout, layout.tokEmbedObj, Dim.X, exampleTokIdx, 0);
             findSubBlocks(layout.tokEmbedObj, Dim.X, exampleTokIdx, exampleTokIdx)[0].highlight = lerp(0, 0.2, t4_highlightTokEmIdx.t);
             display.tokenColors = { color2: dimStyleColor(DimStyle.n_vocab), mixes: oneHotArray(layout.idxObj.cx, exampleTIdx, t4_highlightTokEmIdx.t) };
             let padTop = layout.cell * 0.3;
@@ -327,7 +327,7 @@ export function walkthroughDetailed(args: IWalkthroughArgs) {
                     drawThread(render.threadRender, layout, layout.posEmbedObj, Dim.Y, exampleTIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
                 }
 
-                splitGridX(layout, sub, Dim.Y, yPos, 0.0);
+                splitGrid(layout, sub, Dim.Y, yPos, 0.0);
 
                 for (let vertSubBelow of findSubBlocks(sub, Dim.Y, Math.floor(yPos) + 1, null)) {
                     vertSubBelow.access = { ...sub.access, disable: true };
@@ -349,7 +349,7 @@ export function walkthroughDetailed(args: IWalkthroughArgs) {
 
             display.tokenColors = { color2: dimStyleColor(DimStyle.n_vocab), mixes: oneHotArray(T, tIdx, 1.0) };
 
-            splitGridX(layout, layout.residual0, Dim.X, tIdx + 0.5, 0.0);
+            splitGrid(layout, layout.residual0, Dim.X, tIdx + 0.5, 0.0);
 
             let sub = findSubBlocks(layout.residual0, Dim.X, null, tIdx - 1);
             for (let vertSubLeft of sub) {
@@ -370,7 +370,7 @@ export function walkthroughDetailed(args: IWalkthroughArgs) {
                 drawThread(render.threadRender, layout, layout.tokEmbedObj, Dim.Y, tokIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
                 drawThread(render.threadRender, layout, layout.posEmbedObj, Dim.Y, tIdx, 0, 1, yIdx + 1, new Vec4(1,0,0,1));
 
-                splitGridX(layout, sub2, Dim.Y, yPos, 0.0);
+                splitGrid(layout, sub2, Dim.Y, yPos, 0.0);
 
                 for (let colSubBelow of findSubBlocks(sub2, Dim.Y, Math.floor(cPos) + 1, null)) {
                     colSubBelow.access = { ...colSubBelow.access!, disable: true };
@@ -386,13 +386,13 @@ export function walkthroughDetailed(args: IWalkthroughArgs) {
             let color = dimStyleColor(DimStyle.n_vocab).mul(t3_showTokEmIdx.t);
             indexMappingLines(render, layout, layout.idxObj, layout.tokEmbedObj, color, padTop, padBot, tIdx, tokIdx, 0.5);
 
-            let tokSub = splitGridX(layout, layout.tokEmbedObj, Dim.X, tokIdx + 0.5, 0);
+            let tokSub = splitGrid(layout, layout.tokEmbedObj, Dim.X, tokIdx + 0.5, 0);
             // let tokSub = findSubBlocks(layout.tokEmbedObj, Dim.X, tokIdx, tokIdx)[0];
             if (tokSub) {
                 tokSub.highlight = 0.2;
             }
 
-            let posSub = splitGridX(layout, layout.posEmbedObj, Dim.X, tIdx + 0.5, 0);
+            let posSub = splitGrid(layout, layout.posEmbedObj, Dim.X, tIdx + 0.5, 0);
             // let posSub = findSubBlocks(layout.posEmbedObj, Dim.X, tIdx, tIdx)[0];
             if (posSub) {
                 posSub.highlight = 0.2;
@@ -504,23 +504,23 @@ export function walkthroughDetailed(args: IWalkthroughArgs) {
                     let split = 0.0;
 
                     let srcADotDimIdx = srcIdxA.getIdx(dotDim0);
-                    splitGridX(layout, srcA, dotDim0, srcADotDimIdx, 0);
+                    splitGrid(layout, srcA, dotDim0, srcADotDimIdx, 0);
                     let sub0 = findSubBlocks(srcA, dotDim0, srcADotDimIdx, srcADotDimIdx)[0];
                     if (sub0) sub0.highlight = 0.3;
 
                     let srcBDotDimIdx = srcIdxB.getIdx(dotDim1);
-                    splitGridX(layout, srcB, dotDim1, srcBDotDimIdx, split);
+                    splitGrid(layout, srcB, dotDim1, srcBDotDimIdx, split);
                     let sub1 = findSubBlocks(srcB, dotDim1, srcBDotDimIdx, srcBDotDimIdx)[0];
                     if (sub1) sub1.highlight = 0.3;
 
                     // addSourceDestCurveLine(state, layout, srcA, target, new Vec3(srcIdxA.x, srcIdxA.y), new Vec3(xIdx, yIdx, 0), new Vec4(1,0,0,1).mul(0.3));
                     // addSourceDestCurveLine(state, layout, srcB, target, new Vec3(srcIdxB.x, srcIdxB.y), new Vec3(xIdx, yIdx, 0), new Vec4(1,0,0,1).mul(0.3));
 
-                    splitGridX(layout, target, Dim.X, xPos, split);
+                    splitGrid(layout, target, Dim.X, xPos, split);
                     let sub2 = findSubBlocks(target, Dim.X, xIdx, xIdx)[0];
                     if (sub2) {
                         sub2.highlight = 0.3;
-                        splitGridX(layout, sub2, Dim.Y, yPos, 0);
+                        splitGrid(layout, sub2, Dim.Y, yPos, 0);
                         let sub3 = findSubBlocks(sub2, Dim.Y, yIdx, yIdx)[0];
                         if (sub3) { sub3.highlight = 0.7; }
 

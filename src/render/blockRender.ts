@@ -301,6 +301,7 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
     gl.uniform3fv(locs.u_lightColor, lightColorArr);
     gl.uniform1i(locs.u_accessSampler, 0);
     gl.enable(gl.BLEND);
+    gl.enable(gl.CULL_FACE);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindVertexArray(geom.vao);

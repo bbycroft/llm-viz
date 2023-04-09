@@ -201,6 +201,32 @@ export function constructModel(model: ITensorSet, config: IGptModelConfig, nativ
     };
 }
 
+export function stepWasmModel(wasmModel: IWasmGptModel, jsModel: IGptModelLink) {
+    let { native, modelPtr } = wasmModel;
+    let { shape: { B, T, vocabSize } } = jsModel;
+
+    let tIdx = jsModel.inputLen - 1;
+
+    if (!jsModel.sortedBuf || tIdx >= T - 1) {
+        return;
+    }
+
+    let inputTokensTensor = native.getModelTensor(modelPtr, TensorType.InputTokens);
+    for (let b = 0; b < B; b++) {
+        let topSortedIdx = jsModel.sortedBuf![b * T * vocabSize * 2 + tIdx * vocabSize * 2 + 0];
+        // let topSortedValue = jsModel.sortedBuf![b * T * 2 + tIdx * 2 + 1];
+        inputTokensTensor.buffer[b * T + tIdx + 1] = topSortedIdx;
+    }
+
+    jsModel.inputLen += 1;
+
+    native.runModel(modelPtr);
+
+    wasmModel.intersDirty = true;
+
+    syncWasmDataWithJsAndGpu(wasmModel, jsModel);
+}
+
 export function syncWasmDataWithJsAndGpu(wasmModel: IWasmGptModel, jsModel: IGptModelLink) {
     let needsSync = wasmModel.weightsDirty || wasmModel.intersDirty;
 
@@ -273,6 +299,20 @@ function readLocalBuffersFromWasm(wasmModel: IWasmGptModel, jsModel: IGptModelLi
     readFromWasmToBufferTex(TensorType.Logits, 0, jsModel.lm_head.output);
     readFromWasmToBufferTex(TensorType.LogitsSmAgg, 0, jsModel.softmaxFinal.agg);
     readFromWasmToBufferTex(TensorType.LogitsSm, 0, jsModel.softmaxFinal.output);
+
+
+    let { T, vocabSize } = jsModel.shape;
+    let resultBuf = jsModel.softmaxFinal.output.localBuffer!;
+    let sortedBuf = new Float32Array(resultBuf.length * 2);
+    for (let t = 0; t < T; t++) {
+        let options = [...resultBuf.slice(t * vocabSize, (t + 1) * vocabSize)].map((v, i) => ({ v, i }));
+        options.sort((a, b) => b.v - a.v);
+        for (let i = 0; i < options.length; i++) {
+            sortedBuf[(t * vocabSize + i) * 2 + 0] = options[i].i;
+            sortedBuf[(t * vocabSize + i) * 2 + 1] = options[i].v;
+        }
+    }
+    jsModel.sortedBuf = sortedBuf;
 
     function readFromWasmToBufferTex(type: TensorType, idx: number, tex: IBufferTex, isWeight?: boolean) {
         let t = wasmModel.native.getModelTensor(wasmModel.modelPtr, type, idx);
