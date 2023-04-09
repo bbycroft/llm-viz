@@ -279,7 +279,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             access: { src: target?.normAgg, x: [0, 1, 0], y: [1, 0, T], scale: 10.0, channel: 'r' },
             deps: { add: [[src, 'xi']], special: BlKDepSpecial.LayerNormMu },
             dimX: DimStyle.T, dimY: DimStyle.None,
-            name: 'LN Agg: μ, 1/σ',
+            name: 'LN Agg: μ, σ',
         });
         let lnAgg2 = mk({
             t: 'a', cx: T, cz: B, cy: 1, y: y + cell,

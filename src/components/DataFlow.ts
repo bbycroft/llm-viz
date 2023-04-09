@@ -1,3 +1,4 @@
+import { text } from "stream/consumers";
 import { dimProps } from "../Annotations";
 import { BlKDepSpecial, cellPosition, IBlkCellDep, IBlkDef } from "../GptModelLayout";
 import { getDepDotLen, getDepSrcIdx } from "../Interaction";
@@ -11,9 +12,17 @@ import { isNotNil } from "../utils/data";
 import { lerp } from "../utils/math";
 import { Mat4f } from "../utils/matrix";
 import { BoundingBox3d, Dim, Vec3, Vec4 } from "../utils/vector";
-import { Colors } from "../walkthrough/WalkthroughTools";
+import { Colors, DimStyle, dimStyleColor, dimStyleText, dimStyleTextShort } from "../walkthrough/WalkthroughTools";
 import { drawLineRect } from "./ModelCard";
-import { ITextBlock, sizeBlock, layoutBlock, drawBlock, mkTextBlock, TextBlockType, drawCells } from "./TextLayout";
+import { ITextBlock, sizeBlock, layoutBlock, drawBlock, mkTextBlock, TextBlockType, drawCells, ITextBlockArgs } from "./TextLayout";
+
+interface IDataFlowArgs {
+    state: IProgramState;
+    center: Vec3;
+    blk: IBlkDef;
+    destIdx: Vec3;
+    mtx: Mat4f;
+}
 
 export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3, pinIdx?: Vec3) {
     if (!blk.deps) {
@@ -35,60 +44,71 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3, 
     let screenPos = projectToScreen(state, cellPos).round_();
     let center = screenPos.add(new Vec3(0, -50));
 
+    let dataFlowArgs: IDataFlowArgs = {
+        state,
+        center,
+        blk,
+        destIdx,
+        mtx: resMtx,
+    }
+
     let bb = new BoundingBox3d();
 
     if (blk.deps.lowerTri && destIdx.x > destIdx.y) {
-        drawZeroSymbol(state, center, resMtx);
+        drawZeroSymbol(dataFlowArgs);
         return;
     }
 
     if (blk.deps.special === BlKDepSpecial.InputEmbed) {
-        bb = drawOLInputEmbed(state, center, resMtx);
+        bb = drawOLInputEmbed(dataFlowArgs);
     }
     else if (blk.deps.special === BlKDepSpecial.LayerNorm) {
-        bb = drawLayerNorm(state, center, resMtx);
+        bb = drawLayerNorm(dataFlowArgs);
 
     } else if (blk.deps.special === BlKDepSpecial.LayerNormMu) {
-        bb = drawLayerNormMuAgg(state, center, resMtx);
+        bb = drawLayerNormMuAgg(dataFlowArgs);
 
     } else if (blk.deps.special === BlKDepSpecial.LayerNormSigma) {
-        bb = drawLayerNormSigmaAgg(state, center, resMtx);
+        bb = drawLayerNormSigmaAgg(dataFlowArgs);
 
     } else if (blk.deps.special === BlKDepSpecial.SoftmaxAggMax) {
-        bb = drawSoftmaxAggMax(state, center, resMtx);
+        bb = drawSoftmaxAggMax(dataFlowArgs);
 
     } else if (blk.deps.special === BlKDepSpecial.SoftmaxAggExp) {
-        bb = drawSoftmaxAggExp(state, center, resMtx);
+        bb = drawSoftmaxAggExp(dataFlowArgs);
 
     } else if (blk.deps.special === BlKDepSpecial.Softmax) {
-        bb = drawSoftmax(state, center, resMtx);
+        bb = drawSoftmax(dataFlowArgs);
 
     } else if (blk.deps.special === BlKDepSpecial.Attention) {
-        bb = drawAttention(state, center, resMtx, blk);
+        bb = drawAttention(dataFlowArgs);
 
     } else if (blk.deps.special === BlKDepSpecial.Gelu) {
-        bb = drawGeluActivation(state, center, resMtx);
+        bb = drawGeluActivation(dataFlowArgs);
 
     // Standard ones
     } else if (blk.deps.dot) {
-        bb = drawOLMatrixMul(state, center, resMtx, blk);
+        bb = drawOLMatrixMul(dataFlowArgs);
 
     } else if (blk.deps.add && blk.deps.add.length === 2) {
-        bb = drawResidualAdd(state, center, resMtx);
+        bb = drawResidualAdd(dataFlowArgs);
     }
 
     if (!bb.empty) {
-        drawDepArrows(state, center, bb, resMtx, blk, destIdx);
+        let cellIdxBb = drawCellIndexAndValue(dataFlowArgs, bb);
+        let fullBB = new BoundingBox3d(bb.min, bb.max, cellIdxBb.min, cellIdxBb.max);
+        drawDepArrows(dataFlowArgs, fullBB);
     }
 }
 
-export function drawOLAddSymbol(state: IProgramState, center: Vec3, scale: number, mtx: Mat4f) {
+export function drawOLAddSymbol(args: IDataFlowArgs) {
+    let { state, center, mtx } = args;
 
     let color = opColor;
     let innerColor = new Vec4(1.0, 1.0, 1.0, 1).mul(0.6);
     let width = 1;
     let radius = 15;
-    drawCircle(state.render, center, radius, width * scale, color, mtx);
+    drawCircle(state.render, center, radius, width, color, mtx);
     drawCirclePlane(state.render, center, radius, innerColor, mtx);
 
     let textOpts: IFontOpts = { color: color, mtx, size: 40 };
@@ -151,7 +171,8 @@ let embedBlockHeight = 30;
 let tokEmbedBlockWidth = 40;
 let posEmbedBlockWidth = 35;
 
-export function drawOLInputEmbed(state: IProgramState, center: Vec3, mtx: Mat4f) {
+export function drawOLInputEmbed(args: IDataFlowArgs) {
+    let { state, center, destIdx, mtx } = args;
 
     let w = 120;
     let h = 60;
@@ -159,8 +180,8 @@ export function drawOLInputEmbed(state: IProgramState, center: Vec3, mtx: Mat4f)
     let br = new Vec3(center.x + w/2, center.y);
 
     drawRoundedRect(state.render, tl, br, backWhiteColor, mtx, 4);
-    drawOLIndexLookup(state, center, mtx);
-    drawOLPosEmbedLookup(state, center, mtx);
+    drawOLIndexLookup(args);
+    drawOLPosEmbedLookup(args);
 
     let textOpts: IFontOpts = { color: new Vec4(1,1,1,1).mul(0.8), mtx, size: 20 };
     let plusW = measureText(state.render.modelFontBuf, '+', textOpts);
@@ -169,7 +190,27 @@ export function drawOLInputEmbed(state: IProgramState, center: Vec3, mtx: Mat4f)
     return new BoundingBox3d(tl, br);
 }
 
-export function drawOLIndexLookup(state: IProgramState, center: Vec3, mtx: Mat4f) {
+export function getBlockValueAtIdx(blk: IBlkDef, blkIdx: Vec3) {
+    let localBuffer = blk.access?.src.localBuffer;
+    if (!blk.access || !localBuffer) {
+        return null;
+    }
+    let bufferTex = blk.access.src; 
+
+    let bufferPos = blk.access.mat.mulVec4(new Vec4(blkIdx.x, blkIdx.y, blkIdx.z, 1));
+
+    let channelIdx = blk.access.channel === 'r' ? 0 : blk.access.channel === 'g' ? 1 : blk.access.channel === 'b' ? 2 : 3;
+
+    let idx = bufferPos.y * bufferTex.width * bufferTex.channels + bufferPos.x * bufferTex.channels + channelIdx;
+
+    return localBuffer[idx];
+}
+
+export function drawOLIndexLookup(args: IDataFlowArgs) {
+    let { state, center, destIdx, mtx } = args;
+    let tokenIdx = getBlockValueAtIdx(state.layout.idxObj, new Vec3(destIdx.x, 0, destIdx.z));
+    let tokenPct = isNotNil(tokenIdx) ? tokenIdx / (state.layout.tokEmbedObj.cx - 1) : 0.3;
+    let heightPct = destIdx.y / (state.layout.residual0.cy - 1);
 
     let pos = center.add(new Vec3(-35, -20, 0));
     let color = Colors.Weights;
@@ -182,10 +223,10 @@ export function drawOLIndexLookup(state: IProgramState, center: Vec3, mtx: Mat4f
     addQuad(state.render.triRender, tl, br, backWhiteColor, mtx);
 
     let colW = 8;
-    let colTl = new Vec3(tl.x + 10, tl.y);
+    let colTl = new Vec3(tl.x + lerp(0, br.x-tl.x-colW, tokenPct), tl.y);
     let colBr = new Vec3(colTl.x + colW, br.y);
 
-    let cellTl = new Vec3(colTl.x, colTl.y + 8);
+    let cellTl = new Vec3(colTl.x, colTl.y + lerp(0, br.y-tl.y-colW, heightPct));
     let cellBr = new Vec3(colBr.x, cellTl.y + colW);
 
     addQuad(state.render.triRender, colTl, colBr, color.mul(0.3), mtx);
@@ -208,7 +249,11 @@ export function drawOLIndexLookup(state: IProgramState, center: Vec3, mtx: Mat4f
     drawCells(state.render, new Vec3(1, 1), new Vec3(center.x, lineEndY - lineHeight), new Vec3(7, 7), Colors.Intermediates, mtx);
 }
 
-export function drawOLPosEmbedLookup(state: IProgramState, center: Vec3, mtx: Mat4f) {
+export function drawOLPosEmbedLookup(args: IDataFlowArgs) {
+    let { state, center, destIdx, mtx } = args;
+    let posPct = destIdx.x / (state.layout.posEmbedObj.cx - 1);
+    let heightPct = destIdx.y / (state.layout.residual0.cy - 1);
+
     let pos = center.add(new Vec3(35, -20, 0));
     let color = Colors.Weights;
 
@@ -220,10 +265,10 @@ export function drawOLPosEmbedLookup(state: IProgramState, center: Vec3, mtx: Ma
     addQuad(state.render.triRender, tl, br, backWhiteColor, mtx);
 
     let colW = 8;
-    let colTl = new Vec3(tl.x + 15, tl.y);
+    let colTl = new Vec3(tl.x + lerp(0, br.x-tl.x-colW, posPct), tl.y);
     let colBr = new Vec3(colTl.x + colW, br.y);
 
-    let cellTl = new Vec3(colTl.x, colTl.y + 8);
+    let cellTl = new Vec3(colTl.x, colTl.y + lerp(0, br.y-tl.y-colW, heightPct));
     let cellBr = new Vec3(colBr.x, cellTl.y + colW);
 
     addQuad(state.render.triRender, colTl, colBr, color.mul(0.3), mtx);
@@ -236,7 +281,8 @@ export function drawOLPosEmbedLookup(state: IProgramState, center: Vec3, mtx: Ma
 }
 
 
-export function drawOLMatrixMul(state: IProgramState, center: Vec3, mtx: Mat4f, blk: IBlkDef) {
+export function drawOLMatrixMul(args: IDataFlowArgs) {
+    let { center, mtx, blk } = args;
     let fontOpts = { color: opColor, mtx, size: 16 };
 
     let hasAdd = !!blk.deps!.add;
@@ -252,7 +298,7 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, mtx: Mat4f, 
          };
     }
 
-    let textBlk = mkTextBlock({
+    let textBlock = mkTextBlock({
         opts: fontOpts,
         subs: [
             hasAdd ? { cellX: 1, cellY: 1, color: weightSrcColor } : null,
@@ -264,7 +310,7 @@ export function drawOLMatrixMul(state: IProgramState, center: Vec3, mtx: Mat4f, 
         ].filter(isNotNil),
     });
 
-    return drawMaths(state, center, mtx, textBlk);
+    return drawMaths(args, center, textBlock);
 }
 
 export function drawRoundedRect(state: IRenderState, tl: Vec3, br: Vec3, color: Vec4, mtx: Mat4f, radius: number) {
@@ -309,70 +355,81 @@ export function drawRoundedRect(state: IRenderState, tl: Vec3, br: Vec3, color: 
     addPrimitiveRestart(state.triRender);
 }
 
-function drawMaths(state: IProgramState, bottomMiddle: Vec3, mtx: Mat4f, blk: ITextBlock) {
-    sizeBlock(state.render, blk);
+function drawMaths(args: IDataFlowArgs, bottomMiddle: Vec3, textBlk: ITextBlock) {
+    let { state, mtx } = args;
 
-    blk.offset = new Vec3(bottomMiddle.x - blk.size.x / 2, bottomMiddle.y - blk.size.y);
+    let value = getBlockValueAtIdx(args.blk, args.destIdx);
 
-    layoutBlock(blk);
+    if (textBlk.type === TextBlockType.Line) {
+        textBlk.subs!.push(
+            mkTextBlock({ text: '  =  ', opts: textBlk.opts }),
+        );
+        if (isNotNil(value)) {
+            textBlk.subs!.push(
+                mkTextBlock({ text: value.toFixed(2), opts: textBlk.opts }),
+            );
+        }
+    }
+
+    sizeBlock(state.render, textBlk);
+
+    textBlk.offset = new Vec3(bottomMiddle.x - textBlk.size.x / 2, bottomMiddle.y - textBlk.size.y);
+
+    layoutBlock(textBlk);
 
     let padX = 4;
     let padY = 4;
 
-    let tl = blk.offset.sub(new Vec3(padX, padY));
-    let br = blk.offset.add(blk.size).add(new Vec3(padX * 2, padY));
+    let tl = textBlk.offset.sub(new Vec3(padX, padY));
+    let br = textBlk.offset.add(textBlk.size).add(new Vec3(padX * 2, padY));
     drawRoundedRect(state.render, tl, br, backWhiteColor, mtx, 4);
 
-    drawBlock(state.render, blk);
+    drawBlock(state.render, textBlk);
     return new BoundingBox3d(tl, br);
 }
 
 
-function drawLayerNormMuAgg(state: IProgramState, center: Vec3, mtx: Mat4f) {
+function drawLayerNormMuAgg(args: IDataFlowArgs) {
+    let { center, mtx } = args;
     let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
-    let blk = mkTextBlock({
+    let textBlock = mkTextBlock({
         opts: fontOpts,
-        color: workingSrcColor,
         subs: [
-            { text: 'E[' },
-            { cellX: 1, cellY: 3 },
-            { text: ']' },
+            { text: 'E[', color: workingSrcColor },
+            { cellX: 1, cellY: 3, color: workingSrcColor },
+            { text: ']', color: workingSrcColor },
 
         ],
     });
 
-    return drawMaths(state, center, mtx, blk);
+    return drawMaths(args, center, textBlock);
 }
 
-function drawLayerNormSigmaAgg(state: IProgramState, center: Vec3, mtx: Mat4f) {
+function drawLayerNormSigmaAgg(args: IDataFlowArgs) {
+    let { center, mtx } = args;
     let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
-    let blk = mkTextBlock({
+    let textBlock = mkTextBlock({
         opts: fontOpts,
         subs: [{
-            type: TextBlockType.Divide,
+            type: TextBlockType.Sqrt,
             subs: [
-                { text: '1' },
-                {
-                    type: TextBlockType.Sqrt,
-                    subs: [
-                        { type: TextBlockType.Line, subs: [
-                            { text: 'Var[', color: workingSrcColor },
-                            { cellX: 1, cellY: 3, color: workingSrcColor },
-                            { text: ']', color: workingSrcColor },
-                            { text: ' + ε' },
-                        ]},
-                    ],
-                }],
-            },
-        ],
+                { type: TextBlockType.Line, subs: [
+                    { text: 'Var[', color: workingSrcColor },
+                    { cellX: 1, cellY: 3, color: workingSrcColor },
+                    { text: ']', color: workingSrcColor },
+                    { text: ' + ε' },
+                ]},
+            ],
+        }],
     });
 
-    return drawMaths(state, center, mtx, blk);
+    return drawMaths(args, center, textBlock);
 }
 
-function drawLayerNorm(state: IProgramState, center: Vec3, mtx: Mat4f) {
+function drawLayerNorm(args: IDataFlowArgs) {
+    let { center, mtx } = args;
     let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
     let blk = mkTextBlock({
@@ -417,13 +474,14 @@ function drawLayerNorm(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    return drawMaths(state, center, mtx, blk);
+    return drawMaths(args, center, blk);
 }
 
-function drawResidualAdd(state: IProgramState, center: Vec3, mtx: Mat4f) {
+function drawResidualAdd(args: IDataFlowArgs) {
+    let { center, mtx } = args;
     let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
-    let blk = mkTextBlock({
+    let textBlock = mkTextBlock({
         opts: fontOpts,
         subs: [
             { cellX: 1, cellY: 1, opts: { ...fontOpts, color: workingSrcColor } },
@@ -432,26 +490,28 @@ function drawResidualAdd(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    return drawMaths(state, center, mtx, blk);
+    return drawMaths(args, center, textBlock);
 }
 
-function drawZeroSymbol(state: IProgramState, center: Vec3, mtx: Mat4f) {
+function drawZeroSymbol(args: IDataFlowArgs) {
+    let { center, mtx } = args;
     let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
-    let blk = mkTextBlock({
+    let textBlock = mkTextBlock({
         opts: fontOpts,
         subs: [
             { text: '-' },
         ],
     });
 
-    return drawMaths(state, center, mtx, blk);
+    return drawMaths(args, center, textBlock);
 }
 
-function drawSoftmaxAggMax(state: IProgramState, center: Vec3, mtx: Mat4f) {
+function drawSoftmaxAggMax(args: IDataFlowArgs) {
+    let { center, mtx } = args;
     let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
-    let blk = mkTextBlock({
+    let textBlock = mkTextBlock({
         opts: fontOpts,
         subs: [
             { text: 'max(' },
@@ -460,13 +520,14 @@ function drawSoftmaxAggMax(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    return drawMaths(state, center, mtx, blk);
+    return drawMaths(args, center, textBlock);
 }
 
-function drawSoftmaxAggExp(state: IProgramState, center: Vec3, mtx: Mat4f) {
+function drawSoftmaxAggExp(args: IDataFlowArgs) {
+    let { center, mtx } = args;
     let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
-    let blk = mkTextBlock({
+    let textBlock = mkTextBlock({
         opts: fontOpts,
         subs: [
             { text: 'Σ', opts: { ...fontOpts, size: fontOpts.size * 1.5 } },
@@ -486,55 +547,59 @@ function drawSoftmaxAggExp(state: IProgramState, center: Vec3, mtx: Mat4f) {
         ],
     });
 
-    return drawMaths(state, center, mtx, blk);
+    return drawMaths(args, center, textBlock);
 }
 
-function drawSoftmax(state: IProgramState, center: Vec3, mtx: Mat4f) {
+function drawSoftmax(args: IDataFlowArgs) {
+    let { center, mtx } = args;
     let fontOpts: IFontOpts = { color: opColor, mtx, size: 16 };
 
-    let blk = mkTextBlock({
+    let textBlock = mkTextBlock({
         opts: fontOpts,
-        type: TextBlockType.Divide,
         subs: [{
-            subs: [
-                { text: 'exp(' },
-                { cellX: 1, cellY: 1, color: workingSrcColor },
-                { text: ' - ' },
-                {
-                    rectOpts: { color: Colors.Aggregates.mul(0.8), mtx, thick: 1.0, dash: 6 },
-                    subs: [
-                        { text: 'max(' },
-                        { cellX: 3, cellY: 1, color: workingSrcColor },
-                        { text: ')' },
-                    ],
-                },
-                { text: ')' },
-            ],
-        }, {
-            type: TextBlockType.Line,
-            rectOpts: { color: Colors.Aggregates.mul(0.8), mtx, thick: 1.0, dash: 6 },
-            subs: [
-                { text: 'Σ', opts: { ...fontOpts, size: fontOpts.size * 1.5 } },
-                { text: 'exp(' },
-                { cellX: 1, cellY: 1, color: workingSrcColor },
-                { text: ' - ' },
-                {
-                    type: TextBlockType.Line,
-                    subs: [
-                        { text: 'max(' },
-                        { cellX: 3, cellY: 1, color: workingSrcColor },
-                        { text: ')' },
-                    ],
-                },
-                { text: ')' },
-            ],
+            type: TextBlockType.Divide,
+            subs: [{
+                subs: [
+                    { text: 'exp(' },
+                    { cellX: 1, cellY: 1, color: workingSrcColor },
+                    { text: ' - ' },
+                    {
+                        rectOpts: { color: Colors.Aggregates.mul(0.8), mtx, thick: 1.0, dash: 6 },
+                        subs: [
+                            { text: 'max(' },
+                            { cellX: 3, cellY: 1, color: workingSrcColor },
+                            { text: ')' },
+                        ],
+                    },
+                    { text: ')' },
+                ],
+            }, {
+                type: TextBlockType.Line,
+                rectOpts: { color: Colors.Aggregates.mul(0.8), mtx, thick: 1.0, dash: 6 },
+                subs: [
+                    { text: 'Σ', opts: { ...fontOpts, size: fontOpts.size * 1.5 } },
+                    { text: 'exp(' },
+                    { cellX: 1, cellY: 1, color: workingSrcColor },
+                    { text: ' - ' },
+                    {
+                        type: TextBlockType.Line,
+                        subs: [
+                            { text: 'max(' },
+                            { cellX: 3, cellY: 1, color: workingSrcColor },
+                            { text: ')' },
+                        ],
+                    },
+                    { text: ')' },
+                ],
+            }],
         }],
     });
 
-    return drawMaths(state, center, mtx, blk);
+    return drawMaths(args, center, textBlock);
 }
 
-export function drawAttention(state: IProgramState, center: Vec3, mtx: Mat4f, blk: IBlkDef) {
+export function drawAttention(args: IDataFlowArgs) {
+    let { center, mtx, blk } = args;
     let fontOpts = { color: opColor, mtx, size: 16 };
 
     let dotA = blk.deps!.dot![0];
@@ -549,7 +614,7 @@ export function drawAttention(state: IProgramState, center: Vec3, mtx: Mat4f, bl
          };
     }
 
-    let textBlk = mkTextBlock({
+    let textBlock = mkTextBlock({
         opts: fontOpts,
         subs: [
             { text: 'dot(' },
@@ -564,10 +629,11 @@ export function drawAttention(state: IProgramState, center: Vec3, mtx: Mat4f, bl
         ],
     });
 
-    return drawMaths(state, center, mtx, textBlk);
+    return drawMaths(args, center, textBlock);
 }
 
-export function drawGeluActivation(state: IProgramState, center: Vec3, mtx: Mat4f) {
+export function drawGeluActivation(args: IDataFlowArgs) {
+    let { state, center, mtx } = args;
 
     // ugly
     // let fontOpts = { color: opColor, mtx, size: 16 };
@@ -630,7 +696,51 @@ export function createMapping(range0: number, range1: number, domain0: number, d
     return (x: number) => m * x + b;
 }
 
-function drawDepArrows(state: IProgramState, center: Vec3, bb: BoundingBox3d, mtx: Mat4f, blk: IBlkDef, destIdx: Vec3) {
+function drawCellIndexAndValue(args: IDataFlowArgs, bb: BoundingBox3d): BoundingBox3d {
+    let { center, mtx, blk, destIdx } = args;
+    let fontOpts = { color: opColor, mtx, size: 14 };
+
+    function mapDimToSub(dim: DimStyle, idx: number): ITextBlockArgs | null {
+        if (dim === DimStyle.None) {
+            return null;
+        }
+        let posValue = destIdx.getAt(idx);
+        let color = dimStyleColor(dim);
+        let text = `${dimStyleTextShort(dim)}: ${posValue}`;
+        return { text, color };
+    }
+
+    let xDim = mapDimToSub(blk.dimX, 0);
+    let yDim = mapDimToSub(blk.dimY, 1);
+
+    let textBlock = mkTextBlock({
+        opts: fontOpts,
+        subs: [
+            xDim,
+            xDim && yDim && { text: ', ' },
+            yDim,
+        ],
+    });
+
+    let padX = 4;
+    let padY = 4;
+
+    sizeBlock(args.state.render, textBlock);
+    textBlock.offset = new Vec3(args.center.x - textBlock.size.x/2, bb.min.y - fontOpts.size * 1.2 - padX, 0);
+    layoutBlock(textBlock);
+
+    let tl = textBlock.offset.sub(new Vec3(padX, padY));
+    let br = textBlock.offset.add(textBlock.size).add(new Vec3(padX * 2, padY * 2));
+
+    drawRoundedRect(args.state.render, tl, br, backWhiteColor, mtx, 4);
+
+    drawBlock(args.state.render, textBlock);
+    return new BoundingBox3d(tl, br);
+}
+
+
+function drawDepArrows(args: IDataFlowArgs, bb: BoundingBox3d) {
+    let { state, mtx, blk, destIdx } = args;
     if (!blk.deps) {
         return;
     }

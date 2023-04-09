@@ -315,10 +315,12 @@ export function dimStyleColor(style: DimStyle) {
      switch (style) {
         case DimStyle.t:
         case DimStyle.T:
-            return new Vec4(0.4, 0.4, 0.9, 1);
+            return Vec4.fromHexColor('#359da8');
+        case DimStyle.A:
+            return Vec4.fromHexColor('#d368a4');
         case DimStyle.C:
         case DimStyle.C4:
-            return new Vec4(0.9, 0.3, 0.3, 1);
+            return Vec4.fromHexColor('#ce2983');
         case DimStyle.Token:
             return new Vec4(0.3, 0.7, 0.3, 1);
         case DimStyle.TokenIdx:
@@ -333,6 +335,17 @@ export function dimStyleText(style: DimStyle) {
     switch (style) {
         case DimStyle.TokenIdx: return 'Token Index';
         case DimStyle.C4: return 'C * 4';
+        default: return DimStyle[style];
+    }
+}
+
+export function dimStyleTextShort(style: DimStyle) {
+    switch (style) {
+        case DimStyle.B: return 'b';
+        case DimStyle.T: return 't';
+        case DimStyle.A: return 'a';
+        case DimStyle.C: return 'c';
+        case DimStyle.C4: return 'c';
         default: return DimStyle[style];
     }
 }

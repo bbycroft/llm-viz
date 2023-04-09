@@ -43,7 +43,7 @@ export interface ITextBlockArgs {
     color?: Vec4;
     size?: Vec3;
     offset?: Vec3;
-    subs?: ITextBlockArgs[];
+    subs?: (ITextBlockArgs | null)[];
     cellX?: number;
     cellY?: number;
 }
@@ -76,6 +76,10 @@ export function mkTextBlock(args: ITextBlockArgs): ITextBlock {
         opts = { ...opts, color: args.color };
     }
 
+    if (!opts) {
+        throw new Error('No font opts');
+    }
+
     return {
         type: type,
         id: args.id,
@@ -83,7 +87,7 @@ export function mkTextBlock(args: ITextBlockArgs): ITextBlock {
         opts: opts!,
         size: args.size ?? new Vec3(0, 0, 0),
         offset: args.offset ?? new Vec3(0, 0, 0),
-        subs: args.subs?.map(a => mkTextBlock({ ...a, opts: a.opts ?? opts })),
+        subs: args.subs?.filter(isNotNil).map(a => mkTextBlock({ ...a, opts: a.opts ?? opts })),
         rectOpts: args.rectOpts,
         cellX: args.cellX,
         cellY: args.cellY,
@@ -136,6 +140,9 @@ export function sizeBlock(render: IRenderState, blk: ITextBlock) {
         break;
     }
     case TextBlockType.Text: {
+        if (isNil(blk.text)) {
+            throw new Error('Text block has no text');
+        }
         blk.size = new Vec3(
             measureText(render.modelFontBuf, blk.text!, opts),
             lineHeight(opts),
