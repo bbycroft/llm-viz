@@ -137,7 +137,7 @@ export function renderInputOutput(state: IProgramState, layout: IGptModelLayout,
 
     let inputTitle = "Input";
     drawText(render.modelFontBuf, inputTitle, inTl.x, tl.y, titleTextOpts);
-    let tokens = layout.model?.inputBuf;
+    let tokens = layout.model?.inputTokens.localBuffer;
     drawLineRect(render, inTl, inBr, lineOpts);
 
     for (let i = 0; i < T; i++) {

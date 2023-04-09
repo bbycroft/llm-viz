@@ -29,6 +29,7 @@ export interface IBufferTex {
     height: number;
     channels: number;
     texture: WebGLTexture;
+    localBuffer?: Float32Array;
 }
 
 // we transform from 1 set of textures to another set within a shader

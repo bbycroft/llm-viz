@@ -185,6 +185,18 @@ export class TensorF32 {
         let array = new Float32Array(buf);
         return new TensorF32(obj.shape, array);
     }
+
+    copyFrom(source: TensorF32) {
+        if (source.shape.length !== this.shape.length || !source.contiguous || !this.contiguous) {
+            throw new Error(`Invalid copy: source shape length ${source.shape.length} does not match target shape length ${this.shape.length}`);
+        }
+        for (let i = 0; i < this.shape.length; i++) {
+            if (source.shape[i] !== this.shape[i]) {
+                throw new Error(`Invalid copy: source shape ${source.shape[i]} does not match target shape ${this.shape[i]}`);
+            }
+        }
+        this.buffer.set(source.buffer);
+    }
 }
 
 function test() {

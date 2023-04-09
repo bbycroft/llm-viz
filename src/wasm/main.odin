@@ -9,8 +9,7 @@ import "core:mem"
 meMallocMaster: MeMallocMaster = {}
 main_context: runtime.Context
 
-@export
-init_allocator :: proc "c" (heapBase: int) -> int {
+@export init_allocator :: proc "c" (heapBase: int) -> int {
 
     main_context = runtime.default_context()
     context = main_context
@@ -37,8 +36,7 @@ init_allocator :: proc "c" (heapBase: int) -> int {
     return 0
 }
 
-@export
-add_numbers :: proc "c" (a: int, b: int) -> int {
+@export add_numbers :: proc "c" (a: int, b: int) -> int {
     context = main_context
 
     arr : [dynamic]int
@@ -54,14 +52,16 @@ add_numbers :: proc "c" (a: int, b: int) -> int {
     return a + b + len(arr) * len(arr2)
 }
 
-@export
-sinf_custom :: proc "c" (x: f32) -> f32 {
+@export sinf_custom :: proc "c" (x: f32) -> f32 {
     return sinf(x)
 }
 
-@export
-cosf_custom :: proc "c" (x: f32) -> f32 {
+@export cosf_custom :: proc "c" (x: f32) -> f32 {
     return cosf(x)
+}
+
+@export expf_custom :: proc "c" (x: f32) -> f32 {
+    return expf(x)
 }
 
 @export wasm_create_model :: proc "c" (B: int, T: int, C: int, n_layers: int, n_heads: int, n_vocab: int) -> ^GptModel {
@@ -85,10 +85,11 @@ cosf_custom :: proc "c" (x: f32) -> f32 {
 }
 
 WasmTensorResult :: struct {
+    size: int,
+    ndims: int,
     data: rawptr,
     shapeArrPtr: rawptr,
     strideArrPtr: rawptr,
-    size: int,
 }
 
 wasm_tensor_res := WasmTensorResult{}
@@ -102,6 +103,7 @@ wasm_tensor_res := WasmTensorResult{}
         data = &tensor.data[0],
         shapeArrPtr = &tensor.shape[0],
         strideArrPtr = &tensor.stride[0],
+        ndims = len(tensor.shape),
         size = len(tensor.data),
     }
 

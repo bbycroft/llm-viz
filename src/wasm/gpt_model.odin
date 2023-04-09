@@ -23,6 +23,7 @@ GptModel :: struct {
     lmHeadW: Tensor,
 
     logits: Tensor,
+    logitsSmAgg: Tensor,
     logitsSm: Tensor, // softmax
 }
 
@@ -34,6 +35,7 @@ GptLayer :: struct {
 LayerNorm :: struct {
     gamma: Tensor,
     beta: Tensor,
+    agg: Tensor,
     normalized: Tensor,
 }
 
@@ -51,6 +53,7 @@ GptAttention :: struct {
                  // Does this work with the qkvW/qkvB? Particularly for batching?
 
     attn: Tensor,
+    attnSmAgg: Tensor,
     attnSm: Tensor, // softmax
     vOut: Tensor,
     proj: Tensor,
@@ -103,16 +106,16 @@ create_tensor :: proc(shape: []int, data: []f32 = nil) -> Tensor {
     size := 1
     shapeCopy := make([]int, len(shape))
 
-    runtime.print_string("shape: ")
-    runtime.print_int(len(shape))
-    runtime.print_string(", ")
-    runtime.print_int(len(shapeCopy))
-    runtime.print_string(" [")
-    for i := 0; i < len(shape); i += 1 {
-        runtime.print_int(shape[i])
-        if i < len(shape) - 1 do runtime.print_string(", ")
-    }
-    runtime.print_string("]\n")
+    // runtime.print_string("shape: ")
+    // runtime.print_int(len(shape))
+    // runtime.print_string(", ")
+    // runtime.print_int(len(shapeCopy))
+    // runtime.print_string(" [")
+    // for i := 0; i < len(shape); i += 1 {
+    //     runtime.print_int(shape[i])
+    //     if i < len(shape) - 1 do runtime.print_string(", ")
+    // }
+    // runtime.print_string("]\n")
 
     for i := 0; i < len(shape); i += 1 {
         size *= shape[i]
@@ -175,6 +178,7 @@ create_model_from_data :: proc(tensors: TensorsAndConfig, b_override: int) -> Gp
 
         logits = create_tensor([]int{B, T, n_vocab}),
         logitsSm = create_tensor([]int{B, T, n_vocab}),
+        logitsSmAgg = create_tensor([]int{B, T, 2}),
     }
 
     // fmt.printf("model: %#v\n", model)
@@ -208,6 +212,7 @@ create_model_from_data :: proc(tensors: TensorsAndConfig, b_override: int) -> Gp
 
             attn = create_tensor([]int{B, n_heads, T, T}),
             attnSm = create_tensor([]int{B, n_heads, T, T}),
+            attnSmAgg = create_tensor([]int{B, n_heads, T, 2}),
             proj = create_tensor([]int{B, T, C}),
             residual = create_tensor([]int{B, T, C}),
             qkv = create_tensor([]int{B, T, 3 * n_heads * A}),
@@ -245,6 +250,7 @@ create_model_from_data :: proc(tensors: TensorsAndConfig, b_override: int) -> Gp
         ln := LayerNorm{
             gamma = tensors.tensors[tprintJoin(prefix, "weight")],
             beta = tensors.tensors[tprintJoin(prefix, "bias")],
+            agg = create_tensor([]int{B, T, 2}),
             normalized = create_tensor([]int{B, T, C}),
         }
 
@@ -263,22 +269,6 @@ create_model_from_empty :: proc(gptConfig: GptConfig) -> GptModel {
     n_layers := gptConfig.n_layers
     n_vocab := gptConfig.n_vocab
 
-    runtime.print_string("B, T, C, A, n_heads, n_layers, n_vocab:\n")
-    runtime.print_int(B)
-    runtime.print_string(", ")
-    runtime.print_int(T)
-    runtime.print_string(", ")
-    runtime.print_int(C)
-    runtime.print_string(", ")
-    runtime.print_int(A)
-    runtime.print_string(", ")
-    runtime.print_int(n_heads)
-    runtime.print_string(", ")
-    runtime.print_int(n_layers)
-    runtime.print_string(", ")
-    runtime.print_int(n_vocab)
-    runtime.print_string("\n")
-
     model: GptModel = {
         gptConfig = gptConfig,
         wte = create_tensor([]int{n_vocab, C}),
@@ -293,6 +283,7 @@ create_model_from_empty :: proc(gptConfig: GptConfig) -> GptModel {
         ln_f = create_layer_norm(gptConfig),
 
         logits = create_tensor([]int{B, T, n_vocab}),
+        logitsSmAgg = create_tensor([]int{B, T, 2}),
         logitsSm = create_tensor([]int{B, T, n_vocab}),
     }
 
@@ -316,6 +307,7 @@ create_model_from_empty :: proc(gptConfig: GptConfig) -> GptModel {
             qkv = create_tensor([]int{B, T, 3 * n_heads * A}),
             attn = create_tensor([]int{B, n_heads, T, T}),
             attnSm = create_tensor([]int{B, n_heads, T, T}),
+            attnSmAgg = create_tensor([]int{B, n_heads, T, 2}),
             vOut = create_tensor([]int{B, T, n_heads * A}),
             proj = create_tensor([]int{B, T, C}),
             residual = create_tensor([]int{B, T, C}),
@@ -346,6 +338,7 @@ create_model_from_empty :: proc(gptConfig: GptConfig) -> GptModel {
         ln := LayerNorm{
             gamma = create_tensor([]int{C}),
             beta = create_tensor([]int{C}),
+            agg = create_tensor([]int{B, T, 2}),
             normalized = create_tensor([]int{B, T, C}),
         }
 
@@ -382,22 +375,27 @@ GptModelTarget :: enum {
 
     // per-layer (requires layer index)
 
+    Ln1Agg,
     Ln1Norm,
     AttnQkv,
     Attn,
+    AttnSmAgg,
     AttnSm,
     AttnVOut,
     AttnProj,
     AttnResidual,
 
+    Ln2Agg,
     Ln2Norm,
     MlpMlp,
     MlpAct,
     MlpProj,
     MlpResidual,
 
+    LnFAgg,
     LnFNorm,
     Logits,
+    LogitsSmAgg,
     LogitsSm,
 }
 
@@ -425,20 +423,25 @@ get_model_tensor :: proc(model: ^GptModel, target: GptModelTarget, index: int) -
     case .InputTokens: return &model.inputTokens
     case .InputTokenEmbed: return &model.inputTokenEmbed
     case .InputEmbed: return &model.inputEmbed
+    case .Ln1Agg: return &layer.attn.layerNorm.agg
     case .Ln1Norm: return &layer.attn.layerNorm.normalized
     case .AttnQkv: return &layer.attn.qkv
     case .Attn: return &layer.attn.attn
+    case .AttnSmAgg: return &layer.attn.attnSmAgg
     case .AttnSm: return &layer.attn.attnSm
     case .AttnVOut: return &layer.attn.vOut
     case .AttnProj: return &layer.attn.proj
     case .AttnResidual: return &layer.attn.residual
+    case .Ln2Agg: return &layer.mlp.layerNorm.agg
     case .Ln2Norm: return &layer.mlp.layerNorm.normalized
     case .MlpMlp: return &layer.mlp.mlp
     case .MlpAct: return &layer.mlp.act
     case .MlpProj: return &layer.mlp.proj
     case .MlpResidual: return &layer.mlp.residual
+    case .LnFAgg: return &model.ln_f.agg
     case .LnFNorm: return &model.ln_f.normalized
     case .Logits: return &model.logits
+    case .LogitsSmAgg: return &model.logitsSmAgg
     case .LogitsSm: return &model.logitsSm
     }
     return nil
@@ -467,7 +470,7 @@ check_tensor :: proc(name: string, a: Tensor, b: Tensor) {
 }
 
 run_model :: proc(model: ^GptModel, partials: ^TensorsAndConfig) {
-    start_time := time.now()
+    // start_time := time.now()
     T := model.gptConfig.T
     C := model.gptConfig.C
     n_vocab := model.gptConfig.n_vocab
@@ -492,11 +495,11 @@ run_model :: proc(model: ^GptModel, partials: ^TensorsAndConfig) {
 
     run_layer_norm(model, &model.ln_f, layerInput)
     run_matrix_mul(model, &model.ln_f.normalized, &model.lmHeadW, nil, &model.logits, T, C, n_vocab)
-    run_softmax(model, &model.logits, &model.logitsSm, T, n_vocab)
+    run_softmax(model, &model.logits, &model.logitsSm, &model.logitsSmAgg, T, n_vocab)
 
     // check_tensor("logitsSm", model.logitsSm, partials.tensors["probs"])
 
-    elapsed := time.duration_milliseconds(time.since(start_time))
+    // elapsed := time.duration_milliseconds(time.since(start_time))
     // fmt.printf("run_model took %f ms\n", elapsed)
 }
 
@@ -545,6 +548,7 @@ run_attention :: proc(model: ^GptModel, attention: ^GptAttention, layerIdx: int,
 
     qkv := attention.qkv.data
     attn := attention.attn.data
+    attnSmAgg := attention.attnSmAgg.data
     attnSm := attention.attnSm.data
     vOut := attention.vOut.data
 
@@ -583,13 +587,18 @@ run_attention :: proc(model: ^GptModel, attention: ^GptAttention, layerIdx: int,
                 // calc the sum of exp(a - maxDot) for the softmax
                 sumExp: f32 = 0.0
                 for t2 := 0; t2 <= t; t2 += 1 {
-                    sumExp += math.exp(attn[attnStride + t2] - maxDot)
+                    sumExp += fast_exp(attn[attnStride + t2] - maxDot)
                 }
 
                 sumExpInv: f32 = 1.0 / sumExp
 
+                attnSmAggStride := b * n_heads * T + h * T + t
+
+                attnSmAgg[attnSmAggStride + 0] = maxDot
+                attnSmAgg[attnSmAggStride + 1] = sumExpInv
+
                 for t2 := 0; t2 <= t; t2 += 1 {
-                    attnSm[attnStride + t2] = math.exp(attn[attnStride + t2] - maxDot) * sumExpInv
+                    attnSm[attnStride + t2] = fast_exp(attn[attnStride + t2] - maxDot) * sumExpInv
                 }
 
                 vOutStride := b * T * C + t * C + h * A
@@ -664,7 +673,7 @@ run_gelu_activation :: proc(model: ^GptModel, input: ^Tensor, output: ^Tensor, T
 
             for c := 0; c < C; c += 1 {
                 x: f32 = inputData[cStride + c]
-                y: f32 = x * 0.5 * (1.0 + math.tanh(math.sqrt(f32(2.0) / math.PI) * (x + f32(0.044715) * x * x * x)))
+                y: f32 = x * 0.5 * (1.0 + fast_tanh(math.sqrt(f32(2.0) / math.PI) * (x + f32(0.044715) * x * x * x)))
                 outputData[cStride + c] = y
             }
         }
@@ -696,6 +705,7 @@ run_layer_norm :: proc(model: ^GptModel, layerNorm: ^LayerNorm, input: ^Tensor) 
 
     gamma := layerNorm.gamma.data
     beta := layerNorm.beta.data
+    agg := layerNorm.agg.data
     normalized := layerNorm.normalized.data
     inputData := input.data
 
@@ -715,6 +725,9 @@ run_layer_norm :: proc(model: ^GptModel, layerNorm: ^LayerNorm, input: ^Tensor) 
 
             stdDevInv: f32 = 1.0 / math.sqrt(M2 / f32(C) + 1e-5)
 
+            agg[b * T + t * 2 + 0] = mean
+            agg[b * T + t * 2 + 1] = stdDevInv
+
             for c := 0; c < C; c += 1 {
                 normalized[cStride + c] = (inputData[cStride + c] - mean) * stdDevInv * gamma[c] + beta[c]
             }
@@ -722,10 +735,11 @@ run_layer_norm :: proc(model: ^GptModel, layerNorm: ^LayerNorm, input: ^Tensor) 
     }
 }
 
-run_softmax :: proc(model: ^GptModel, input: ^Tensor, output: ^Tensor, T: int, C: int) {
+run_softmax :: proc(model: ^GptModel, input: ^Tensor, output: ^Tensor, agg: ^Tensor, T: int, C: int) {
     B := model.gptConfig.B
 
     inputData := input.data
+    aggData := agg.data
     outputData := output.data
 
     for b := 0; b < B; b += 1 {
@@ -739,13 +753,19 @@ run_softmax :: proc(model: ^GptModel, input: ^Tensor, output: ^Tensor, T: int, C
 
             sumExp: f32 = 0.0
             for c := 0; c < C; c += 1 {
-                sumExp += math.exp(inputData[cStride + c] - max)
+                sumExp += fast_exp(inputData[cStride + c] - max)
             }
             sumExpInv: f32 = 1.0 / sumExp
 
+            aggData[b * T + t * 2 + 0] = max
+            aggData[b * T + t * 2 + 1] = sumExpInv
+
             for c := 0; c < C; c += 1 {
-                outputData[cStride + c] = math.exp(inputData[cStride + c] - max) * sumExpInv
+                outputData[cStride + c] = fast_exp(inputData[cStride + c] - max) * sumExpInv
             }
         }
     }
 }
+
+fast_exp :: expf
+fast_tanh :: tanhf

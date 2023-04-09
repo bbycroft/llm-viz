@@ -1,3 +1,4 @@
+import { NativeFunctions } from "./NativeBindings";
 import { IRenderState } from "./render/modelRender";
 import { createSyncObject, ISyncObject } from "./render/syncObjects";
 import { nonNil } from "./utils/basic";
@@ -27,6 +28,7 @@ export interface ILayerBuilder {
 export interface IDataAndModel {
     data: ITensorSet;
     model: ITensorSet;
+    native: NativeFunctions;
 }
 
 export type IModelState = ReturnType<typeof initModel>;
@@ -241,7 +243,6 @@ void main() {
 
 export interface IEmbedLayerLink {
     weight: IBufferTex;
-    input: IBufferTex;
     output: IBufferTex;
 }
 
@@ -268,7 +269,6 @@ export interface IAddLayerLink {
 }
 
 export interface IBlockLayerLink {
-    input: IBufferTex;
     output: IBufferTex;
     ln_1: ILayerNormLayerLink;
     ln_2: ILayerNormLayerLink;
@@ -413,7 +413,6 @@ function createBlockLayer(layerBuilder: ILayerBuilder, prefix: string, input: IB
     let mlp = createMLP(layerBuilder, prefix + '.mlp', ln_2.output, attn.output);
 
     return {
-        input,
         attn,
         ln_1,
         ln_2,
@@ -836,7 +835,6 @@ function createEmbeddingLayer(layerBuilder: ILayerBuilder, prefix: string, nEmbe
     return {
         weight,
         phase,
-        input,
         output,
     };
 }

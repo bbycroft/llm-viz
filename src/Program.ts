@@ -2,7 +2,7 @@ import { genModelViewMatrices, ICamera } from "./Camera";
 import { drawAllArrows } from "./components/Arrow";
 import { drawBlockLabels } from "./components/SectionLabels";
 import { drawModelCard } from "./components/ModelCard";
-import { IGpuGptModel, IModelShape, loopModelOutputToInput, readModelResultsBackWhenReady, runModel } from "./GptModel";
+import { IGptModelLink, IGpuGptModel, IModelShape, loopModelOutputToInput, readModelResultsBackWhenReady, runModel } from "./GptModel";
 import { genGptModelLayout, IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { drawText, IFontAtlasData, IFontOpts, measureText } from "./render/fontRender";
 import { initRender, IRenderState, IRenderView, renderModel, resetRenderBuffers } from "./render/modelRender";
@@ -17,8 +17,12 @@ import { Mat4f } from "./utils/matrix";
 import { runMouseHitTesting } from "./Interaction";
 import { RenderPhase } from "./render/sharedRender";
 import { drawBlockInfo } from "./components/BlockInfo";
+import { NativeFunctions } from "./NativeBindings";
+import { IWasmGptModel, syncWasmDataWithJsAndGpu } from "./GptModelWasm";
 
 export interface IProgramState {
+    native: NativeFunctions | null;
+    wasmGptModel: IWasmGptModel | null;
     stepModel: boolean;
     mouse: IMouseState;
     render: IRenderState;
@@ -28,6 +32,7 @@ export interface IProgramState {
     layout: IGptModelLayout;
     shape: IModelShape;
     gptGpuModel: IGpuGptModel | null;
+    jsGptModel: IGptModelLink | null;
     display: IDisplayState;
     markDirty: () => void;
 }
@@ -78,12 +83,15 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
     };
 
     return {
+        native: null,
+        wasmGptModel: null,
         render,
         walkthrough,
         camera,
         shape: shape,
         layout: genGptModelLayout(shape),
         gptGpuModel: null,
+        jsGptModel: null,
         stepModel: false,
         markDirty: () => { },
         htmlSubs: new Subscriptions(),
@@ -113,8 +121,11 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     //     cameraMoveToDesired(state.camera, view.dt);
     // }
 
-    if (state.gptGpuModel) {
-        readModelResultsBackWhenReady(state.gptGpuModel);
+    // if (state.gptGpuModel) {
+    //     readModelResultsBackWhenReady(state.gptGpuModel);
+    // }
+    if (state.wasmGptModel && state.jsGptModel) {
+        syncWasmDataWithJsAndGpu(state.wasmGptModel, state.jsGptModel);
     }
 
     if (state.stepModel && state.gptGpuModel) {
@@ -124,7 +135,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     }
 
     // generate the base model, incorporating the gpu-side model if available
-    state.layout = genGptModelLayout(state.shape, state.gptGpuModel);
+    state.layout = genGptModelLayout(state.shape, state.jsGptModel);
 
     genModelViewMatrices(state);
 

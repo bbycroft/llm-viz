@@ -10,6 +10,7 @@ import { initProgramState, IProgramState, runProgram } from './Program';
 import { CanvasEventSurface } from './CanvasEventSurface';
 import { Vec3 } from './utils/vector';
 import { loadNativeBindings } from './NativeBindings';
+import { constructModel, createGpuModelForWasm } from './GptModelWasm';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -67,9 +68,9 @@ export function LayerView() {
             let dataP = fetchTensorData('gpt-nano-sort-t0-partials.json');
             let modelP = fetchTensorData('gpt-nano-sort-model.json');
             let nativeBindingsP = loadNativeBindings();
-            let [data, model, nativeBindings] = await Promise.all([dataP, modelP, nativeBindingsP]);
+            let [data, model, native] = await Promise.all([dataP, modelP, nativeBindingsP]);
             if (stale) return;
-            setDataAndModel({ data, model });
+            setDataAndModel({ data, model, native });
         }
 
         getData();
@@ -202,8 +203,11 @@ class CanvasRender {
 
         if (data.dataAndModel && !this.progState.gptGpuModel) {
             this.progState.gptGpuModel = initModel(this.renderState, data.dataAndModel, 1);
-            setModelInputData(this.renderState, this.progState.gptGpuModel, this.random);
-            runModel(this.renderState, this.progState.gptGpuModel);
+            this.progState.native = data.dataAndModel.native;
+            this.progState.wasmGptModel = constructModel(data.dataAndModel.model, data.dataAndModel.model.config, data.dataAndModel.native);
+            this.progState.jsGptModel = createGpuModelForWasm(this.renderState.gl, data.dataAndModel.model.config);
+            // setModelInputData(this.renderState, this.progState.gptGpuModel, this.random);
+            // runModel(this.renderState, this.progState.gptGpuModel);
         }
         this.markDirty();
     }

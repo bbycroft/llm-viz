@@ -1,5 +1,4 @@
-import { IGpuGptModel } from "./GptModel";
-import { IGptModelConfig } from "./utils/tensor";
+import { IGptModelConfig, TensorF32 } from "./utils/tensor";
 
 export async function loadNativeBindings() {
 
@@ -8,9 +7,11 @@ export async function loadNativeBindings() {
 
     let lineStr = "";
 
+    let memory = new WebAssembly.Memory({ initial: 1, maximum: 256 });
+
     let importObject = {
         env: {
-            memory: new WebAssembly.Memory({ initial: 1, maximum: 256 }), //{ initial: 1, maximum: 1 }),
+            memory,
         },
         odin_env: {
             write: (fd: number, ptr: number, len: number) => {
@@ -24,9 +25,8 @@ export async function loadNativeBindings() {
                 lineStr += lines[lines.length - 1];
             },
             time_now: () => {
-                return Date.now() * 1e6;
+                return BigInt(Date.now()) * BigInt(1e6);
             },
-            exp: Math.exp,
         },
         odin_dom: {
             init_event_raw: (ptr: number) => {
@@ -45,19 +45,11 @@ export async function loadNativeBindings() {
     console.log(module);
     console.log(initRes, res, sin);
 
-    let nativeFuncs = new NativeFunctions(exports);
-
-    nativeFuncs.create_model({
-        block_size: 11,
-        n_embd: 48,
-        model_type: 'GPT',
-        n_head: 3,
-        n_layer: 3,
-        vocab_size: 3,
-        B: 1,
-    });
+    let nativeFuncs = new NativeFunctions(module, exports, memory);
 
     checkNativeFns(exports);
+
+    return nativeFuncs;
 }
 
 interface INativeExports {
@@ -66,26 +58,150 @@ interface INativeExports {
     add_numbers: (a: number, b: number) => number;
     sinf_custom: (a: number) => number;
     cosf_custom: (a: number) => number;
+    expf_custom: (a: number) => number;
     wasm_create_model: (B: number, T: number, C: number, n_layers: number, n_heads: number, n_vocab: number) => number;
     wasm_run_model: (model: number) => number;
     wasm_get_model_tensor: (model: number, tensor: number, index: number) => number;
 }
 
-class NativeFunctions {
-    constructor(private exports: INativeExports) {
+export class NativeFunctions {
+
+    viewBuf: ArrayBuffer;
+    int32View: Int32Array;
+    ptrView: Uint32Array;
+
+    constructor(
+        public module: WebAssembly.WebAssemblyInstantiatedSource,
+        public exports: INativeExports,
+        public memory: WebAssembly.Memory,
+    ) {
+
+        this.viewBuf = memory.buffer;
+        this.int32View = new Int32Array(memory.buffer);
+        this.ptrView = new Uint32Array(memory.buffer);
     }
 
-    create_model(config: IGptModelConfig) {
+    createModel(config: IGptModelConfig) {
         let model = this.exports.wasm_create_model(config.B ?? 1, config.block_size, config.n_embd, config.n_layer, config.n_head, config.vocab_size)
         return model;
     }
+
+    runModel(model: number) {
+        this.exports.wasm_run_model(model);
+    }
+
+    getModelTensor(model: number, tensor: TensorType, index: number = 0) {
+        let ptr = this.exports.wasm_get_model_tensor(model, tensor, index);
+        this.checkViews();
+        let bufNElem = this.int32View[ptr / 4];
+        let ndimsSize = this.int32View[ptr / 4 + 1];
+        let dataPtr = this.ptrView[ptr / 4 + 2];
+        let shapeArrPtr = this.ptrView[ptr / 4 + 3];
+        let strideArrPtr = this.ptrView[ptr / 4 + 4];
+
+        let shape = new Int32Array(this.memory.buffer, shapeArrPtr, ndimsSize);
+        let stride = new Int32Array(this.memory.buffer, strideArrPtr, ndimsSize);
+        let data = new Float32Array(this.memory.buffer, dataPtr, bufNElem);
+
+        return new TensorF32([...shape], data, [...stride]);
+    }
+
+    checkViews() {
+        if (this.viewBuf === this.memory.buffer) {
+            return;
+        }
+
+        this.viewBuf = this.memory.buffer;
+        this.int32View = new Int32Array(this.memory.buffer);
+        this.ptrView = new Uint32Array(this.memory.buffer);
+    }
 } 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+export enum TensorType {
+    // weights
+    Wte,
+    Wpe,
+    LmHeadW,
+    AttnQkvW,
+    AttnQkvB,
+    AttnProjW,
+    AttnProjB,
+    MlpW,
+    MlpB,
+    MlpProjW,
+    MlpProjB,
+    Ln1Gamma,
+    Ln1Beta,
+    Ln2Gamma,
+    Ln2Beta,
+    LnFGamma,
+    LnFBeta,
+
+    // intermediate values
+    InputTokens,
+    InputTokenEmbed,
+    InputEmbed,
+
+    Ln1Agg,
+    Ln1Norm,
+    AttnQkv,
+    Attn,
+    AttnSmAgg,
+    AttnSm,
+    AttnVOut,
+    AttnProj,
+    AttnResidual,
+
+    Ln2Agg,
+    Ln2Norm,
+    MlpMlp,
+    MlpAct,
+    MlpProj,
+    MlpResidual,
+
+    LnFAgg,
+    LnFNorm,
+    Logits,
+    LogitsSmAgg,
+    LogitsSm,
+}
 
 function checkNativeFns(exports: INativeExports) {
      checkFn((f) => [Math.sin(f), exports.sinf_custom(f)], 'sinf');
      checkFn((f) => [Math.cos(f), exports.cosf_custom(f)], 'cosf');
+     checkFn((f) => [Math.exp(f), exports.expf_custom(f)], 'expf');
 }
-
 
 function createTestValues() {
     let actualTestValues: number[] = [];
@@ -120,6 +236,7 @@ function checkFn(testFn: (f: number) => [number, number], name: string) {
     let arr1 = new Float32Array(1);
     let arr2 = new Float32Array(1);
     let maxAbsError = 0;
+    let maxAbsErrorVal = 0;
     let maxRelError = 0;
     let maxRelErrorVal = 0;
     for (let i = 0; i < actualTestValues.length; i++) {
@@ -135,6 +252,7 @@ function checkFn(testFn: (f: number) => [number, number], name: string) {
 
         if (absError > maxAbsError) {
             maxAbsError = absError;
+            maxAbsErrorVal = arr0[0];
         }
         if (relError > maxRelError) {
             maxRelError = relError;
@@ -142,7 +260,7 @@ function checkFn(testFn: (f: number) => [number, number], name: string) {
         }
     }
 
-    console.log(`${name}: max abs error: ${maxAbsError}, max rel error: ${maxRelError} (at ${maxRelErrorVal})`);
+    console.log(`${name}: max abs error: ${maxAbsError} (at ${maxAbsErrorVal}), max rel error: ${maxRelError} (at ${maxRelErrorVal})`);
 }
 
 function floatAsInt(f: number) {
