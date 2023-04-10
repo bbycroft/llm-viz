@@ -131,8 +131,8 @@ export function dimProps(blk: IBlkDef, dim: Dim) {
     }
 }
 
-export function duplicateGrid(layout: IModelLayout, blk: IBlkDef) {
-    let newBlk = { ...blk };
+export function duplicateGrid(layout: IModelLayout, blk: IBlkDef): IBlkDef {
+    let newBlk = { ...blk, access: blk.access ? { ...blk.access } : undefined };
     newBlk.name = '';
     layout.cubes.push(newBlk);
     return newBlk;
@@ -224,15 +224,16 @@ interface ISubBlockInfo {
 }
 
 function addSubBlock(layout: IModelLayout, blk: IBlkDef, dim: Dim, iStart: number, iEnd: number, xOffset: number): ISubBlockInfo | null {
-    let { x, cx } = dimProps(blk, dim);
+    let { x, cx, dx } = dimProps(blk, dim);
+    let cellCount = dx / layout.cell;
     let { vecId, xName, dxName } = dimConsts(dim);
 
-    if (iStart >= iEnd || iEnd <= 0 || iStart >= cx) {
+    if (iStart >= iEnd || iEnd <= 0 || iStart >= cellCount) {
         return null;
     }
 
-    let scale = (iEnd - iStart) / cx;
-    let translate = iStart / cx;
+    let scale = (iEnd - iStart) / cellCount;
+    let translate = iStart / cellCount;
 
     let mtx = Mat4f.fromScaleTranslation(new Vec3(1,1,1).setAt(vecId, scale), new Vec3().setAt(vecId, translate));
 
@@ -247,12 +248,14 @@ function addSubBlock(layout: IModelLayout, blk: IBlkDef, dim: Dim, iStart: numbe
 
 
 export function splitGridAll(layout: IModelLayout, blk: IBlkDef, dim: Dim) {
-    let { cx } = dimProps(blk, dim);
+    let { dx } = dimProps(blk, dim);
+
+    let nCells = Math.ceil(dx / layout.cell);
 
     let blocks: IBlkDef[] = [];
     let rangeOffsets: [number, number][] = [];
 
-    for (let i = 0; i < cx; i += 1) {
+    for (let i = 0; i < nCells; i += 1) {
         let res = addSubBlock(layout, blk, dim, i, i + 1, 0)!;
         blocks.push(res.subBlock);
         rangeOffsets.push(res.rangeOffset);

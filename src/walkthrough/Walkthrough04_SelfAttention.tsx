@@ -1,12 +1,14 @@
-import { findSubBlocks, splitGrid, splitGridAll } from "../Annotations";
-import { drawDataFlow } from "../components/DataFlow";
+import { blockDimension, dimProps, duplicateGrid, findSubBlocks, splitGrid, splitGridAll } from "../Annotations";
+import { drawDataFlow, getBlockValueAtIdx } from "../components/DataFlow";
 import { getBlkDimensions, IBlkDef, setBlkPosition } from "../GptModelLayout";
 import { drawDependences } from "../Interaction";
+import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
 import { RenderPhase } from "../render/sharedRender";
 import { clamp } from "../utils/data";
 import { lerp, lerpSmoothstep } from "../utils/math";
 import { Mat4f } from "../utils/matrix";
+import { IProgram } from "../utils/shader";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { Phase } from "./Walkthrough";
 import { processUpTo, startProcessBefore } from "./Walkthrough00_Intro";
@@ -110,38 +112,68 @@ product can be interpreted slightly differently from the previous matrix-vector 
 vectors. If they're very similar, the dot product will be large. If they're very different, the dot
 product will be small or negative.
 
-As we saw, doing this for our column (t = 5) produces a row (t = 5) in the attention matrix,
+As we saw, doing this for our Q column (t = 5) produces a row (t = 5) in the attention matrix,
 and we can think of each of these elements as scores.`;
+    // breakAfter();
+
+    // let t_processAllAttn = afterTime(null, 3.0);
+
+    // breakAfter();
+    commentary(wt)`
+You'll notice that we only fill in the first 6 elements of the row (up to and including the matrix
+diagonal). This is because we're running a process of _causal_ self-attention. In other words,
+we're only allowed to look in the past.
+
+Another key element is that after the dot product, we divide by the square root of the length of the
+Q/K/V vectors (sqrt(A)). This scaling is done to prevent large values from dominating the
+softmax operation in the next step.
+
+We'll briefly skip over the softmax operation (described in the next section); suffice it to say,
+each row is normalized to sum to 1.`;
     breakAfter();
 
-    let t_processAllAttn = afterTime(null, 3.0);
+    let t_processAttnSmAggRow = afterTime(null, 1.0);
+    let t_processAttnSmRow = afterTime(null, 2.0);
 
     breakAfter();
     commentary(wt)`
-You'll notice that we only fill in the first 4 elements of the row. This is because we're running a
-process of causal self-attention. In other words, we're only allowed to look in the past.
-
-Another key element is that after the dot product, we divide by the square root of the length of the
-Q/K/V vectors. This is done to scale the dot product, preventing large values from dominating the
-softmax operation in the next step.
-
-Running this process for all the columns produces our self-attention matrix, which is a square
-matrix, T x T, and due to the causal nature of the process, is a lower triangular matrix.
-
-We'll briefly skip over the softmax operation (described in the next section); suffice it to say,
-each row is normalized to sum to 1.
-
-Finally, we can produce the output vector for our column (t = 3). We look at the (t = 3) row of the
+Finally, we can produce the output vector for our column (t = 5). We look at the (t = 5) row of the
 normalized self-attention matrix and for each element, multiply the corresponding V vector of the
-other columns element-wise.
+other columns element-wise.`;
+    breakAfter();
+
+    let t_zoomVOutput = afterTime(null, 0.4, 0.5);
+    // multi-step process here, displaying the multiplication of each element of the row with each column of V
+    let t_expandVCols = afterTime(null, 1.0, 0.5);
+    let t_moveAttnVals = afterTime(null, 1.0, 0.5);
+    let t_applyMultiplies = afterTime(null, 1.0, 0.5);
+    let t_applyAdds = afterTime(null, 1.0, 0.5);
+    let t_placeVOutput = afterTime(null, 1.0, 0.5);
+    let t_finalizeVOutput = afterTime(null, 0.5, 0.5);
+
+    breakAfter();
+    commentary(wt)`
 Then we can add these up to produce the output vector. Thus, the output vector will be dominated by
 V vectors from columns that have high scores.
 
+Now we know the process, let's run it for all the columns.`;
+
+    breakAfter();
+
+    let t_processRemainZoom = afterTime(null, 0.5, 0.5);
+    cleanup(t_processRemainZoom, [t_focusQKVCols]);
+    let t_processRemain = afterTime(null, 8.0);
+
+    breakAfter();
+    commentary(wt)`
 And that's the process for a head of the self-attention layer. So the main goal of self-attention is
 that each column wants to find relevant information from other columns and extract their values, and
 does so by comparing its _query_ vector to the _keys_ of those other columns. With the added restriction
 that it can only look in the past.
 `;
+
+// Running this process for all the columns produces our self-attention matrix, which is a square
+// matrix, T x T, and due to the causal nature of the process, is a lower triangular matrix.
 
     moveCameraTo(state, t_moveCamera, new Vec3(-152.8, 0, -218.6), new Vec3(296, 15.5, 2.3));
     moveCameraTo(state, t_moveCamera2, new Vec3(-192.1, 0, -214.8), new Vec3(293.5, 49, 2.3));
@@ -325,13 +357,15 @@ that it can only look in the past.
         }
     }
 
+    // simple run-through and process of each of the Q, K, V blocks
     if (t_processQkv.t > 0) {
         let processStart = startProcessBefore(state, head2.qBlock);
         processUpTo(state, t_processQkv, head2.vBlock, processStart);
     }
 
+    // highlight the example index column for the Q block, and previous columns for K and V
     let attnExampleIdx = 5;
-    if (t_focusQKVCols.t > 0) {
+    if (t_focusQKVCols.t > 0 && t_processRemain.t <= 0) {
         let ignoreOpacity = lerp(1.0, 0.2, t_focusQKVCols.t);
         head2.qBlock.opacity = ignoreOpacity;
         head2.kBlock.opacity = ignoreOpacity;
@@ -356,33 +390,150 @@ that it can only look in the past.
 
     moveCameraTo(state, t_focusQKVCols, new Vec3(-91.5, 0, -227.9), new Vec3(270.1, -38.4, 0.8));
 
-    if (t_processAttnRow.t > 0 && t_processAllAttn.t <= 0) {
+    if (t_processAttnRow.t > 0 && t_processRemain.t <= 0) {
         let aIdx = clamp(Math.floor(t_processAttnRow.t * (attnExampleIdx + 1)), 0, attnExampleIdx);
         let destIdx = new Vec3(aIdx, attnExampleIdx, 0);
         let pinIdx = new Vec3(attnExampleIdx, 0, 0);
 
-        drawDependences(state, head2.attnMtx, destIdx);
-        drawDataFlow(state, head2.attnMtx, destIdx, pinIdx);
+        if (t_processAttnSmAggRow.t <= 0) {
+            drawDependences(state, head2.attnMtx, destIdx);
+            drawDataFlow(state, head2.attnMtx, destIdx, pinIdx);
+        }
 
-        try {
-            console.log(head2.attnMtx);
+        let attnRow = splitGrid(layout, head2.attnMtx, Dim.Y, attnExampleIdx, 0)!;
+        splitGrid(layout, attnRow, Dim.X, aIdx, 0)!;
+        let attnRowStart = findSubBlocks(attnRow, Dim.X, null, aIdx);
 
-            let attnRow = splitGrid(layout, head2.attnMtx, Dim.Y, attnExampleIdx, 0)!;
-            splitGrid(layout, attnRow, Dim.X, aIdx, 0)!;
-            let attnRowStart = findSubBlocks(attnRow, Dim.X, null, aIdx);
-
-            for (let blk of attnRowStart) {
-                blk.access!.disable = false;
-            }
-        } catch (e) {
-            console.log(e);
+        for (let blk of attnRowStart) {
+            blk.access!.disable = false;
         }
     }
 
-    if (t_processAllAttn.t > 0) {
-        let processStart = startProcessBefore(state, head2.attnMtx);
-        processUpTo(state, t_processAllAttn, head2.attnMtx, processStart);
+    if (t_processAttnSmAggRow.t > 0 && t_processRemain.t <= 0) {
+        let agg0T = inverseLerp(0, 0.5, t_processAttnSmAggRow.t);
+        let agg1T = inverseLerp(0.5, 1.0, t_processAttnSmAggRow.t);
+        let hidePopup = t_processAttnSmRow.t > 0;
+        processDim(state, head2.attnMtxAgg2, Dim.Y, attnExampleIdx, agg0T, { pinIdx: new Vec3(5, 0, 0), clamp: true, hidePopup });
+
+        if (agg1T > 0) {
+            processDim(state, head2.attnMtxAgg1, Dim.Y, attnExampleIdx, agg1T, { pinIdx: new Vec3(-12, 0, 0), clamp: true, hidePopup });
+        }
     }
+
+    if (t_processAttnSmRow.t > 0 && t_processRemain.t <= 0) {
+        let hidePopup = t_zoomVOutput.t > 0;
+        processDim(state, head2.attnMtxSm, Dim.Y, attnExampleIdx, t_processAttnSmRow.t, { pinIdx: new Vec3(5, 0, 0), clamp: true, maxIdx: attnExampleIdx + 1, hidePopup });
+    }
+
+    if (t_zoomVOutput.t > 0 && t_processRemain.t <= 0) {
+        head2.vOutBlock.access!.disable = true;
+    }
+
+    // Do the attn_sm times V vectors to get the output vectors animation
+    {
+        moveCameraTo(state, t_zoomVOutput, new Vec3(-91.9, 0, -267.9), new Vec3(270.1, -7.5, 0.7));
+
+        let topLeftPos = getBlkDimensions(head2.vBlock).tl.add(new Vec3(0, 4, 5));
+        let midLeftPos = topLeftPos.add(new Vec3(0, layout.cell * (A / 2 - 0.5)));
+
+        if (t_expandVCols.t > 0 && t_placeVOutput.t <= 0) {
+            let allVCols = [];
+            let vBeforeCols = findSubBlocks(head2.vBlock, Dim.X, null, attnExampleIdx); 
+            for (let col of vBeforeCols) {
+                allVCols.push(...splitGridAll(layout, col, Dim.X));
+            }
+
+            let allAttnCells = [];
+            let attnRow = findSubBlocks(head2.attnMtxSm, Dim.Y, attnExampleIdx, attnExampleIdx)[0];
+            let attnCellsBefore = findSubBlocks(attnRow, Dim.X, null, attnExampleIdx);
+            for (let cell of attnCellsBefore) {
+                for (let subCell of splitGridAll(layout, cell, Dim.X)) {
+                    allAttnCells.push(duplicateGrid(layout, subCell));
+                }
+            }
+
+            for (let i = 0; i < attnExampleIdx + 1; i++) {
+                let attnVal = getBlockValueAtIdx(head2.attnMtxSm, new Vec3(i, attnExampleIdx, 0)) ?? 0.2;
+
+                let initColPos = getBlkDimensions(allVCols[i]).tl;
+                let destColPos = topLeftPos.add(new Vec3(i * layout.cell * 5, 0, 0));
+
+                setBlkPosition(allVCols[i], initColPos.lerp(destColPos, t_expandVCols.t));
+
+                let initAttnPos = getBlkDimensions(allAttnCells[i]).tl;
+                let destAttnPos = midLeftPos.add(new Vec3(i * layout.cell * 5 - 2 * layout.cell, 0));
+
+                setBlkPosition(allAttnCells[i], initAttnPos.lerp(destAttnPos, t_moveAttnVals.t));
+
+                if (t_applyMultiplies.t > 0) {
+                    initAttnPos = destAttnPos;
+                    destAttnPos = initAttnPos.add(new Vec3(layout.cell * 2, 0));
+                    setBlkPosition(allAttnCells[i], initAttnPos.lerp(destAttnPos, t_applyMultiplies.t));
+
+                    allAttnCells[i].opacity = 1.0 - t_applyMultiplies.t;
+                    allVCols[i].highlight = lerp(0.0, attnVal * 1.5, t_applyMultiplies.t);
+                }
+
+                if (t_moveAttnVals.t > 0.8 && t_applyMultiplies.t < 0.7) {
+                    drawSymbolBetweenBlocks(args, allVCols[i], allAttnCells[i], Dim.X, 'x', { color: Colors.Black, size: 1.5 });
+                }
+
+                if (t_applyAdds.t > 0) {
+                    initColPos = destColPos;
+                    destColPos = topLeftPos.add(new Vec3(0, 0, attnVal * 1.0));
+
+                    setBlkPosition(allVCols[i], initColPos.lerp(destColPos, t_applyAdds.t));
+                }
+
+                if (t_applyMultiplies.t > 0.6 && i > 0 && t_applyAdds.t < 0.7) {
+                    drawSymbolBetweenBlocks(args, allVCols[i - 1], allVCols[i], Dim.X, '+', { color: Colors.Black, size: 1.5 });
+                }
+            }
+        }
+
+        if (t_placeVOutput.t > 0 && t_finalizeVOutput.t <= 0) {
+            let prepareT = inverseLerp(0, 0.5, t_placeVOutput.t);
+
+            let vOutCol = splitGrid(layout, head2.vOutBlock, Dim.X, attnExampleIdx + 0.5, prepareT * 2.0)!;
+            vOutCol.access!.disable = true;
+            vOutCol.opacity = lerp(1.0, 0.0, prepareT);
+
+            for (let col of findSubBlocks(head2.vBlock, Dim.X, null, attnExampleIdx)) {
+                col.opacity = t_placeVOutput.t;
+            }
+
+            let vOutColDupe = duplicateGrid(layout, vOutCol);
+            vOutColDupe.access!.disable = false;
+            vOutColDupe.opacity = 1.0;
+
+            let colInitialPos = topLeftPos;
+            let colFinalPos = getBlkDimensions(vOutCol).tl;
+
+            setBlkPosition(vOutColDupe, colInitialPos.lerp(colFinalPos, t_placeVOutput.t));
+        }
+
+        if (t_finalizeVOutput.t > 0) {
+            let splitAmt = lerp(1.0, 0.0, t_finalizeVOutput.t) * 2.0;
+            let vOutCol = splitGrid(layout, head2.vOutBlock, Dim.X, attnExampleIdx + 0.5, splitAmt)!;
+            vOutCol.access!.disable = false;
+        }
+    }
+
+    moveCameraTo(state, t_processRemainZoom, new Vec3(-99.7, 0, -230.1), new Vec3(275.6, -4.4, 1.2));
+
+    if (t_processRemain.t > 0) {
+        for (let blk of [head2.attnMtx, head2.attnMtxSm, head2.attnMtxAgg1, head2.attnMtxAgg2, head2.vOutBlock]) {
+            blk.access!.disable = true;
+        }
+
+        let processStart = startProcessBefore(state, head2.attnMtx);
+        processUpTo(state, t_processRemain, head2.vOutBlock, processStart);
+    }
+
+    // if (t_processAllAttn.t > 0) {
+    //     let processStart = startProcessBefore(state, head2.attnMtx);
+    //     processUpTo(state, t_processAllAttn, head2.attnMtx, processStart);
+    // }
 
 }
 
@@ -392,6 +543,58 @@ that it can only look in the past.
 // note that edge1 must be greater than edge0
 export function inverseLerp(edge0: number, edge1: number, t: number) {
     return (clamp(t, edge0, edge1) - edge0) / (edge1 - edge0);
+}
+
+export interface IProcessDimOpts {
+    pinIdx?: Vec3;
+    clamp?: boolean;
+    maxIdx?: number;
+    hidePopup?: boolean;
+}
+
+export function processDim(state: IProgramState, block: IBlkDef, dim: Dim, destIdx: number, t: number, options: IProcessDimOpts = {}) {
+    let { layout } = state;
+    let { pinIdx, clamp: keep, maxIdx, hidePopup } = options;
+    let otherDim = dim === Dim.X ? Dim.Y : Dim.X;
+
+    let { cx: cxOther } = dimProps(block, otherDim);
+
+    pinIdx ||= new Vec3(0, 0, 0);
+
+    let rowCol = splitGrid(layout, block, dim, destIdx, 0);
+
+    if (!rowCol) {
+        return;
+    }
+
+    let maxPos = maxIdx ?? cxOther; // for attn matrix, reduce to the row number
+    let cellPos = t * maxPos;
+
+    if (keep) {
+        cellPos = clamp(cellPos, 0, maxPos - 1);
+    }
+
+    let cellIdx = Math.floor(cellPos);
+
+    if (cellIdx >= maxPos) {
+        return;
+    }
+
+    splitGrid(layout, rowCol, otherDim, cellIdx + 0.5, 0);
+
+    // cell!.highlight = 0.2;
+    let destIdxVec = new Vec3(0, 0, 0);
+    destIdxVec.setAt(dim, destIdx);
+    destIdxVec.setAt(otherDim, cellIdx);
+
+    if (rowCol && !hidePopup) {
+        drawDependences(state, block, destIdxVec);
+        drawDataFlow(state, block, destIdxVec, pinIdx);
+    }
+
+    for (let blk of findSubBlocks(rowCol, otherDim, null, cellIdx)) {
+        blk.access!.disable = false;
+    }
 }
 
 export function focusSelfAttentionHeadTimers(args: IWalkthroughArgs, duration: number) {
@@ -489,12 +692,12 @@ export function drawSymbolBetweenBlocks(args: IWalkthroughArgs, block1: IBlkDef,
         midPt = new Vec3(
             lerp(block1Dim.br.x, block2Dim.tl.x, 0.5),
             (block1Dim.tl.y + block1Dim.br.y + block2Dim.tl.y + block2Dim.br.y) * 0.25,
-            block1Dim.tl.z)
+            block1Dim.tl.z + args.layout.cell / 2)
     } else {
         midPt = new Vec3(
             (block1Dim.tl.x + block1Dim.br.x + block2Dim.tl.x + block2Dim.br.x) * 0.25,
             lerp(block1Dim.br.y, block2Dim.tl.y, 0.5),
-            block1Dim.tl.z);
+            block1Dim.tl.z + args.layout.cell / 2);
     }
 
     let mtx = Mat4f.fromTranslation(midPt);
