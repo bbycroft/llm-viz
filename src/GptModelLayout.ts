@@ -1,7 +1,7 @@
 import { IBlockLayerLink, IGptModelLink, IGpuGptBlockLayer, IGpuGptModel, IGpuLayerNormLayer, ILayerNormLayerLink, IModelShape } from "./GptModel";
 import { isNil } from "./utils/data";
 import { Mat4f } from "./utils/matrix";
-import { Dim } from "./utils/vector";
+import { Dim, Vec3 } from "./utils/vector";
 import { IBufferTex } from "./utils/renderPhases";
 import { dimProps } from "./Annotations";
 import { DimStyle, dimStyleColor } from "./walkthrough/WalkthroughTools";
@@ -93,6 +93,20 @@ function depArgsToDeps(args: IBlkDepArgs): IBlkDeps {
         special: args.special ?? BlKDepSpecial.None,
         lowerTri: args.lowerTri,
     };
+}
+
+export function getBlkDimensions(blk: IBlkDef) {
+    let { x, y, z, dx, dy, dz } = blk;
+    return {
+        tl: new Vec3(x, y, z),
+        br: new Vec3(x + dx, y + dy, z + dz),
+    };
+}
+
+export function setBlkPosition(blk: IBlkDef, pos: Vec3) {
+    blk.x = pos.x;
+    blk.y = pos.y;
+    blk.z = pos.z;
 }
 
 export interface IBlkAccess {

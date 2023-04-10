@@ -228,10 +228,8 @@ export function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkD
     let firstIdx = prevInfo ? prevInfo.lastBlockIdx + 1 : 0;
     let lastIdx = activeBlocks.indexOf(block);
 
-    let numIdx = lastIdx - firstIdx + 1;
-
-    // actually want to weight the time on each block by the number of cells in the block
-
+    // we weight the time on each block by the number of cells in the block, times by how many dependent cells it has
+    // although to make this less extreme, we take a fractional power of this
     let cellCounts = activeBlocks
         .filter((_, i) => i >= firstIdx && i <= lastIdx)
         .map(a => (a.cx * a.cy) * Math.pow(a.deps?.dotLen ?? 1, 0.25));
@@ -249,9 +247,6 @@ export function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkD
             break;
         }
     }
-
-    // let currPos = lerp(firstIdx, lastIdx, timer.t);
-    // let currIdx = Math.floor(currPos);
 
     let blk = activeBlocks[currIdx];
 

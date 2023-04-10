@@ -32,11 +32,11 @@ Alright, let's get started!
     }
 }
 
-function embedLink(a: React.ReactNode, href: string) {
-    return embedSimple(<a href={href}>{a}</a>);
+export function embedLink(a: React.ReactNode, href: string) {
+    return embedInline(<a href={href}>{a}</a>);
 }
 
-function embedSimple(a: React.ReactNode) {
+export function embedInline(a: React.ReactNode) {
     return { insertInline: a };
 }
 

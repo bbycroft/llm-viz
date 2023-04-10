@@ -28,6 +28,7 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3, 
     if (!blk.deps) {
         return;
     }
+    let prevPhase = state.render.sharedRender.activePhase;
     state.render.sharedRender.activePhase = RenderPhase.Overlay2D;
 
     // the point where we draw the overlay
@@ -56,13 +57,11 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3, 
 
     if (blk.deps.lowerTri && destIdx.x > destIdx.y) {
         drawZeroSymbol(dataFlowArgs);
-        return;
-    }
 
-    if (blk.deps.special === BlKDepSpecial.InputEmbed) {
+    } else if (blk.deps.special === BlKDepSpecial.InputEmbed) {
         bb = drawOLInputEmbed(dataFlowArgs);
-    }
-    else if (blk.deps.special === BlKDepSpecial.LayerNorm) {
+
+    } else if (blk.deps.special === BlKDepSpecial.LayerNorm) {
         bb = drawLayerNorm(dataFlowArgs);
 
     } else if (blk.deps.special === BlKDepSpecial.LayerNormMu) {
@@ -99,6 +98,8 @@ export function drawDataFlow(state: IProgramState, blk: IBlkDef, destIdx: Vec3, 
         let fullBB = new BoundingBox3d(bb.min, bb.max, cellIdxBb.min, cellIdxBb.max);
         drawDepArrows(dataFlowArgs, fullBB);
     }
+
+    state.render.sharedRender.activePhase = prevPhase;
 }
 
 export function drawOLAddSymbol(args: IDataFlowArgs) {

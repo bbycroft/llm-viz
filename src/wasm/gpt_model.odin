@@ -581,7 +581,7 @@ run_attention :: proc(model: ^GptModel, attention: ^GptAttention, layerIdx: int,
                     attn[attnStride + t2] = qkDot
                 }
                 for t2 := t + 1; t2 < T; t2 += 1 {
-                    attn[attnStride + t2] = math.inf_f32(-1)
+                    attn[attnStride + t2] = 0.0; //math.inf_f32(-1)
                 }
 
                 // calc the sum of exp(a - maxDot) for the softmax

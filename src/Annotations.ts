@@ -162,26 +162,6 @@ export function splitGrid(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: 
     let blocks: IBlkDef[] = [];
     let rangeOffsets: [number, number][] = [];
 
-    function addSubBlock(iStart: number, iEnd: number, xOffset: number): IBlkDef | null {
-        if (iStart >= iEnd || iEnd <= 0 || iStart >= cx) {
-            return null;
-        }
-
-        let scale = (iEnd - iStart) / cx;
-        let translate = iStart / cx;
-
-        let mtx = Mat4f.fromScaleTranslation(new Vec3(1,1,1).setAt(vecId, scale), new Vec3().setAt(vecId, translate));
-
-        blocks.push({ ...blk,
-            access: blk.access && { ...blk.access },
-            localMtx: (blk.localMtx ?? new Mat4f()).mul(mtx),
-            [xName]: x + (iStart * layout.cell + xOffset),
-            [dxName]: (iEnd - iStart) * layout.cell,
-        });
-        rangeOffsets.push([iEnd, xOffset]);
-        return blocks[blocks.length - 1]!;
-    }
-
     let xc = Math.floor(xSplit);
     if (xc < 0 || xc >= cx) {
         return null;
@@ -193,28 +173,37 @@ export function splitGrid(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: 
     // let offset = smoothstepAlt(-w2, 0, xSplit / blk.cx);
     let offset = lerpSmoothstep(-splitAmt, 0, (xSplit - 0.5) * scale + 0.5);
 
+    function addSubBlockLocal(iStart: number, iEnd: number, xOffset: number) {
+        let res = addSubBlock(layout, blk, dim, iStart, iEnd, xOffset);
+        if (res) {
+            blocks.push(res.subBlock);
+            rangeOffsets.push(res.rangeOffset);
+        }
+        return res?.subBlock ?? null;
+    }
+
     let midBlock: IBlkDef | null;
     if (splitAmt === 0) {
-        addSubBlock(0, xc, 0.0);
-        midBlock = addSubBlock(xc, xc + 1, 0.0);
-        addSubBlock(xc + 1, cx, 0.0);
+        addSubBlockLocal(0, xc, 0.0);
+        midBlock = addSubBlockLocal(xc, xc + 1, 0.0);
+        addSubBlockLocal(xc + 1, cx, 0.0);
     } else {
         let addMidBlockBefore = fract + scale < 1.0;
         let addMidBlockAfter = fract - scale > 0.0;
 
-        addSubBlock(0     , xc - (addMidBlockBefore ? 1 : 0), offset + 0.0);
+        addSubBlockLocal(0     , xc - (addMidBlockBefore ? 1 : 0), offset + 0.0);
 
         if (addMidBlockBefore) {
-            addSubBlock(xc - 1, xc    , offset + lerpSmoothstep(splitAmt, 0, fract + scale));
+            addSubBlockLocal(xc - 1, xc    , offset + lerpSmoothstep(splitAmt, 0, fract + scale));
         }
 
-        midBlock = addSubBlock(xc    , xc + 1, offset + lerpSmoothstep(splitAmt, 0, fract));
+        midBlock = addSubBlockLocal(xc    , xc + 1, offset + lerpSmoothstep(splitAmt, 0, fract));
 
         if (addMidBlockAfter) {
-            addSubBlock(xc + 1, xc + 2, offset + lerpSmoothstep(splitAmt, 0, fract - scale));
+            addSubBlockLocal(xc + 1, xc + 2, offset + lerpSmoothstep(splitAmt, 0, fract - scale));
         }
 
-        addSubBlock(xc + (addMidBlockAfter ? 2 : 1), cx, offset + splitAmt);
+        addSubBlockLocal(xc + (addMidBlockAfter ? 2 : 1), cx, offset + splitAmt);
     }
 
     if (blocks.length > 0) {
@@ -227,6 +216,54 @@ export function splitGrid(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: 
     } else {
         return null;
     }
+}
+
+interface ISubBlockInfo {
+    subBlock: IBlkDef;
+    rangeOffset: [number, number];
+}
+
+function addSubBlock(layout: IModelLayout, blk: IBlkDef, dim: Dim, iStart: number, iEnd: number, xOffset: number): ISubBlockInfo | null {
+    let { x, cx } = dimProps(blk, dim);
+    let { vecId, xName, dxName } = dimConsts(dim);
+
+    if (iStart >= iEnd || iEnd <= 0 || iStart >= cx) {
+        return null;
+    }
+
+    let scale = (iEnd - iStart) / cx;
+    let translate = iStart / cx;
+
+    let mtx = Mat4f.fromScaleTranslation(new Vec3(1,1,1).setAt(vecId, scale), new Vec3().setAt(vecId, translate));
+
+    let subBlock: IBlkDef = { ...blk,
+        access: blk.access && { ...blk.access },
+        localMtx: (blk.localMtx ?? new Mat4f()).mul(mtx),
+        [xName]: x + (iStart * layout.cell + xOffset),
+        [dxName]: (iEnd - iStart) * layout.cell,
+    };
+    return { subBlock, rangeOffset: [iEnd, xOffset] };
+}
+
+
+export function splitGridAll(layout: IModelLayout, blk: IBlkDef, dim: Dim) {
+    let { cx } = dimProps(blk, dim);
+
+    let blocks: IBlkDef[] = [];
+    let rangeOffsets: [number, number][] = [];
+
+    for (let i = 0; i < cx; i += 1) {
+        let res = addSubBlock(layout, blk, dim, i, i + 1, 0)!;
+        blocks.push(res.subBlock);
+        rangeOffsets.push(res.rangeOffset);
+    }
+
+    if (dim === Dim.X) blk.rangeOffsetsX = rangeOffsets;
+    if (dim === Dim.Y) blk.rangeOffsetsY = rangeOffsets;
+    if (dim === Dim.Z) blk.rangeOffsetsZ = rangeOffsets;
+    blk.subs = blocks;
+
+    return blocks;
 }
 
 export interface IColorMix {
