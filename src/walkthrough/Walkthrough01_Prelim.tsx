@@ -9,11 +9,12 @@ let zeroToHeroLink = 'https://karpathy.ai/zero-to-hero.html';
 export function walkthrough01_Prelim(args: IWalkthroughArgs) {
     let { walkthrough: wt } = args;
 
-    switch (wt.phase) {
-        case Phase.Intro_Prelim:
+    if (wt.phase !== Phase.Intro_Prelim) {
+        return;
+    }
 
-            let c0 = commentary(wt, null, 0)`
-            Before we delve into the algorithm's intricacies, let's take a brief step back.
+    let c0 = commentary(wt, null, 0)`
+Before we delve into the algorithm's intricacies, let's take a brief step back.
 
 This guide focuses on _inference_, not training, and as such is only a small part of the entire machine learning process.
 In our case, the model's weights have been pre-trained, and we use the inference process to generate output. This runs directly in your browser.
@@ -29,7 +30,7 @@ guide. The toy model featured here is based on one found within the minGPT proje
 
 Alright, let's get started!
 `;
-    }
+
 }
 
 export function embedLink(a: React.ReactNode, href: string) {

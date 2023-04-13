@@ -4,9 +4,10 @@ import { commentary, IWalkthroughArgs } from "./WalkthroughTools";
 export function walkthrough07_Mlp(args: IWalkthroughArgs) {
     let { walkthrough: wt } = args;
 
-    switch (wt.phase) {
-        case Phase.Input_Detail_Mlp:
-            let c0 = commentary(wt, null, 0)`
+    if (wt.phase !== Phase.Input_Detail_Mlp) {
+        return;
+    }
+    let c0 = commentary(wt, null, 0)`
 
 The next half of the transformer block, after the self-attention, is the MLP (multi-layer
 perceptron). A bit of a mouthful, but here it's a simple neural network with two layers.
@@ -24,5 +25,5 @@ single direction.
 
 The output of the MLP is then added to the input of the MLP, continuing the residual pathway. 
 `;
-    }
+
 }

@@ -4,9 +4,10 @@ import { commentary, IWalkthroughArgs } from "./WalkthroughTools";
 export function walkthrough06_Projection(args: IWalkthroughArgs) {
     let { walkthrough: wt } = args;
 
-    switch (wt.phase) {
-        case Phase.Input_Detail_Projection:
-            let c0 = commentary(wt, null, 0)`
+    if (wt.phase !== Phase.Input_Detail_Projection) {
+        return;
+    }
+    let c0 = commentary(wt, null, 0)`
 
 After the self-attention process, we have outputs from each of the heads. These outputs are the
 appropriately mixed V vectors, influenced by the Q and K vectors.
@@ -14,7 +15,7 @@ appropriately mixed V vectors, influenced by the Q and K vectors.
 To combine the vectors from each head, we simply stack them on top of each other. So, for time
 t = 4, we go from 3 vectors of length 16 to 1 vector of length 48.
 
-It's worth noting that in GPT, the length of the vectors within a head (16) is equal to C / n_heads.
+It's worth noting that in GPT, the length of the vectors within a head (16) is equal to C / nheads.
 This ensures that when we stack them back together, we get the original length, C.
 
 From here, we perform the projection to get the output of the layer. This is a simple matrix-vector
@@ -27,5 +28,5 @@ vertical arrow, is called the residual connection or residual pathway.
 Like layer normalization, the residual pathway is crucial for enabling effective learning in deep
 neural networks.
 `;
-    }
+
 }

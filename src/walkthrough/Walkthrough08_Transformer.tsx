@@ -4,9 +4,10 @@ import { commentary, IWalkthroughArgs } from "./WalkthroughTools";
 export function walkthrough08_Transformer(args: IWalkthroughArgs) {
     let { walkthrough: wt } = args;
 
-    switch (wt.phase) {
-        case Phase.Input_Detail_Transformer:
-            let c0 = commentary(wt, null, 0)`
+    if (wt.phase !== Phase.Input_Detail_Transformer) {
+        return;
+    }
+    let c0 = commentary(wt, null, 0)`
         
 And that's a complete transformer block!
 
@@ -21,5 +22,5 @@ lower layers might learn grammar, syntax, and simple word associations, while th
 might capture more complex semantic relationships, discourse structures, and context-dependent meaning.
 
 `;
-    }
+
 }

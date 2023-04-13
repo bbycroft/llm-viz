@@ -1,19 +1,17 @@
-import { blockDimension, dimProps, duplicateGrid, findSubBlocks, splitGrid, splitGridAll } from "../Annotations";
+import { dimProps, duplicateGrid, findSubBlocks, splitGrid, splitGridAll } from "../Annotations";
 import { drawDataFlow, getBlockValueAtIdx } from "../components/DataFlow";
 import { getBlkDimensions, IBlkDef, setBlkPosition } from "../GptModelLayout";
 import { drawDependences } from "../Interaction";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
-import { RenderPhase } from "../render/sharedRender";
 import { clamp } from "../utils/data";
 import { lerp, lerpSmoothstep } from "../utils/math";
 import { Mat4f } from "../utils/matrix";
-import { IProgram } from "../utils/shader";
 import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { Phase } from "./Walkthrough";
 import { processUpTo, startProcessBefore } from "./Walkthrough00_Intro";
 import { embedInline } from "./Walkthrough01_Prelim";
-import { Colors, commentary, ITimeInfo, IWalkthroughArgs, moveCameraTo } from "./WalkthroughTools";
+import { Colors, commentary, IWalkthroughArgs, moveCameraTo } from "./WalkthroughTools";
 
 export function walkthrough04_SelfAttention(args: IWalkthroughArgs) {
     let { walkthrough: wt, layout, state, tools: { afterTime, c_str, breakAfter, cleanup } } = args;

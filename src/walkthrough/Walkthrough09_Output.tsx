@@ -4,10 +4,11 @@ import { commentary, IWalkthroughArgs } from "./WalkthroughTools";
 export function walkthrough09_Output(args: IWalkthroughArgs) {
     let { walkthrough: wt } = args;
 
-    switch (wt.phase) {
-        case Phase.Input_Detail_Output:
-            let c0 = commentary(wt, null, 0)`
-        
+    if (wt.phase !== Phase.Input_Detail_Output) {
+        return;
+    }
+    let c0 = commentary(wt, null, 0)`
+
 Finally, we come to the end of the model. The output of the final transformer block is passed through
 a layer normalization, and then we use a linear transformation (matrix multiplication), this time without a bias.
 
@@ -43,5 +44,5 @@ We do this by dividing the logits (the output of the linear transformation) by t
 applying the softmax. Since the exponentiation in the softmax has a large effect on larger numbers,
 making them all closer together will reduce this effect.
 `;
-    }
+
 }

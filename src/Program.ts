@@ -2,12 +2,11 @@ import { genModelViewMatrices, ICamera } from "./Camera";
 import { drawAllArrows } from "./components/Arrow";
 import { drawBlockLabels } from "./components/SectionLabels";
 import { drawModelCard } from "./components/ModelCard";
-import { IGptModelLink, IGpuGptModel, IModelShape, loopModelOutputToInput, readModelResultsBackWhenReady, runModel } from "./GptModel";
+import { IGptModelLink, IGpuGptModel, IModelShape } from "./GptModel";
 import { genGptModelLayout, IBlkDef, IGptModelLayout } from "./GptModelLayout";
 import { drawText, IFontAtlasData, IFontOpts, measureText } from "./render/fontRender";
 import { initRender, IRenderState, IRenderView, renderModel, resetRenderBuffers } from "./render/modelRender";
 import { beginQueryAndGetPrevMs, endQuery } from "./render/queryManager";
-import { drawTokens } from "./components/Tokens";
 import { SavedState } from "./SavedState";
 import { isNotNil, Subscriptions } from "./utils/data";
 import { Vec3, Vec4 } from "./utils/vector";
@@ -117,21 +116,12 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     state.display.tokenColors = null;
     state.display.tokenIdxColors = null;
 
-    // if (state.walkthrough.running) {
-    //     cameraMoveToDesired(state.camera, view.dt);
-    // }
-
-    // if (state.gptGpuModel) {
-    //     readModelResultsBackWhenReady(state.gptGpuModel);
-    // }
     if (state.wasmGptModel && state.jsGptModel) {
         syncWasmDataWithJsAndGpu(state.wasmGptModel, state.jsGptModel);
     }
 
     if (state.stepModel && state.wasmGptModel && state.jsGptModel) {
         state.stepModel = false;
-        // loopModelOutputToInput(state.render, state.gptGpuModel);
-        // runModel(state.render, state.gptGpuModel);
         stepWasmModel(state.wasmGptModel, state.jsGptModel);
     }
 
@@ -148,12 +138,12 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     // will modify layout; view; render a few things.
     runWalkthrough(state, view);
 
-    drawBlockInfo(state);
+    // drawBlockInfo(state);
     // these will get modified by the walkthrough (stored where?)
     drawAllArrows(state.render, state.layout);
 
     drawModelCard(state);
-    drawTokens(state.render, state.layout, state.display);
+    // drawTokens(state.render, state.layout, state.display);
 
     runMouseHitTesting(state);
     state.render.sharedRender.activePhase = RenderPhase.Opaque;

@@ -4,9 +4,10 @@ import { commentary, IWalkthroughArgs } from "./WalkthroughTools";
 export function walkthrough05_Softmax(args: IWalkthroughArgs) {
     let { walkthrough: wt } = args;
 
-    switch (wt.phase) {
-        case Phase.Input_Detail_Softmax:
-            let c0 = commentary(wt, null, 0)`
+    if (wt.phase !== Phase.Input_Detail_Softmax) {
+        return;
+    }
+    let c0 = commentary(wt, null, 0)`
 
 The softmax operation is used as part of self-attention, as seen in the previous section, and it
 will also appear at the very end of the model.
@@ -49,5 +50,5 @@ largest value is emphasized and pushed towards 1.0, while still maintaining a pr
 over all input values. This allows for a more nuanced representation that captures not only the most
 likely option but also the relative likelihood of other options.
 `;
-    }
+
 }

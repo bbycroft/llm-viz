@@ -52,161 +52,157 @@ export function walkthroughIntro(args: IWalkthroughArgs) {
     let { breakAfter, afterTime, c_str } = phaseTools(args.state);
     let { state, layout, walkthrough: wt } = args;
 
-
-    switch (wt.phase) {
-        case Phase.Intro_Intro:
-
-        let c0 = commentary(wt, null, 0)`Welcome to the walkthrough of the GPT large language model! Here we'll explore the model _nano-gpt_, with a mere 85,000 parameters.
+    if (wt.phase !== Phase.Intro_Intro) {
+        return;
+    }
+    let c0 = commentary(wt, null, 0)`Welcome to the walkthrough of the GPT large language model! Here we'll explore the model _nano-gpt_, with a mere 85,000 parameters.
 
 It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputOutput)}
-            and sort them in alphabetical order, i.e. to "ABBBCC".`;
+and sort them in alphabetical order, i.e. to "ABBBCC".`;
 
+    if (c0.t > 0) {
+        for (let cube of layout.cubes) {
+            if (cube.t === 'i' && cube.access) {
+                cube.access.disable = true;
+            }
+        }
+        state.display.tokenIdxModelOpacity = makeArray(6, 0);
+    }
 
-        if (c0.t > 0) {
-            for (let cube of layout.cubes) {
-                if (cube.t === 'i' && cube.access) {
-                    cube.access.disable = true;
+    let t4 = afterTime(null, 1.5, 1.0);
+    moveCameraTo(args.state, t4, new Vec3(1.3, 0, 6.7), new Vec3(281.5, 12.5, 0.4));
+    let t6 = afterTime(null, 1.0, 0.4);
+
+    if (t6.active && t6.t < 1.0) {
+        let mixes = [0, 0, 0, 0, 0, 0];
+        for (let i = 0; i < 6; i++) {
+            // want to smoothly flash each token in turn (t6.t goes from 0-1, and each token should flash at 0.2, 0.4, 0.6, 0.8, 1.0 etc)
+            let highT = (i + 1.5) / 8;
+            mixes[i] = 1.0 - clamp(Math.abs(t6.t - highT) * 8, 0, 1);
+        }
+        state.display.tokenColors = { mixes, color2: new Vec4(0.8, 0.2, 0.8) };
+    }
+
+    breakAfter();
+
+    let tokenStr = c_str('_token_', 0, DimStyle.Token);
+    let tokenIdxStr = c_str('_token index_', 0, DimStyle.TokenIdx);
+
+    commentary(wt, t6)`We call each of these letters a ${tokenStr}, and the set of the model's different tokens make up it's _vocabulary_:${embed(TokenVocab)}
+
+    From this table, each token is assigned a number, it's ${tokenIdxStr}. And now we can enter this sequence of numbers into the model:${embed(ExampleTokenValues)}\n`;
+    breakAfter();
+
+    let t7 = afterTime(null, 1.5, 0.5);
+
+    if (t7.active) {
+        let opacity = makeArray(6, 0);
+        for (let i = 0; i < 6; i++) {
+            let highT = (i + 1.5) / 8;
+            opacity[i] = clamp((t7.t - highT) * 4, 0, 1);
+        }
+        state.display.tokenIdxModelOpacity = opacity;
+
+        let idxPos = t7.t * 6;
+
+        if (t7.t < 1.0) {
+            splitGrid(layout, layout.idxObj, Dim.X, idxPos, clamp(6 - idxPos, 0, 1));
+            for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, Math.min(5, Math.floor(idxPos)))) {
+                if (blk.access) {
+                    blk.access.disable = false;
                 }
             }
-            state.display.tokenIdxModelOpacity = makeArray(6, 0);
-        }
-
-        let t4 = afterTime(null, 1.5, 1.0);
-        moveCameraTo(args.state, t4, new Vec3(1.3, 0, 6.7), new Vec3(281.5, 12.5, 0.4));
-        let t6 = afterTime(null, 1.0, 0.4);
-
-        if (t6.active && t6.t < 1.0) {
-            let mixes = [0, 0, 0, 0, 0, 0];
-            for (let i = 0; i < 6; i++) {
-                // want to smoothly flash each token in turn (t6.t goes from 0-1, and each token should flash at 0.2, 0.4, 0.6, 0.8, 1.0 etc)
-                let highT = (i + 1.5) / 8;
-                mixes[i] = 1.0 - clamp(Math.abs(t6.t - highT) * 8, 0, 1);
+        } else {
+            if (layout.idxObj.access) {
+                layout.idxObj.access.disable = false;
             }
-            state.display.tokenColors = { mixes, color2: new Vec4(0.8, 0.2, 0.8) };
         }
+    }
 
-        breakAfter();
+    breakAfter();
 
-        let tokenStr = c_str('_token_', 0, DimStyle.Token);
-        let tokenIdxStr = c_str('_token index_', 0, DimStyle.TokenIdx);
+    let c5 = commentary(wt)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. ${embed(GreenBlueCells)}
+    Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
+    breakAfter(c5);
 
-        commentary(wt, t6)`We call each of these letters a ${tokenStr}, and the set of the model's different tokens make up it's _vocabulary_:${embed(TokenVocab)}
+    {
+        let t_camMove = afterTime(null, 1.0, 0.5);
+        let t_makeVecs = afterTime(null, 2.0, 0.5);
 
-        From this table, each token is assigned a number, it's ${tokenIdxStr}. And now we can enter this sequence of numbers into the model:${embed(ExampleTokenValues)}\n`;
-        breakAfter();
+        moveCameraTo(state, t_camMove, new Vec3(14.1, 0, -30.4), new Vec3(286, 14.5, 0.8));
 
-        let t7 = afterTime(null, 1.5, 0.5);
+        if (t_makeVecs.active) {
+            let idxPos = t_makeVecs.t * 6;
+            let splitWidth = clamp(6 - idxPos, 0, 2);
+            let splitIdx = Math.min(5, Math.floor(idxPos));
+            if (t_makeVecs.t < 1.0) {
+                splitGrid(layout, layout.idxObj, Dim.X, idxPos, splitWidth);
+                for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, splitIdx)) {
+                    if (blk.access) {
+                        blk.access.disable = false;
+                    }
+                }
 
-        if (t7.active) {
-            let opacity = makeArray(6, 0);
-            for (let i = 0; i < 6; i++) {
-                let highT = (i + 1.5) / 8;
-                opacity[i] = clamp((t7.t - highT) * 4, 0, 1);
-            }
-            state.display.tokenIdxModelOpacity = opacity;
-
-            let idxPos = t7.t * 6;
-
-            if (t7.t < 1.0) {
-                splitGrid(layout, layout.idxObj, Dim.X, idxPos, clamp(6 - idxPos, 0, 1));
-                for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, Math.min(5, Math.floor(idxPos)))) {
+                splitGrid(layout, layout.residual0, Dim.X, idxPos, splitWidth);
+                for (let blk of findSubBlocks(layout.residual0, Dim.X, null, splitIdx)) {
                     if (blk.access) {
                         blk.access.disable = false;
                     }
                 }
             } else {
-                if (layout.idxObj.access) {
-                    layout.idxObj.access.disable = false;
+                if (layout.residual0.access) {
+                    layout.residual0.access.disable = false;
                 }
             }
         }
-
-        breakAfter();
-
-        let c5 = commentary(wt)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. ${embed(GreenBlueCells)}
-        Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
-        breakAfter(c5);
-
-        {
-            let t_camMove = afterTime(null, 1.0, 0.5);
-            let t_makeVecs = afterTime(null, 2.0, 0.5);
-
-            moveCameraTo(state, t_camMove, new Vec3(14.1, 0, -30.4), new Vec3(286, 14.5, 0.8));
-
-            if (t_makeVecs.active) {
-                let idxPos = t_makeVecs.t * 6;
-                let splitWidth = clamp(6 - idxPos, 0, 2);
-                let splitIdx = Math.min(5, Math.floor(idxPos));
-                if (t_makeVecs.t < 1.0) {
-                    splitGrid(layout, layout.idxObj, Dim.X, idxPos, splitWidth);
-                    for (let blk of findSubBlocks(layout.idxObj, Dim.X, null, splitIdx)) {
-                        if (blk.access) {
-                            blk.access.disable = false;
-                        }
-                    }
-
-                    splitGrid(layout, layout.residual0, Dim.X, idxPos, splitWidth);
-                    for (let blk of findSubBlocks(layout.residual0, Dim.X, null, splitIdx)) {
-                        if (blk.access) {
-                            blk.access.disable = false;
-                        }
-                    }
-                } else {
-                    if (layout.residual0.access) {
-                        layout.residual0.access.disable = false;
-                    }
-                }
-            }
-        }
-
-        breakAfter();
-        commentary(wt)`The embedding is then passed through the model, going through a series of layers, called transformers, before reaching the bottom.`;
-        breakAfter();
-
-        {
-
-            let t_firstResid = afterTime(null, 1.0, 0.5);
-            moveCameraTo(state, t_firstResid, new Vec3(-22.2, 0, -143.5), new Vec3(292.3, 26.8, 2.4));
-            let t_firstResidWalk = afterTime(null, 5.0, 0.5);
-
-            let processState = processUpTo(state, t_firstResidWalk, layout.blocks[0].attnResidual);
-
-            let t_firstTransformer = afterTime(null, 1.0, 0.5);
-            moveCameraTo(state, t_firstTransformer, new Vec3(-78.7, 0, -274.2), new Vec3(299.4, 14.7, 4.3));
-            let t_firstTransformerWalk = afterTime(null, 3.5, 0.5);
-            processUpTo(state, t_firstTransformerWalk, layout.blocks[0].mlpResidual, processState);
-
-            if (t_firstTransformer.active) {
-                layout.blocks[0].transformerLabel.visible = t_firstTransformer.t;
-            }
-
-            let t_fullFrame = afterTime(null, 1.0, 0.5);
-            moveCameraTo(state, t_fullFrame, new Vec3(-147, 0, -744.1), new Vec3(298.5, 23.4, 12.2));
-            let t_fullFrameWalk = afterTime(null, 5.0, 0.5);
-            processUpTo(state, t_fullFrameWalk, layout.ln_f.lnResid, processState);
-
-
-            // let t_endFrame = afterTime(null, 1.0, 0.5);
-            // moveCameraTo(state, t_endFrame, new Vec3(-18.3, 0, -1576), new Vec3(280.6, 9.7, 1.9));
-            // let t_endFrameWalk = afterTime(null, 2.0, 0.5);
-            // processUpTo(state, t_endFrameWalk, layout.ln_f.lnResid, processState);
-
-            let t_output = afterTime(null, 1.0, 0.5);
-            moveCameraTo(state, t_output, new Vec3(-58.4, 0, -1654.9), new Vec3(271.3, 6.4, 1.1));
-            // moveCameraTo(state, t_output, new Vec3(-53.9, 0, -1654.1), new Vec3(270.9, 6.2, 1.1));
-            let t_outputWalk = afterTime(null, 2.0, 0.5);
-            processUpTo(state, t_outputWalk, layout.logitsSoftmax, processState);
-        }
-
-        commentary(wt)`So what's the output? A prediction of the next token in the sequence. So at the 6th entry, we get probabilities that the next token is
-            going to be 'A', 'B', or 'C'.`
-
-        commentary(wt)`In this case, the model is pretty sure it's going to be 'A'. Now, we can feed this prediction back into the top of the model, and repeat
-        the entire process.`;
-
-        breakAfter();
-        break;
     }
+
+    breakAfter();
+    commentary(wt)`The embedding is then passed through the model, going through a series of layers, called transformers, before reaching the bottom.`;
+    breakAfter();
+
+    {
+
+        let t_firstResid = afterTime(null, 1.0, 0.5);
+        moveCameraTo(state, t_firstResid, new Vec3(-22.2, 0, -143.5), new Vec3(292.3, 26.8, 2.4));
+        let t_firstResidWalk = afterTime(null, 5.0, 0.5);
+
+        let processState = processUpTo(state, t_firstResidWalk, layout.blocks[0].attnResidual);
+
+        let t_firstTransformer = afterTime(null, 1.0, 0.5);
+        moveCameraTo(state, t_firstTransformer, new Vec3(-78.7, 0, -274.2), new Vec3(299.4, 14.7, 4.3));
+        let t_firstTransformerWalk = afterTime(null, 3.5, 0.5);
+        processUpTo(state, t_firstTransformerWalk, layout.blocks[0].mlpResidual, processState);
+
+        if (t_firstTransformer.active) {
+            layout.blocks[0].transformerLabel.visible = t_firstTransformer.t;
+        }
+
+        let t_fullFrame = afterTime(null, 1.0, 0.5);
+        moveCameraTo(state, t_fullFrame, new Vec3(-147, 0, -744.1), new Vec3(298.5, 23.4, 12.2));
+        let t_fullFrameWalk = afterTime(null, 5.0, 0.5);
+        processUpTo(state, t_fullFrameWalk, layout.ln_f.lnResid, processState);
+
+
+        // let t_endFrame = afterTime(null, 1.0, 0.5);
+        // moveCameraTo(state, t_endFrame, new Vec3(-18.3, 0, -1576), new Vec3(280.6, 9.7, 1.9));
+        // let t_endFrameWalk = afterTime(null, 2.0, 0.5);
+        // processUpTo(state, t_endFrameWalk, layout.ln_f.lnResid, processState);
+
+        let t_output = afterTime(null, 1.0, 0.5);
+        moveCameraTo(state, t_output, new Vec3(-58.4, 0, -1654.9), new Vec3(271.3, 6.4, 1.1));
+        // moveCameraTo(state, t_output, new Vec3(-53.9, 0, -1654.1), new Vec3(270.9, 6.2, 1.1));
+        let t_outputWalk = afterTime(null, 2.0, 0.5);
+        processUpTo(state, t_outputWalk, layout.logitsSoftmax, processState);
+    }
+
+    commentary(wt)`So what's the output? A prediction of the next token in the sequence. So at the 6th entry, we get probabilities that the next token is
+        going to be 'A', 'B', or 'C'.`
+
+    commentary(wt)`In this case, the model is pretty sure it's going to be 'A'. Now, we can feed this prediction back into the top of the model, and repeat
+    the entire process.`;
+
+    breakAfter();
 }
 
 interface IProcessInfo {
