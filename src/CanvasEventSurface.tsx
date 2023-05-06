@@ -6,7 +6,9 @@ import { useGlobalDrag, useTouchEvents } from "./utils/pointer";
 import { Vec3 } from "./utils/vector";
 import s from './LayerView.module.scss';
 
-export const CanvasEventSurface: React.FC = () => {
+export const CanvasEventSurface: React.FC<{
+    children?: React.ReactNode;
+}> = ({ children }) => {
     let [eventSurfaceEl, setEventSurfaceEl] = useState<HTMLDivElement | null>(null);
     let progState = useProgramState();
 
@@ -120,6 +122,7 @@ export const CanvasEventSurface: React.FC = () => {
         onWheel={handleWheel}
         onContextMenu={ev => ev.preventDefault()}
         style={{ cursor: dragStart ? 'grabbing' : progState.display.hoverTarget ? 'crosshair' : 'grab' }}
-    
-    />;
+    >
+        {children}
+    </div>;
 }

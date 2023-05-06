@@ -384,6 +384,10 @@ that it can only look in the past.
         head2.attnMtxSm.access!.disable = true;
         head2.attnMtxAgg1.access!.disable = true;
         head2.attnMtxAgg2.access!.disable = true;
+
+        head2.qBlock.opacity = 1.0;
+        head2.kBlock.opacity = 1.0;
+        head2.vBlock.opacity = 1.0;
     }
 
     moveCameraTo(state, t_focusQKVCols, new Vec3(-91.5, 0, -227.9), new Vec3(270.1, -38.4, 0.8));

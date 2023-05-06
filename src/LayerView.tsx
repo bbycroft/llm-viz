@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { IDataAndModel, IModelState, initModel, runModel, setModelInputData } from './GptModel';
+import { IDataAndModel, IModelState, initModel } from './GptModel';
 import s from './LayerView.module.scss';
 import { IRenderState, IRenderView } from './render/modelRender';
 import { fetchFontAtlasData, IFontAtlasData } from './render/fontRender';
@@ -11,6 +11,7 @@ import { CanvasEventSurface } from './CanvasEventSurface';
 import { Vec3 } from './utils/vector';
 import { loadNativeBindings } from './NativeBindings';
 import { constructModel, createGpuModelForWasm } from './GptModelWasm';
+import { MovementAction, MovementControls } from './components/MovementControls';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -35,7 +36,9 @@ export function LayerView() {
             if (!canvasRender?.progState) {
                 return;
             }
+            let key = ev.key.toLowerCase();
             let walkthrough = canvasRender.progState.walkthrough;
+            let mvmt = canvasRender.progState.movement;
             if (ev.key === ' ') {
                 walkthrough.running = !walkthrough.running;
                 canvasRender.markDirty();
@@ -45,9 +48,37 @@ export function LayerView() {
                 walkthrough.time = 0;
                 canvasRender.markDirty();
             }
-            if (ev.key === 'f' || ev.key === 'F') {
-                walkthrough.running = false;
-                walkthrough.time = walkthrough.phaseLength;
+
+            if (ev.key === 'ArrowLeft' || key === 'a') {
+                mvmt.action = MovementAction.Left;
+                canvasRender.markDirty();
+            }
+            if (ev.key === 'ArrowRight' || key === 'd') {
+                mvmt.action = MovementAction.Right;
+                canvasRender.markDirty();
+            }
+            if (ev.key === 'ArrowUp' || key === 'w') {
+                mvmt.action = MovementAction.Up;
+                canvasRender.markDirty();
+            }
+            if (ev.key === 'ArrowDown' || key === 's') {
+                mvmt.action = MovementAction.Down;
+                canvasRender.markDirty();
+            }
+            if (ev.key === 'PageUp' || key === 'q') {
+                mvmt.action = MovementAction.In;
+                canvasRender.markDirty();
+            }
+            if (ev.key === 'PageDown' || key === 'e') {
+                mvmt.action = MovementAction.Out;
+                canvasRender.markDirty();
+            }
+            if (key === 'r') {
+                mvmt.action = MovementAction.Expand;
+                canvasRender.markDirty();
+            }
+            if (key === 'f') {
+                mvmt.action = MovementAction.Focus;
                 canvasRender.markDirty();
             }
 
@@ -131,7 +162,9 @@ export function LayerView() {
             />
             {/* <div className={s.cursorFollow} style={{ top: pointPos.y, left: pointPos.x }} /> */}
             {canvasRender && <ProgramStateContext.Provider value={canvasRender.progState}>
-                <CanvasEventSurface />
+                <CanvasEventSurface>
+                    <MovementControls />
+                </CanvasEventSurface>
             </ProgramStateContext.Provider>}
         </div>
         {!layout.isDesktop && sidebar}
@@ -294,7 +327,7 @@ class CanvasRender {
             let scale = window.devicePixelRatio;
             canvasEl.width = bcr.width * scale;
             canvasEl.height = bcr.height * scale;
-            this.progState.render.size = new Vec3(canvasEl.width, canvasEl.height);
+            this.progState.render.size = new Vec3(bcr.width, bcr.height);
             this.canvasSizeDirty = false;
         }
 
@@ -304,30 +337,3 @@ class CanvasRender {
     }
 
 }
-
-
-/*
-
-For interactivity & exploration:
-
-- Have various components swapped out or added to
-  - Higher res option
-  - Rotated to a camera-aligned view with example numbers etc
-  - Active-thread trails
-  - Symbols (#s, ops, mini-graphs) to show the operation of a layer
-
-- What's the priority here?
-  - trails/arrows showing the flow of data
-  - symbols showing the operation of a layer/block
-  - improved camera controls
-  - thread trails
-  - Splitting up a block into columns
-  - dimension annotations (B, C, T) |------ C (48) ------|
-  - input/output rendering (text to idx mapping; softmax-idxs to text mapping)
-  - highlight of active blocks & threads
-    - fast & slow
-    - blocks below active show empty or faded
-    - highlight of active threads
-    - so it looks effective in large models
-  - actually process the model in a sequence of rounds
-*/

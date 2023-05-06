@@ -18,6 +18,7 @@ import { RenderPhase } from "./render/sharedRender";
 import { drawBlockInfo } from "./components/BlockInfo";
 import { NativeFunctions } from "./NativeBindings";
 import { IWasmGptModel, stepWasmModel, syncWasmDataWithJsAndGpu } from "./GptModelWasm";
+import { IMovementInfo, manageMovement } from "./components/MovementControls";
 
 export interface IProgramState {
     native: NativeFunctions | null;
@@ -32,6 +33,7 @@ export interface IProgramState {
     shape: IModelShape;
     gptGpuModel: IGpuGptModel | null;
     jsGptModel: IGptModelLink | null;
+    movement: IMovementInfo;
     display: IDisplayState;
     markDirty: () => void;
 }
@@ -97,6 +99,13 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         mouse: {
             mousePos: new Vec3(),
         },
+        movement: {
+            action: null,
+            actionHover: null,
+            target: [0, 0],
+            depth: 1,
+            cameraLerp: null,
+         },
         display: {
             tokenColors: null,
             tokenIdxColors: null,
@@ -138,13 +147,14 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     // will modify layout; view; render a few things.
     runWalkthrough(state, view);
 
-    // drawBlockInfo(state);
+    drawBlockInfo(state);
     // these will get modified by the walkthrough (stored where?)
     drawAllArrows(state.render, state.layout);
 
     drawModelCard(state);
     // drawTokens(state.render, state.layout, state.display);
 
+    manageMovement(state, view);
     runMouseHitTesting(state);
     state.render.sharedRender.activePhase = RenderPhase.Opaque;
     drawBlockLabels(state.render, state.layout);
