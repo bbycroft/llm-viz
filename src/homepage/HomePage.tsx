@@ -3,11 +3,13 @@ import { faGithub, faTwitter } from '@fortawesome/free-brands-svg-icons';
 import { faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import s from './HomePage.module.scss';
 
 export const HomePage: React.FC = () => {
     let [emailText, setEmailText] = useState('');
+    let router = useRouter();
 
     function showEmail(ev: React.MouseEvent) {
         let last = 'bycroft';
@@ -18,10 +20,6 @@ export const HomePage: React.FC = () => {
         setEmailText(text => text ? '' : `${first}.${last} ${at} ${domain}`);
         ev.stopPropagation();
         ev.preventDefault();
-    }
-
-    function navToLLMViz() {
-        window.location.href = '/llm-viz';
     }
 
     return <div className={s.homePage}>
@@ -53,7 +51,7 @@ export const HomePage: React.FC = () => {
 
         <div className={s.projectsSection}>
             <div className={s.sectionTitle}>Projects</div>
-            <div className={s.projectCard} onClick={navToLLMViz}>
+            <div className={s.projectCard} onClick={() => router.push('/llm-viz')}>
                 <div className={s.cardImage}>
                     <img src="/images/llm-viz-screenshot2.png" alt="LLM Visualization Screenshot" />
                 </div>
