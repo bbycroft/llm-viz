@@ -7,9 +7,10 @@
         "start": "next start"
     },
     "dependencies": {
-        "@fortawesome/fontawesome-svg-core": "6.3.0",
-        "@fortawesome/free-regular-svg-icons": "6.3.0",
-        "@fortawesome/free-solid-svg-icons": "6.3.0",
+        "@fortawesome/fontawesome-svg-core": "6.4.0",
+        "@fortawesome/free-brands-svg-icons": "6.4.0",
+        "@fortawesome/free-regular-svg-icons": "6.4.0",
+        "@fortawesome/free-solid-svg-icons": "6.4.0",
         "@fortawesome/react-fontawesome": "0.2.0",
         "@vercel/analytics": "0.1.11",
         "clsx": "1.2.1",
@@ -18,9 +19,10 @@
         "react-dom": "18.2.0"
     },
     "devDependencies": {
-        "@types/node": "18.0.3",
+        "@types/node": "20.1.0",
         "@types/react": "18.0.15",
         "@types/react-dom": "18.0.6",
+        "@webgpu/types": "0.1.32",
         "autoprefixer": "^10.4.7",
         "eslint": "8.19.0",
         "eslint-config-next": "latest",

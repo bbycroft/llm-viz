@@ -1,7 +1,5 @@
-'use client';
-
-import { LayerView } from '@/src/LayerView';
+import { HomePage } from '@/src/homepage/HomePage';
 
 export default function Page() {
-    return <LayerView />;
+    return <HomePage />;
 }

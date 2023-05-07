@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import { IDataAndModel, IModelState, initModel } from './GptModel';
 import s from './LayerView.module.scss';
@@ -12,6 +14,7 @@ import { Vec3 } from './utils/vector';
 import { loadNativeBindings } from './NativeBindings';
 import { constructModel, createGpuModelForWasm } from './GptModelWasm';
 import { MovementAction, MovementControls } from './components/MovementControls';
+import { initWebGpu } from './gpu/WebGpuMain';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -239,6 +242,7 @@ class CanvasRender {
             this.progState.native = data.dataAndModel.native;
             this.progState.wasmGptModel = constructModel(data.dataAndModel.model, data.dataAndModel.model.config, data.dataAndModel.native);
             this.progState.jsGptModel = createGpuModelForWasm(this.renderState.gl, data.dataAndModel.model.config);
+            initWebGpu();
             // setModelInputData(this.renderState, this.progState.gptGpuModel, this.random);
             // runModel(this.renderState, this.progState.gptGpuModel);
         }
