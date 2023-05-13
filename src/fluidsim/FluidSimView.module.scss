@@ -1,0 +1,26 @@
+
+.page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    // background-color: #000000;
+    overflow: hidden;
+}
+
+.canvasWrap {
+    position: relative;
+    height: 500px;
+    width: 500px;
+}
+
+.canvas {
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+    overflow: hidden;
+    // make sure pixels show up blocky
+    image-rendering: pixelated;
+}
