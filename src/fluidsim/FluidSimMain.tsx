@@ -3,9 +3,9 @@
 import { PerlinNoise2D } from './PerlinNoise';
 
 export interface IFluidSimState {
-    canvas: HTMLCanvasElement;
+    running: boolean;
     sim: IFluidSim;
-    targetDefs: ICanvasTargetDef[];
+    canvasTemp: HTMLCanvasElement;
 }
 
 export interface ICanvasTargetDef {
@@ -16,6 +16,7 @@ export interface ICanvasTargetDef {
 export interface IFluidSim {
     width: number;
     height: number;
+    numPressureIterations: number;
     cells: Float32Array; // 2d array of floats, with values for (temperature, density, velocityX, velocityY)
 
     cells2: Float32Array;
@@ -29,13 +30,15 @@ export interface IFluidSim {
     cellSize: number;
 
     aggregates: ISimAggregates | null;
+
+    iterCount: number;
 }
 
-export function initFluidSimState(canvas: HTMLCanvasElement): IFluidSimState {
+export function initFluidSimState(): IFluidSimState {
     return {
-        canvas: canvas,
         sim: initFluidSim(64, 64),
-        targetDefs: [],
+        running: false,
+        canvasTemp: document.createElement('canvas'),
     };
 }
 
@@ -49,6 +52,7 @@ export function initFluidSim(w: number, h: number): IFluidSim {
     let sim: IFluidSim = {
         width,
         height,
+        numPressureIterations: 1,
         cells: new Float32Array(width * height * 4),
         cells2: new Float32Array(width * height * 4),
         cells3: new Float32Array(width * height * 4),
@@ -58,6 +62,7 @@ export function initFluidSim(w: number, h: number): IFluidSim {
         divergence1: new Float32Array(width * height),
         cellSize,
         aggregates: null,
+        iterCount: 0,
     };
 
      let scaleX = 4 / width;
@@ -65,6 +70,7 @@ export function initFluidSim(w: number, h: number): IFluidSim {
      let perlin = new PerlinNoise2D(4);
      let perlinVelX = new PerlinNoise2D(7);
      let perlinVelY = new PerlinNoise2D(8);
+     let maxVelX = 0;
      for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             sim.cells[(y * width + x) * 4 + 0] = perlin.octaveNoise((x + 10) * scaleX, (y + 10) * scaleY, 5, 0.8); // temperature
@@ -78,14 +84,17 @@ export function initFluidSim(w: number, h: number): IFluidSim {
             // units: m/s
             // a rectangular region of velocity, in the center of the screen, pointing up and to the right a bit
             if (x > width * 4 / 10 && x < width * 6 / 10 && y > height * 4 / 10 && y < height * 6 / 10) {
-                velX = 1.5 / 100; // 1.5 m/s
-                velY = 1.5 / 100;
+                velX = 4 / 100; // 0.4 cm/s
+                velY = 4 / 100;
+                maxVelX = Math.max(maxVelX, velX);
             }
 
             sim.cells[(y * width + x) * 4 + 2] = velX;
             sim.cells[(y * width + x) * 4 + 3] = velY;
         }
     }
+
+    console.log(`maxVelX: ${maxVelX}, cellSize: ${cellSize}, maxVelX / cellSize: ${maxVelX / cellSize}`);
 
     fixBoundaries(sim);
     computeAggregateValues(sim);
@@ -147,7 +156,9 @@ export function stepFluidSim(sim: IFluidSim, dtMs: number) {
 
     // advection
 
-    if (false) {
+    if (sim.iterCount > 0) {
+        let maxDx = 0;
+        let maxVx = 0;
         for (let y = 0; y < sim.height; y++) {
             for (let x = 0; x < sim.width; x++) {
                 let vX = getCell(sim.cells, y, x, 2);
@@ -156,6 +167,9 @@ export function stepFluidSim(sim: IFluidSim, dtMs: number) {
                 // given velocity, where would we have been at -dtMs?
                 let x0 = x - vX * dt / sim.cellSize;
                 let y0 = y - vY * dt / sim.cellSize;
+
+                maxDx = Math.max(maxDx, Math.abs(x0 - x));
+                maxVx = Math.max(maxVx, Math.abs(vX));
 
                 // get all the state variables at that point
                 let tempSrc = getCellBilinearClamped(sim.cells, y0, x0, 0);
@@ -169,6 +183,8 @@ export function stepFluidSim(sim: IFluidSim, dtMs: number) {
                 setCell(sim.cells2, y, x, 3, velYSrc);
             }
         }
+
+        // console.log(`maxDx: ${maxDx * 1000/20} (cells/s), maxVx: ${maxVx * 100} (cm/s)`);
     } else {
         sim.cells2.set(sim.cells);
     }
@@ -229,8 +245,8 @@ export function stepFluidSim(sim: IFluidSim, dtMs: number) {
     // (we've already got our tentative velocity field in arrFrom, and don't have things like gravity to worry about)
 
     // solve pressure-poisson equation
-    let pressureAlpha = -sim.cellSize * sim.cellSize / (4 * dt);
-    let pressureBeta = 1;
+    // let pressureAlpha = sim.cellSize * sim.cellSize;
+    // let pressureBeta = 1;
 
     let pressureFrom = sim.pressure0;
     let pressureTo = sim.pressure1;
@@ -276,7 +292,7 @@ export function stepFluidSim(sim: IFluidSim, dtMs: number) {
                 let pressureRight = getCell0Clamped(pressureFrom, y, x + 1);
 
                 let pressureLaplace = pressureLeft + pressureRight + pressureUp + pressureDown;
-                let pressureDst = (divergence + pressureAlpha * pressureLaplace) / pressureBeta;
+                let pressureDst = (pressureLaplace - divergence * sim.cellSize * sim.cellSize) / 4;
                 setCell0(pressureTo, y, x, pressureDst);
             }
         }
@@ -304,9 +320,12 @@ export function stepFluidSim(sim: IFluidSim, dtMs: number) {
         pressureFrom.fill(0);
 
         calcDivergence(arrFrom, sim.divergence0);
+        sim.divergence1.set(sim.divergence0);
+
+        let pressureIterCount = sim.iterCount === 0 ? 1024 : 200;
 
         // iteratively calculate the pressure field
-        for (let iter = 0; iter < 1000; iter++) {
+        for (let iter = 0; iter < pressureIterCount; iter++) {
             calcPressureField(sim.divergence0, pressureFrom, pressureTo);
 
             // swap arrays
@@ -315,15 +334,18 @@ export function stepFluidSim(sim: IFluidSim, dtMs: number) {
             pressureTo = tmp;
 
             // check for convergence
-            calcDivergenceFreeVelocityField(arrFrom, arrTo, pressureFrom);
-            calcDivergence(arrTo, sim.divergence1);
-            logDivergenceStats(sim.divergence1);
+            // logDivergenceStats(sim.divergence1);
         }
+        calcDivergenceFreeVelocityField(arrFrom, arrTo, pressureFrom);
+        calcDivergence(arrTo, sim.divergence1);
 
         // now we have the pressure field in pressureFrom
         // use it to calculate the final velocity field, which will be stored in arrFrom (which currently contains the tentative velocity field)
         calcDivergenceFreeVelocityField(arrFrom, arrFrom, pressureFrom);
     }
+
+    sim.pressure0 = pressureFrom;
+    sim.pressure1 = pressureTo;
 
     // woo, now we have the complete set of state variables for the next frame in arrFrom
     // so shuffle them around, ensuring arrFrom is stored to the main array (the others are just temporary)
@@ -333,6 +355,8 @@ export function stepFluidSim(sim: IFluidSim, dtMs: number) {
 
     fixBoundaries(sim);
     computeAggregateValues(sim);
+
+    sim.iterCount += 1;
 
     console.log("step took " + (performance.now() - startTime) + "ms");
 }
@@ -399,7 +423,7 @@ function computeAggregateValues(sim: IFluidSim): ISimAggregates {
 
     sim.aggregates = aggs;
 
-    console.log(`aggregates: mass=${aggs.totalMass.toFixed(2)}, p_x=${aggs.totalMomentumX.toFixed(2)}, p_y=${aggs.totalMomentumY.toFixed(2)}, E_k=${aggs.totalKineticEnergy.toFixed(2)}, T=${aggs.averageTemperature.toFixed(2)}`);
+    // console.log(`aggregates: mass=${aggs.totalMass.toFixed(2)}, p_x=${aggs.totalMomentumX.toFixed(2)}, p_y=${aggs.totalMomentumY.toFixed(2)}, E_k=${aggs.totalKineticEnergy.toFixed(2)}, T=${aggs.averageTemperature.toFixed(2)}`);
 
     return aggs;
 }
