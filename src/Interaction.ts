@@ -1,4 +1,4 @@
-import { blockDimension, dimProps, findSubBlocks, splitGrid } from "./Annotations";
+import { blockDimension, dimProps, findSubBlocks, splitGrid, splitGridForHighlight } from "./Annotations";
 import { drawDataFlow } from "./components/DataFlow";
 import { IBlkCellDep, IBlkDef } from "./GptModelLayout";
 import { IProgramState } from "./Program";
@@ -186,7 +186,7 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
                 dotLen = dotLen ?? srcIdx.getAt(dotDim);
             }
 
-            let sub = splitGrid(layout, dep.src, dotDim, srcIdx.getAt(dotDim), 0);
+            let sub = splitGridForHighlight(layout, dep.src, dotDim, srcIdx.getAt(dotDim));
 
             if (sub && isNotNil(dotLen)) {
                 // only highlight up to dotLen
@@ -199,19 +199,23 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
                 if (sub) sub.highlight = 0.5;
             }
         } else {
-            let sub = splitGrid(layout, dep.src, Dim.X, srcIdx.x, 0);
+            let sub = splitGridForHighlight(layout, dep.src, Dim.X, srcIdx.x);
             if (!sub) return;
-            sub = splitGrid(layout, sub, Dim.Y, srcIdx.y, 0);
+            sub = splitGridForHighlight(layout, sub, Dim.Y, srcIdx.y);
             if (!sub) return;
-            sub = splitGrid(layout, sub, Dim.Z, srcIdx.z, 0);
+            sub = splitGridForHighlight(layout, sub, Dim.Z, srcIdx.z);
             if (sub) sub.highlight = 0.5;
         }
     }
 
     if (deps.dot) {
         let dotLen = getDepDotLen(blk, idx);
+        // let i = 0;
         for (let dep of deps.dot) {
-            drawDep(dep, idx, dotLen);
+            // if (i > 0) {
+                drawDep(dep, idx, dotLen);
+            // }
+            // i++;
         }
     }
     if (deps.add) {

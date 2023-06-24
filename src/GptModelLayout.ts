@@ -33,7 +33,19 @@ export interface IBlkDef {
     rangeOffsetsZ?: [number, number][];
     highlight: number; // 0 - 1 (0 = no highlight, 1 = full highlight)
     opacity: number; // 0 - 1 (0 = transparent, 1 = opaque)
+    special: BlkSpecial;
     subs?: IBlkDef[]; // substitutes for this block (i.e. render these instead)
+    offX?: number; // offset from the original block
+    offY?: number;
+    offZ?: number;
+    sizeX?: number; // size of the sub block
+    sizeY?: number;
+    sizeZ?: number;
+}
+
+export enum BlkSpecial {
+    None,
+    Attention,
 }
 
 // define how a cell is computed from other blocks
@@ -140,6 +152,7 @@ interface IBlkDefArgs {
     cy: number;
     dimX: DimStyle;
     dimY: DimStyle;
+    special?: BlkSpecial;
     access?: IBlkAccessDefArgs;
     deps?: IBlkDepArgs;
 }
@@ -207,13 +220,13 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
         }
 
         return {
+            dx: args.cx * cell,
+            dy: args.cy * cell,
+            dz: args.cz * cell,
             t: args.t,
             x: x,
             y: args.y,
             z: z,
-            dx: args.cx * cell,
-            dy: args.cy * cell,
-            dz: args.cz * cell,
             cx: args.cx,
             cy: args.cy,
             cz: args.cz,
@@ -229,6 +242,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             deps: args.deps ? depArgsToDeps(args.deps) : undefined,
             opacity: 1.0,
             highlight: 0.0,
+            special: args.special ?? BlkSpecial.None,
         };
     }
 
@@ -445,6 +459,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
                 access: { src: attnTarget?.attnMatrix, x: [1, 0, 0], y: [0, 1, nHeads * T, T * i], scale: 1.0 },
                 deps: { dot: [[qBlock, 'yi'], [kBlock, 'xi']], lowerTri: true, dotLen: A, special: BlKDepSpecial.Attention },
                 dimX: DimStyle.T, dimY: DimStyle.T,
+                special: BlkSpecial.Attention,
                 name: 'Attention Matrix',
             });
 
@@ -472,6 +487,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
                 access: { src: attnTarget?.attnMatrixSoftmax, x: [1, 0, 0], y: [0, 1, nHeads * T, T * i], scale: 2.0 },
                 deps: { add: [[attnMtx, 'xy'], [attnMtxAgg1, 'iy'], [attnMtxAgg2, 'iy']], lowerTri: true, special: BlKDepSpecial.Softmax },
                 dimX: DimStyle.T, dimY: DimStyle.T,
+                special: BlkSpecial.Attention,
                 name: 'Attn Matrix Softmax',
             });
 

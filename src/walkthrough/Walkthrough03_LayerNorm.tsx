@@ -51,12 +51,12 @@ we find both of these quantities for the column and then subtract the average an
     breakAfter();
     commentary(wt)`
 The notation we use here is E[x] for the average and Var[x] for the variance (of the column). The
-variance is simply the standard deviation squared. The epsilon term (1e-5) is there to prevent division by zero.
+variance is simply the standard deviation squared. The epsilon term (ε = 1e-5) is there to prevent division by zero.
 
 We compute and store these two values in our aggregation layer since we're applying them to all values in the column.
 
 Finally, once we have the normalized values, we multiply each element in the column by a learned
-weight (&gamma;) and then add a bias (&beta;) value.`;
+weight (γ) and then add a bias (β) value.`;
 
     breakAfter();
 

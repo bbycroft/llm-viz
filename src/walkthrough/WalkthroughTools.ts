@@ -257,11 +257,19 @@ export interface ITimeInfo {
 export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3, rot: Vec3) {
 
     let wt = state.walkthrough;
-    let prevTime = [...wt.cameraData.entries()].filter(([t, _]) => t < time.start).pop()?.[1];
+    let phaseData = wt.phaseData.get(wt.phase);
+    if (!phaseData) {
+        wt.phaseData.set(wt.phase, phaseData = { cameraData: null });
+    }
+    if (!phaseData.cameraData) {
+        phaseData.cameraData = new Map<number, ICameraPos>();
+    }
 
-    let camData = wt.cameraData.get(time.start);
+    let prevTime = [...phaseData.cameraData.entries()].filter(([t, _]) => t < time.start).pop()?.[1];
+
+    let camData = phaseData.cameraData.get(time.start);
     if (!camData) {
-         wt.cameraData.set(time.start, camData = {
+         phaseData.cameraData.set(time.start, camData = {
             initialCaptured: prevTime ? undefined : {
                 angle: state.camera.angle,
                 center: state.camera.center,
@@ -278,14 +286,14 @@ export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3
     // if we don't get to the start via running (e.g. clicking on a link), we use the camera position
     // of the last moveCameraTo call (so need to keep track of that!)
 
-    if (wt.running && wt.time - wt.dt < time.start && wt.time >= time.start) {
-        camData.initialCaptured = {
-            angle: state.camera.angle,
-            center: state.camera.center,
-        };
-    }
+    // if (wt.running && wt.time - wt.dt < time.start && wt.time >= time.start && !prevTime && !camData.initialCaptured) {
+    //     camData.initialCaptured = {
+    //         angle: state.camera.angle,
+    //         center: state.camera.center,
+    //     };
+    // }
 
-    let src = camData.initialCaptured ?? prevTime?.target;
+    let src = prevTime?.target ?? camData.initialCaptured;
 
     let dest: ICameraPos = {
         center: target,

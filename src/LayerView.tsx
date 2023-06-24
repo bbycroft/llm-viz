@@ -16,6 +16,7 @@ import { constructModel, createGpuModelForWasm } from './GptModelWasm';
 import { MovementAction, MovementControls } from './components/MovementControls';
 import { initWebGpu } from './gpu/WebGpuMain';
 import { useScreenLayout } from './utils/layout';
+import { jumpPhase } from './Commentary';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -41,15 +42,20 @@ export function LayerView() {
                 return;
             }
             let key = ev.key.toLowerCase();
-            let walkthrough = canvasRender.progState.walkthrough;
+            let wt = canvasRender.progState.walkthrough;
             let mvmt = canvasRender.progState.movement;
             if (ev.key === ' ') {
-                walkthrough.running = !walkthrough.running;
+                if (wt.time >= wt.phaseLength) {
+                    jumpPhase(wt, 1);
+                    wt.time = 0;
+                } else {
+                    wt.running = !wt.running;
+                }
                 canvasRender.markDirty();
             }
             if (ev.key === 'Backspace' || ev.key === 'Delete') {
-                walkthrough.running = false;
-                walkthrough.time = 0;
+                wt.running = false;
+                wt.time = 0;
                 canvasRender.markDirty();
             }
 

@@ -77,7 +77,6 @@ export function initWalkthrough() {
         phaseLength: 0,
         markDirty: () => { }, // bit of a hack to get it to WalkthroughSidebar
         phaseData: new Map<Phase, any>(),
-        cameraData: new Map<number, ICameraData>(),
         phaseList: [{
             groupId: PhaseGroup.Intro,
             title: 'Introduction',
@@ -97,10 +96,6 @@ export function initWalkthrough() {
                 { id: Phase.Input_Detail_Mlp, title: 'MLP' },
                 { id: Phase.Input_Detail_Transformer, title: 'Transformer' },
                 { id: Phase.Input_Detail_Output, title: 'Output' },
-                // { id: Phase.Input_First, title: 'The First' },
-                // { id: Phase.Input_Detail_Tables, title: 'Embedding Tables' },
-                // { id: Phase.Input_Detail_TokEmbed, title: 'Embedding Action' },
-                { id: Phase.LayerNorm1, title: 'First Layer Norm' },
             ],
         }] as IPhaseGroup[],
     };
@@ -400,137 +395,6 @@ export function walkthroughDetailed(args: IWalkthroughArgs) {
         }
 
         // fallthrough to continue once the commentary is done
-    } break;
-
-    case Phase.LayerNorm1: {
-
-        let t0_dissolveHeads = atTime(0, 1.0, 0.5);
-        let t2_alignqkv = afterTime(t0_dissolveHeads, 1.0, 0.5);
-        let t3_v_mm = afterTime(t2_alignqkv, 4);
-
-        let targetHeadIdx = 2;
-        let targetHead = layout.blocks[0].heads[targetHeadIdx];
-
-        let block = layout.blocks[0];
-        {
-            for (let headIdx = 0; headIdx < block.heads.length; headIdx++) {
-                if (headIdx == targetHeadIdx) {
-                    continue;
-                }
-                for (let cube of block.heads[headIdx].cubes) {
-                    cube.opacity = lerpSmoothstep(1.0, 0.0, t0_dissolveHeads.t);
-                }
-            }
-        }
-
-        {
-            let headZ = targetHead.attnMtx.z;
-            let targetHeadZ = block.ln1.lnResid.z;
-            let deltaZ = lerpSmoothstep(0, (targetHeadZ - headZ), t2_alignqkv.t);
-            for (let cube of targetHead.cubes) {
-                cube.z += deltaZ;
-            }
-        }
-
-        {
-            let qkv = [
-                [targetHead.qBlock, targetHead.qWeightBlock, targetHead.qBiasBlock],
-                [targetHead.kBlock, targetHead.kWeightBlock, targetHead.kBiasBlock],
-                [targetHead.vBlock, targetHead.vWeightBlock, targetHead.vBiasBlock],
-            ];
-            let targetZ = block.ln1.lnResid.z;
-            let strideY = targetHead.qBlock.dy + layout.margin;
-            let baseY = targetHead.qBlock.y;
-            let qkvYPos = [-strideY * 2, -strideY, 0];
-
-            for (let i = 0; i < 3; i++) {
-                let y = lerpSmoothstep(qkv[i][0].y, baseY + qkvYPos[i], t2_alignqkv.t);
-                let z = lerpSmoothstep(qkv[i][0].z, targetZ, t2_alignqkv.t);
-                for (let cube of qkv[i]) {
-                    cube.y = y;
-                    cube.z = z;
-                }
-            }
-
-            let blockMidY = (blk: IBlkDef) => blk.y + blk.dy / 2;
-
-            let resid0Idx = layout.cubes.indexOf(block.ln1.lnResid);
-            let yDelta = lerpSmoothstep(0, blockMidY(block.ln1.lnResid) - blockMidY(targetHead.kBlock), t2_alignqkv.t);
-
-            for (let i = 0; i < resid0Idx; i++) {
-                let targetOpacity = 0.2;
-                layout.cubes[i].opacity = lerpSmoothstep(1.0, targetOpacity, t2_alignqkv.t);
-            }
-
-            let afterAttn = false;
-            for (let i = resid0Idx + 1; i < layout.cubes.length; i++) {
-                let cube = layout.cubes[i];
-                cube.y += yDelta;
-                if (afterAttn) {
-                    cube.opacity = Math.min(lerpSmoothstep(1.0, 0.2, t2_alignqkv.t), cube.opacity ?? 1.0);
-                }
-                afterAttn = afterAttn || cube === targetHead.vOutBlock;
-            }
-        }
-
-        if (t3_v_mm.active) {
-            let target = targetHead.vBlock;
-            let xPos = t3_v_mm.t * target.cx;
-            let xIdx = Math.floor(xPos);
-            let yPos = (xPos - xIdx) * target.cy;
-            let yIdx = Math.floor(yPos);
-
-            let deps = target.deps;
-            if (deps) {
-
-                if (deps.dot) {
-                    let srcA = deps.dot[0].src;
-                    let srcB = deps.dot[1].src;
-                    // need to figure out what i stands for
-                    let dotLength = deps.dotLen!;
-
-                    // let zPos = (yPos - yIdx) * dotLength;
-                    // let zIdx = Math.floor(zPos);
-
-                    let srcIdx0Mat = deps.dot[0].srcIdxMtx;
-                    let srcIdx1Mat = deps.dot[1].srcIdxMtx;
-
-                    let dotDim0 = srcIdx0Mat.g(0, 3) === 1 ? Dim.Y : Dim.X;
-                    let dotDim1 = srcIdx1Mat.g(0, 3) === 1 ? Dim.Y : Dim.X;
-
-                    let srcIdxA = deps.dot[0].srcIdxMtx.mulVec4(new Vec4(xIdx, yIdx, 0, 0));
-                    let srcIdxB = deps.dot[1].srcIdxMtx.mulVec4(new Vec4(xIdx, yIdx, 0, 0));
-
-                    let split = 0.0;
-
-                    let srcADotDimIdx = srcIdxA.getIdx(dotDim0);
-                    splitGrid(layout, srcA, dotDim0, srcADotDimIdx, 0);
-                    let sub0 = findSubBlocks(srcA, dotDim0, srcADotDimIdx, srcADotDimIdx)[0];
-                    if (sub0) sub0.highlight = 0.3;
-
-                    let srcBDotDimIdx = srcIdxB.getIdx(dotDim1);
-                    splitGrid(layout, srcB, dotDim1, srcBDotDimIdx, split);
-                    let sub1 = findSubBlocks(srcB, dotDim1, srcBDotDimIdx, srcBDotDimIdx)[0];
-                    if (sub1) sub1.highlight = 0.3;
-
-                    // addSourceDestCurveLine(state, layout, srcA, target, new Vec3(srcIdxA.x, srcIdxA.y), new Vec3(xIdx, yIdx, 0), new Vec4(1,0,0,1).mul(0.3));
-                    // addSourceDestCurveLine(state, layout, srcB, target, new Vec3(srcIdxB.x, srcIdxB.y), new Vec3(xIdx, yIdx, 0), new Vec4(1,0,0,1).mul(0.3));
-
-                    splitGrid(layout, target, Dim.X, xPos, split);
-                    let sub2 = findSubBlocks(target, Dim.X, xIdx, xIdx)[0];
-                    if (sub2) {
-                        sub2.highlight = 0.3;
-                        splitGrid(layout, sub2, Dim.Y, yPos, 0);
-                        let sub3 = findSubBlocks(sub2, Dim.Y, yIdx, yIdx)[0];
-                        if (sub3) { sub3.highlight = 0.7; }
-
-                    }
-                }
-
-            }
-        }
-
-
     } break;
 
     }

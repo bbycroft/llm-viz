@@ -1,4 +1,4 @@
-import React, { ReactNode, useLayoutEffect, useMemo, useState } from 'react';
+import React, { ReactNode, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import s from './Commentary.module.scss';
 import { PhaseTimelineHoriz } from './PhaseTimeline';
 import { useProgramState } from './Sidebar';
@@ -196,6 +196,13 @@ export const Commentary: React.FC = () => {
 
     let group = phaseToGroup(wt);
     let phase = group?.phases.find(p => p.id === wt.phase)!;
+
+    // scroll to current position whenever it changes (rangeInfo.start)
+    useEffect(() => {
+        if (parasEl) {
+            parasEl.parentElement!.scrollTo({ top: rangeInfo.start, behavior: 'smooth' });
+        }
+    }, [rangeInfo.start, rangeInfo.end, currPos, parasEl]);
 
     return <>
         <div className={s.walkthroughText} tabIndex={0} onKeyDownCapture={handleKeyDown}>

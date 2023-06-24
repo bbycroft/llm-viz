@@ -46,7 +46,7 @@ ${embedInline(<ul>
 </ul>)}
 
 To produce one of these vectors, we perform a matrix-vector multiplication with a bias added. Each
-output cell is some linear combination of the input vector. This is done with a dot product between
+output cell is some linear combination of the input vector. For the Q vectors, this is done with a dot product between
 a row of the Q-weight matrix and the input column vector.`;
     breakAfter();
 
@@ -325,10 +325,10 @@ that it can only look in the past.
                 let qBiasCell = findSubBlocks(head2.qBiasBlock, Dim.Y, A - 1, null)[0];
 
                 let qBiasInitial = getBlkDimensions(qBiasCell);
-                let qBiasPos = qBiasInitial.tl.lerp(biasTarget, inverseLerp(0, 0.5, t_addBias.t));
+                let qBiasPos = qBiasInitial.tl.lerp(biasTarget, inverseLerp(0, 0.4, t_addBias.t));
                 setBlkPosition(qBiasCell, qBiasPos);
 
-                let moveTogetherT = inverseLerp(0.5, 1.0, t_addBias.t);
+                let moveTogetherT = inverseLerp(0.6, 1.0, t_addBias.t);
                 qBiasInitial = getBlkDimensions(qBiasCell);
                 qBiasPos = qBiasInitial.tl.lerp(addTarget, moveTogetherT);
                 setBlkPosition(qBiasCell, qBiasPos);

@@ -8,6 +8,7 @@ import { Dim, Vec3, Vec4 } from "./utils/vector";
 import { DimStyle, dimStyleColor, dimStyleText } from "./walkthrough/WalkthroughTools";
 import { IProgramState } from "./Program";
 import { camScaleToScreen } from "./Camera";
+import { isNil } from "./utils/data";
 
 export function blockDimension(state: IProgramState, layout: IModelLayout, blk: IBlkDef, dim: Dim, style: DimStyle, t: number) {
     let render = state.render;
@@ -112,12 +113,13 @@ interface IDimConst {
     xName: string;
     dxName: string;
     cxName: string;
+    offXName: string;
+    sizeXName: string;
 }
 
-let dimConstX: IDimConst = { vecId: 0, xName: 'x', dxName: 'dx', cxName: 'cx' };
-let dimConstY: IDimConst = { vecId: 1, xName: 'y', dxName: 'dy', cxName: 'cy' };
-let dimConstZ: IDimConst = { vecId: 2, xName: 'z', dxName: 'dz', cxName: 'cz' };
-
+let dimConstX: IDimConst = { vecId: 0, xName: 'x', dxName: 'dx', cxName: 'cx', offXName: 'offX', sizeXName: 'sizeX' };
+let dimConstY: IDimConst = { vecId: 1, xName: 'y', dxName: 'dy', cxName: 'cy', offXName: 'offY', sizeXName: 'sizeY' };
+let dimConstZ: IDimConst = { vecId: 2, xName: 'z', dxName: 'dz', cxName: 'cz', offXName: 'offZ', sizeXName: 'sizeZ' };
 
 export function dimConsts(dim: Dim) {
     return dim === Dim.X ? dimConstX : dim === Dim.Y ? dimConstY : dimConstZ;
@@ -125,9 +127,9 @@ export function dimConsts(dim: Dim) {
 
 export function dimProps(blk: IBlkDef, dim: Dim) {
     switch (dim) {
-        case Dim.X: return { x: blk.x, cx: blk.cx, dx: blk.dx, rangeOffsets: blk.rangeOffsetsX };
-        case Dim.Y: return { x: blk.y, cx: blk.cy, dx: blk.dy, rangeOffsets: blk.rangeOffsetsY };
-        case Dim.Z: return { x: blk.z, cx: blk.cz, dx: blk.dz, rangeOffsets: blk.rangeOffsetsZ };
+        case Dim.X: return { x: blk.x, cx: blk.cx, dx: blk.dx, rangeOffsets: blk.rangeOffsetsX, offX: blk.offX ?? 0, sizeX: blk.sizeX ?? blk.cx };
+        case Dim.Y: return { x: blk.y, cx: blk.cy, dx: blk.dy, rangeOffsets: blk.rangeOffsetsY, offX: blk.offY ?? 0, sizeX: blk.sizeY ?? blk.cy };
+        case Dim.Z: return { x: blk.z, cx: blk.cz, dx: blk.dz, rangeOffsets: blk.rangeOffsetsZ, offX: blk.offZ ?? 0, sizeX: blk.sizeZ ?? blk.cz };
     }
 }
 
@@ -136,6 +138,26 @@ export function duplicateGrid(layout: IModelLayout, blk: IBlkDef): IBlkDef {
     newBlk.name = '';
     layout.cubes.push(newBlk);
     return newBlk;
+}
+
+export function splitGridForHighlight(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: number) {
+    let { x, cx, rangeOffsets } = dimProps(blk, dim);
+
+    if (cx <= 1) {
+        return blk;
+    }
+
+    // if there exists some rangeOffsets in our dim, then we iter over the sub-blocks, and split them
+    if (rangeOffsets && blk.subs) {
+        for (let s of blk.subs) {
+            let res = splitGrid(layout, s, dim, xSplit, 0);
+            if (res) {
+                return res;
+            }
+        }
+    }
+
+    return splitGrid(layout, blk, dim, xSplit, 0);
 }
 
 export function splitGrid(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: number, splitAmt: number) {
@@ -152,26 +174,23 @@ export function splitGrid(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: 
     // have max seperation, and effectively join left & right with their main
     // For non 0.5 zSplits, will show 2 gaps
 
-    let { x, cx } = dimProps(blk, dim);
-    let { vecId, xName, dxName } = dimConsts(dim);
+    let { offX, sizeX } = dimProps(blk, dim);
 
-    if (cx <= 1) {
-        return blk;
-    }
+    // if (cxSub <= 1 && ) {
+    //     return blk;
+    // }
 
     let blocks: IBlkDef[] = [];
     let rangeOffsets: [number, number][] = [];
 
-    let xc = Math.floor(xSplit);
-    if (xc < 0 || xc >= cx) {
+    let colX = Math.floor(xSplit) - offX;
+    if (colX < 0 || colX >= sizeX) {
         return null;
     }
 
-    let scale = 0.5;
-    let fract = (xSplit - xc - 0.5) * scale + 0.5;
-
-    // let offset = smoothstepAlt(-w2, 0, xSplit / blk.cx);
-    let offset = lerpSmoothstep(-splitAmt, 0, (xSplit - 0.5) * scale + 0.5);
+    if (sizeX <= 1) {
+        return blk;
+    }
 
     function addSubBlockLocal(iStart: number, iEnd: number, xOffset: number) {
         let res = addSubBlock(layout, blk, dim, iStart, iEnd, xOffset);
@@ -184,26 +203,31 @@ export function splitGrid(layout: IModelLayout, blk: IBlkDef, dim: Dim, xSplit: 
 
     let midBlock: IBlkDef | null;
     if (splitAmt === 0) {
-        addSubBlockLocal(0, xc, 0.0);
-        midBlock = addSubBlockLocal(xc, xc + 1, 0.0);
-        addSubBlockLocal(xc + 1, cx, 0.0);
+        addSubBlockLocal(0, colX, 0.0);
+        midBlock = addSubBlockLocal(colX, colX + 1, 0.0);
+        addSubBlockLocal(colX + 1, sizeX, 0.0);
+
     } else {
+        let scale = 0.5;
+        let fract = (xSplit - colX - 0.5) * scale + 0.5;
+
         let addMidBlockBefore = fract + scale < 1.0;
         let addMidBlockAfter = fract - scale > 0.0;
+        let offset = lerpSmoothstep(-splitAmt, 0, (xSplit - 0.5) * scale + 0.5);
 
-        addSubBlockLocal(0     , xc - (addMidBlockBefore ? 1 : 0), offset + 0.0);
+        addSubBlockLocal(0     , colX - (addMidBlockBefore ? 1 : 0), offset + 0.0);
 
         if (addMidBlockBefore) {
-            addSubBlockLocal(xc - 1, xc    , offset + lerpSmoothstep(splitAmt, 0, fract + scale));
+            addSubBlockLocal(colX - 1, colX    , offset + lerpSmoothstep(splitAmt, 0, fract + scale));
         }
 
-        midBlock = addSubBlockLocal(xc    , xc + 1, offset + lerpSmoothstep(splitAmt, 0, fract));
+        midBlock = addSubBlockLocal(colX    , colX + 1, offset + lerpSmoothstep(splitAmt, 0, fract));
 
         if (addMidBlockAfter) {
-            addSubBlockLocal(xc + 1, xc + 2, offset + lerpSmoothstep(splitAmt, 0, fract - scale));
+            addSubBlockLocal(colX + 1, colX + 2, offset + lerpSmoothstep(splitAmt, 0, fract - scale));
         }
 
-        addSubBlockLocal(xc + (addMidBlockAfter ? 2 : 1), cx, offset + splitAmt);
+        addSubBlockLocal(colX + (addMidBlockAfter ? 2 : 1), sizeX, offset + splitAmt);
     }
 
     if (blocks.length > 0) {
@@ -224,24 +248,26 @@ interface ISubBlockInfo {
 }
 
 function addSubBlock(layout: IModelLayout, blk: IBlkDef, dim: Dim, iStart: number, iEnd: number, xOffset: number): ISubBlockInfo | null {
-    let { x, cx, dx } = dimProps(blk, dim);
-    let cellCount = dx / layout.cell;
-    let { vecId, xName, dxName } = dimConsts(dim);
+    let { x, cx, sizeX, offX } = dimProps(blk, dim);
+    let { vecId, xName, dxName, offXName, sizeXName } = dimConsts(dim);
 
-    if (iStart >= iEnd || iEnd <= 0 || iStart >= cellCount) {
+    if (iStart >= iEnd || iEnd <= 0 || iStart >= sizeX) {
         return null;
     }
 
-    let scale = (iEnd - iStart) / cellCount;
-    let translate = iStart / cellCount;
+    let scale = (iEnd - iStart) / sizeX;
+    let translate = iStart / sizeX;
 
     let mtx = Mat4f.fromScaleTranslation(new Vec3(1,1,1).setAt(vecId, scale), new Vec3().setAt(vecId, translate));
 
     let subBlock: IBlkDef = { ...blk,
+        [dxName]: (iEnd - iStart) * layout.cell,
+        // [cxName]: iEnd - iStart,
         access: blk.access && { ...blk.access },
         localMtx: (blk.localMtx ?? new Mat4f()).mul(mtx),
         [xName]: x + (iStart * layout.cell + xOffset),
-        [dxName]: (iEnd - iStart) * layout.cell,
+        [offXName]: iStart + offX,
+        [sizeXName]: iEnd - iStart,
     };
     return { subBlock, rangeOffset: [iEnd, xOffset] };
 }
@@ -386,7 +412,10 @@ export function findSubBlocks(blk: IBlkDef, dim: Dim, idxLow: number | null, idx
     let subBlocks: IBlkDef[] = [];
     let startIdx = 0;
     for (let i = 0; i < blk.subs.length; i += 1) {
-        let endIdx = offsets![i][0];
+        let endIdx = offsets?.[i]?.[0];
+        if (isNil(endIdx)) {
+            break;
+        }
         if ((idxLow === null || idxLow < endIdx) && (idxHi === null || idxHi >= startIdx)) {
             subBlocks.push(blk.subs[i]);
         }

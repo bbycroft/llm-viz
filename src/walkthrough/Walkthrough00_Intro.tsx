@@ -5,9 +5,9 @@ import { Dim, Vec3, Vec4 } from "../utils/vector";
 import { clamp, makeArray } from "../utils/data";
 import React, { useState } from "react";
 import { useProgramState } from "../Sidebar";
-import { findSubBlocks, splitGrid } from "../Annotations";
+import { dimProps, findSubBlocks, splitGrid } from "../Annotations";
 import { useGlobalDrag } from "../utils/pointer";
-import { IBlkDef } from "../GptModelLayout";
+import { BlkSpecial, IBlkDef } from "../GptModelLayout";
 import { IProgramState } from "../Program";
 import { lerp } from "../utils/math";
 import { drawDependences } from "../Interaction";
@@ -246,14 +246,25 @@ export function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkD
 
     let blk = activeBlocks[currIdx];
 
-    let horizPos = lerp(0, blk.cx, subPos);
+    // default, but switched for attention matrix
+    let dim0 = Dim.X;
+    let dim1 = Dim.Y;
+    if (blk.special === BlkSpecial.Attention) {
+        dim0 = Dim.Y;
+        dim1 = Dim.X;
+    }
+
+    let { cx } = dimProps(blk, dim0);
+    let { cx: cy } = dimProps(blk, dim1);
+
+    let horizPos = lerp(0, cx, subPos);
     let horizIdx = Math.floor(horizPos);
 
-    let vertPos = lerp(0, blk.cy, horizPos - horizIdx);
+    let vertPos = lerp(0, cy, horizPos - horizIdx);
     let vertIdx = Math.floor(vertPos);
 
-    let blockPos = new Vec3(horizIdx, vertIdx, 0);
-    let pinPos = new Vec3(Math.floor(blk.cx / 2), 0, 0);
+    let blockPos = new Vec3().withSetAt(dim0, horizIdx).withSetAt(dim1, vertIdx); // new Vec3(horizIdx, vertIdx, 0);
+    let pinPos = new Vec3(Math.floor(cx / 2), 0, 0);
 
     if (timer.t >= 1.0) {
         currIdx = lastIdx;
@@ -280,9 +291,9 @@ export function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkD
 
         blk.highlight = 0.3;
 
-        let column = splitGrid(state.layout, blk, Dim.X, horizPos, 0);
+        let column = splitGrid(state.layout, blk, dim0, horizPos, 0);
         if (column) {
-            for (let col of findSubBlocks(blk, Dim.X, null, horizIdx)) {
+            for (let col of findSubBlocks(blk, dim0, null, horizIdx)) {
                 if (col.access) {
                     col.access.disable = false;
                     col.highlight = 0.1;
@@ -290,8 +301,8 @@ export function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkD
             }
             column.highlight = 0.4;
 
-            let curr = splitGrid(state.layout, column, Dim.Y, vertPos, 0);
-            for (let blk of findSubBlocks(column, Dim.Y, null, vertIdx)) {
+            let curr = splitGrid(state.layout, column, dim1, vertPos, 0);
+            for (let blk of findSubBlocks(column, dim1, null, vertIdx)) {
                 if (blk.access) {
                     blk.access.disable = false;
                 }

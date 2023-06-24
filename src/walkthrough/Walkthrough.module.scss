@@ -134,3 +134,11 @@
     background-color: #999;
     z-index: -1;
 }
+
+.externalLink {
+    color: rgb(89, 89, 211);
+    text-decoration: none;
+    &:hover {
+        text-decoration: underline;
+    }
+}
