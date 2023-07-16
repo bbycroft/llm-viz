@@ -30,12 +30,21 @@ export interface IProgramState {
     camera: ICamera;
     htmlSubs: Subscriptions;
     layout: IGptModelLayout;
+    examples: IModelExample[];
     shape: IModelShape;
     gptGpuModel: IGpuGptModel | null;
     jsGptModel: IGptModelLink | null;
     movement: IMovementInfo;
     display: IDisplayState;
     markDirty: () => void;
+}
+
+export interface IModelExample {
+    name: string;
+    shape: IModelShape;
+    enabled: boolean;
+    layout?: IGptModelLayout;
+    offset: Vec3;
 }
 
 export interface IMouseState {
@@ -83,6 +92,16 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         vocabSize: 3,
     };
 
+    let gpt2Shape: IModelShape = {
+        B: 1,
+        T: 1024,
+        C: 768,
+        nHeads: 12,
+        A: 768 / 12,
+        nBlocks: 12,
+        vocabSize: 50257,
+    };
+
     return {
         native: null,
         wasmGptModel: null,
@@ -91,6 +110,12 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         camera,
         shape: shape,
         layout: genGptModelLayout(shape),
+        examples: [{
+            name: 'GPT-2',
+            enabled: true,
+            shape: gpt2Shape,
+            offset: new Vec3(0, 0, -20000),
+        }],
         gptGpuModel: null,
         jsGptModel: null,
         stepModel: false,
@@ -136,6 +161,17 @@ export function runProgram(view: IRenderView, state: IProgramState) {
 
     // generate the base model, incorporating the gpu-side model if available
     state.layout = genGptModelLayout(state.shape, state.jsGptModel);
+
+    // @TODO: handle different models in the same scene.
+    // Maybe need to copy a lot of different things like the entire render state per model?
+    /*
+    for (let example of state.examples) {
+        if (example.enabled) {
+            let layout = genGptModelLayout(example.shape, null, example.offset);
+            example.layout = layout;
+        }
+    }
+    */
 
     genModelViewMatrices(state);
 

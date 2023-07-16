@@ -186,7 +186,7 @@ export function cellPosition(layout: IModelLayout, blk: IBlkDef, dim: Dim, index
 export type IGptModelLayout = ReturnType<typeof genGptModelLayout>;
 export type IGptLayerNormLayout = IGptModelLayout['ln_f'];
 
-export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink | null = null) {
+export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink | null = null, offset: Vec3 = new Vec3(0, 0, 0)) {
     let { B, T, C, vocabSize, nHeads, A, nBlocks } = shape;
 
     // work our way downwards from the top

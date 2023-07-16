@@ -185,6 +185,7 @@ export function renderModel(state: IProgramState) {
     uploadAllText(args.modelFontBuf);
 
     renderAllBlocks(blockRender, layout, modelMtx, camPos, lightPosArr, lightColorArr);
+
     renderAllThreads(args.threadRender);
 
     gl.polygonOffset(-1.0, -2.0);
@@ -211,4 +212,12 @@ export function renderModel(state: IProgramState) {
     gl.disable(gl.POLYGON_OFFSET_FILL);
 
     args.sharedRender.activePhase = RenderPhase.Opaque;
+
+    for (let example of state.examples) {
+        if (example.enabled && example.layout) {
+            var modelMtxLocal = modelMtx.mul(Mat4f.fromTranslation(example.offset));
+            writeModelViewUbo(args.sharedRender, modelMtxLocal, viewMtx);
+            renderAllBlocks(blockRender, example.layout, modelMtxLocal, camPos, lightPosArr, lightColorArr);
+        }
+    }
 }

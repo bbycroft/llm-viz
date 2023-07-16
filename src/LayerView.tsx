@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { IDataAndModel, IModelState, initModel } from './GptModel';
 import s from './LayerView.module.scss';
 import { IRenderState, IRenderView } from './render/modelRender';
@@ -17,6 +17,8 @@ import { MovementAction, MovementControls } from './components/MovementControls'
 import { initWebGpu } from './gpu/WebGpuMain';
 import { useScreenLayout } from './utils/layout';
 import { jumpPhase } from './Commentary';
+import { WelcomePopup } from './WelcomePopup';
+import { KeyboardManagerContext, KeyboardOrder, useGlobalKeyboard } from './utils/keyboard';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -35,73 +37,74 @@ export function LayerView() {
     let [canvasRender, setCanvasRender] = useState<CanvasRender | null>(null);
     let [fontAtlasData, setFontAtlasData] = useState<IFontAtlasData | null>(null);
     let layout = useScreenLayout();
+    let keyboardManager = useContext(KeyboardManagerContext);
 
-    useEffect(() => {
-        function handleKeyDown(ev: KeyboardEvent) {
-            if (!canvasRender?.progState) {
-                return;
-            }
-            let key = ev.key.toLowerCase();
-            let wt = canvasRender.progState.walkthrough;
-            let mvmt = canvasRender.progState.movement;
-            if (ev.key === ' ') {
-                if (wt.time >= wt.phaseLength) {
-                    jumpPhase(wt, 1);
-                    wt.time = 0;
-                } else {
-                    wt.running = !wt.running;
-                }
-                canvasRender.markDirty();
-            }
-            if (ev.key === 'Backspace' || ev.key === 'Delete') {
-                wt.running = false;
+    useGlobalKeyboard(KeyboardOrder.MainPage, (ev: KeyboardEvent) => {
+        if (!canvasRender?.progState) {
+            return;
+        }
+        let key = ev.key.toLowerCase();
+        let wt = canvasRender.progState.walkthrough;
+        let mvmt = canvasRender.progState.movement;
+        if (ev.key === ' ') {
+            if (wt.time >= wt.phaseLength) {
+                jumpPhase(wt, 1);
                 wt.time = 0;
-                canvasRender.markDirty();
+            } else {
+                wt.running = !wt.running;
             }
-
-            if (ev.key === 'ArrowLeft' || key === 'a') {
-                mvmt.action = MovementAction.Left;
-                canvasRender.markDirty();
-            }
-            if (ev.key === 'ArrowRight' || key === 'd') {
-                mvmt.action = MovementAction.Right;
-                canvasRender.markDirty();
-            }
-            if (ev.key === 'ArrowUp' || key === 'w') {
-                mvmt.action = MovementAction.Up;
-                canvasRender.markDirty();
-            }
-            if (ev.key === 'ArrowDown' || key === 's') {
-                mvmt.action = MovementAction.Down;
-                canvasRender.markDirty();
-            }
-            if (ev.key === 'PageUp' || key === 'q') {
-                mvmt.action = MovementAction.In;
-                canvasRender.markDirty();
-            }
-            if (ev.key === 'PageDown' || key === 'e') {
-                mvmt.action = MovementAction.Out;
-                canvasRender.markDirty();
-            }
-            if (key === 'r') {
-                mvmt.action = MovementAction.Expand;
-                canvasRender.markDirty();
-            }
-            if (key === 'f') {
-                mvmt.action = MovementAction.Focus;
-                canvasRender.markDirty();
-            }
-
-            if (ev.key === ' ') {
-                ev.preventDefault();
-            }
+            canvasRender.markDirty();
+        }
+        if (ev.key === 'Backspace' || ev.key === 'Delete') {
+            wt.running = false;
+            wt.time = 0;
+            canvasRender.markDirty();
         }
 
-        document.addEventListener('keydown', handleKeyDown);
+        if (ev.key === 'ArrowLeft' || key === 'a') {
+            mvmt.action = MovementAction.Left;
+            canvasRender.markDirty();
+        }
+        if (ev.key === 'ArrowRight' || key === 'd') {
+            mvmt.action = MovementAction.Right;
+            canvasRender.markDirty();
+        }
+        if (ev.key === 'ArrowUp' || key === 'w') {
+            mvmt.action = MovementAction.Up;
+            canvasRender.markDirty();
+        }
+        if (ev.key === 'ArrowDown' || key === 's') {
+            mvmt.action = MovementAction.Down;
+            canvasRender.markDirty();
+        }
+        if (ev.key === 'PageUp' || key === 'q') {
+            mvmt.action = MovementAction.In;
+            canvasRender.markDirty();
+        }
+        if (ev.key === 'PageDown' || key === 'e') {
+            mvmt.action = MovementAction.Out;
+            canvasRender.markDirty();
+        }
+        if (key === 'r') {
+            mvmt.action = MovementAction.Expand;
+            canvasRender.markDirty();
+        }
+        if (key === 'f') {
+            mvmt.action = MovementAction.Focus;
+            canvasRender.markDirty();
+        }
+
+        if (ev.key === ' ') {
+            ev.preventDefault();
+        }
+    });
+
+    useEffect(() => {
+        document.addEventListener('keydown', keyboardManager.handleKeyDown);
         return () => {
-            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('keydown', keyboardManager.handleKeyDown);
         };
-    }, [canvasRender]);
+    }, [keyboardManager]);
 
     useEffect(() => {
         let stale = false;
@@ -178,6 +181,7 @@ export function LayerView() {
             </ProgramStateContext.Provider>}
         </div>
         {!layout.isDesktop && sidebar}
+        <WelcomePopup />
     </div>;
 }
 
