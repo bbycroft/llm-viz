@@ -7,9 +7,9 @@ import { assignImm } from "./data";
 import s from './Portal.module.scss';
 
 export const Portal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    let portalEl = document.getElementById('portal-container') ?? document.body;
-    console.log('portalEl', portalEl);
-    return createPortal(children, portalEl);
+    let doc = typeof window !== 'undefined' ? window.document : null;
+    let portalEl = doc?.getElementById('portal-container') ?? doc?.body ?? null;
+    return portalEl ? createPortal(children, portalEl) : null;
 };
 
 

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { StateSetter } from "./data";
 
 export function readFromLocalStorage<T>(key: string): T | undefined {
-    let value = window.localStorage.getItem(key);
+    let ls = typeof window !== 'undefined' ? window.localStorage : undefined;
+    let value = ls?.getItem(key);
     if (value) {
         try {
             return JSON.parse(value);
@@ -14,10 +15,11 @@ export function readFromLocalStorage<T>(key: string): T | undefined {
 }
 
 export function writeToLocalStorage<T>(key: string, value: T) {
+    let ls = typeof window !== 'undefined' ? window.localStorage : undefined;
     if (value) {
-        window.localStorage.setItem(key, JSON.stringify(value));
+        ls?.setItem(key, JSON.stringify(value));
     } else {
-        window.localStorage.removeItem(key);
+        ls?.removeItem(key);
     }
 }
 

@@ -50,8 +50,6 @@ export const WelcomePopup: React.FC<{}> = () => {
         return null;
     }
 
-    console.log(IntroImage);
-
     return <ModalWindow className={s.modalWindow} backdropClassName={s.modalWindowBackdrop} onBackdropClick={hide}>
         <div className={s.header}>
             <div className={s.title}>Welcome!</div>
