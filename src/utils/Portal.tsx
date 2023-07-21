@@ -1,14 +1,16 @@
 'use client';
 
 import clsx from "clsx";
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { assignImm } from "./data";
 import s from './Portal.module.scss';
 
 export const Portal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    let doc = typeof window !== 'undefined' ? window.document : null;
-    let portalEl = doc?.getElementById('portal-container') ?? doc?.body ?? null;
+    let [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
+    useLayoutEffect(() => {
+         setPortalEl(document.getElementById('portal-container'));
+    }, []);
     return portalEl ? createPortal(children, portalEl) : null;
 };
 

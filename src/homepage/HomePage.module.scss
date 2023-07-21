@@ -100,6 +100,15 @@
 .bioText {
     max-width: 80%;
     width: 1200px;
+    text-align: justify;
+
+    p {
+        margin: 10px;
+    }
+}
+
+.footnotes {
+
 }
 
 .projectCard {

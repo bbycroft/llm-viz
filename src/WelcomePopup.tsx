@@ -10,6 +10,7 @@ import { ModalWindow } from './utils/Portal';
 import s from './WelcomePopup.module.scss';
 import IntroImage from './intro-image-opt.svg';
 import Image from 'next/image';
+import { TocDiagram } from './components/TocDiagram';
 
 interface IWelcomePopupLS {
     visible: boolean;
@@ -55,8 +56,11 @@ export const WelcomePopup: React.FC<{}> = () => {
             <div className={s.title}>Welcome!</div>
         </div>
         <div className={s.body}>
-            <div className={s.image}>
+            {/* <div className={s.image}>
                 <Image src={IntroImage} alt={"LLM diagram"} />
+            </div> */}
+            <div style={{ width: 600, flex: '0 0 auto' }}>
+                <TocDiagram />
             </div>
             <div className={s.text}>
                 <p>This is an interactive 3D Visualization of a Large Language Model (LLM),
@@ -88,7 +92,7 @@ let WelcomeContext = createContext(new WelcomeManager());
 export const InfoButton: React.FC<{}> = () => {
     let ctx = useContext(WelcomeContext); 
 
-    return <div onClick={() => ctx.showWelcomeDialog()}>
+    return <div onClick={() => ctx.showWelcomeDialog()} className={s.infoBtn}>
         <FontAwesomeIcon icon={faCircleQuestion} />
     </div>;
 };

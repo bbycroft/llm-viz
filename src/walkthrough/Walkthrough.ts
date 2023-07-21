@@ -112,8 +112,9 @@ export enum PhaseGroup {
 }
 
 export enum Phase {
-    Intro_Intro,
+    None,
 
+    Intro_Intro,
     Input_First,
     Input_Detail_Tables,
     Input_Detail_TokEmbed,

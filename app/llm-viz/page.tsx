@@ -12,14 +12,11 @@ import s from './page.module.scss';
 export default function Page() {
     return <>
         <div className={s.header}>
-            <div className={s.back}>
-                <Link href={"/"}>&lt; Back</Link>
-            </div>
-            LLM Visualization
-            {/* <div onClick={showWelcomeDialog}>
-                <FontAwesomeIcon icon={faCircleQuestion} />
-            </div> */}
             <InfoButton />
+            LLM Visualization
+            <div className={s.back}>
+                <Link href={"/"}>Homepage</Link>
+            </div>
         </div>
         <LayerView />
         <div id="portal-container"></div>

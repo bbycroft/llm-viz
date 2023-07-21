@@ -76,22 +76,25 @@ export const HomePage: React.FC = () => {
             <div className={s.sectionTitle}>Bio</div>
             <div className={s.bioText}>
                 <p>
-                    Born & raised in New Zealand, I received a BSc in Maths & Physics from the University of Canterbury in 2012. I've been writing
-                    code ever since I first got my hands on a computer, and have been working professionally as a software engineer since 2013.
+                    Born and raised in New Zealand, I've been writing code ever since I first got my hands on a computer.
+                    After my Bsc in Maths and Physics[1], I have been working professionally as a software engineer since 2013.
                 </p>
                 <p>
                     Over my career I've touched a whole variety of tech, from CUDA programming to web development. On the way becoming well versed in
-                    embedded C, distributed system architecture, databases, cloud infrastructure, numerous algorithms, 3d graphics, and much more.
+                    embedded C, distributed system architecture, databases, cloud infrastructure, numerous algorithms, 3D graphics, and much more.
                 </p>
                 <p>
-                    I've always sought to bring high performance to my work, the feature that many can't articulate but everyone can feel. Computers
-                    are ridiculously fast, and there's often so much left on the table.
+                    I've always sought to bring high performance to the things I build, the feature that many can't articulate but everyone can feel.
+                    Computers are ridiculously fast, and there's often so much left on the table.
                 </p>
                 <p>
-                    I have a tendency to roll-my-own, which invariably pays off in the long run: I understand how things work, can debug & fix them
-                    easily, and ensure they're tailored to the problem at hand. Not to mention the gains in performance & bundle size. I also err on
-                    the side of a data-oriented approach, as most abstractions are a waste and a burden, and simple functions get you a long way.
+                    I have a tendency to roll-my-own, which invariably pays off in the long run: I understand how things work, can debug and fix them
+                    easily, and ensure they're tailored and optimized to the problem at hand. I also err on
+                    the side of a data-oriented approach, as most abstractions are unnecessary, and simple functions get you a long way.
                 </p>
+            </div>
+            <div className={s.footnotes}>
+                <div className={s.footnote}>1. BSc in Maths and Physics from the University of Canterbury in 2012</div>
             </div>
         </div>
     </div>;
