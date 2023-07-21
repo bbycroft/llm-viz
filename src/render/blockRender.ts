@@ -142,24 +142,38 @@ export function initBlockRender(ctx: IGLContext) {
             }
 
             if (true) {
-                // draw a line at 16 block intervals (edges?)
-                // @TODO: factor out into a function and decide how to choose each line-group
-                // e.g. based on zoom level, & probably limited to 2
-
                 vec3 block16 = v_blockPos / 16.0;
-                vec3 block16Grid = abs(fract(block16 - 0.5) - 0.5) / fwidth(block16);
-                float line16 = min(min(block16Grid.x, block16Grid.y), block16Grid.z);
+                vec3 pxPerBlock16 = 1.0 / fwidth(block16);
+                float strength16 = min(min(pxPerBlock16.x, pxPerBlock16.y), pxPerBlock16.z);
+                vec3 colorEdge = vec3(1.0, 1.0, 1.0);
+                vec3 color16 = vec3(1.0, 1.0, 1.0) * 0.7;
+                vec3 color256 = vec3(1.0, 1.0, 1.0);
 
-                vec3 block256 = v_blockPos / 256.0;
-                vec3 block256Grid = abs(fract(block256 - 0.5) - 0.5) / fwidth(block256);
-                float line256 = min(min(block256Grid.x, block256Grid.y), block256Grid.z);
+                // if we're zoomed out enough, show 256 & (256 * 16) grid lines
+                // the 16 grid lines are faded out by this point (fade out between 10px -> 1px)
+                if (strength16 < 1.0) {
+                    block16 = block16 / 16.0;
+                    pxPerBlock16 = 1.0 / fwidth(block16);
+                    strength16 = min(min(pxPerBlock16.x, pxPerBlock16.y), pxPerBlock16.z);
+                    color16 = color256;
+                }
+
+                float visibility16 = smoothstep(1.0, 10.0, strength16); // below 10px between lines, fade out
+                vec3 block16Grid = 1.0 - abs(fract(block16 - 0.5) - 0.5) * pxPerBlock16;
+                float line16 = max(max(block16Grid.x, block16Grid.y), block16Grid.z) * visibility16;
+
+                vec3 block256 = block16 / 16.0;
+                vec3 block256Grid = 1.0 - abs(fract(block256 - 0.5) - 0.5) / fwidth(block256);
+                float line256 = max(max(block256Grid.x, block256Grid.y), block256Grid.z);
 
                 vec3 cube = v_cubePos - v_normal * 0.1;
-                vec3 cubeGrid = abs(fract(cube - 0.5) - 0.5) / fwidth(cube);
-                float lineCube = min(min(cubeGrid.x, cubeGrid.x), cubeGrid.z);
+                vec3 cubeGrid = 1.0 - abs(fract(cube - 0.5) - 0.5) / fwidth(cube);
+                float lineCube = max(max(cubeGrid.x, cubeGrid.x), cubeGrid.z);
 
-                float edgeWeight = smoothstep(0.0, 1.0, min(min(lineCube, line256), line16));
-                baseColor = mix(baseColor, vec3(1.0, 1.0, 1.0), 1.0 - edgeWeight);
+                float bestPxPerBlock = min(min(pxPerBlock16.x, pxPerBlock16.y), pxPerBlock16.z);
+                float edgeWeight = smoothstep(0.0, 1.0, max(max(line16, lineCube), line256));
+                vec3 color = lineCube > 0.0 ? colorEdge : line256 > 0.0 ? color256 : color16;
+                baseColor = mix(baseColor, color, edgeWeight);
             }
 
             vec3 color = mix(baseColor * 0.7, u_baseColor.rgb, u_highlight);

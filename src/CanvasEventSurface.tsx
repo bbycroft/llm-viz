@@ -41,7 +41,7 @@ export const CanvasEventSurface: React.FC<{
 
     function zoom(initial: { camAngle: Vec3, camTarget: Vec3 }, dy: number) {
         let camAngle = initial.camAngle.clone();
-        camAngle.z = clamp(camAngle.z / dy, 0.1, 100);
+        camAngle.z = clamp(camAngle.z / dy, 0.1, 100000);
         updateRenderState(ps => {
             ps.camera.angle = camAngle;
         });
@@ -106,7 +106,7 @@ export const CanvasEventSurface: React.FC<{
     function handleWheel(ev: React.WheelEvent) {
         if (progState) {
             let camAngle = progState.camera.angle;
-            let zoom = clamp(camAngle.z * Math.pow(1.0013, ev.deltaY), 0.01, 10000);
+            let zoom = clamp(camAngle.z * Math.pow(1.0013, ev.deltaY), 0.01, 100000);
             updateRenderState(rs => {
                 rs.camera.angle = new Vec3(camAngle.x, camAngle.y, zoom);
             });

@@ -73,7 +73,7 @@ export function genModelViewMatrices(state: IProgramState) {
     let { lookAt, camPos } = cameraToMatrixView(camera);
     let dist = 200 * camera.angle.z;
 
-    let persp = Mat4f.fromPersp(40, state.render.size.x / state.render.size.y, dist / 100, localDist + Math.max(dist * 2, 10000));
+    let persp = Mat4f.fromPersp(40, state.render.size.x / state.render.size.y, dist / 100, localDist + Math.max(dist * 2, 100000));
     let viewMtx = persp.mul(lookAt);
     let modelMtx = new Mat4f();
     modelMtx[0] = 1.0;
