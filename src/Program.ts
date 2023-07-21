@@ -19,6 +19,7 @@ import { drawBlockInfo } from "./components/BlockInfo";
 import { NativeFunctions } from "./NativeBindings";
 import { IWasmGptModel, stepWasmModel, syncWasmDataWithJsAndGpu } from "./GptModelWasm";
 import { IMovementInfo, manageMovement } from "./components/MovementControls";
+import { IBlockRender, initBlockRender } from "./render/blockRender";
 
 export interface IProgramState {
     native: NativeFunctions | null;
@@ -44,6 +45,7 @@ export interface IModelExample {
     shape: IModelShape;
     enabled: boolean;
     layout?: IGptModelLayout;
+    blockRender: IBlockRender;
     offset: Vec3;
 }
 
@@ -92,7 +94,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         vocabSize: 3,
     };
 
-    let gpt2Shape: IModelShape = {
+    let gpt2ShapeSmall: IModelShape = {
         B: 1,
         T: 1024,
         C: 768,
@@ -101,6 +103,28 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         nBlocks: 12,
         vocabSize: 50257,
     };
+
+    let gpt2ShapeLarge: IModelShape = {
+        B: 1,
+        T: 1024,
+        C: 768,
+        nHeads: 12,
+        A: 768 / 12,
+        nBlocks: 48,
+        vocabSize: 50257,
+    };
+
+    let gpt3Shape: IModelShape = {
+        B: 1,
+        T: 1024,
+        C: 12288,
+        nHeads: 96,
+        A: 12288 / 96,
+        nBlocks: 96,
+        vocabSize: 50257,
+    };
+
+    let delta = new Vec3(10000, 0, 0);
 
     return {
         native: null,
@@ -111,10 +135,23 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         shape: shape,
         layout: genGptModelLayout(shape),
         examples: [{
-            name: 'GPT-2',
+            name: 'GPT-2 (small)',
             enabled: true,
-            shape: gpt2Shape,
-            offset: new Vec3(0, 0, -20000),
+            shape: gpt2ShapeSmall,
+            offset: delta.mul(-5),
+            blockRender: initBlockRender(render.ctx),
+        }, {
+            name: 'GPT-2 (XL)',
+            enabled: true,
+            shape: gpt2ShapeLarge,
+            offset: delta.mul(20),
+            blockRender: initBlockRender(render.ctx),
+        }, {
+            name: 'GPT-3',
+            enabled: false,
+            shape: gpt3Shape,
+            offset: delta.mul(50.0),
+            blockRender: initBlockRender(render.ctx), 
         }],
         gptGpuModel: null,
         jsGptModel: null,
@@ -164,16 +201,14 @@ export function runProgram(view: IRenderView, state: IProgramState) {
 
     // @TODO: handle different models in the same scene.
     // Maybe need to copy a lot of different things like the entire render state per model?
-    /*
     for (let example of state.examples) {
-        if (example.enabled) {
+        if (example.enabled && !example.layout) {
             let layout = genGptModelLayout(example.shape, null, example.offset);
             example.layout = layout;
         }
     }
-    */
 
-    genModelViewMatrices(state);
+    genModelViewMatrices(state, state.layout!);
 
     let queryRes = beginQueryAndGetPrevMs(state.render.queryManager, 'render');
     if (isNotNil(queryRes)) {

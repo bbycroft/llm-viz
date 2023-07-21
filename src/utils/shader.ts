@@ -168,6 +168,7 @@ export function bindFloatAttribs(gl: WebGL2RenderingContext, buf: WebGLBuffer, o
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     let locId = opts.locOffset || 0;
     let offset = opts.bufOffset || 0;
+    let divisor = opts.divisor || 0;
     let byteStride = 0;
     for (let a of attribs) {
         byteStride += a.size * 4 * (a.nCols ?? 1);
@@ -176,10 +177,10 @@ export function bindFloatAttribs(gl: WebGL2RenderingContext, buf: WebGLBuffer, o
         for (let i = 0; i < (a.nCols ?? 1); i++) {
             gl.enableVertexAttribArray(locId);
             gl.vertexAttribPointer(locId, a.size, gl.FLOAT, false, byteStride, offset);
+            gl.vertexAttribDivisor(locId, divisor);
             offset += a.size * 4;
             locId++;
         }
-
     }
     return byteStride;
 }

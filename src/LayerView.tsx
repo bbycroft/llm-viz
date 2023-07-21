@@ -217,7 +217,7 @@ class CanvasRender {
             this.progState.native = data.dataAndModel.native;
             this.progState.wasmGptModel = constructModel(data.dataAndModel.model, data.dataAndModel.model.config, data.dataAndModel.native);
             this.progState.jsGptModel = createGpuModelForWasm(this.renderState.gl, data.dataAndModel.model.config);
-            initWebGpu();
+            // initWebGpu();
             // setModelInputData(this.renderState, this.progState.gptGpuModel, this.random);
             // runModel(this.renderState, this.progState.gptGpuModel);
         }

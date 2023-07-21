@@ -38,16 +38,16 @@ export async function loadNativeBindings() {
     let module = await WebAssembly.instantiateStreaming(resp, importObject);
 
     let exports = module.instance.exports as unknown as INativeExports;
-    let initRes = exports.init_allocator(exports.__heap_base);
-    let res = exports.add_numbers(4, 5);
-    let sin = exports.sinf_custom(0.25);
+    exports.init_allocator(exports.__heap_base);
+    // let res = exports.add_numbers(4, 5);
+    // let sin = exports.sinf_custom(0.25);
 
-    console.log(module);
-    console.log(initRes, res, sin);
+    // console.log(module);
+    // console.log(initRes, res, sin);
 
     let nativeFuncs = new NativeFunctions(module, exports, memory);
 
-    checkNativeFns(exports);
+    // checkNativeFns(exports);
 
     return nativeFuncs;
 }
@@ -116,37 +116,6 @@ export class NativeFunctions {
         this.ptrView = new Uint32Array(this.memory.buffer);
     }
 } 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 export enum TensorType {
     // weights

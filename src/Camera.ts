@@ -57,14 +57,13 @@ export function cameraToMatrixView(camera: ICamera) {
     };
 }
 
-export function genModelViewMatrices(state: IProgramState) {
-    let { camera, layout } = state;
+export function genModelViewMatrices(state: IProgramState, layout: IModelLayout, modelOffset: Vec3 = Vec3.zero) {
+    let { camera } = state;
 
-    let cell = layout.cell;
     let bb = new BoundingBox3d();
     for (let c of layout.cubes) {
-        let tl = new Vec3(c.x, c.y, c.z);
-        let br = new Vec3(c.x + c.cx * cell, c.y + c.cy * cell, c.z + c.cz * cell);
+        let tl = new Vec3(c.x, c.y, c.z).add(modelOffset);
+        let br = new Vec3(c.x + c.dx, c.y + c.dy, c.z + c.dz).add(modelOffset);
         bb.addInPlace(tl);
         bb.addInPlace(br);
     }
@@ -73,7 +72,8 @@ export function genModelViewMatrices(state: IProgramState) {
     let { lookAt, camPos } = cameraToMatrixView(camera);
     let dist = 200 * camera.angle.z;
 
-    let persp = Mat4f.fromPersp(40, state.render.size.x / state.render.size.y, dist / 100, localDist + Math.max(dist * 2, 100000));
+    // let persp = Mat4f.fromPersp(40, state.render.size.x / state.render.size.y, dist / 100, localDist + Math.max(dist * 2, 100000));
+    let persp = Mat4f.fromPersp(40, state.render.size.x / state.render.size.y, 100, 10000000);
     let viewMtx = persp.mul(lookAt);
     let modelMtx = new Mat4f();
     modelMtx[0] = 1.0;

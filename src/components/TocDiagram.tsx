@@ -374,18 +374,18 @@ export const TocDiagram: React.FC<{}> = () => {
 
         let node = <g transform={`translate(${x} ${y})`}>
             {textSegs.map((seg, i) => {
-                return <>
-                    <rect key={i} x={offsets[i]} y={0} width={widths[i] + 1} height={20} fill={colors[i]} />
-                    <text key={'t' + i} x={offsets[i]} y={16} fontSize={16}>{seg.replaceAll(' ', '\xa0')}</text>
-                    <text key={'id' + i} x={offsets[i] + widths[i] / 2} y={30} fontSize={9} textAnchor='middle' fill={'#338a'}>{ids[i]}</text>
-                </>;
+                return <React.Fragment key={i}>
+                    <rect x={offsets[i]} y={0} width={widths[i] + 1} height={20} fill={colors[i]} />
+                    <text x={offsets[i]} y={16} fontSize={16}>{seg.replaceAll(' ', '\xa0')}</text>
+                    <text x={offsets[i] + widths[i] / 2} y={30} fontSize={9} textAnchor='middle' fill={'#338a'}>{ids[i]}</text>
+                </React.Fragment>;
             })}
             {egTextSegs.map((seg, i) => {
-                return <>
-                    <rect key={i} x={egPosX} y={egTopY + 20 * i} width={egWidths[i] + 1} height={20} fill={egColor} />
-                    <text key={'eg' + i} x={egPosX} y={egTopY + 20 * i + 16} fontSize={16} fillOpacity={egPct[i]}>{seg.replaceAll(' ', '\xa0')}</text>
-                    <text key={'egid' + i} x={egPosX + egMaxWidth + egIdWidth} y={egTopY + 20 * i + 13} fontSize={9} textAnchor='end' fill={'#338a'}>{egIds[i]}</text>
-                </>;
+                return <React.Fragment key={i}>
+                    <rect x={egPosX} y={egTopY + 20 * i} width={egWidths[i] + 1} height={20} fill={egColor} />
+                    <text x={egPosX} y={egTopY + 20 * i + 16} fontSize={16} fillOpacity={egPct[i]}>{seg.replaceAll(' ', '\xa0')}</text>
+                    <text x={egPosX + egMaxWidth + egIdWidth} y={egTopY + 20 * i + 13} fontSize={9} textAnchor='end' fill={'#338a'}>{egIds[i]}</text>
+                </React.Fragment>;
             })}
             <rect x={egPosX+1} y={egTopY+1} width={egMaxWidth + egIdWidth + 4} height={20 * egTextSegs.length - 2} fill={'none'} stroke={egColor} strokeDasharray={'4,4'} />
         </g>;
@@ -474,7 +474,7 @@ export const TocDiagram: React.FC<{}> = () => {
 
         let color = colors.focus;
 
-        return <>
+        return <React.Fragment key={i}>
             <defs>
                 <mask id={"hole" + i}>
                     <rect x={tl.x - pad} y={tl.y - pad} width={br.x - tl.x + 2 * pad} height={br.y - tl.y + 2 * pad} fill={'white'} />
@@ -486,7 +486,7 @@ export const TocDiagram: React.FC<{}> = () => {
                 style={{ filter: `drop-shadow(0px 0px 5px ${color})`}}
                 />
             <rect x={tl.x} y={tl.y} width={br.x - tl.x} height={br.y - tl.y} fill={'none'} stroke={'#338a'} strokeWidth={2} strokeDasharray={'8,4'} />
-        </>;
+        </React.Fragment>;
     }
 
     function renderTocToDigramLines() {
@@ -526,15 +526,15 @@ export const TocDiagram: React.FC<{}> = () => {
             let opacity = isFocusEntry ? 1.0 : 0.1;
 
             let pathOpts = () => {
-                return { key: i++, stroke: colors.focus, strokeWidth: 1, fill: 'none', strokeOpacity: opacity };
+                return { stroke: colors.focus, strokeWidth: 1, fill: 'none', strokeOpacity: opacity };
             }
 
-            result.push(<path {...pathOpts()} d={mainPath} />);
+            result.push(<path key={i++} {...pathOpts()} d={mainPath} />);
 
             for (let bound of getFocusBounds(entry)) {
                 let startPt = new Vec3(bound.max.x + 8, bound.center().y);
                 let path = `M${startPt.x},${startPt.y} L${midX},${startPt.y}`;
-                result.push(<path {...pathOpts()} d={path} />);
+                result.push(<path key={i++} {...pathOpts()} d={path} />);
             }
 
             offsetLeft += offsetInc;
@@ -556,11 +556,11 @@ export const TocDiagram: React.FC<{}> = () => {
             <div className={s.tocTitle}>Table of Contents</div>
             {entryGroups.map((group, i) => {
 
-                return <>
+                return <React.Fragment key={i}>
                     <div className={s.tocGroupTitle}>{group.groupName}</div>
                     {group.entries.map((entry, j) => {
                         return <MenuEntry
-                            key={j} 
+                            key={j}
                             entryManager={entryManager}
                             title={entry.title}
                             id={entry.id}
@@ -570,7 +570,7 @@ export const TocDiagram: React.FC<{}> = () => {
                             setActive={setActive}
                         />;
                     })}
-            </>;
+            </React.Fragment>;
             })}
         </div>
     </div>;

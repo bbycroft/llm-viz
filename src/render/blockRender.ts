@@ -1,6 +1,6 @@
 import { IBlkDef, IModelLayout } from "../GptModelLayout";
 import { Mat4f } from "../utils/matrix";
-import { createFloatBuffer, createShaderProgram, ensureFloatBufferSize, IGLContext, resetFloatBufferMap, uploadFloatBuffer } from "../utils/shader";
+import { bindFloatAttribs, createFloatBuffer, createShaderProgram, ensureFloatBufferSize, IGLContext, resetFloatBufferMap, uploadFloatBuffer } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
 import { Colors } from "../walkthrough/WalkthroughTools";
 import { modelViewUboText, UboBindings } from "./sharedRender";
@@ -10,20 +10,6 @@ export type IBlockRender = ReturnType<typeof initBlockRender>;
 
 export function initBlockRender(ctx: IGLContext) {
     let gl = ctx.gl;
-
-    let quadVbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-        -1, -1,
-        1, -1,
-        1, 1,
-        -1, 1,
-    ]), gl.STATIC_DRAW);
-
-    let quadVao = gl.createVertexArray()!;
-    gl.bindVertexArray(quadVao);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
     let blockUboText = /*glsl*/`
     layout (std140) uniform BlockUbo {
@@ -49,6 +35,34 @@ export function initBlockRender(ctx: IGLContext) {
     let blockAccessSize = (2 + 1 + 1 + 1) * 4 * 4;
     let blockAccessUbo = createFloatBuffer(gl, gl.UNIFORM_BUFFER, gl.createBuffer()!, numBlocks, blockAccessSize, null);
 
+    // non-instanced rendering VAO
+    let cubeGeom = genCubeGeom(gl);
+
+    // instanced rendering VAO
+    let instancedVao = gl.createVertexArray()!;
+    gl.bindVertexArray(instancedVao);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, cubeGeom.vbo);
+    bindFloatAttribs(gl, cubeGeom.vbo, {}, [
+        { name: 'a_position', size: 3 },
+        { name: 'a_normal', size: 3 },
+    ]);
+
+    let instancedVbo = gl.createBuffer()!;
+    let instancedStrideBytes = bindFloatAttribs(gl, instancedVbo, { locOffset: 2, divisor: 1 }, [
+        { name: 'a_offset', size: 4 },
+        { name: 'a_size', size: 4 },
+        { name: 'a_nCells', size: 4 },
+        { name: 'a_localPosMtx0', size: 4 },
+        { name: 'a_localPosMtx1', size: 4 },
+        { name: 'a_localPosMtx2', size: 4 },
+        { name: 'a_localPosMtx3', size: 4 },
+        { name: 'a_baseColor', size: 4 },
+        { name: 'a_highlight', size: 1 },
+    ]);
+
+    let instancedFloatBuf = createFloatBuffer(gl, gl.ARRAY_BUFFER, instancedVbo, 1024, instancedStrideBytes, null);
+
     // Create a dummy texture to bind to the access texture slot. Some drivers (e.g. my phone) will complain if we don't.
     let dummyTexture = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, dummyTexture);
@@ -56,12 +70,13 @@ export function initBlockRender(ctx: IGLContext) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-    let shader = createShaderProgram(ctx, 'block', /*glsl*/`#version 300 es
+    function createVertShader(instanced: boolean) {
+        return /*glsl*/`#version 300 es
         precision highp float;
 
         ${modelViewUboText}
 
-        ${blockUboText}
+        ${instanced ? '' : blockUboText}
 
         ${blockAccessUboText}
 
@@ -72,7 +87,32 @@ export function initBlockRender(ctx: IGLContext) {
         out vec3 v_blockPos;
         out vec2 v_accessPos;
         out vec3 v_cubePos;
+
+        ${instanced ? `
+            layout(location = 2) in vec4 a_offset;
+            layout(location = 3) in vec4 a_size;
+            layout(location = 4) in vec4 a_nCells;
+            layout(location = 5) in vec4 a_localPosMtx0;
+            layout(location = 6) in vec4 a_localPosMtx1;
+            layout(location = 7) in vec4 a_localPosMtx2;
+            layout(location = 8) in vec4 a_localPosMtx3;
+            layout(location = 9) in vec4 a_baseColor;
+            layout(location = 10) in float a_highlight;
+
+            out vec4 u_baseColor;
+            out float u_highlight;
+        ` : ''}
+
         void main() {
+            ${instanced ? `
+                vec3 u_offset = a_offset.xyz;
+                vec3 u_size = a_size.xyz;
+                vec3 u_nCells = a_nCells.xyz;
+                mat4 u_localPosMtx = mat4(a_localPosMtx0, a_localPosMtx1, a_localPosMtx2, a_localPosMtx3);
+                u_baseColor = a_baseColor;
+                u_highlight = a_highlight;
+            ` : ''}
+
             vec3 localPos = (u_localPosMtx * vec4(a_position, 1.0)).xyz;
             vec3 model_pos = a_position * u_size + u_offset;
             gl_Position = u_view * u_model * vec4(model_pos, 1);
@@ -81,8 +121,12 @@ export function initBlockRender(ctx: IGLContext) {
             v_blockPos = localPos * u_nCells;
             v_accessPos = u_accessMtx * vec4(v_blockPos, 1.0);
             v_cubePos = localPos;
-        }
-    `, /*glsl*/`#version 300 es
+            ${instanced ? ` ` : ''}
+        }`;
+    }
+
+    function createFragShader(instanced: boolean) {
+        return /*glsl*/`#version 300 es
         precision highp float;
         in vec3 v_normal;
         out vec4 o_color;
@@ -90,11 +134,12 @@ export function initBlockRender(ctx: IGLContext) {
         in vec3 v_cubePos;
         in vec3 v_modelPos;
         in vec2 v_accessPos;
-        uniform vec3 u_lightPos[3]; // in model space
-        uniform vec3 u_lightColor[3]; // in model space
         uniform vec3 u_camPos; // in model space
 
-        ${blockUboText}
+        ${instanced ? `
+            in vec4 u_baseColor;
+            in float u_highlight;
+        ` : blockUboText}
 
         ${blockAccessUboText}
 
@@ -151,14 +196,16 @@ export function initBlockRender(ctx: IGLContext) {
 
                 // if we're zoomed out enough, show 256 & (256 * 16) grid lines
                 // the 16 grid lines are faded out by this point (fade out between 10px -> 1px)
-                if (strength16 < 1.0) {
+                if (strength16 < 2.0) {
                     block16 = block16 / 16.0;
                     pxPerBlock16 = 1.0 / fwidth(block16);
                     strength16 = min(min(pxPerBlock16.x, pxPerBlock16.y), pxPerBlock16.z);
                     color16 = color256;
+                    // orange
+                    color256 = vec3(1.0, 0.7, 0.4);
                 }
 
-                float visibility16 = smoothstep(1.0, 10.0, strength16); // below 10px between lines, fade out
+                float visibility16 = smoothstep(2.0, 10.0, strength16); // below 10px between lines, fade out
                 vec3 block16Grid = 1.0 - abs(fract(block16 - 0.5) - 0.5) * pxPerBlock16;
                 float line16 = max(max(block16Grid.x, block16Grid.y), block16Grid.z) * visibility16;
 
@@ -168,34 +215,27 @@ export function initBlockRender(ctx: IGLContext) {
 
                 vec3 cube = v_cubePos - v_normal * 0.1;
                 vec3 cubeGrid = 1.0 - abs(fract(cube - 0.5) - 0.5) / fwidth(cube);
-                float lineCube = max(max(cubeGrid.x, cubeGrid.x), cubeGrid.z);
+                float lineCube = max(max(cubeGrid.x, cubeGrid.y), cubeGrid.z);
 
                 float bestPxPerBlock = min(min(pxPerBlock16.x, pxPerBlock16.y), pxPerBlock16.z);
                 float edgeWeight = smoothstep(0.0, 1.0, max(max(line16, lineCube), line256));
-                vec3 color = lineCube > 0.0 ? colorEdge : line256 > 0.0 ? color256 : color16;
+                vec3 color = lineCube > 0.0 ? colorEdge : (line256 > 0.0 ? color256 : color16);
                 baseColor = mix(baseColor, color, edgeWeight);
             }
 
             vec3 color = mix(baseColor * 0.7, u_baseColor.rgb, u_highlight);
 
-            if (false) {
-            for (int i = 0; i < 3; i++) {
-                vec3 light_dir = normalize(u_lightPos[i] - v_modelPos);
-                vec3 view_dir = normalize(u_camPos - v_modelPos);
-                vec3 half_dir = normalize(light_dir + view_dir);
-                vec3 reflect_dir = reflect(-light_dir, v_normal);
-                vec3 diffuse = 0.2 * baseColor * max(dot(light_dir, v_normal), 0.0);
-                vec3 specular = 0.1 * u_lightColor[i] * pow(max(dot(half_dir, v_normal), 0.0), 32.0);
-
-                color += diffuse + specular;
-            }
-            }
-
             o_color = vec4(color, 1) * u_baseColor.a;
-        }
-    `, [
-        'u_lightPos', 'u_camPos', 'u_lightColor', 'u_accessSampler',
-    ], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView, 'BlockUbo': UboBindings.Block, 'BlockAccessUbo': UboBindings.BlockAccess } })!;
+        }`;
+    }
+
+    let shader = createShaderProgram(ctx, 'block', createVertShader(false), createFragShader(false),
+        ['u_camPos', 'u_accessSampler'],
+        { uboBindings: { 'ModelViewUbo': UboBindings.ModelView, 'BlockUbo': UboBindings.Block, 'BlockAccessUbo': UboBindings.BlockAccess } })!;
+
+    let instancedShader = createShaderProgram(ctx, 'block-instanced', createVertShader(true), createFragShader(true),
+        ['u_camPos', 'u_accessSampler'],
+        { uboBindings: { 'ModelViewUbo': UboBindings.ModelView, 'BlockAccessUbo': UboBindings.BlockAccess } })!;
 
     let simpleShader = createShaderProgram(ctx, 'block-simple', /*glsl*/`#version 300 es
         precision highp float;
@@ -220,18 +260,21 @@ export function initBlockRender(ctx: IGLContext) {
         'u_size', 'u_offset', 'u_baseColor',
     ], { uboBindings: { 'ModelViewUbo': UboBindings.ModelView } })!;
 
-    let cubeGeom = genCubeGeom(gl);
-
     return {
         gl,
         cubeGeom,
-        quadVao,
-        quadVbo,
         shader,
         simpleShader,
         blockUbo,
         blockAccessUbo,
         dummyTexture,
+
+        /* specific to instanced rendering of the blocks. */
+        instancedShader,
+        instancedVao,
+        instancedFloatBuf,
+        instancedDataStale: true,
+        instancedNumBlocks: 0,
     };
 }
 
@@ -278,10 +321,11 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
     let vbo = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 6 * 4, 0);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 6 * 4, 3 * 4);
+
+    bindFloatAttribs(gl, vbo, {}, [
+        { name: 'a_position', size: 3 },
+        { name: 'a_normal', size: 3 },
+    ]);
 
     return { name: 'cube', vao, vbo, type: gl.TRIANGLES, numVerts: 36 };
 }
@@ -311,8 +355,6 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
     let camPosModel = modelMtx.mulVec3Proj(camPos);
     gl.uniform3f(locs.u_camPos, camPosModel.x, camPosModel.y, camPosModel.z);
 
-    gl.uniform3fv(locs.u_lightPos, lightPosArr);
-    gl.uniform3fv(locs.u_lightColor, lightColorArr);
     gl.uniform1i(locs.u_accessSampler, 0);
     gl.enable(gl.BLEND);
     gl.enable(gl.CULL_FACE);
@@ -410,6 +452,82 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
         gl.drawArrays(geom.type, 0, geom.numVerts);
         idx++;
     }
+
+    gl.depthMask(true);
+}
+
+
+export function renderAllBlocksInstanced(blockRender: IBlockRender, layout: IModelLayout, modelMtx: Mat4f, camPos: Vec3) {
+    let gl = blockRender.gl;
+    let locs = blockRender.instancedShader.locs;
+    let blockAccessUbo = blockRender.blockAccessUbo.localBufs[0];
+    gl.useProgram(blockRender.instancedShader.program);
+
+    let camPosModel = modelMtx.mulVec3Proj(camPos);
+    gl.uniform3f(locs.u_camPos, camPosModel.x, camPosModel.y, camPosModel.z);
+
+    gl.uniform1i(locs.u_accessSampler, 0);
+    gl.enable(gl.BLEND);
+    gl.enable(gl.CULL_FACE);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, blockRender.dummyTexture);
+
+    gl.bindVertexArray(blockRender.instancedVao);
+
+    if (blockRender.instancedDataStale) {
+        blockRender.instancedDataStale = false;
+
+        {
+            resetFloatBufferMap(blockRender.instancedFloatBuf);
+            let vboBuf = blockRender.instancedFloatBuf.localBufs[0];
+            ensureFloatBufferSize(vboBuf, layout.cubes.length);
+            let buf = vboBuf.buf;
+
+            for (let cube of layout.cubes) {
+                if (cube.small) {
+                    continue;
+                }
+
+                let baseOff = vboBuf.usedEls * vboBuf.strideFloats;
+                buf[baseOff + 0] = cube.x;
+                buf[baseOff + 1] = cube.y;
+                buf[baseOff + 2] = cube.z;
+
+                buf[baseOff + 4] = cube.dx;
+                buf[baseOff + 5] = cube.dy;
+                buf[baseOff + 6] = cube.dz;
+
+                buf[baseOff + 8] = cube.cx;
+                buf[baseOff + 9] = cube.cy;
+                buf[baseOff + 10] = cube.cz;
+
+                buf.set(cube.localMtx ?? new Mat4f(), baseOff + 12);
+
+                let color = (cube.t === 'w' ? Colors.Weights : cube.t === 'i' ? Colors.Intermediates : Colors.Aggregates);
+                let baseColor = new Vec4(color.x, color.y, color.z, cube.opacity);
+                baseColor.writeToBuf(buf, baseOff + 28);
+
+                buf[baseOff + 32] = cube.highlight;
+
+                vboBuf.usedEls += 1;
+            }
+            uploadFloatBuffer(gl, blockRender.instancedFloatBuf);
+            blockRender.instancedNumBlocks = vboBuf.usedEls;
+        }
+
+        {
+            resetFloatBufferMap(blockRender.blockAccessUbo);
+            ensureFloatBufferSize(blockAccessUbo, 1);
+            let blockBuf = blockAccessUbo.buf;
+            blockBuf[0 + 9] = 0.0;
+            blockAccessUbo.usedEls += 1;
+            uploadFloatBuffer(gl, blockRender.blockAccessUbo);
+        }
+    }
+
+    gl.bindBufferRange(gl.UNIFORM_BUFFER, UboBindings.BlockAccess, blockRender.blockAccessUbo.buf, 0, blockAccessUbo.strideBytes);
+    gl.drawArraysInstanced(blockRender.cubeGeom.type, 0, blockRender.cubeGeom.numVerts, blockRender.instancedNumBlocks);
 
     gl.depthMask(true);
 }

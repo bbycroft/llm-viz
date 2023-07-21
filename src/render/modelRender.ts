@@ -2,7 +2,7 @@ import { createFontBuffers, IFontAtlas, IFontAtlasData, IFontBuffers, measureTex
 import { Mat4f } from "../utils/matrix";
 import { createShaderManager, ensureShadersReady, IGLContext } from "../utils/shader";
 import { Vec3, Vec4 } from "../utils/vector";
-import { IBlockRender, initBlockRender, renderAllBlocks, renderBlocksSimple } from "./blockRender";
+import { IBlockRender, initBlockRender, renderAllBlocks, renderAllBlocksInstanced, renderBlocksSimple } from "./blockRender";
 import { initBlurRender, renderBlur, setupBlurTarget } from "./blurRender";
 import { createLineRender, renderAllLines, resetLineRender, uploadAllLines } from "./lineRender";
 import { renderAllThreads, initThreadRender } from "./threadRender";
@@ -215,9 +215,12 @@ export function renderModel(state: IProgramState) {
 
     for (let example of state.examples) {
         if (example.enabled && example.layout) {
+            let { modelMtx, viewMtx } = camera;
+            let { camPos } = cameraToMatrixView(camera);
             var modelMtxLocal = modelMtx.mul(Mat4f.fromTranslation(example.offset));
             writeModelViewUbo(args.sharedRender, modelMtxLocal, viewMtx);
-            renderAllBlocks(blockRender, example.layout, modelMtxLocal, camPos, lightPosArr, lightColorArr);
+            renderAllBlocksInstanced(example.blockRender, example.layout, modelMtxLocal, camPos);
+            // renderAllBlocks(example.blockRender, example.layout, modelMtxLocal, camPos, lightPosArr, lightColorArr);
         }
     }
 }
