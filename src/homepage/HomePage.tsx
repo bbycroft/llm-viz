@@ -32,7 +32,7 @@ export const HomePage: React.FC = () => {
                     Brendan Bycroft
                 </div>
                 <div className={s.subhead}>
-                    software engineer
+                    Software Engineer
                 </div>
                 <div className={s.links}>
                     <a href="https://github.com/bbycroft" rel="noopener noreferrer" target="_blank">
@@ -77,7 +77,7 @@ export const HomePage: React.FC = () => {
             <div className={s.bioText}>
                 <p>
                     Born and raised in New Zealand, I've been writing code ever since I first got my hands on a computer.
-                    After my Bsc in Maths and Physics[1], I have been working professionally as a software engineer since 2013.
+                    After my Bsc in Maths and Physics<span className={s.footnoteRef}>1</span>, I have been working professionally as a software engineer since 2013.
                 </p>
                 <p>
                     Over my career I've touched a whole variety of tech, from CUDA programming to web development. On the way becoming well versed in
@@ -92,9 +92,9 @@ export const HomePage: React.FC = () => {
                     easily, and ensure they're tailored and optimized to the problem at hand. I also err on
                     the side of a data-oriented approach, as most abstractions are unnecessary, and simple functions get you a long way.
                 </p>
-            </div>
-            <div className={s.footnotes}>
-                <div className={s.footnote}>1. BSc in Maths and Physics from the University of Canterbury in 2012</div>
+                <div className={s.footnotes}>
+                    <div className={s.footnote}>1. BSc in Mathematics and Physics from the University of Canterbury in 2012</div>
+                </div>
             </div>
         </div>
     </div>;

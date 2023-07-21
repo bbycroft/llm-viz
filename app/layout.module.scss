@@ -1,18 +1,15 @@
 @import '@/styles/variables.scss';
 
-.html, .body {
+.html {
+    font-family: 'Merriweather', serif;
     width: 100%;
     height: 100%;
     margin: 0;
     padding: 0;
 }
 
-.html {
-    // font-family: 'Roboto', sans-serif;
-    font-family: 'Merriweather', serif;
-}
-
 .body {
+    height: 100%;
     display: flex;
     flex-direction: column;
 }
