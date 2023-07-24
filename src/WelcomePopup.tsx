@@ -60,7 +60,7 @@ export const WelcomePopup: React.FC<{}> = () => {
                 <Image src={IntroImage} alt={"LLM diagram"} />
             </div> */}
             <div style={{ width: 600, flex: '0 0 auto' }}>
-                <TocDiagram />
+                <TocDiagram activePhase={null} onEnterPhase={hide} />
             </div>
             <div className={s.text}>
                 <p>This is an interactive 3D Visualization of a Large Language Model (LLM),

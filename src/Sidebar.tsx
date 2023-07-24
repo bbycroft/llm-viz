@@ -69,13 +69,13 @@ export const WalkthroughSidebar: React.FC = () => {
             </div>
 
             <div className={s.content}>
-                <div className={s.menuTopBar}>
+                {/* <div className={s.menuTopBar}>
                     <div className={s.menu} ref={setMenuButtonEl} onClick={() => setMenuVisible(a => !a)}>Menu &gt;</div>
                     {menuVisible && <Popup targetEl={menuButtonEl} placement={PopupPos.BottomLeft} className={s.mainMenu} closeBackdrop onClose={() => setMenuVisible(false)}>
                         {menu}
                     </Popup>}
                     <div onClick={() => stepModel()}>Step</div>
-                </div>
+                </div> */}
                 <Commentary />
             </div>
 
@@ -87,6 +87,6 @@ export let ProgramStateContext = createContext<IProgramState>(null!);
 
 export function useProgramState() {
     let context = useContext(ProgramStateContext);
-    useSubscriptions(context.htmlSubs);
+    useSubscriptions(context?.htmlSubs);
     return context;
 }

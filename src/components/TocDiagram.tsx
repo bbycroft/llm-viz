@@ -5,6 +5,8 @@ import * as d3Color from 'd3-color';
 import { isNotNil, Subscriptions } from '../utils/data';
 import { Phase } from '../walkthrough/Walkthrough';
 import clsx from 'clsx';
+import { jumpToPhase } from '../Commentary';
+import { useProgramState } from '../Sidebar';
 
 enum ElType {
     Cell,
@@ -44,11 +46,15 @@ interface IEntryInfo {
     groupIds: boolean;
 }
 
-export const TocDiagram: React.FC<{}> = () => {
+export const TocDiagram: React.FC<{
+    activePhase: Phase | null;
+    onEnterPhase?: (phase: Phase) => void;
+}> = ({ activePhase, onEnterPhase }) => {
     let [entryManager] = useState(() => new EntryManager());
     // used for measuring text
     let [diagramEl, setDiagramEl] = useState<SVGElement | null>(null);
     let [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
+    let progState = useProgramState();
     useLayoutEffect(() => {
         setCanvas(document.createElement('canvas')!);
     }, []);
@@ -62,8 +68,13 @@ export const TocDiagram: React.FC<{}> = () => {
     let [activeId, setActiveId] = useState<Phase | null>(null);
 
     let setActive = useCallback((ev: React.MouseEvent, id: Phase, active: boolean) => {
+        console.log('jumping to phase', Phase[id]);
+        jumpToPhase(progState.walkthrough, id);
+        onEnterPhase?.(id);
         setActiveId(active ? id : null);
     }, []);
+
+    activeId = activePhase ?? activeId;
 
     let colors = {
         ln: '#e9f29e',
@@ -174,7 +185,7 @@ export const TocDiagram: React.FC<{}> = () => {
     let fontSize = 14;
 
     calcSizes(structure);
-    calcPosition(structure, new Vec3(20 + 0.5, 90 + 0.5));
+    calcPosition(structure, new Vec3(10 + 0.5, 90 + 0.5));
 
     interface IElGlobalBounds {
         el: IEl;
@@ -208,8 +219,9 @@ export const TocDiagram: React.FC<{}> = () => {
         return null;
     }
 
-    function elIsHovered(el: IEl): boolean | null {
-        let entry = entries.find(e => e.id === hoverId);
+    function elIsHoveredOrActive(el: IEl): boolean | null {
+        let targetId = isNotNil(hoverId) ? hoverId : activeId;
+        let entry = entries.find(e => e.id === targetId);
         if (!entry) {
             return null;
         }
@@ -265,8 +277,8 @@ export const TocDiagram: React.FC<{}> = () => {
             return segs;
         }
 
-        let isHover = elIsHovered(el);
-        let opacityDimmed = isHover === false ? 0.5 : 1.0;
+        let isHover = elIsHoveredOrActive(el);
+        let opacityDimmed = isHover === false && (isNotNil(hoverId) || isNotNil(activePhase)) ? 0.5 : 1.0;
 
         let content: React.ReactNode = null;
 
@@ -543,8 +555,10 @@ export const TocDiagram: React.FC<{}> = () => {
         return result;
     }
 
+    let height = getElGlobalBounds(structure, new Vec3(0, 0))!.max.y + 10;
+
     return <div className={s.tocDiagram}>
-        <svg viewBox='0 0 310 500' width={'310px'} ref={setDiagramEl}>
+        <svg viewBox={`0 0 310 ${height}`} width={'310px'} height={height} ref={setDiagramEl}>
             {exampleInfo?.node}
             {renderEl(structure, 0)}
             {renderInputLines()}

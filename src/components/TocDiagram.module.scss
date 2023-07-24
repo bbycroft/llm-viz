@@ -1,19 +1,25 @@
 
 .tocDiagram {
     display: flex;
+
+    svg {
+        flex: 1;
+        // background-color: rgba(red, 0.1);
+    }
 }
 
 .toc {
-    width: 180px;
+    // width: 180px;
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: stretch;
 }
 
 .tocTitle {
-    font-size: 20px;
-    font-weight: bold;
-    margin: 10px 0 10px;
+    font-size: 18px;
+    text-align: center;
+    margin: 10px 0 4px;
 }
 
 .tocGroupTitle {

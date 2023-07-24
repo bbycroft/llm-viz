@@ -178,10 +178,10 @@ export function LayerView() {
                 <CanvasEventSurface>
                     <MovementControls />
                 </CanvasEventSurface>
+                <WelcomePopup />
             </ProgramStateContext.Provider>}
         </div>
         {!layout.isDesktop && sidebar}
-        <WelcomePopup />
     </div>;
 }
 

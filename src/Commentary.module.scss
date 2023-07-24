@@ -8,22 +8,53 @@
     // font-family: 'Merriweather', serif;
 }
 
+.tocBackground {
+    background-color: rgba(black, 0.03);
+    border-bottom: 1px solid #ccc;
+    padding: 20px 20px;
+}
+
+.divider {
+    // margin: 20px 0;
+    // border-top: 1px solid #ccc;
+}
+
+.walkthroughViewport {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+}
+
+.walkthroughViewport::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 10px;
+    content: ' ';
+    pointer-events: none;
+    box-shadow: inset 0 0 5px 0 rgba(0, 0, 0, 0.2);
+    z-index: 1;
+}
+
 .walkthroughText {
     flex: 1;
-    margin-top: 10px;
-    padding: 0 40px 0 20px;
+    // padding: 0 40px 0 20px;
     text-align: justify;
     font-size: 18px;
     display: flex;
     flex-direction: column;
     justify-content: stretch;
     overflow-y: auto;
+    overflow-x: hidden;
     position: relative;
     scrollbar-width: 10px;
-    scrollbar-color: #f00 #0f0;
+    scrollbar-color: rgb(133, 133, 133) #cfcfcf;
     outline: none;
 
-    box-shadow: inset 0 0 5px 0 rgba(0, 0, 0, 0.2);
 }
 
 .walkthroughText::-webkit-scrollbar {
@@ -40,6 +71,7 @@
 }
 
 .walkthroughParas {
+    padding: 0 20px;
     position: relative;
     flex: 1;
 }
@@ -113,6 +145,7 @@
     box-shadow: 0 0 5px 0 rgba(130, 143, 170, 0.3);
     border-radius: 20px;
     color: black;
+    cursor: pointer;
     /* background-color: rgba(0, 146, 244, 0.2); */
 }
 
@@ -174,5 +207,6 @@
 .sectionHighlightWrap {
     position: absolute;
     pointer-events: none;
+    margin: 0 20px;
     // background-color: rgba(black, 0.1);
 }

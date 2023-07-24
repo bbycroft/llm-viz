@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import s from './Commentary.module.scss';
 import { PhaseTimelineHoriz } from './PhaseTimeline';
 import { useProgramState } from './Sidebar';
@@ -9,6 +9,15 @@ import { eventEndTime, ICommentary, isCommentary, ITimeInfo } from './walkthroug
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowDown, faPause, faPlay } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
+import { TocDiagram } from './components/TocDiagram';
+
+export function jumpToPhase(wt: IWalkthrough, phaseId: Phase) {
+    console.log('wt:', wt);
+    wt.time = 0;
+    wt.phase = phaseId;
+    wt.running = false;
+    wt.markDirty();
+}
 
 export function jumpPhase(wt: IWalkthrough, phaseDelta: number) {
     let group = phaseToGroup(wt);
@@ -60,8 +69,6 @@ export const Commentary: React.FC = () => {
 
     function handlePhaseDeltaClick(delta: number) {
         jumpPhase(wt, delta);
-        wt.time = 0;
-        wt.running = false;
         progState.markDirty();
     }
 
@@ -101,6 +108,7 @@ export const Commentary: React.FC = () => {
     interface IGuideLayout {
         width: number;
         height: number;
+        parentHeight: number;
         childRanges: IChildRange[];
     }
 
@@ -113,7 +121,7 @@ export const Commentary: React.FC = () => {
         endT: number;
     }
 
-    let [guideLayout, setGuideLayout] = useState<IGuideLayout>({ width: 0, height: 0, childRanges: [] });
+    let [guideLayout, setGuideLayout] = useState<IGuideLayout>({ width: 0, height: 0, parentHeight: 0, childRanges: [] });
 
     useLayoutEffect(() => {
 
@@ -136,9 +144,11 @@ export const Commentary: React.FC = () => {
 
                 ranges.push({ top: childBcr.top - parasBcr.top, bottom: childBcr.bottom - parasBcr.top, nodeId: nid, startT: cStart, endT: cEnd, height: childBcr.height });
             }
+            console.log('handling resize event (or first time)', parasBcr.height);
             setGuideLayout({
-                width: parasBcr.width,
+                width: parasBcr.width - 40,
                 height: parasBcr.height,
+                parentHeight: parasEl.parentElement!.getBoundingClientRect().height,
                 childRanges: ranges,
             });
         }
@@ -146,6 +156,7 @@ export const Commentary: React.FC = () => {
         if (parasEl) {
             let observer = new ResizeObserver(handleChildren);
             observer.observe(parasEl);
+            observer.observe(parasEl.parentElement!);
             return () => {
                 observer.disconnect();
             };
@@ -197,23 +208,45 @@ export const Commentary: React.FC = () => {
     let group = phaseToGroup(wt);
     let phase = group?.phases.find(p => p.id === wt.phase)!;
 
+    // fast-scroll to top whenever phase changes (and then we'll scroll down smoothly as below)
+    // useEffect(() => {
+    //     if (parasEl) {
+    //         parasEl.parentElement!.scrollTop = 0;
+    //     }
+    // }, [parasEl, wt.phase]);
+
+    let upToDate = wt.commentary?.commentaryList.length ?? 0 > 0;
     // scroll to current position whenever it changes (rangeInfo.start)
     useEffect(() => {
-        if (parasEl) {
-            parasEl.parentElement!.scrollTo({ top: rangeInfo.start, behavior: 'smooth' });
+        if (parasEl && parasEl.parentElement!.getBoundingClientRect().height === guideLayout.parentHeight) {
+            let delta = 512; // parasEl.getBoundingClientRect().top - parasEl.parentElement!.getBoundingClientRect().top - 45;
+
+            // if (prevPhase.current !== wt.phase) {
+            //     parasEl.parentElement!.scrollTop = rangeInfo.start + delta;
+            //     prevPhase.current = wt.phase;
+            // } else {
+            console.log('scrollTo', rangeInfo.start + delta, `(${rangeInfo.start} + ${delta})`, 'where height is', guideLayout.height);
+            parasEl.parentElement!.scrollTo({ top: rangeInfo.start + delta, behavior: 'smooth' });
+            // } 
         }
-    }, [rangeInfo.start, rangeInfo.end, currPos, parasEl]);
+    }, [rangeInfo.start, rangeInfo.end, currPos, parasEl, upToDate, guideLayout.height]);
 
     return <>
-        <div className={s.walkthroughText} tabIndex={0} onKeyDownCapture={handleKeyDown}>
-            <div className={s.title}>{group.title}: {phase.title}</div>
-            <div className={s.walkthroughParas} ref={setParasEl}>
-                {walkthroughToParagraphs(wt, nodes)}
-                <SectionHighlight key={nextBreak} top={rangeInfo.start} height={rangeInfo.end - rangeInfo.start} width={rangeInfo.width} />
-                {!wt.running && <>
-                    <div className={s.dividerLine} style={{ top: currPos }} />
-                    <SpaceToContinueHint top={currPos} />
-                </>}
+        <div className={s.walkthroughViewport}>
+            <div className={s.walkthroughText} tabIndex={0} onKeyDownCapture={handleKeyDown}>
+                <div className={s.tocBackground}>
+                    <TocDiagram activePhase={phase.id} />
+                </div>
+                <div className={s.divider} />
+                <div className={s.title}>Chapter: {phase.title}</div>
+                <div className={s.walkthroughParas} ref={setParasEl}>
+                    {walkthroughToParagraphs(wt, nodes)}
+                    <SectionHighlight key={nextBreak} top={rangeInfo.start} height={rangeInfo.end - rangeInfo.start} width={rangeInfo.width} />
+                    {!wt.running && <>
+                        <div className={s.dividerLine} style={{ top: currPos }} />
+                        <SpaceToContinueHint top={currPos} onClick={handleContinueClick} />
+                    </>}
+                </div>
             </div>
         </div>
         <div className={s.controls}>
@@ -445,10 +478,11 @@ function markupSimple(inputStr: string): React.ReactNode {
 
 const SpaceToContinueHint: React.FC<{
     top: number;
-}> = ({ top }) => {
+    onClick: React.MouseEventHandler,
+}> = ({ top, onClick }) => {
 
     return <div className={s.hint} style={{ top }}> 
-        <div className={s.hintText}>
+        <div className={s.hintText} onClick={onClick}>
              Press <span className={s.key}>Space</span> to continue
         </div>
     </div>;

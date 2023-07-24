@@ -136,7 +136,7 @@ export class Subscriptions {
     }
 }
 
-export function useSubscriptions(subscription: Subscriptions) {
+export function useSubscriptions(subscription: Subscriptions | null) {
     let [, refresh] = useReducer(a => a + 1, 0);
-    useEffect(() => subscription.subscribe(refresh), [subscription]);
+    useEffect(() => subscription?.subscribe(refresh), [subscription]);
 }
