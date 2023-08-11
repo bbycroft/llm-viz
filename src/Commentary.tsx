@@ -7,7 +7,7 @@ import { lerp, lerpSmoothstep } from './utils/math';
 import { phaseToGroup, IWalkthrough, Phase } from './walkthrough/Walkthrough';
 import { eventEndTime, ICommentary, isCommentary, ITimeInfo } from './walkthrough/WalkthroughTools';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowDown, faPause, faPlay } from '@fortawesome/free-solid-svg-icons';
+import { faArrowDown, faChevronLeft, faChevronRight, faPause, faPlay } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
 import { TocDiagram } from './components/TocDiagram';
 
@@ -99,7 +99,7 @@ export const Commentary: React.FC = () => {
             if (i === nodes.length || node.start >= wt.time) {
                 nextBreak = lastBreak - 1;
                 break;
-            } 
+            }
             prevBreak = lastBreak + 1;
             lastBreak = i;
         }
@@ -227,18 +227,26 @@ export const Commentary: React.FC = () => {
             // } else {
             console.log('scrollTo', rangeInfo.start + delta, `(${rangeInfo.start} + ${delta})`, 'where height is', guideLayout.height);
             parasEl.parentElement!.scrollTo({ top: rangeInfo.start + delta, behavior: 'smooth' });
-            // } 
+            // }
         }
     }, [rangeInfo.start, rangeInfo.end, currPos, parasEl, upToDate, guideLayout.height]);
 
     return <>
+        <div className={s.chapterControls}>
+            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => handlePhaseDeltaClick(-1)}>
+                <FontAwesomeIcon icon={faChevronLeft} />
+            </button>
+            <div className={s.chapterTitle}>Chapter: {phase.title}</div>
+            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => handlePhaseDeltaClick(1)}>
+                <FontAwesomeIcon icon={faChevronRight} />
+            </button>
+        </div>
         <div className={s.walkthroughViewport}>
             <div className={s.walkthroughText} tabIndex={0} onKeyDownCapture={handleKeyDown}>
                 <div className={s.tocBackground}>
                     <TocDiagram activePhase={phase.id} />
                 </div>
                 <div className={s.divider} />
-                <div className={s.title}>Chapter: {phase.title}</div>
                 <div className={s.walkthroughParas} ref={setParasEl}>
                     {walkthroughToParagraphs(wt, nodes)}
                     <SectionHighlight key={nextBreak} top={rangeInfo.start} height={rangeInfo.end - rangeInfo.start} width={rangeInfo.width} />
@@ -250,16 +258,8 @@ export const Commentary: React.FC = () => {
             </div>
         </div>
         <div className={s.controls}>
-            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => handlePhaseDeltaClick(-1)}>
-                <div>Prev Phase</div>
-            </button>
-
             <button className={clsx(s.btn, s.continueBtn)} onClick={handleContinueClick}>
                 <div>Continue</div>
-            </button>
-
-            <button className={clsx(s.btn, s.prevNextBtn)} onClick={() => handlePhaseDeltaClick(1)}>
-                <div>Next Phase</div>
             </button>
         </div>
     </>;
@@ -481,7 +481,7 @@ const SpaceToContinueHint: React.FC<{
     onClick: React.MouseEventHandler,
 }> = ({ top, onClick }) => {
 
-    return <div className={s.hint} style={{ top }}> 
+    return <div className={s.hint} style={{ top }}>
         <div className={s.hintText} onClick={onClick}>
              Press <span className={s.key}>Space</span> to continue
         </div>
