@@ -464,7 +464,6 @@ export function renderAllBlocksInstanced(blockRender: IBlockRender, layout: IMod
     gl.useProgram(blockRender.instancedShader.program);
 
     let camPosModel = modelMtx.mulVec3Proj(camPos);
-    console.log('instanced locs:', locs);
     gl.uniform3f(locs.u_camPos, camPosModel.x, camPosModel.y, camPosModel.z);
 
     gl.uniform1i(locs.u_accessSampler, 0);

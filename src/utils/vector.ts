@@ -242,6 +242,13 @@ export class BoundingBox3d {
     size(): Vec3 {
         return this.max.sub(this.min);
     }
+
+    contains(p: Vec3) {
+        return !this.empty &&
+            p.x >= this.min.x && p.x <= this.max.x &&
+            p.y >= this.min.y && p.y <= this.max.y &&
+            p.z >= this.min.z && p.z <= this.max.z;
+    }
 }
 
 // static functions that operate on Float32Arrays (or Float64Arrays)

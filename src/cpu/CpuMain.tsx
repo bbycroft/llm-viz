@@ -1,10 +1,19 @@
 'use client';
 
 import * as React from 'react';
+import { useState } from 'react';
+import { CpuCanvas } from './CpuCanvas';
+import s from './CpuMain.module.scss';
 
 export const CPUMain = () => {
 
-    return <div>Hello World</div>;
+    let [cpuState] = useState(() => {
+        return { system: createSystem() };
+    });
+
+    return <div className={s.content}>
+        <CpuCanvas cpuState={cpuState} />
+    </div>;
 };
 
 /* Err, what am I doing?
@@ -32,7 +41,65 @@ export const CPUMain = () => {
 - What's our ISA? Let's go with RISC-V.
 */
 
-interface ICpu {
+/* Once again, what am I doing?
+
+- We want to be able to render/display informative things about the operation of the CPU.
+- So let's say we have a block diagram of the CPU, standard in docs.
+  - We break it down into ins-decode, register-file, ALU, etc.
+  - Also need to describe (visually) the bus, and how it works, which doesn't have an obvious parallel
+    in the impl code.
+  - Want to map the CPU ins decode etc to actual signal lines & gates. Seems complicated. And is getting
+    to the point where describing in VHDL style thing is beneficial. Still have to lay them out visually
+    though!
+
+- Hmm, this basically means building up an entire gate model, and also editing the model in a custom editor.
+- Most registers map to real variables in code, but the combinatorial logic is pushed down to the gate level.
+- Higher level components are typically implemented directly, rather than at the gate level.
+
+- Each abstraction level still binds to real JS values, and somehow need to make that linkage while being able
+  to design/edit the circuit layout & components.
+
+- Code or 2d layout editor?
+- Need to create a bunch of 2d assets either way (blocks, lines, gates, etc).
+- Editor is way more work: managing snapping etc.
+- So will do most of it in code, with a few layout helpers, say. Maybe do the design in some external
+  editor, and translate it to code by hand.
+
+- Have to do the design work first!
+
+- OK, so plan is to describe multiple levels of detail:
+
+  - Have block diagrams with key components, showing their key values (PC, registers, etc).
+  - Then, if you're zoomed in far enough, have them show the sub-components, or actual gates if
+    low enough.
+  - Probably stick to canvas2d for rendering, since it has lots of features for 2d.
+  - At mid level, have busses, muxes, etc. i.e. not broken out into individual wires/gates, unless
+    control signals.
+  - Also probably won't aim to align sub components with parent components. Although it would be neat
+    to see down to the lowest levels all at once!
+
+- Let's think of what assets & components are needed (at the high levels):
+
+   - Multi-bit rail (x bits wide)
+   - Bus (x bits wide, with address & data lines & signals; will mostly be arrows with width)
+   - Instruction decoder
+   - Single register e.g. PC
+   - Register file (x bits wide, y registers)
+   - ALU: 2 in, 1 out, plus control signals
+   - RAM
+   - ROM
+
+- First design is a single-cycle CPU, with a single register file, ALU, ROM & RAM. Pure harvard architecture,
+  so reading ROM instrucion at the same time as doing all other operations, including RAM load/stores.
+
+- As we zoom in a little, interesting part is the instruction decoder, and want to split that into gates
+  quite early on.
+  - So need AND, OR, NOT, XOR, etc gates. But also have comparitors (for evaluating what op), muxes, etc.
+  - Want to show all operations but using high-level components as possible.
+
+*/
+
+export interface ICpu {
     pc: number;
     x: Int32Array; // 32 registers, x0-x31, x0 is always 0 (even after writes!)
     halt: boolean;
@@ -132,48 +199,19 @@ enum CSR_Reg {
     mtval2 = 0x34b, // machine bad guest physical address
 }
 
-/*
-Let's make up a memory-model:
-
-- 32-bit address space.
-- 1MB of ROM
-- 1MB of RAM
-
-- 0x0000_0000 - 0x1FFF_FFFF: ROM max 512MiB
-- 0x2000_0000 - 0x3FFF_FFFF: RAM max 512MiB
-- 0x4000_0000 - 0x4FFF_FFFF: IO  max 256MiB
-
-- Then have a bunch of devices in the IO space.
-  - Some standard IO devices:
-
-  - GPIO
-
-  - We'll have 32 GPIO pins, each of which can be input or output, and each corresponds to a bit
-
-  - GPIO offset: 0x4000_1000 - 0x4000_1FFF (4KiB)
-
-  - within that block, we have 32bit registers, and we'll index them as 0, 1, 2 etc
-
-  - 0: PORT_DIR: 0 = output, 1 = input
-  - 1: PORT_VALUE: input or output value
-  - 2: PORT_OUT_SET: set output bits
-  - 3: PORT_OUT_CLEAR: clear output bits
-
-*/
-
-interface Io_Gpio {
+export interface Io_Gpio {
     portDir: number;
     portValue: number;
 }
 
-enum Io_Gpio_Register {
+export enum Io_Gpio_Register {
     PORT_DIR = 0,
     PORT_VALUE = 1,
     PORT_OUT_SET = 2,
     PORT_OUT_CLEAR = 3,
 }
 
-interface IMemoryLayout {
+export interface IMemoryLayout {
     romOffset: number;
     ramOffset: number;
     ioOffset: number;
@@ -235,9 +273,9 @@ let testNames = [
     'xori',
 ];
 
-type ISystem = ReturnType<typeof createSystem>;
+export type ISystem = ReturnType<typeof createSystem>;
 
-function doSimulation(system: ISystem) {
+export function doSimulation(system: ISystem) {
     let cpu = system.cpu;
     let memoryMap = system.memoryMap;
     cpu.pc = memoryMap.ramOffset;
@@ -261,9 +299,9 @@ async function runTests() {
 
     for (let testName of testNames) {
 
-        // if (testName !== 'srai') {
-        //     continue;
-        // }
+        if (testName !== 'srai') {
+            continue;
+        }
 
         let elfFile = new Uint8Array(await (await fetch(basePath + testName)).arrayBuffer());
 
@@ -801,7 +839,7 @@ function executeInstruction(cpu: ICpu, mem: IMemoryAccess) {
     cpu.x[0] = 0; // ensure x0 is always 0
 }
 
-let regNames = [
+export const regNames = [
     'zero', 'ra', 'sp', 'gp', 'tp',
     't0', 't1', 't2',
     's0', 's1',
