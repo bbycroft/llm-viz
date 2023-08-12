@@ -1,12 +1,13 @@
 import React, { useCallback, useLayoutEffect, useReducer, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
-import { BoundingBox3d, Vec3 } from "../utils/vector";
+import { BoundingBox3d, segmentNearestPoint, Vec3 } from "../utils/vector";
 import { ISystem, regNames } from "./CpuMain";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { useCombinedMouseTouchDrag } from "../utils/pointer";
-import { assignImm, clamp } from "../utils/data";
-import { editLayout, ICanvasState, IEditorState } from "./Editor";
+import { assignImm, assignImmFull, clamp } from "../utils/data";
+import { editLayout, ICanvasState, IEditorState, IHitTest } from "./Editor";
+import { dragSegment, fixWire } from "./Wire";
 
 interface ICpuState {
     system: ISystem;
@@ -23,6 +24,7 @@ export const CpuCanvas: React.FC<{
         redoStack: [],
         undoStack: [],
         hovered: null,
+        addLine: false,
     });
     let [, redraw] = useReducer((x) => x + 1, 0);
 
@@ -76,8 +78,12 @@ export const CpuCanvas: React.FC<{
         if (!ds.data.hovered) {
             let newMtx = ds.data.mtx.mul(AffineMat2d.translateVec(delta));
             editorState.mtx = newMtx;
-        } else if (ds.data.hovered.type === RefType.Comp) {
-            handleComponentDrag(end, ds.data.hovered, ds.data.modelPos, evToModel(ev));
+        } else if (ds.data.hovered.ref.type === RefType.Comp) {
+            handleComponentDrag(end, ds.data.hovered.ref, ds.data.modelPos, evToModel(ev));
+        } else if (ds.data.hovered.ref.type === RefType.CompNode) {
+            handleWireCreateDrag(end, ds.data.hovered.ref, ds.data.modelPos, evToModel(ev));
+        } else if (ds.data.hovered.ref.type === RefType.Wire) {
+            handleWireDrag(end, ds.data.hovered.ref, ds.data.modelPos, evToModel(ev));
         }
         redraw();
 
@@ -96,6 +102,69 @@ export const CpuCanvas: React.FC<{
         }));
     }
 
+    function handleWireCreateDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
+        setEditorState(editLayout(end, layout => {
+
+            let startComp = layout.comps.find(c => c.id === ref.id)!;
+            let startNode = startComp.nodes!.find(n => n.id === ref.compNodeId)!;
+            let startPt = startComp.pos.add(startNode.pos);
+            let endPt = snapToGrid(newModelPos);
+
+            let isHorizStart = startNode.pos.x === 0 || startNode.pos.x === startComp.size.x;
+
+            // split into horizontal and vertical segments
+            // maybe drop some of the if's, and have a cleanup phase
+            let segments: ISegment[] = [];
+            if (isHorizStart) {
+                segments.push({ p0: startPt, p1: new Vec3(endPt.x, startPt.y), comp0Ref: ref });
+                segments.push({ p0: new Vec3(endPt.x, startPt.y), p1: endPt });
+            } else {
+                segments.push({ p0: startPt, p1: new Vec3(startPt.x, endPt.y), comp0Ref: ref });
+                segments.push({ p0: new Vec3(startPt.x, endPt.y), p1: endPt });
+            }
+
+            let newWire: IWire = fixWire({
+                id: '' + layout.nextWireId,
+                segments: segments,
+            });
+
+            return assignImm(layout, {
+                nextWireId: layout.nextWireId + 1,
+                wires: [...layout.wires, newWire],
+            });
+        }));
+    }
+
+    function handleWireDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
+
+        setEditorState(editLayout(end, layout => {
+
+            let wireIdx = editorState.layout.wires.findIndex(w => w.id === ref.id)!;
+            let wire = editorState.layout.wires[wireIdx];
+            let delta = newModelPos.sub(origModelPos);
+            let seg = wire.segments[ref.wireSegId!];
+
+            // don't allow dragging of segments connected to components (since they're pinned)
+            // probably want to support dragging by introducing a perp-segment though
+            if (seg.comp0Ref || seg.comp1Ref) {
+                return layout;
+            }
+
+            let isHoriz = seg.p0.y === seg.p1.y;
+            if (isHoriz) {
+                delta = new Vec3(0, delta.y);
+            } else {
+                delta = new Vec3(delta.x, 0);
+            }
+
+            let newWire = dragSegment(wire, ref.wireSegId!, delta);
+
+            let wires = [...layout.wires];
+            wires[wireIdx] = newWire;
+            return assignImm(layout, { wires: wires });
+        }));
+    }
+
     function snapToGrid(pt: Vec3) {
         return pt.round();
     }
@@ -110,7 +179,11 @@ export const CpuCanvas: React.FC<{
     }
 
     function modelToScreen(pt: Vec3) {
-        return editorState!.mtx.mulVec3(pt);
+        return editorState.mtx.mulVec3(pt);
+    }
+
+    function screenToModel(pt: Vec3) {
+        return editorState.mtx.mulVec3Inv(pt);
     }
 
     function handleWheel(ev: React.WheelEvent) {
@@ -130,7 +203,7 @@ export const CpuCanvas: React.FC<{
         // ev.preventDefault();
     }
 
-    function getRefUnderCursor(editorState: IEditorState, ev: React.MouseEvent): IElRef | null {
+    function getRefUnderCursor(editorState: IEditorState, ev: React.MouseEvent): IHitTest | null {
         let mousePt = evToModel(ev);
         let mousePtScreen = evToScreen(ev);
 
@@ -144,7 +217,11 @@ export const CpuCanvas: React.FC<{
                 let modelDist = modelPos.dist(mousePt);
                 let screenDist = nodeScreenPos.dist(mousePtScreen);
                 if (screenDist < 10 || modelDist < 0.2) {
-                    return { type: RefType.CompNode, id: comp.id, subId: node.id };
+                    return {
+                        ref: { type: RefType.CompNode, id: comp.id, compNodeId: node.id },
+                        distPx: screenDist,
+                        modelPt: modelPos,
+                    };
                 }
             }
         }
@@ -153,18 +230,41 @@ export const CpuCanvas: React.FC<{
             let comp = comps[i];
             let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
             if (bb.contains(mousePt)) {
-                return { type: RefType.Comp, id: comp.id };
+                return {
+                    ref: { type: RefType.Comp, id: comp.id },
+                    distPx: 0,
+                    modelPt: mousePt,
+                };
             }
         }
+
+        let wires = editorState.layout.wires;
+        for (let i = wires.length - 1; i >= 0; i--) {
+            let wire = wires[i];
+            let segId = 0;
+            for (let segment of wire.segments) {
+                let p0Screen = modelToScreen(segment.p0);
+                let p1Screen = modelToScreen(segment.p1);
+                let isectPt = segmentNearestPoint(p0Screen, p1Screen, mousePtScreen);
+                let screenDist = isectPt.dist(mousePtScreen);
+                if (screenDist < 10) {
+                    return  {
+                        ref: { type: RefType.Wire, id: wire.id, wireSegId: segId },
+                        distPx: screenDist,
+                        modelPt: screenToModel(isectPt),
+                    };
+                }
+                segId++;
+            }
+        }
+
         return null;
     }
 
     function handleMouseMove(ev: React.MouseEvent) {
-        let newComp = getRefUnderCursor(editorState, ev);
+        let isect = getRefUnderCursor(editorState, ev);
 
-        if (editorState.hovered?.id !== newComp?.id || editorState.hovered?.subId !== newComp?.subId) {
-            setEditorState(a => assignImm(a!, { hovered: newComp }));
-        }
+        setEditorState(a => assignImm(a, { hovered: assignImmFull(a.hovered, isect) }));
     }
 
     function handleMouseDown(ev: React.MouseEvent) {
@@ -176,12 +276,20 @@ export const CpuCanvas: React.FC<{
     }
 
     let cursor: string | undefined;
-    if (dragStart && dragStart.data.hovered?.type === RefType.Comp) {
+    if (dragStart && dragStart.data.hovered?.ref.type === RefType.Comp) {
         cursor = 'grabbing';
 
     } else if (editorState.hovered) {
-        if (editorState.hovered.type === RefType.CompNode) {
+        let hoveredRef = editorState.hovered.ref;
+        if (hoveredRef.type === RefType.CompNode) {
             cursor = 'crosshair';
+        } else if (hoveredRef.type === RefType.Wire) {
+            let wire = editorState.layout.wires.find(w => w.id === hoveredRef.id);
+            if (wire) {
+                let seg = wire.segments[hoveredRef.wireSegId!];
+                let isHoriz = seg.p0.y === seg.p1.y;
+                cursor = isHoriz ? 'ns-resize' : 'ew-resize';
+            }
         }
     }
 
@@ -221,13 +329,26 @@ export function renderCpuToCanvas(cvs: ICanvasState, editorState: IEditorState, 
 export interface IElRef {
     type: RefType;
     id: string;
-    subId?: string; // node for comp
+    compNodeId?: string; // node for comp
+    wireSegId?: number;
 }
 
 export enum RefType {
     Comp,
-    Bus,
+    Wire,
     CompNode,
+}
+
+export interface IWire {
+    id: string;
+    segments: ISegment[];
+}
+
+export interface ISegment {
+    p0: Vec3;
+    p1: Vec3;
+    comp0Ref?: IElRef;
+    comp1Ref?: IElRef;
 }
 
 export interface IBus {
@@ -277,6 +398,11 @@ export enum CompType {
     REG,
     MUX,
     LS
+}
+
+export interface ICpuLayoutBase {
+    comps: IComp[];
+    wires: IWire[];
 }
 
 export type ICpuLayout = ReturnType<typeof constructCpuLayout>;
@@ -445,8 +571,10 @@ function constructCpuLayout() {
     comps.push(ram, rom, insDecode, loadStore, alu, pc, reg);
 
     return {
+        nextWireId: 0,
         comps,
         buses,
+        wires: [] as IWire[],
         ram,
         rom,
         insDecode,
@@ -504,9 +632,21 @@ export function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts:
         renderBus(cvs, bus);
     }
 
+    for (let wire of cpuOpts.wires) {
+        renderWire(cvs, editorState, wire);
+    }
+
+    // if (editorState.hovered?.modelPt) {
+    //     let pt = editorState.hovered.modelPt;
+    //     ctx.beginPath();
+    //     ctx.arc(pt.x, pt.y, 1, 0, 2 * Math.PI);
+    //     ctx.strokeStyle = "#f00";
+    //     ctx.stroke();
+    // }
+
     for (let comp of cpuOpts.comps) {
 
-        let isHover = editorState.hovered?.type === RefType.Comp && editorState.hovered.id === comp.id;
+        let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === comp.id;
 
         ctx.beginPath();
         ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
@@ -538,7 +678,8 @@ export function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts:
 }
 
 function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompNode) {
-    let isHover = editorState.hovered?.type === RefType.CompNode && editorState.hovered.id === comp.id && editorState.hovered.subId === node.id;
+    let hoverRef = editorState.hovered?.ref;
+    let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === node.id;
     let ctx = cvs.ctx;
     let x = comp.pos.x + node.pos.x;
     let y = comp.pos.y + node.pos.y;
@@ -613,4 +754,32 @@ export function renderBus(cvs: ICanvasState, busOpts: IBus) {
     }
 
     ctx.stroke();
+}
+
+export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWire) {
+    let ctx = cvs.ctx;
+
+    let hoverRef = editorState.hovered?.ref;
+    let isHover = hoverRef?.type === RefType.Wire && hoverRef.id === wire.id;
+    let hoverSegId = isHover ? hoverRef!.wireSegId : -1;
+
+    ctx.lineWidth = 4 * cvs.scale;
+    ctx.lineCap = "square";
+    ctx.lineJoin = "round";
+
+    let segs = wire.segments;
+    for (let i = 0; i < segs.length; i++) {
+        ctx.beginPath();
+        if (i === hoverSegId) {
+            ctx.strokeStyle = '#f00';
+        } else if (isHover) {
+            ctx.strokeStyle = '#aaa';
+        } else {
+            ctx.strokeStyle = '#333';
+        }
+        let seg = segs[i];
+        ctx.moveTo(seg.p0.x, seg.p0.y);
+        ctx.lineTo(seg.p1.x, seg.p1.y);
+        ctx.stroke();
+    }
 }

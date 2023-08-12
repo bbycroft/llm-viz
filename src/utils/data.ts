@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from "react";
+import { Vec3 } from "./vector";
 
 export function makeArray<T = number>(length: number, val?: T): T[] {
     return new Array(length).fill(val ?? 0);
@@ -17,11 +18,19 @@ export function assignImm<T>(target: T, source: Partial<T>): T {
     for (let k of keys) {
         let src = (source as any)[k];
         let dst = (target as any)[k];
-        if (src instanceof Date ? (+src !== +dst) : dst !== src) {
-            changed = true;
+        if ((src === dst) ||
+            (src instanceof Date && dst instanceof Date && +src === +dst) ||
+            (src instanceof Vec3 && dst instanceof Vec3 && src.distSq(dst) === 0.0)
+        ) {
+            continue;
         }
+        changed = true;
     }
     return changed ? Object.assign({}, target, source) : target;
+}
+
+export function assignImmFull<T>(target: T | null, source: T | null): T | null {
+    return source && target ? assignImm(target, source) : source;
 }
 
 export function logChangesFn(name: string) {

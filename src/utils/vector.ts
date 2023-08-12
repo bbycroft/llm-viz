@@ -21,6 +21,8 @@ V8 shows Vec3 & Vec4 as having an 24 byte overhead, which... isn't toooo bad
 
 */
 
+import { clamp } from "./data";
+
 export enum Dim {
     X = 0,
     Y = 1,
@@ -255,7 +257,7 @@ export class BoundingBox3d {
 // all functions are in-place, and read/write from specified offsets
 // safe to use with the same array for both input and output
 
-export type IArr = Float32Array | Float64Array; 
+export type IArr = Float32Array | Float64Array;
 
 export class Vec3Buf {
 
@@ -302,4 +304,11 @@ export class Vec4Buf {
         out[outOff + 2] = a[aOff + 2];
         out[outOff + 3] = a[aOff + 3];
     }
+}
+
+export function segmentNearestPoint(p0: Vec3, p1: Vec3, x: Vec3) {
+    let v = p1.sub(p0);
+    let w = x.sub(p0);
+    let t = clamp(w.dot(v) / v.dot(v), 0, 1);
+    return p0.mulAdd(v, t);
 }

@@ -12,7 +12,14 @@ export interface IEditorState {
     undoStack: ICpuLayout[];
     redoStack: ICpuLayout[];
 
-    hovered: IElRef | null;
+    hovered: IHitTest | null;
+    addLine: boolean
+}
+
+export interface IHitTest {
+    ref: IElRef;
+    distPx: number;
+    modelPt: Vec3;
 }
 
 export interface ICanvasState {
