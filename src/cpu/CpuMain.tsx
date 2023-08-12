@@ -295,7 +295,7 @@ export function doSimulation(system: ISystem) {
 async function runTests() {
     console.clear();
 
-    let basePath = '/riscv/tests-ui-p/rv32ui-p-';
+    let basePath = (process.env.BASE_URL ?? '') + '/riscv/tests-ui-p/rv32ui-p-';
 
     for (let testName of testNames) {
 
@@ -305,7 +305,7 @@ async function runTests() {
 
         let elfFile = new Uint8Array(await (await fetch(basePath + testName)).arrayBuffer());
 
-        console.log('Running test: ' + testName);
+        console.log('Running test: ' + testName, 'from', basePath + testName);
 
         let system = createSystem();
 
@@ -728,7 +728,7 @@ function executeInstruction(cpu: ICpu, mem: IMemoryAccess) {
         let offset = signExtend12Bit(ins >>> 20);
         pcOffset = ((cpu.x[rs1] >>> 0) + offset) - cpu.pc;
         cpu.x[rd] = cpu.pc + 4;
-    
+
     } else if (opCode === OpCode.BRANCH) {
         let lhs = cpu.x[rs1];
         let rhs = cpu.x[rs2];
@@ -793,7 +793,7 @@ function executeInstruction(cpu: ICpu, mem: IMemoryAccess) {
             cpu.x[rd] = cpu.csr[csr];
             switch (funct3Local) {
                 case Funct3CSR.CSRRWI: cpu.csr[csr] = srcVal; break;
-                case Funct3CSR.CSRRSI: cpu.csr[csr] |= srcVal; break; 
+                case Funct3CSR.CSRRSI: cpu.csr[csr] |= srcVal; break;
                 case Funct3CSR.CSRRCI: cpu.csr[csr] &= ~srcVal; break;
             }
             // console.log(`CSR op ${Funct3CSR[funct3]} @ 0x${csr.toString(16)} (${CSR_Reg[csr]}): ${cpu.x[rd]} -> ${srcVal}`);

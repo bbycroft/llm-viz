@@ -1,24 +1,12 @@
 import React, { useCallback, useLayoutEffect, useReducer, useState } from "react";
-import { useResizeChangeHandler, useScreenLayout } from "../utils/layout";
+import { useResizeChangeHandler } from "../utils/layout";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { ISystem, regNames } from "./CpuMain";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, clamp } from "../utils/data";
-
-interface ICanvasState {
-    canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
-    mtx: AffineMat2d;
-
-    size: Vec3; // derived
-    scale: number; // derived
-
-    layout: ICpuLayout;
-
-    hovered: IElRef | null;
-}
+import { editLayout, ICanvasState, IEditorState } from "./Editor";
 
 interface ICpuState {
     system: ISystem;
@@ -28,6 +16,14 @@ export const CpuCanvas: React.FC<{
     cpuState: ICpuState;
 }> = ({ cpuState }) => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
+    let [editorState, setEditorState] = useState<IEditorState>({
+        layout: constructCpuLayout(),
+        layoutTemp: null,
+        mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
+        redoStack: [],
+        undoStack: [],
+        hovered: null,
+    });
     let [, redraw] = useReducer((x) => x + 1, 0);
 
     useResizeChangeHandler(cvsState?.canvas, redraw);
@@ -36,15 +32,7 @@ export const CpuCanvas: React.FC<{
 
         if (el) {
             let ctx = el.getContext("2d")!;
-            setCvsState({
-                canvas: el,
-                ctx,
-                mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(el.clientWidth/2, el.clientHeight/2).round())),
-                size: new Vec3(1, 1),
-                scale: 1,
-                layout: constructCpuLayout(),
-                hovered: null,
-            });
+            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1 });
         } else {
             setCvsState(null);
         }
@@ -55,7 +43,7 @@ export const CpuCanvas: React.FC<{
             return;
         }
 
-        let { canvas, ctx, mtx } = cvsState;
+        let { canvas, ctx } = cvsState;
 
         let bcr = canvas.getBoundingClientRect();
         let w = bcr.width;
@@ -64,36 +52,32 @@ export const CpuCanvas: React.FC<{
         canvas.height = Math.floor(h * window.devicePixelRatio);
         cvsState.size.x = w;
         cvsState.size.y = h;
-        cvsState.scale = 1.0 / mtx.a;
+        cvsState.scale = 1.0 / editorState.mtx.a;
 
         ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-        ctx.transform(...mtx.toTransformParams());
-        renderCpuToCanvas(cvsState, cpuState);
+        ctx.transform(...editorState.mtx.toTransformParams());
+        renderCpuToCanvas(cvsState, editorState, cpuState);
 
         ctx.restore();
     });
 
     let [dragStart, setDragStart] = useCombinedMouseTouchDrag(cvsState?.canvas ?? null, ev => {
         return {
-            mtx: cvsState!.mtx,
-            hovered: cvsState!.hovered,
+            mtx: editorState!.mtx,
+            hovered: editorState!.hovered,
             modelPos: evToModel(ev),
         };
      }, function handleDrag(ev, ds, end) {
-        if (!cvsState) {
-            return;
-        }
-
         let delta = new Vec3(ev.clientX - ds.clientX, ev.clientY - ds.clientY);
 
         if (!ds.data.hovered) {
             let newMtx = ds.data.mtx.mul(AffineMat2d.translateVec(delta));
-            cvsState.mtx = newMtx;
-        } else {
-            // handleComponentDrag(cvsState, ds.data.hoveredComp, ds.data.modelPos, evToModel(ev));
+            editorState.mtx = newMtx;
+        } else if (ds.data.hovered.type === RefType.Comp) {
+            handleComponentDrag(end, ds.data.hovered, ds.data.modelPos, evToModel(ev));
         }
         redraw();
 
@@ -101,18 +85,22 @@ export const CpuCanvas: React.FC<{
         ev.preventDefault();
     });
 
-    function handleComponentDrag(cvsState: ICanvasState, comp: IComp, origModelPos: Vec3, newModelPos: Vec3) {
+    function handleComponentDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
 
-        setCvsState(a => assignImm(a!, {
-            layout: assignImm(a!.layout, {
-                comps: a!.layout.comps.map(c => c.id === comp.id ? assignImm(c, {
-                    pos: comp.pos.add(newModelPos.sub(origModelPos)),
+        setEditorState(editLayout(end, layout => {
+            return assignImm(layout, {
+                comps: layout.comps.map(c => c.id === ref.id ? assignImm(c, {
+                    pos: snapToGrid(c.pos.add(newModelPos.sub(origModelPos))),
                 }) : c),
-            }),
+            });
         }));
     }
 
-    function evToModel(ev: { clientX: number, clientY: number }, mtx: AffineMat2d = cvsState!.mtx) {
+    function snapToGrid(pt: Vec3) {
+        return pt.round();
+    }
+
+    function evToModel(ev: { clientX: number, clientY: number }, mtx: AffineMat2d = editorState!.mtx) {
         return mtx.mulVec3Inv(evToScreen(ev));
     }
 
@@ -122,15 +110,11 @@ export const CpuCanvas: React.FC<{
     }
 
     function modelToScreen(pt: Vec3) {
-        return cvsState!.mtx.mulVec3(pt);
+        return editorState!.mtx.mulVec3(pt);
     }
 
     function handleWheel(ev: React.WheelEvent) {
-        if (!cvsState) {
-            return;
-        }
-
-        let scale = cvsState.mtx.a;
+        let scale = editorState.mtx.a;
         let newScale = clamp(scale * Math.pow(1.0013, -ev.deltaY), 0.01, 100000) / scale;
 
         let modelPt = evToModel(ev);
@@ -138,18 +122,33 @@ export const CpuCanvas: React.FC<{
             AffineMat2d.translateVec(modelPt.mul(-1)),
             AffineMat2d.scale1(newScale),
             AffineMat2d.translateVec(modelPt.mul(1)),
-            cvsState.mtx);
+            editorState.mtx);
 
-        cvsState.mtx = newMtx;
+        editorState.mtx = newMtx;
         redraw();
         ev.stopPropagation();
         // ev.preventDefault();
     }
 
-    function getRefUnderCursor(cvsState: ICanvasState, ev: React.MouseEvent): IElRef | null {
+    function getRefUnderCursor(editorState: IEditorState, ev: React.MouseEvent): IElRef | null {
         let mousePt = evToModel(ev);
+        let mousePtScreen = evToScreen(ev);
 
-        let comps = cvsState.layout.comps;
+        let comps = editorState.layout.comps;
+
+        for (let i = comps.length - 1; i >= 0; i--) {
+            let comp = comps[i];
+            for (let node of comp.nodes ?? []) {
+                let modelPos = comp.pos.add(node.pos);
+                let nodeScreenPos = modelToScreen(modelPos);
+                let modelDist = modelPos.dist(mousePt);
+                let screenDist = nodeScreenPos.dist(mousePtScreen);
+                if (screenDist < 10 || modelDist < 0.2) {
+                    return { type: RefType.CompNode, id: comp.id, subId: node.id };
+                }
+            }
+        }
+
         for (let i = comps.length - 1; i >= 0; i--) {
             let comp = comps[i];
             let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
@@ -161,28 +160,34 @@ export const CpuCanvas: React.FC<{
     }
 
     function handleMouseMove(ev: React.MouseEvent) {
-        if (!cvsState) {
-            return;
-        }
+        let newComp = getRefUnderCursor(editorState, ev);
 
-        let newComp = getRefUnderCursor(cvsState, ev);
-
-        if (cvsState.hovered?.id !== newComp?.id || cvsState.hovered?.subId !== newComp?.subId) {
-            setCvsState(a => assignImm(a!, { hovered: newComp }));
+        if (editorState.hovered?.id !== newComp?.id || editorState.hovered?.subId !== newComp?.subId) {
+            setEditorState(a => assignImm(a!, { hovered: newComp }));
         }
     }
 
     function handleMouseDown(ev: React.MouseEvent) {
-        if (!cvsState) {
+        if (!editorState) {
             return;
         }
 
         setDragStart(ev);
     }
 
+    let cursor: string | undefined;
+    if (dragStart && dragStart.data.hovered?.type === RefType.Comp) {
+        cursor = 'grabbing';
+
+    } else if (editorState.hovered) {
+        if (editorState.hovered.type === RefType.CompNode) {
+            cursor = 'crosshair';
+        }
+    }
+
     return <div className={s.canvasWrap}>
         <canvas className={s.canvas} ref={setCanvasEl}
-            style={{ cursor: dragStart ? 'grabbing' : undefined }}
+            style={{ cursor: cursor }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onWheel={handleWheel}
@@ -201,31 +206,31 @@ thick for really small objects)
 
 */
 
-export function renderCpuToCanvas(cvs: ICanvasState, cpu: ICpuState) {
+export function renderCpuToCanvas(cvs: ICanvasState, editorState: IEditorState, cpu: ICpuState) {
     let ctx = cvs.ctx;
     let w = cvs.size.x;
     let h = cvs.size.y;
 
     ctx.save();
 
-    renderCpu(cvs, cvs.layout, cpu);
+    renderCpu(cvs, editorState, editorState.layoutTemp ?? editorState.layout, cpu);
 
     ctx.restore();
 }
 
-interface IElRef {
+export interface IElRef {
     type: RefType;
     id: string;
     subId?: string; // node for comp
 }
 
-enum RefType {
+export enum RefType {
     Comp,
     Bus,
     CompNode,
 }
 
-interface IBus {
+export interface IBus {
     id: string;
     type: BusType;
     width?: number;
@@ -234,13 +239,13 @@ interface IBus {
     color: string;
 }
 
-enum BusType {
+export enum BusType {
     Data,
     Addr,
     AddrDataSignal,
 }
 
-interface IComp {
+export interface IComp {
     id: string;
     name: string;
     pos: Vec3;
@@ -249,20 +254,21 @@ interface IComp {
     nodes?: ICompNode[];
 }
 
-interface ICompNode {
+export interface ICompNode {
+    id: string;
     pos: Vec3; // relative to comp
     name: string;
     type?: CompNodeType;
     width?: number;
 }
 
-enum CompNodeType {
+export enum CompNodeType {
     Input = 1,
     Output = 1 << 1,
     Tristate = 1 << 2,
 }
 
-enum CompType {
+export enum CompType {
     RAM,
     ROM,
     ID,
@@ -273,9 +279,9 @@ enum CompType {
     LS
 }
 
-type ICpuLayout = ReturnType<typeof constructCpuLayout>;
+export type ICpuLayout = ReturnType<typeof constructCpuLayout>;
 
-enum StackPos {
+export enum StackPos {
     Start,
     End,
     Center,
@@ -319,6 +325,13 @@ function constructCpuLayout() {
         pos: new Vec3(10, busPad),
         size: new Vec3(10, 3),
         type: CompType.ID,
+        nodes: [{
+            id: 'rhsImm',
+            name: 'RHS Imm',
+            pos: new Vec3(10, 2),
+            type: CompNodeType.Output,
+            width: 32,
+        }],
     };
 
     let loadStore: IComp = {
@@ -327,6 +340,13 @@ function constructCpuLayout() {
         pos: new Vec3(10, busPad),
         size: new Vec3(10, 3),
         type: CompType.LS,
+        nodes: [
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: CompNodeType.Input, width: 4 },
+            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: CompNodeType.Input, width: 12 },
+            { id: 'addrBase', name: 'Addr Base', pos: new Vec3(3, 3), type: CompNodeType.Input, width: 32 },
+            { id: 'data', name: 'Data', pos: new Vec3(7, 3), type: CompNodeType.Input, width: 32 },
+            { id: 'dataOut', name: 'Data Out', pos: new Vec3(10, 2), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+        ],
     };
 
     let alu: IComp = {
@@ -335,6 +355,11 @@ function constructCpuLayout() {
         pos: new Vec3(),
         size: new Vec3(10, 6),
         type: CompType.ALU,
+        nodes: [
+            { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: CompNodeType.Input, width: 32 },
+            { id: 'rhs', name: 'RHS', pos: new Vec3(7, 0), type: CompNodeType.Input, width: 32 },
+            { id: 'result', name: 'Result', pos: new Vec3(5, 6), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+        ],
     };
 
     let pc: IComp = {
@@ -380,7 +405,7 @@ function constructCpuLayout() {
 
     let pcMid = pc.pos.y + pc.size.y / 2;
 
-    let insLower = insDecode.pos.y + insDecode.size.y * 0.75;
+    let insLower = insDecode.pos.y + 2;
 
     let lsLeft = loadStore.pos.x + loadStore.size.x * 0.25;
     let lsRight = loadStore.pos.x + loadStore.size.x * 0.75;
@@ -472,7 +497,7 @@ function stackHorizontally(comps: IComp[], pad: number, anchorX: number, pos: St
     }
 }
 
-export function renderCpu(cvs: ICanvasState, cpuOpts: ICpuLayout, cpuState: ICpuState) {
+export function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayout, cpuState: ICpuState) {
     let ctx = cvs.ctx;
 
     for (let bus of cpuOpts.buses) {
@@ -481,7 +506,7 @@ export function renderCpu(cvs: ICanvasState, cpuOpts: ICpuLayout, cpuState: ICpu
 
     for (let comp of cpuOpts.comps) {
 
-        let isHover = cvs.hovered?.type === RefType.Comp && cvs.hovered.id === comp.id;
+        let isHover = editorState.hovered?.type === RefType.Comp && editorState.hovered.id === comp.id;
 
         ctx.beginPath();
         ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
@@ -491,6 +516,10 @@ export function renderCpu(cvs: ICanvasState, cpuOpts: ICpuLayout, cpuState: ICpu
         ctx.lineWidth = 1 * cvs.scale;
         ctx.fill();
         ctx.stroke();
+
+        for (let node of comp.nodes ?? []) {
+            renderNode(cvs, editorState, comp, node);
+        }
 
         if (comp.type === CompType.PC) {
             renderPc(cvs, comp, cpuState);
@@ -506,6 +535,20 @@ export function renderCpu(cvs: ICanvasState, cpuOpts: ICpuLayout, cpuState: ICpu
             ctx.fillText(text, comp.pos.x + (comp.size.x) / 2, comp.pos.y + (comp.size.y) / 2);
         }
     }
+}
+
+function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompNode) {
+    let isHover = editorState.hovered?.type === RefType.CompNode && editorState.hovered.id === comp.id && editorState.hovered.subId === node.id;
+    let ctx = cvs.ctx;
+    let x = comp.pos.x + node.pos.x;
+    let y = comp.pos.y + node.pos.y;
+    let r = 2 / 10;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.strokeStyle = isHover ? "#f00" : "#000";
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.stroke();
 }
 
 // 32bit pc
