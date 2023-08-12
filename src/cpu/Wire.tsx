@@ -1,6 +1,6 @@
 import { assignImm } from "../utils/data";
 import { segmentNearestPoint, Vec3 } from "../utils/vector";
-import { ISegment, IWire } from "./CpuCanvas";
+import { IWire, ISegment } from "./CpuModel";
 
 export function dragSegment(wire: IWire, segId: number, delta: Vec3) {
 

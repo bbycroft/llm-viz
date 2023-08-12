@@ -5,9 +5,10 @@ import { ISystem, regNames } from "./CpuMain";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { useCombinedMouseTouchDrag } from "../utils/pointer";
-import { assignImm, assignImmFull, clamp } from "../utils/data";
-import { editLayout, ICanvasState, IEditorState, IHitTest } from "./Editor";
+import { assignImm, assignImmFull, clamp, isNil, isNotNil } from "../utils/data";
+import { editLayout } from "./Editor";
 import { dragSegment, fixWire } from "./Wire";
+import { RefType, IElRef, ISegment, IWire, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase } from "./CpuModel";
 
 interface ICpuState {
     system: ISystem;
@@ -241,20 +242,27 @@ export const CpuCanvas: React.FC<{
         let wires = editorState.layout.wires;
         for (let i = wires.length - 1; i >= 0; i--) {
             let wire = wires[i];
-            let segId = 0;
+            let wireSegId = 0;
             for (let segment of wire.segments) {
                 let p0Screen = modelToScreen(segment.p0);
                 let p1Screen = modelToScreen(segment.p1);
                 let isectPt = segmentNearestPoint(p0Screen, p1Screen, mousePtScreen);
                 let screenDist = isectPt.dist(mousePtScreen);
                 if (screenDist < 10) {
+                    let wireSegEnd: number | undefined;
+                    if (p0Screen.dist(mousePtScreen) < 10) {
+                        wireSegEnd = 0;
+                    } else if (p1Screen.dist(mousePtScreen) < 10) {
+                        wireSegEnd = 1;
+                    }
+
                     return  {
-                        ref: { type: RefType.Wire, id: wire.id, wireSegId: segId },
+                        ref: { type: RefType.Wire, id: wire.id, wireSegId, wireSegEnd },
                         distPx: screenDist,
                         modelPt: screenToModel(isectPt),
                     };
                 }
-                segId++;
+                wireSegId++;
             }
         }
 
@@ -288,7 +296,11 @@ export const CpuCanvas: React.FC<{
             if (wire) {
                 let seg = wire.segments[hoveredRef.wireSegId!];
                 let isHoriz = seg.p0.y === seg.p1.y;
-                cursor = isHoriz ? 'ns-resize' : 'ew-resize';
+                if (isNotNil(hoveredRef.wireSegEnd)) {
+                    cursor = 'crosshair';
+                } else {
+                    cursor = isHoriz ? 'ns-resize' : 'ew-resize';
+                }
             }
         }
     }
@@ -316,93 +328,10 @@ thick for really small objects)
 
 export function renderCpuToCanvas(cvs: ICanvasState, editorState: IEditorState, cpu: ICpuState) {
     let ctx = cvs.ctx;
-    let w = cvs.size.x;
-    let h = cvs.size.y;
 
     ctx.save();
-
     renderCpu(cvs, editorState, editorState.layoutTemp ?? editorState.layout, cpu);
-
     ctx.restore();
-}
-
-export interface IElRef {
-    type: RefType;
-    id: string;
-    compNodeId?: string; // node for comp
-    wireSegId?: number;
-}
-
-export enum RefType {
-    Comp,
-    Wire,
-    CompNode,
-}
-
-export interface IWire {
-    id: string;
-    segments: ISegment[];
-}
-
-export interface ISegment {
-    p0: Vec3;
-    p1: Vec3;
-    comp0Ref?: IElRef;
-    comp1Ref?: IElRef;
-}
-
-export interface IBus {
-    id: string;
-    type: BusType;
-    width?: number;
-    truncPts: Vec3[];
-    branches: Vec3[][];
-    color: string;
-}
-
-export enum BusType {
-    Data,
-    Addr,
-    AddrDataSignal,
-}
-
-export interface IComp {
-    id: string;
-    name: string;
-    pos: Vec3;
-    size: Vec3;
-    type: CompType;
-    nodes?: ICompNode[];
-}
-
-export interface ICompNode {
-    id: string;
-    pos: Vec3; // relative to comp
-    name: string;
-    type?: CompNodeType;
-    width?: number;
-}
-
-export enum CompNodeType {
-    Input = 1,
-    Output = 1 << 1,
-    Tristate = 1 << 2,
-}
-
-export enum CompType {
-    RAM,
-    ROM,
-    ID,
-    ALU,
-    PC,
-    REG,
-    MUX,
-    LS
-}
-
-export interface ICpuLayoutBase {
-    comps: IComp[];
-    wires: IWire[];
 }
 
 export type ICpuLayout = ReturnType<typeof constructCpuLayout>;
@@ -625,7 +554,7 @@ function stackHorizontally(comps: IComp[], pad: number, anchorX: number, pos: St
     }
 }
 
-export function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayout, cpuState: ICpuState) {
+export function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayoutBase, cpuState: ICpuState) {
     let ctx = cvs.ctx;
 
     for (let bus of cpuOpts.buses) {
@@ -763,23 +692,40 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     let isHover = hoverRef?.type === RefType.Wire && hoverRef.id === wire.id;
     let hoverSegId = isHover ? hoverRef!.wireSegId : -1;
 
-    ctx.lineWidth = 4 * cvs.scale;
     ctx.lineCap = "square";
     ctx.lineJoin = "round";
 
     let segs = wire.segments;
     for (let i = 0; i < segs.length; i++) {
         ctx.beginPath();
-        if (i === hoverSegId) {
+        if (i === hoverSegId && isNil(hoverRef?.wireSegEnd)) {
             ctx.strokeStyle = '#f00';
         } else if (isHover) {
             ctx.strokeStyle = '#aaa';
         } else {
             ctx.strokeStyle = '#333';
         }
+        ctx.lineWidth = 4 * cvs.scale;
         let seg = segs[i];
         ctx.moveTo(seg.p0.x, seg.p0.y);
         ctx.lineTo(seg.p1.x, seg.p1.y);
         ctx.stroke();
+    }
+
+    function drawEndCircle(p: Vec3, isHover: boolean) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5 * cvs.scale, 0, 2 * Math.PI);
+        // ctx.fillStyle = isHover ? '#f00' : '#000';
+        ctx.strokeStyle = isHover ? '#f00' : '#000';
+        ctx.lineWidth = 2 * cvs.scale;
+        ctx.stroke();
+    }
+
+    for (let i = 0; i < segs.length; i++) {
+        let seg = segs[i];
+        if (i === hoverSegId) {
+            drawEndCircle(seg.p0, hoverRef?.wireSegEnd === 0);
+            drawEndCircle(seg.p1, hoverRef?.wireSegEnd === 1);
+        }
     }
 }

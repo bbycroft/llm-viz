@@ -1,37 +1,7 @@
-import { AffineMat2d } from '../utils/AffineMat2d';
 import { assignImm } from '../utils/data';
-import { Vec3 } from '../utils/vector';
-import { IBus, IComp, ICompNode, ICpuLayout, IElRef } from "./CpuCanvas";
+import { ICpuLayoutBase, IEditorState } from './CpuModel';
 
-export interface IEditorState {
-    mtx: AffineMat2d;
-
-    layout: ICpuLayout;
-    layoutTemp: ICpuLayout | null;
-
-    undoStack: ICpuLayout[];
-    redoStack: ICpuLayout[];
-
-    hovered: IHitTest | null;
-    addLine: boolean
-}
-
-export interface IHitTest {
-    ref: IElRef;
-    distPx: number;
-    modelPt: Vec3;
-}
-
-export interface ICanvasState {
-    canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
-    size: Vec3; // derived
-    scale: number; // derived
-}
-
-export type IElement = IComp | ICompNode | IBus;
-
-export function editLayout(end: boolean, updateLayout: (element: ICpuLayout) => ICpuLayout) {
+export function editLayout(end: boolean, updateLayout: (element: ICpuLayoutBase) => ICpuLayoutBase) {
     return (state: IEditorState) => {
         let changed = updateLayout(state.layout);
 
