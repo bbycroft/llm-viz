@@ -55,6 +55,7 @@ export class Vec3 {
     dist(a: Vec3): number { return Math.sqrt(this.distSq(a)); }
     normalize(): Vec3 { return this.mul(1.0 / Math.sqrt(this.lenSq())); }
     mid(a: Vec3): Vec3 { return new Vec3((this.x + a.x) * 0.5, (this.y + a.y) * 0.5, (this.z + a.z) * 0.5); }
+    abs() { return new Vec3(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z)); }
     clone(): Vec3 { return new Vec3(this.x, this.y, this.z); }
     toVec4(): Vec4 { return new Vec4(this.x, this.y, this.z, 1.0); }
     round(): Vec3 { return new Vec3(Math.round(this.x), Math.round(this.y), Math.round(this.z)); }
@@ -311,4 +312,9 @@ export function segmentNearestPoint(p0: Vec3, p1: Vec3, x: Vec3) {
     let w = x.sub(p0);
     let t = clamp(w.dot(v) / v.dot(v), 0, 1);
     return p0.mulAdd(v, t);
+}
+
+// project x onto v
+export function projectOntoVector(x: Vec3, v: Vec3) {
+    return v.mul(x.dot(v) / v.dot(v));
 }

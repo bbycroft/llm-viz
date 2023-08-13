@@ -1,13 +1,13 @@
-import React, { useCallback, useLayoutEffect, useReducer, useState } from "react";
+import React, { useCallback, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
-import { BoundingBox3d, segmentNearestPoint, Vec3 } from "../utils/vector";
+import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../utils/vector";
 import { ISystem, regNames } from "./CpuMain";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, isNil, isNotNil } from "../utils/data";
 import { editLayout } from "./Editor";
-import { dragSegment, fixWire } from "./Wire";
+import { dragSegment, fixWire, fixWires } from "./Wire";
 import { RefType, IElRef, ISegment, IWire, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase } from "./CpuModel";
 
 interface ICpuState {
@@ -79,12 +79,19 @@ export const CpuCanvas: React.FC<{
         if (!ds.data.hovered) {
             let newMtx = ds.data.mtx.mul(AffineMat2d.translateVec(delta));
             editorState.mtx = newMtx;
-        } else if (ds.data.hovered.ref.type === RefType.Comp) {
-            handleComponentDrag(end, ds.data.hovered.ref, ds.data.modelPos, evToModel(ev));
-        } else if (ds.data.hovered.ref.type === RefType.CompNode) {
-            handleWireCreateDrag(end, ds.data.hovered.ref, ds.data.modelPos, evToModel(ev));
-        } else if (ds.data.hovered.ref.type === RefType.Wire) {
-            handleWireDrag(end, ds.data.hovered.ref, ds.data.modelPos, evToModel(ev));
+        } else {
+            let hoveredRef = ds.data.hovered.ref;
+            if (hoveredRef.type === RefType.Comp) {
+                handleComponentDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
+            } else if (hoveredRef.type === RefType.CompNode) {
+                handleWireCreateDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
+            } else if (hoveredRef.type === RefType.Wire) {
+                if (isNil(hoveredRef.wireSegEnd)) {
+                    handleWireDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
+                } else {
+                    handleWireExtendDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
+                }
+            }
         }
         redraw();
 
@@ -131,15 +138,96 @@ export const CpuCanvas: React.FC<{
 
             return assignImm(layout, {
                 nextWireId: layout.nextWireId + 1,
-                wires: [...layout.wires, newWire],
+                wires: fixWires([...layout.wires, newWire], layout.wires.length),
             });
         }));
+    }
+
+    let grabDirRef = useRef<Vec3 | null>(null);
+
+        /* We are dragging from the end of a segment. For now, assume it's a bare end.
+
+        Behaviours, assuming a horiz segment:
+            - dragging into the segment shortens it
+            - dragging out from the segment lengthens it
+            - we have a region around the segment end, and the direction through which we drag
+                defines the direction of the new segment (initially)
+            - then, we allow a dogleg, with that initial dir
+            - the initial dir can be reset by dragging back into the region & then out again
+            - what about if we dogleg while shortening? if we start with a horiz initial dir, then
+                do a shorten + single extend in opposite direction, i.e. keep the elbow, rather than create a T junction
+        */
+    function handleWireExtendDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
+        setEditorState(editLayout(end, layout => {
+            let wireIdx = editorState.layout.wires.findIndex(w => w.id === ref.id)!;
+            let wire = editorState.layout.wires[wireIdx];
+            let delta = newModelPos.sub(origModelPos);
+            let seg = wire.segments[ref.wireSegId!];
+
+            let startPos = ref.wireSegEnd === 0 ? seg.p0 : seg.p1;
+            let otherPos = ref.wireSegEnd === 0 ? seg.p1 : seg.p0;
+            let isHoriz = seg.p0.y === seg.p1.y;
+
+            let inwardDir = otherPos.sub(startPos).normalize();
+
+            let screenPos = modelToScreen(startPos);
+            let mouseScreenPos = modelToScreen(newModelPos);
+            let mouseDir = mouseScreenPos.sub(screenPos).abs();
+            let grabDirPx = 20;
+            if (!grabDirRef.current && mouseDir.len() > grabDirPx) {
+                grabDirRef.current = mouseDir.x > mouseDir.y ? new Vec3(1, 0) : new Vec3(0, 1);
+            } else if (mouseDir.len() < grabDirPx) {
+                grabDirRef.current = null;
+            }
+
+            let grabDir = grabDirRef.current ?? (isHoriz ? new Vec3(1, 0) : new Vec3(0, 1));
+
+            if (end) {
+                grabDirRef.current = null;
+            }
+
+            let endPos = snapToGrid(startPos.add(delta));
+
+            let moveDelta = endPos.sub(startPos);
+
+            let newSegs: ISegment[] = [];
+
+            if (inwardDir.dot(grabDir) !== 0) {
+                // we're shifting the segment, but only in the direction of inwardDir
+                seg = { ...seg };
+                let newPt = startPos.add(projectOntoVector(moveDelta, inwardDir));
+
+                if (ref.wireSegEnd === 0) {
+                    seg.p0 = newPt;
+                } else {
+                    seg.p1 = newPt;
+                }
+
+                newSegs.push({ p0: newPt, p1: endPos });
+            } else {
+                let crossDir = projectOntoVector(moveDelta, grabDir);
+                let midPt = startPos.add(crossDir);
+                newSegs.push({ p0: startPos, p1: midPt });
+                newSegs.push({ p0: midPt, p1: endPos });
+            }
+            newSegs.push(seg);
+
+            let segs = [...wire.segments];
+            segs.splice(ref.wireSegId!, 1, ...newSegs);
+
+            let wires = [...layout.wires];
+            wires[wireIdx] = fixWire(assignImm(wire, {
+                segments: segs
+            }));
+            wires = fixWires(wires, wireIdx);
+            return assignImm(layout, { wires });
+        }));
+
     }
 
     function handleWireDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
 
         setEditorState(editLayout(end, layout => {
-
             let wireIdx = editorState.layout.wires.findIndex(w => w.id === ref.id)!;
             let wire = editorState.layout.wires[wireIdx];
             let delta = newModelPos.sub(origModelPos);
@@ -162,7 +250,7 @@ export const CpuCanvas: React.FC<{
 
             let wires = [...layout.wires];
             wires[wireIdx] = newWire;
-            return assignImm(layout, { wires: wires });
+            return assignImm(layout, { wires: fixWires(wires, wireIdx) });
         }));
     }
 
@@ -295,11 +383,13 @@ export const CpuCanvas: React.FC<{
             let wire = editorState.layout.wires.find(w => w.id === hoveredRef.id);
             if (wire) {
                 let seg = wire.segments[hoveredRef.wireSegId!];
-                let isHoriz = seg.p0.y === seg.p1.y;
-                if (isNotNil(hoveredRef.wireSegEnd)) {
-                    cursor = 'crosshair';
-                } else {
-                    cursor = isHoriz ? 'ns-resize' : 'ew-resize';
+                if (seg) {
+                    let isHoriz = seg.p0.y === seg.p1.y;
+                    if (isNotNil(hoveredRef.wireSegEnd)) {
+                        cursor = 'crosshair';
+                    } else {
+                        cursor = isHoriz ? 'ns-resize' : 'ew-resize';
+                    }
                 }
             }
         }
