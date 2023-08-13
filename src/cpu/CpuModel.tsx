@@ -48,6 +48,17 @@ export interface IWire {
     segments: ISegment[];
 }
 
+export interface IWireGraph {
+    id: string;
+    nodes: IWireGraphNode[];
+}
+
+export interface IWireGraphNode {
+    id: number;
+    pos: Vec3;
+    edges: number[]; // index into IWireGraph.nodes; bi-directional edges
+}
+
 export interface ISegment {
     p0: Vec3;
     p1: Vec3;

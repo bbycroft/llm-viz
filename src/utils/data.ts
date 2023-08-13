@@ -149,3 +149,13 @@ export function useSubscriptions(subscription: Subscriptions | null) {
     let [, refresh] = useReducer(a => a + 1, 0);
     useEffect(() => subscription?.subscribe(refresh), [subscription]);
 }
+
+export function getOrAddToMap<K, V>(map: Map<K, V>, key: K, valueFn: () => V): V {
+    let existing = map.get(key);
+    if (existing === undefined) {
+        let value = valueFn();
+        map.set(key, value);
+        return value;
+    }
+    return existing;
+}

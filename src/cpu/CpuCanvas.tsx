@@ -7,7 +7,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, isNil, isNotNil } from "../utils/data";
 import { editLayout } from "./Editor";
-import { dragSegment, fixWire, fixWires } from "./Wire";
+import { applyWires, dragSegment, fixWire, fixWires, wireToGraph } from "./Wire";
 import { RefType, IElRef, ISegment, IWire, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase } from "./CpuModel";
 
 interface ICpuState {
@@ -136,10 +136,8 @@ export const CpuCanvas: React.FC<{
                 segments: segments,
             });
 
-            return assignImm(layout, {
-                nextWireId: layout.nextWireId + 1,
-                wires: fixWires([...layout.wires, newWire], layout.wires.length),
-            });
+            let newWires = [...layout.wires, newWire];
+            return applyWires(assignImm(layout, { nextWireId: layout.nextWireId + 1, wires: newWires }), newWires, newWires.length - 1);
         }));
     }
 
@@ -216,11 +214,9 @@ export const CpuCanvas: React.FC<{
             segs.splice(ref.wireSegId!, 1, ...newSegs);
 
             let wires = [...layout.wires];
-            wires[wireIdx] = fixWire(assignImm(wire, {
-                segments: segs
-            }));
-            wires = fixWires(wires, wireIdx);
-            return assignImm(layout, { wires });
+            wires[wireIdx] = fixWire(assignImm(wire, { segments: segs }));
+
+            return applyWires(layout, wires, wireIdx);
         }));
 
     }
@@ -250,7 +246,7 @@ export const CpuCanvas: React.FC<{
 
             let wires = [...layout.wires];
             wires[wireIdx] = newWire;
-            return assignImm(layout, { wires: fixWires(wires, wireIdx) });
+            return applyWires(layout, wires, wireIdx);
         }));
     }
 
@@ -818,4 +814,31 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
             drawEndCircle(seg.p1, hoverRef?.wireSegEnd === 1);
         }
     }
+
+    let graph = wireToGraph(wire);
+
+    for (let node of graph.nodes) {
+        // find nodes at a T junction or a X junction
+        // and draw a circle at the junction
+        let dirsUsed = new Set<string>();
+
+        for (let edgeId of node.edges) {
+            let node2 = graph.nodes[edgeId];
+            let edgeDir = node2.pos.sub(node.pos).normalize();
+            let dir = `${edgeDir.x.toFixed(2)},${edgeDir.y.toFixed(2)}`;
+            dirsUsed.add(dir);
+        }
+
+        let isJunction = dirsUsed.size > 2;
+        if (isJunction) {
+            let x = node.pos.x;
+            let y = node.pos.y;
+            let r = 6 * cvs.scale;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, 2 * Math.PI);
+            ctx.fillStyle = "#000";
+            ctx.fill();
+        }
+    }
+
 }

@@ -314,6 +314,12 @@ export function segmentNearestPoint(p0: Vec3, p1: Vec3, x: Vec3) {
     return p0.mulAdd(v, t);
 }
 
+export function segmentNearestT(p0: Vec3, p1: Vec3, x: Vec3) {
+    let v = p1.sub(p0);
+    let w = x.sub(p0);
+    return clamp(w.dot(v) / v.dot(v), 0, 1);
+}
+
 // project x onto v
 export function projectOntoVector(x: Vec3, v: Vec3) {
     return v.mul(x.dot(v) / v.dot(v));
