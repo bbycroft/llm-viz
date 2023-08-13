@@ -57,6 +57,7 @@ export interface IWireGraphNode {
     id: number;
     pos: Vec3;
     edges: number[]; // index into IWireGraph.nodes; bi-directional edges
+    ref?: IElRef;
 }
 
 export interface ISegment {

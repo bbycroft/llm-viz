@@ -1,23 +1,49 @@
 import { assignImm, getOrAddToMap } from "../utils/data";
 import { segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
-import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayoutBase } from "./CpuModel";
+import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayoutBase, IElRef } from "./CpuModel";
 
 export function dragSegment(wire: IWire, segId: number, delta: Vec3) {
 
     let seg = wire.segments[segId];
 
-    let newWire = assignImm(wire, {
-        segments: wire.segments.map((s, i) => {
-            // any seg that starts or ends between p0 and p1, should be moved
-            let isSeg = i === segId;
-            return assignImm(s, {
-                p0: isSeg || segAttachedTo(seg, s.p0) ? snapToGrid(s.p0.add(delta)) : s.p0,
-                p1: isSeg || segAttachedTo(seg, s.p1) ? snapToGrid(s.p1.add(delta)) : s.p1,
-            });
-        }),
-    });
+    let wireGraph = wireToGraph(wire);
 
-    return newWire;
+    let [node0, node1] = findNodesForSegment(wireGraph, seg);
+    // hmm, need to match the segId to the node id pair
+
+    // we're gonna move both of these nodes
+    // but also iterate through all nodes colinear with this segment, and move them by the same amount
+    // Since we're not dealing with angled lines, don't have to re-evaluate the intersection point
+    let segDir = seg.p1.sub(seg.p0).normalize();
+
+    let nodesToMove = new Set<number>();
+    let nodeStack = [node0, node1];
+    let seenIds = new Set<number>();
+
+    while (nodeStack.length > 0) {
+        let nodeIdx0 = nodeStack.pop()!;
+        let node0 = wireGraph.nodes[nodeIdx0];
+        if (seenIds.has(node0.id)) {
+            continue;
+        }
+        seenIds.add(node0.id);
+        nodesToMove.add(nodeIdx0);
+        for (let nodeIdx1 of node0.edges) {
+            let node1 = wireGraph.nodes[nodeIdx1];
+            let dir = node1.pos.sub(node0.pos).normalize();
+            let dotProd = dir.dot(segDir);
+            if (dotProd > 1 - EPSILON || dotProd < -1 + EPSILON) {
+                nodeStack.push(nodeIdx1);
+            }
+        }
+    }
+
+    for (let nodeIdx of nodesToMove) {
+        let node = wireGraph.nodes[nodeIdx];
+        node.pos = snapToGrid(node.pos.add(delta));
+    }
+
+    return graphToWire(wireGraph);
 }
 
 export function applyWires(layout: ICpuLayoutBase, wires: IWire[], editIdx: number): ICpuLayoutBase {
@@ -156,14 +182,16 @@ export function repackGraphIds(wire: IWireGraph): IWireGraph {
 export function wireToGraph(wire: IWire): IWireGraph {
     let isects = new Map<string, IWireGraphNode>();
 
-    function getNode(pos: Vec3) {
+    function getNode(pos: Vec3, ref?: IElRef) {
         let key = `${pos.x.toFixed(5)},${pos.y.toFixed(5)}`;
-        return getOrAddToMap(isects, key, () => ({ id: isects.size, pos, edges: [] }));
+        let node = getOrAddToMap(isects, key, () => ({ id: isects.size, pos, edges: [] }));
+        node.ref = node.ref || ref;
+        return node;
     }
 
     for (let seg0 of wire.segments) {
-        let node0 = getNode(seg0.p0);
-        let node1 = getNode(seg0.p1);
+        let node0 = getNode(seg0.p0, seg0.comp0Ref);
+        let node1 = getNode(seg0.p1, seg0.comp1Ref);
 
         let nodesOnLine: { t: number, node: IWireGraphNode }[] = [
             { t: 0, node: node0 },
@@ -203,6 +231,23 @@ export function wireToGraph(wire: IWire): IWireGraph {
     };
 }
 
+function findNodesForSegment(wire: IWireGraph, { p0, p1 }: ISegment): [number, number] {
+    for (let node0 of wire.nodes) {
+        if (p0.dist(node0.pos) > EPSILON) {
+            continue;
+        }
+
+        for (let edgeId of node0.edges) {
+            let node1 = wire.nodes[edgeId];
+            if (p1.dist(node1.pos) < EPSILON) {
+                return [node0.id, node1.id];
+            }
+        }
+    }
+
+    throw new Error(`Couldn't find node and edge for ${p0} -> ${p1}`);
+}
+
 export function graphToWire(graph: IWireGraph): IWire {
 
     let segments: ISegment[] = [];
@@ -211,7 +256,7 @@ export function graphToWire(graph: IWireGraph): IWire {
         for (let nodeId of node0.edges) {
             let node1 = graph.nodes[nodeId];
             if (node1.id > node0.id) {
-                segments.push({ p0: node0.pos, p1: node1.pos });
+                segments.push({ p0: node0.pos, p1: node1.pos, comp0Ref: node0.ref, comp1Ref: node1.ref });
             }
         }
     }
@@ -259,11 +304,9 @@ export function fixWire(wire: IWire) {
 
     wire = graphToWire(wireToGraph(wire));
 
-    // trim segments that are overlapping
-
     // remove any segments of no length
     return assignImm(wire, {
-        segments: filterImm(wire.segments, s => s.p0.distSq(s.p1) > 0.001),
+        segments: filterImm(wire.segments, s => s.p0.distSq(s.p1) > EPSILON),
     });
 }
 
@@ -293,3 +336,4 @@ export function segsTouching(seg1: ISegment, seg2: ISegment) {
 function snapToGrid(v: Vec3) {
     return v.round();
 }
+

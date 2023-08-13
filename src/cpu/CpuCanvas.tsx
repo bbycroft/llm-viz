@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../utils/vector";
 import { ISystem, regNames } from "./CpuMain";
@@ -7,26 +7,86 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, isNil, isNotNil } from "../utils/data";
 import { editLayout } from "./Editor";
-import { applyWires, dragSegment, fixWire, fixWires, wireToGraph } from "./Wire";
+import { applyWires, dragSegment, fixWire, fixWires, graphToWire, wireToGraph } from "./Wire";
 import { RefType, IElRef, ISegment, IWire, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase } from "./CpuModel";
+import { useLocalStorageState } from "../utils/localstorage";
 
 interface ICpuState {
     system: ISystem;
+}
+
+interface ILSGraphWire {
+    id: string;
+    nodes: ILSGraphWireNode[];
+}
+
+interface ILSGraphWireNode {
+    id: number;
+    x: number;
+    y: number;
+    edges: number[];
+    ref?: IElRef;
+}
+
+interface ILSState {
+    wires: ILSGraphWire[];
+}
+
+function hydrateFromLS(ls: Partial<ILSState> | undefined): ILSState {
+    return {
+        wires: ls?.wires ?? [],
+    };
+}
+
+function wiresFromLsState(layoutBase: ICpuLayoutBase, ls: ILSState): ICpuLayoutBase {
+
+    let newWires = ls.wires.map(w => graphToWire({
+        id: w.id,
+        nodes: w.nodes.map(n => ({
+            id: n.id,
+            pos: new Vec3(n.x, n.y),
+            edges: n.edges,
+            ref: n.ref,
+        })),
+    }));
+
+    let maxId = 0;
+    for (let w of newWires) {
+        maxId = Math.max(maxId, parseInt(w.id));
+    }
+
+    return assignImm(layoutBase, {
+        nextWireId: maxId + 1,
+        wires: newWires,
+    });
+}
+
+function wiresToLsState(wires: IWire[]): ILSState {
+    return {
+        wires: wires
+            .map(w => wireToGraph(w))
+            .filter(w => w.nodes.length > 0)
+            .map(w => ({
+                id: w.id,
+                nodes: w.nodes.map(n => ({ id: n.id, x: n.pos.x, y: n.pos.y, edges: n.edges, ref: n.ref })),
+            })),
+    };
 }
 
 export const CpuCanvas: React.FC<{
     cpuState: ICpuState;
 }> = ({ cpuState }) => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
-    let [editorState, setEditorState] = useState<IEditorState>({
-        layout: constructCpuLayout(),
+    let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
+    let [editorState, setEditorState] = useState<IEditorState>(() => ({
+        layout: wiresFromLsState(constructCpuLayout(), lsState),
         layoutTemp: null,
         mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
         redoStack: [],
         undoStack: [],
         hovered: null,
         addLine: false,
-    });
+    }));
     let [, redraw] = useReducer((x) => x + 1, 0);
 
     useResizeChangeHandler(cvsState?.canvas, redraw);
@@ -40,6 +100,12 @@ export const CpuCanvas: React.FC<{
             setCvsState(null);
         }
     }, []);
+
+    useEffect(() => {
+        let newState = wiresToLsState(editorState.layout.wires);
+        console.log("wiresFromLsState", newState);
+        setLsState(a => assignImm(a, newState));
+    }, [editorState.layout.wires, setLsState]);
 
     useLayoutEffect(() => {
         if (!cvsState) {
@@ -137,7 +203,9 @@ export const CpuCanvas: React.FC<{
             });
 
             let newWires = [...layout.wires, newWire];
-            return applyWires(assignImm(layout, { nextWireId: layout.nextWireId + 1, wires: newWires }), newWires, newWires.length - 1);
+            let newLayout = applyWires(assignImm(layout, { nextWireId: layout.nextWireId + 1, wires: newWires }), newWires, newWires.length - 1);
+
+            return newLayout;
         }));
     }
 
