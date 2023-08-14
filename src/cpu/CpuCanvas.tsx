@@ -491,7 +491,7 @@ thick for really small objects)
 
 */
 
-export function renderCpuToCanvas(cvs: ICanvasState, editorState: IEditorState, cpu: ICpuState) {
+function renderCpuToCanvas(cvs: ICanvasState, editorState: IEditorState, cpu: ICpuState) {
     let ctx = cvs.ctx;
 
     ctx.save();
@@ -499,9 +499,9 @@ export function renderCpuToCanvas(cvs: ICanvasState, editorState: IEditorState, 
     ctx.restore();
 }
 
-export type ICpuLayout = ReturnType<typeof constructCpuLayout>;
+type ICpuLayout = ReturnType<typeof constructCpuLayout>;
 
-export enum StackPos {
+enum StackPos {
     Start,
     End,
     Center,
@@ -719,7 +719,7 @@ function stackHorizontally(comps: IComp[], pad: number, anchorX: number, pos: St
     }
 }
 
-export function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayoutBase, cpuState: ICpuState) {
+function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayoutBase, cpuState: ICpuState) {
     let ctx = cvs.ctx;
 
     for (let bus of cpuOpts.buses) {
@@ -825,7 +825,7 @@ function renderRegisterFile(cvs: ICanvasState, comp: IComp, cpuState: ICpuState)
 
 }
 
-export function renderBus(cvs: ICanvasState, busOpts: IBus) {
+function renderBus(cvs: ICanvasState, busOpts: IBus) {
     let ctx = cvs.ctx;
 
     ctx.beginPath();
@@ -850,7 +850,7 @@ export function renderBus(cvs: ICanvasState, busOpts: IBus) {
     ctx.stroke();
 }
 
-export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWire) {
+function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWire) {
     let ctx = cvs.ctx;
 
     let hoverRef = editorState.hovered?.ref;

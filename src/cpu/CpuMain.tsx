@@ -1,7 +1,6 @@
 'use client';
 
-import * as React from 'react';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CpuCanvas } from './CpuCanvas';
 import s from './CpuMain.module.scss';
 
@@ -10,6 +9,12 @@ export const CPUMain = () => {
     let [cpuState] = useState(() => {
         return { system: createSystem() };
     });
+
+   useEffect(() => {
+        console.log('Running tests...');
+        runTests().then(() => {
+        });
+   }, []);
 
     return <div className={s.content}>
         <CpuCanvas cpuState={cpuState} />
@@ -314,11 +319,6 @@ async function runTests() {
         doSimulation(system);
     }
 }
-
-console.log(    '-==  Tests Started  ==-');
-runTests().then(() => {
-    console.log('-== Tests Completed ==-');
-});
 
 function readElfFileIntoMemory(elfFile: Uint8Array, memory: IMemoryMap) {
 
