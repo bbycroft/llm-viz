@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { IProgramState } from "./Program";
 import { useProgramState } from "./Sidebar";
 import { clamp } from "./utils/data";

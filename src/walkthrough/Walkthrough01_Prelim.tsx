@@ -1,3 +1,4 @@
+import React from 'react';
 import { Phase } from "./Walkthrough";
 import { commentary, embed, IWalkthroughArgs } from "./WalkthroughTools";
 import s from './Walkthrough.module.scss';

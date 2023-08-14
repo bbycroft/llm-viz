@@ -32,7 +32,7 @@ export const FluidSimView: React.FC = () => {
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
         };
-    }, [manager]);
+    });
 
     useEffect(() => {
         console.log('canvasEl created; creating FluidSimManager');
@@ -122,7 +122,7 @@ const CanvasView: React.FC<{
 
     useLayoutEffect(() => {
         if (canvasEl) {
-            let parentBcr = canvasEl.parentElement!.getBoundingClientRect(); 
+            let parentBcr = canvasEl.parentElement!.getBoundingClientRect();
             let pr = window.devicePixelRatio;
             canvasEl.width = parentBcr.width * pr;
             canvasEl.height = parentBcr.height * pr;
@@ -219,7 +219,7 @@ function drawToCanvas(state: IFluidSimState, canvas: HTMLCanvasElement, sourceAr
         cellData[i * 4 + 3] = 255;
     }
 
-    { 
+    {
         let localCanvas = state.canvasTemp;
         localCanvas.width = w;
         localCanvas.height = h;
@@ -283,7 +283,7 @@ function drawFieldToCanvas(state: IFluidSimState, canvas: HTMLCanvasElement, arr
         cellData[i * 4 + 3] = 255;
     }
 
-    { 
+    {
         let localCanvas = state.canvasTemp;
         localCanvas.width = w;
         localCanvas.height = h;

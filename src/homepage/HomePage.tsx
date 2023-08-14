@@ -4,7 +4,7 @@ import { faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import s from './HomePage.module.scss';
 
 export const HomePage: React.FC = () => {
@@ -57,7 +57,7 @@ export const HomePage: React.FC = () => {
                 </div>
                 <div className={s.cardContent}>
                     <div className={s.cardTitle}>
-                        <Link href={"/llm-viz"}> 
+                        <Link href={"/llm-viz"}>
                         {/* rel="noopener noreferrer" target="_blank"> */}
                             LLM Visualization
                         </Link>

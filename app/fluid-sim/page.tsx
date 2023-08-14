@@ -1,3 +1,4 @@
+import React from 'react';
 import { FluidSimView } from '@/src/fluidsim/FluidSimView';
 import Link from 'next/link';
 

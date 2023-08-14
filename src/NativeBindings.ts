@@ -35,9 +35,9 @@ export async function loadNativeBindings() {
         },
     };
 
-    let module = await WebAssembly.instantiateStreaming(resp, importObject);
+    let wasmModule = await WebAssembly.instantiateStreaming(resp, importObject);
 
-    let exports = module.instance.exports as unknown as INativeExports;
+    let exports = wasmModule.instance.exports as unknown as INativeExports;
     exports.init_allocator(exports.__heap_base);
     // let res = exports.add_numbers(4, 5);
     // let sin = exports.sinf_custom(0.25);
@@ -45,7 +45,7 @@ export async function loadNativeBindings() {
     // console.log(module);
     // console.log(initRes, res, sin);
 
-    let nativeFuncs = new NativeFunctions(module, exports, memory);
+    let nativeFuncs = new NativeFunctions(wasmModule, exports, memory);
 
     // checkNativeFns(exports);
 
@@ -115,7 +115,7 @@ export class NativeFunctions {
         this.int32View = new Int32Array(this.memory.buffer);
         this.ptrView = new Uint32Array(this.memory.buffer);
     }
-} 
+}
 
 export enum TensorType {
     // weights

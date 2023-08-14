@@ -1,3 +1,4 @@
+import React from 'react';
 import { CPUMain } from '@/src/cpu/CpuMain';
 import Link from 'next/link';
 

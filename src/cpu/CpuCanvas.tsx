@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../utils/vector";
 import { ISystem, regNames } from "./CpuMain";
@@ -103,9 +103,20 @@ export const CpuCanvas: React.FC<{
 
     useEffect(() => {
         let newState = wiresToLsState(editorState.layout.wires);
-        console.log("wiresFromLsState", newState);
         setLsState(a => assignImm(a, newState));
     }, [editorState.layout.wires, setLsState]);
+
+    let compNodePoints = useMemo(() => {
+        let points: Vec3[] = [];
+        for (let comp of editorState.layout.comps) {
+            for (let node of comp.nodes ?? []) {
+                let nodePos = node.pos.add(comp.pos);
+                points.push(nodePos);
+            }
+        }
+
+        return points;
+    }, [editorState.layout]);
 
     useLayoutEffect(() => {
         if (!cvsState) {

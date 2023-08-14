@@ -15,7 +15,7 @@ async function getWebGpuAdaptor() {
     if (!device) {
         throw new Error("WebGPU device not available");
     }
-    
+
     return device;
 }
 
@@ -59,7 +59,7 @@ async function verifyWebGpuDevice(device: GPUDevice) {
         }
     `;
 
-    let module = device.createShaderModule({ code: code });
+    let shaderModule = device.createShaderModule({ code: code });
 
     let output = device.createBuffer({ size: size, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
     let stagingBuffer = device.createBuffer({ size: size, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
@@ -87,7 +87,7 @@ async function verifyWebGpuDevice(device: GPUDevice) {
     let pipeline = device.createComputePipeline({
         compute: {
             entryPoint: "main",
-            module: module,
+            module: shaderModule,
         },
         layout: pipelineLayout,
     });

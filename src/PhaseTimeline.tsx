@@ -1,4 +1,4 @@
-import { useReducer, useState } from 'react';
+import React, { useReducer, useState } from 'react';
 import s from './PhaseTimeline.module.scss';
 import { useProgramState } from './Sidebar';
 import { clamp } from './utils/data';

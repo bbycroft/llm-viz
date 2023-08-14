@@ -4,6 +4,7 @@
     "scripts": {
         "dev": "next dev -p 3002",
         "build": "next build",
+        "lint": "next lint",
         "start": "next start"
     },
     "dependencies": {
@@ -28,6 +29,8 @@
         "autoprefixer": "10.4.14",
         "eslint": "8.19.0",
         "eslint-config-next": "latest",
+        "eslint-plugin-react": "7.33.1",
+        "eslint-plugin-react-hooks": "4.6.0",
         "msdf-bmfont-xml": "2.7.0",
         "postcss": "8.4.23",
         "postcss-comment": "2.0.0",
@@ -39,5 +42,17 @@
         "svgicons2svgfont": "12.0.0",
         "tailwindcss": "3.3.2",
         "typescript": "4.7.4"
+    },
+    "eslintConfig": {
+        "extends": [
+            "next",
+            "plugin:react/recommended",
+            "plugin:react-hooks/recommended"
+        ],
+        "rules": {
+            "react/prop-types": "off",
+            "react-hooks/exhaustive-deps": "error",
+            "react/no-unescaped-entities": "off"
+        }
     }
 }

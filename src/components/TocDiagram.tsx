@@ -68,11 +68,10 @@ export const TocDiagram: React.FC<{
     let [activeId, setActiveId] = useState<Phase | null>(null);
 
     let setActive = useCallback((ev: React.MouseEvent, id: Phase, active: boolean) => {
-        console.log('jumping to phase', Phase[id]);
         jumpToPhase(progState.walkthrough, id);
         onEnterPhase?.(id);
         setActiveId(active ? id : null);
-    }, []);
+    }, [progState.walkthrough, onEnterPhase]);
 
     activeId = activePhase ?? activeId;
 
@@ -361,7 +360,7 @@ export const TocDiagram: React.FC<{
             'rgba(39,181,234,.4)',
         ];
 
-        
+
         let widths: number[] = [];
         let offsets = [0];
         for (let seg of textSegs) {

@@ -1,3 +1,4 @@
+import React from 'react';
 import { dimProps, duplicateGrid, findSubBlocks, splitGrid, splitGridAll } from "../Annotations";
 import { drawDataFlow, getBlockValueAtIdx } from "../components/DataFlow";
 import { getBlkDimensions, IBlkDef, setBlkPosition } from "../GptModelLayout";
@@ -440,7 +441,7 @@ that it can only look in the past.
 
         if (t_expandVCols.t > 0 && t_placeVOutput.t <= 0) {
             let allVCols = [];
-            let vBeforeCols = findSubBlocks(head2.vBlock, Dim.X, null, attnExampleIdx); 
+            let vBeforeCols = findSubBlocks(head2.vBlock, Dim.X, null, attnExampleIdx);
             for (let col of vBeforeCols) {
                 allVCols.push(...splitGridAll(layout, col, Dim.X));
             }

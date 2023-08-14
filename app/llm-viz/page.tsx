@@ -1,3 +1,4 @@
+import React from 'react';
 import { LayerView } from '@/src/LayerView';
 import { InfoButton } from '@/src/WelcomePopup';
 import Link from 'next/link';

@@ -74,36 +74,39 @@ export const Commentary: React.FC = () => {
 
     let numTimes = wt.times.length;
 
-    let nodes: INode[] = [];
-    let prevIsTime = false
-    for (let c of wt.times) {
-        if (isCommentary(c)) {
-            nodes.push({ commentary: c, isBreak: false, start: c.start, end: eventEndTime(c) });
-            prevIsTime = false;
-        } else {
-            !prevIsTime && nodes.push({ times: [], isBreak: false, start: c.start, end: c.start });
-            let lastNode = nodes[nodes.length - 1];
-            lastNode.times!.push(c);
-            lastNode.isBreak ||= !!c.isBreak;
-            lastNode.end = eventEndTime(c);
-            prevIsTime = true;
-        }
-    }
-
-    let prevBreak = -1;
-    let nextBreak = -1;
-    let lastBreak = -1;
-    for (let i = 0; i < nodes.length + 1; i++) {
-        let node = nodes[i];
-        if (node?.isBreak || i === nodes.length) {
-            if (i === nodes.length || node.start >= wt.time) {
-                nextBreak = lastBreak - 1;
-                break;
+    let { nodes, prevBreak, nextBreak } = useMemo(() => {
+        let nodes: INode[] = [];
+        let prevIsTime = false;
+        for (let c of wt.times) {
+            if (isCommentary(c)) {
+                nodes.push({ commentary: c, isBreak: false, start: c.start, end: eventEndTime(c) });
+                prevIsTime = false;
+            } else {
+                !prevIsTime && nodes.push({ times: [], isBreak: false, start: c.start, end: c.start });
+                let lastNode = nodes[nodes.length - 1];
+                lastNode.times!.push(c);
+                lastNode.isBreak ||= !!c.isBreak;
+                lastNode.end = eventEndTime(c);
+                prevIsTime = true;
             }
-            prevBreak = lastBreak + 1;
-            lastBreak = i;
         }
-    }
+
+        let prevBreak = -1;
+        let nextBreak = -1;
+        let lastBreak = -1;
+        for (let i = 0; i < nodes.length + 1; i++) {
+            let node = nodes[i];
+            if (node?.isBreak || i === nodes.length) {
+                if (i === nodes.length || node.start >= wt.time) {
+                    nextBreak = lastBreak - 1;
+                    break;
+                }
+                prevBreak = lastBreak + 1;
+                lastBreak = i;
+            }
+        }
+        return { nodes, prevBreak, nextBreak };
+    }, [wt.times, wt.time]);
 
     interface IGuideLayout {
         width: number;
@@ -162,7 +165,7 @@ export const Commentary: React.FC = () => {
             };
         }
 
-    }, [parasEl, wt.phase, numTimes]);
+    }, [nodes, parasEl, wt.phase, numTimes]);
 
     interface IRangeInfo {
         start: number;
@@ -203,7 +206,7 @@ export const Commentary: React.FC = () => {
 
         rangeInfo = { start: startPos, end: endPos, width: guideLayout.width };
         return { rangeInfo, currPos };
-    }, [wt.time, guideLayout]);
+    }, [wt.time, guideLayout, nodes, prevBreak, nextBreak]);
 
     let group = phaseToGroup(wt);
     let phase = group?.phases.find(p => p.id === wt.phase)!;
@@ -229,7 +232,7 @@ export const Commentary: React.FC = () => {
             parasEl.parentElement!.scrollTo({ top: rangeInfo.start + delta, behavior: 'smooth' });
             // }
         }
-    }, [rangeInfo.start, rangeInfo.end, currPos, parasEl, upToDate, guideLayout.height]);
+    }, [rangeInfo.start, rangeInfo.end, currPos, parasEl, upToDate, guideLayout.height, guideLayout.parentHeight]);
 
     return <>
         <div className={s.chapterControls}>

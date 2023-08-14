@@ -28,7 +28,7 @@ export function useLocalStorageState<T>(key: string, hydrateFromLS: (a: Partial<
 
     useEffect(() => {
         writeToLocalStorage(key, value);
-    }, [value]);
+    }, [key, value]);
 
     return [value, setValue];
 }

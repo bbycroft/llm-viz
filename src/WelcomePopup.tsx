@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { faCircleQuestion } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { createContext, useContext, useEffect } from 'react';
@@ -23,7 +24,7 @@ function hydrateWelcomePopupLS(a?: Partial<IWelcomePopupLS>) {
 }
 
 export const WelcomePopup: React.FC<{}> = () => {
-    let ctx = useContext(WelcomeContext); 
+    let ctx = useContext(WelcomeContext);
     useSubscriptions(ctx.subscriptions);
     let [welcomeState, setWelcomeState] = useLocalStorageState('welcome-popup', hydrateWelcomePopupLS);
 
@@ -90,7 +91,7 @@ class WelcomeManager {
 let WelcomeContext = createContext(new WelcomeManager());
 
 export const InfoButton: React.FC<{}> = () => {
-    let ctx = useContext(WelcomeContext); 
+    let ctx = useContext(WelcomeContext);
 
     return <div onClick={() => ctx.showWelcomeDialog()} className={s.infoBtn}>
         <FontAwesomeIcon icon={faCircleQuestion} />

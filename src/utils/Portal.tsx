@@ -1,7 +1,7 @@
 'use client';
 
 import clsx from "clsx";
-import { useEffect, useLayoutEffect, useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { assignImm } from "./data";
 import s from './Portal.module.scss';
@@ -128,6 +128,6 @@ export function useWatchElementRect(el: HTMLElement | null, includePosition = fa
                 setBcr(null);
             };
         }
-    }, [el]);
+    }, [el, includePosition]);
     return bcr;
 }
