@@ -7,7 +7,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, isNil, isNotNil } from "../utils/data";
 import { editLayout } from "./Editor";
-import { applyWires, dragSegment, fixWire, fixWires, graphToWire, wireToGraph } from "./Wire";
+import { applyWires, dragSegment, fixWire, graphToWire, wireToGraph } from "./Wire";
 import { RefType, IElRef, ISegment, IWire, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 

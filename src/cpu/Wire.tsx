@@ -47,6 +47,22 @@ export function dragSegment(wire: IWire, segId: number, delta: Vec3) {
 }
 
 export function applyWires(layout: ICpuLayoutBase, wires: IWire[], editIdx: number): ICpuLayoutBase {
+
+    let [editedWires, newWires] = fixWires(layout, wires, editIdx);
+    let nextWireId = layout.nextWireId;
+    for (let wire of newWires) {
+        wire.id = '' + nextWireId++;
+    }
+
+    let allWires = [...editedWires, ...newWires];
+
+    return assignImm(layout, {
+        nextWireId,
+        wires: allWires,
+    })
+}
+
+function createNodePosMap(layout: ICpuLayoutBase) {
     let nodePosMap = new Map<string, { pos: Vec3, ref: IElRef }>();
     for (let comp of layout.comps) {
         for (let node of comp.nodes ?? []) {
@@ -61,23 +77,14 @@ export function applyWires(layout: ICpuLayoutBase, wires: IWire[], editIdx: numb
         }
     }
 
-    let [editedWires, newWires] = fixWires(wires, editIdx);
-    let nextWireId = layout.nextWireId;
-    for (let wire of newWires) {
-        wire.id = '' + nextWireId++;
-    }
-
-    return assignImm(layout, {
-        nextWireId,
-        wires: [...editedWires, ...newWires],
-    })
+    return nodePosMap;
 }
 
 /** Two main things to fix:
     1. wires that are touching each other get merged
     2. wires that have islands get split
 */
-export function fixWires(wires: IWire[], editIdx: number): [editedWires: IWire[], newWires: IWire[]] {
+export function fixWires(layout: ICpuLayoutBase, wires: IWire[], editIdx: number): [editedWires: IWire[], newWires: IWire[]] {
     let editWire = wires[editIdx];
 
     // find all wires that are touching the edit wire
@@ -127,17 +134,24 @@ export function fixWires(wires: IWire[], editIdx: number): [editedWires: IWire[]
         wires[editIdx] = fixWire(newWire);
     }
 
-    // find any wires that are islands
-    // TODO: tricky! maybe want to create a graph of nodes (w verts) + edges
-    let wireGraph = wireToGraph(editWire);
-    let islands = splitIntoIslands(wireGraph);
+    let editWireGraph = wireToGraph(wires[editIdx]);
+
+    let nodePosMap = createNodePosMap(layout);
+    for (let node of editWireGraph.nodes) {
+        let posStr = `${node.pos.x},${node.pos.y}`;
+        let nodePos = nodePosMap.get(posStr);
+        if (nodePos) {
+            node.ref = nodePos.ref;
+        }
+    }
+
+    let islands = splitIntoIslands(editWireGraph);
     let newWires: IWire[] = [];
 
-    if (islands.length > 1) {
-        let editWireSplit = islands.map(graphToWire);
-        wires.splice(editIdx, 1, editWireSplit[0]);
-        newWires = editWireSplit.slice(1);
-    }
+    let editWireSplit = islands.map(graphToWire);
+    wires.splice(editIdx, 1, editWireSplit[0]);
+    wires = wires.filter(a => !!a);
+    newWires = editWireSplit.slice(1);
 
     return [wires, newWires];
 }
