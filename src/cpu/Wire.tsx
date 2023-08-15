@@ -2,6 +2,24 @@ import { assignImm, getOrAddToMap } from "../utils/data";
 import { segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
 import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayoutBase, IElRef, RefType } from "./CpuModel";
 
+export function moveWiresWithComp(layout: ICpuLayoutBase, compIdx: number, delta: Vec3): IWire[] {
+    let comp = layout.comps[compIdx];
+
+    let newWires: IWire[] = [];
+    for (let wire of layout.wires) {
+        let wireGraph = wireToGraph(wire);
+        for (let node of wireGraph.nodes) {
+            if (node.ref?.type === RefType.CompNode && node.ref.id === comp.id) {
+                node.pos = snapToGrid(node.pos.add(delta));
+            }
+        }
+        wire = graphToWire(wireGraph);
+        newWires.push(wire);
+    }
+
+    return newWires;
+}
+
 export function dragSegment(wire: IWire, segId: number, delta: Vec3) {
 
     let seg = wire.segments[segId];
@@ -69,7 +87,7 @@ function createNodePosMap(layout: ICpuLayoutBase) {
             let nodePos = comp.pos.add(node.pos);
             let ref: IElRef = {
                 type: RefType.CompNode,
-                id: node.id,
+                id: comp.id,
                 compNodeId: node.id,
             };
             let posStr = `${nodePos.x},${nodePos.y}`;

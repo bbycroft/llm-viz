@@ -7,7 +7,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, isNil, isNotNil } from "../utils/data";
 import { editLayout } from "./Editor";
-import { applyWires, dragSegment, fixWire, graphToWire, wireToGraph } from "./Wire";
+import { applyWires, dragSegment, fixWire, graphToWire, moveWiresWithComp, wireToGraph } from "./Wire";
 import { RefType, IElRef, ISegment, IWire, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 
@@ -179,10 +179,15 @@ export const CpuCanvas: React.FC<{
     function handleComponentDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
 
         setEditorState(editLayout(end, layout => {
+            let editCompIdx = layout.comps.findIndex(c => c.id === ref.id)!;
+            let editComp = layout.comps[editCompIdx];
+            let deltaPos = newModelPos.sub(origModelPos);
+            let newPos = snapToGrid(editComp.pos.add(deltaPos));
+            let actualDelta = newPos.sub(editComp.pos);
+
             return assignImm(layout, {
-                comps: layout.comps.map(c => c.id === ref.id ? assignImm(c, {
-                    pos: snapToGrid(c.pos.add(newModelPos.sub(origModelPos))),
-                }) : c),
+                comps: layout.comps.map(c => c.id === ref.id ? assignImm(c, { pos: newPos }) : c),
+                wires: moveWiresWithComp(layout, editCompIdx, actualDelta),
             });
         }));
     }
@@ -293,7 +298,7 @@ export const CpuCanvas: React.FC<{
             segs.splice(ref.wireSegId!, 1, ...newSegs);
 
             let wires = [...layout.wires];
-            wires[wireIdx] = fixWire(assignImm(wire, { segments: segs }));
+            wires[wireIdx] = assignImm(wire, { segments: segs });
 
             return applyWires(layout, wires, wireIdx);
         }));
