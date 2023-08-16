@@ -159,3 +159,7 @@ export function getOrAddToMap<K, V>(map: Map<K, V>, key: K, valueFn: () => V): V
     }
     return existing;
 }
+
+export function hasFlag(flags: number, flag: number) {
+    return (flags & flag) === flag;
+}

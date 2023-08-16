@@ -7,6 +7,7 @@ export function moveWiresWithComp(layout: ICpuLayoutBase, compIdx: number, delta
 
     let newWires: IWireGraph[] = [];
     for (let wire of layout.wires) {
+        wire = copyWireGraph(wire);
         for (let node of wire.nodes) {
             if (node.ref?.type === RefType.CompNode && node.ref.id === comp.id) {
                 node.pos = snapToGrid(node.pos.add(delta));
@@ -208,9 +209,9 @@ export function fixWires(layout: ICpuLayoutBase, wires: IWireGraph[], editIdx: n
     wires = wires.filter(a => !!a);
     let newWires = islands.slice(1);
 
-    if (newWires.length > 0) {
-        console.log('islands:', islands);
-    }
+    // if (newWires.length > 0) {
+    //     console.log('islands:', islands);
+    // }
 
     checkWires(wires, 'fixWires (post-splitIntoIslands)');
     checkWires(newWires, 'fixWires (post-splitIntoIslands new)');

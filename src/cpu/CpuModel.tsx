@@ -1,6 +1,84 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { Vec3 } from "../utils/vector";
 
+export interface IFullSystem {
+    layout: ICpuLayoutBase;
+    exe: IExeSystem;
+}
+
+export interface IExeSystem {
+    comps: IExeComp[];
+    nets: IExeNet[];
+    compExecutionOrder: number[];
+}
+
+export interface IExeComp<T = any> {
+    comp: IComp; // a (maybe) rendered component
+    ports: IExePort[];
+    type: CompType;
+    data: T;
+    phaseCount: number;
+    phaseIdx: number;
+    stepFunc: (comp: IExeComp<T>, nets: IExeNet[]) => void;
+    phases: IExePhase[];
+    subSystem?: IExeSystem;
+}
+
+// how does our step func work?
+// particularly, handling combinatorial logic vs sequential logic
+// for sequential,    we have: data -> outputs; inputs -> data
+// for combinatorial, we have: inputs -> local; data -> outputs
+
+// what if we wanted to make this neat & efficient?
+// data stored in a single array
+// net values are stored here (+ port values for multi-input)
+// we have a sequence of functions to execute
+// function context is ids into the data array
+// actually, idea is to first sort them by execution order, then malloc their data by that as well
+// then use pointers to that data
+// but that's for another time eh
+
+// back to how we just get it working
+// each step can be split into multiple phases, and each phase is determined by what nodes it reads/writes
+
+// for each phase, we need to know:
+// - what nodes it reads
+// - what nodes it writes
+
+// and then we have sufficient information to determine the order of execution
+
+// this way we can have arbitrary logic within a stepFunc (such as a sub-system, and have it execute in the correct order)
+// and all with only 1 stepFunc per component
+
+export interface IExePhase {
+    readPortIdxs: number[];
+    writePortIdxs: number[];
+}
+
+export interface IExePort {
+    portIdx: number; // into IComp.nodes[i]
+    netIdx: number;
+    width: number;
+    type: CompNodeType;
+    outputEnabled: boolean; // for tristate (true otherwise)
+    value: number;
+}
+
+export interface IExeNet {
+    wire: IWireGraph; // a (maybe) rendered wire
+    inputs: IExePortRef[]; // will have multiple inputs for buses (inputs with tristate)
+    outputs: IExePortRef[];
+    tristate: boolean;
+    width: number;
+    value: number;
+}
+
+// in our execution data model, we use indexes rather than ids for perf
+export interface IExePortRef {
+    compIdx: number;
+    portIdx: number;
+}
+
 export interface IEditorState {
     mtx: AffineMat2d;
 

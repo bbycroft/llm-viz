@@ -104,6 +104,34 @@ export const CPUMain = () => {
 
 */
 
+/*
+Global data structure (probably a rehash of the above but that's OK)
+
+- We have a set of components, which are connected by wires (in ICpuLayoutBase).
+- We have an object describing the state of the system (ICpuState).
+
+- We have methods to update ICpuState, e.g. by stepping through a clock cycle, or resetting
+  - This has associated UI (play, pause, step, reset, speed)
+- Different components have various things to render (e.g. reg values, binary states), and want to map them to ICpuState.
+- The components also have a series of ports, whose values are also mapped to ICpuState.
+- We want the wires to have their values driven by the ports, and also check that, e.g., the tristates are set correctly.
+
+- So we need some sort of bridge between these, and also, we don't want to have to update all the rendered components
+  each time.
+- Also, the graph of components & wires defines a system that we can step through.
+
+- We a) execute ICpuState, b) copy to some model via a bridge, c) execute the model, d) render the model.
+- The bridge copy is done via some ids, and the execute/render phases are purely derived from how the system is set up.
+
+- We don't need to do the ids copy each time, but instead can do it once to create an object with the actual refs.
+- Same thing in the execute/render phases.
+- Important thing is that we're separating the editing from the execution/rendering.
+- Or at least, we run some setup after each edit to remap ids to objects.
+
+- Big goal here is to make it easy to create lots of different models/variants.
+
+*/
+
 export interface ICpu {
     pc: number;
     x: Int32Array; // 32 registers, x0-x31, x0 is always 0 (even after writes!)

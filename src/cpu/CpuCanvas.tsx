@@ -5,11 +5,12 @@ import { ISystem, regNames } from "./CpuMain";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { useCombinedMouseTouchDrag } from "../utils/pointer";
-import { assignImm, assignImmFull, clamp, isNil, isNotNil } from "../utils/data";
+import { assignImm, assignImmFull, clamp, isNil } from "../utils/data";
 import { editLayout } from "./Editor";
-import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, graphToWire, iterWireGraphSegments, moveWiresWithComp, repackGraphIds, wireToGraph } from "./Wire";
-import { RefType, IElRef, ISegment, IWire, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase, IWireGraph } from "./CpuModel";
+import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
+import { RefType, IElRef, ISegment, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase, IWireGraph } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
+import { createExecutionModel } from "./CpuExecution";
 
 interface ICpuState {
     system: ISystem;
@@ -89,6 +90,10 @@ export const CpuCanvas: React.FC<{
     let [, redraw] = useReducer((x) => x + 1, 0);
 
     useResizeChangeHandler(cvsState?.canvas, redraw);
+
+    let exeModel = useMemo(() => {
+        return createExecutionModel(editorState.layout);
+    }, [editorState.layout]);
 
     let setCanvasEl = useCallback((el: HTMLCanvasElement | null) => {
 
@@ -602,6 +607,7 @@ function constructCpuLayout() {
         size: new Vec3(10, 6),
         type: CompType.ALU,
         nodes: [
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 3), type: CompNodeType.Input, width: 6 },
             { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: CompNodeType.Input, width: 32 },
             { id: 'rhs', name: 'RHS', pos: new Vec3(7, 0), type: CompNodeType.Input, width: 32 },
             { id: 'result', name: 'Result', pos: new Vec3(5, 6), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
@@ -687,7 +693,7 @@ function constructCpuLayout() {
     // how to define the line?
     // we're splitting LS/ALU into two lines, so 1/3 & 2/3 between them
 
-    buses.push(mainBus, rhsLine, lhsLine);
+    // buses.push(mainBus, rhsLine, lhsLine);
     comps.push(ram, rom, insDecode, loadStore, alu, pc, reg);
 
     return {
@@ -748,9 +754,9 @@ function stackHorizontally(comps: IComp[], pad: number, anchorX: number, pos: St
 function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayoutBase, cpuState: ICpuState) {
     let ctx = cvs.ctx;
 
-    for (let bus of cpuOpts.buses) {
-        renderBus(cvs, bus);
-    }
+    // for (let bus of cpuOpts.buses) {
+    //     renderBus(cvs, bus);
+    // }
 
     for (let wire of cpuOpts.wires) {
         renderWire(cvs, editorState, wire);
