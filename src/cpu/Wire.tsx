@@ -1,53 +1,53 @@
-import { assignImm, getOrAddToMap } from "../utils/data";
+import { assignImm, getOrAddToMap, isNil } from "../utils/data";
 import { segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
 import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayoutBase, IElRef, RefType } from "./CpuModel";
 
-export function moveWiresWithComp(layout: ICpuLayoutBase, compIdx: number, delta: Vec3): IWire[] {
+export function moveWiresWithComp(layout: ICpuLayoutBase, compIdx: number, delta: Vec3): IWireGraph[] {
     let comp = layout.comps[compIdx];
 
-    let newWires: IWire[] = [];
+    let newWires: IWireGraph[] = [];
     for (let wire of layout.wires) {
-        let wireGraph = wireToGraph(wire);
-        for (let node of wireGraph.nodes) {
+        for (let node of wire.nodes) {
             if (node.ref?.type === RefType.CompNode && node.ref.id === comp.id) {
                 node.pos = snapToGrid(node.pos.add(delta));
             }
         }
-        wire = graphToWire(wireGraph);
         newWires.push(wire);
     }
 
     return newWires;
 }
 
-export function dragSegment(wire: IWire, segId: number, delta: Vec3) {
+export function dragSegment(wire: IWireGraph, node0Idx: number, node1Idx: number, delta: Vec3) {
 
-    let seg = wire.segments[segId];
+    // let seg = wire.segments[segId];
+    let node0 = wire.nodes[node0Idx];
+    let node1 = wire.nodes[node1Idx];
 
-    let wireGraph = wireToGraph(wire);
-
-    let [node0, node1] = findNodesForSegment(wireGraph, seg);
+    // let [node0, node1] = findNodesForSegment(wireGraph, seg);
     // hmm, need to match the segId to the node id pair
 
     // we're gonna move both of these nodes
     // but also iterate through all nodes colinear with this segment, and move them by the same amount
     // Since we're not dealing with angled lines, don't have to re-evaluate the intersection point
-    let segDir = seg.p1.sub(seg.p0).normalize();
+    let segDir = node1.pos.sub(node0.pos).normalize();
 
     let nodesToMove = new Set<number>();
-    let nodeStack = [node0, node1];
+    let nodeStack = [node0Idx, node1Idx];
     let seenIds = new Set<number>();
+
+    let newNodes = [...wire.nodes];
 
     while (nodeStack.length > 0) {
         let nodeIdx0 = nodeStack.pop()!;
-        let node0 = wireGraph.nodes[nodeIdx0];
+        let node0 = wire.nodes[nodeIdx0];
         if (seenIds.has(node0.id)) {
             continue;
         }
         seenIds.add(node0.id);
         nodesToMove.add(nodeIdx0);
         for (let nodeIdx1 of node0.edges) {
-            let node1 = wireGraph.nodes[nodeIdx1];
+            let node1 = wire.nodes[nodeIdx1];
             let dir = node1.pos.sub(node0.pos).normalize();
             let dotProd = dir.dot(segDir);
             if (dotProd > 1 - EPSILON || dotProd < -1 + EPSILON) {
@@ -57,14 +57,15 @@ export function dragSegment(wire: IWire, segId: number, delta: Vec3) {
     }
 
     for (let nodeIdx of nodesToMove) {
-        let node = wireGraph.nodes[nodeIdx];
-        node.pos = snapToGrid(node.pos.add(delta));
+        newNodes[nodeIdx] = assignImm(newNodes[nodeIdx], {
+            pos: snapToGrid(newNodes[nodeIdx].pos.add(delta)),
+         });
     }
 
-    return graphToWire(wireGraph);
+    return assignImm(wire, { nodes: newNodes });
 }
 
-export function applyWires(layout: ICpuLayoutBase, wires: IWire[], editIdx: number): ICpuLayoutBase {
+export function applyWires(layout: ICpuLayoutBase, wires: IWireGraph[], editIdx: number): ICpuLayoutBase {
 
     let [editedWires, newWires] = fixWires(layout, wires, editIdx);
     let nextWireId = layout.nextWireId;
@@ -72,12 +73,29 @@ export function applyWires(layout: ICpuLayoutBase, wires: IWire[], editIdx: numb
         wire.id = '' + nextWireId++;
     }
 
+
     let allWires = [...editedWires, ...newWires];
+
+    checkWires(editedWires, 'applyWires (post-fixWires edited)');
+    checkWires(newWires, 'applyWires (post-fixWires new)');
 
     return assignImm(layout, {
         nextWireId,
         wires: allWires,
     })
+}
+
+export function checkWires(wires: IWireGraph[], name: string) {
+    for (let wire of wires) {
+        if (wire.nodes.some(n => n.edges.some(e => isNil(e) || isNil(wire.nodes[e])))) {
+            throw new Error(`CHECK [${name}]: Wire ${wire.id} has dangling edges`);
+        }
+    }
+}
+
+export function copyWireGraph(wire: IWireGraph): IWireGraph {
+    let nodes = wire.nodes.map(n => ({ ...n, edges: n.edges.slice() }));
+    return { ...wire, nodes };
 }
 
 function createNodePosMap(layout: ICpuLayoutBase) {
@@ -98,11 +116,29 @@ function createNodePosMap(layout: ICpuLayoutBase) {
     return nodePosMap;
 }
 
+export function iterWireGraphSegments(graph: IWireGraph, cb: (node0: IWireGraphNode, node1: IWireGraphNode) => boolean | void) {
+    for (let node0 of graph.nodes) {
+        for (let nodeId of node0.edges) {
+            let node1 = graph.nodes[nodeId];
+            if (!node1) {
+                throw new Error(`Couldn't find node ${nodeId}`);
+            }
+            if (node1.id > node0.id) {
+                let res = cb(node0, node1);
+                if (res === false) {
+                    return;
+                }
+            }
+        }
+    }
+}
+
 /** Two main things to fix:
     1. wires that are touching each other get merged
     2. wires that have islands get split
 */
-export function fixWires(layout: ICpuLayoutBase, wires: IWire[], editIdx: number): [editedWires: IWire[], newWires: IWire[]] {
+export function fixWires(layout: ICpuLayoutBase, wires: IWireGraph[], editIdx: number): [editedWires: IWireGraph[], newWires: IWireGraph[]] {
+    wires = [...wires];
     let editWire = wires[editIdx];
 
     // find all wires that are touching the edit wire
@@ -117,42 +153,43 @@ export function fixWires(layout: ICpuLayoutBase, wires: IWire[], editIdx: number
 
         let merged = false;
         // find any segments that are touching the edit wire
-        for (let j = 0; j < wire.segments.length && !merged; j++) {
-            for (let k = 0; k < editWire.segments.length; k++) {
-                let seg1 = wire.segments[j];
-                let seg2 = editWire.segments[k];
+        iterWireGraphSegments(wire, (node0, node1) => {
+            let seg1 = { p0: node0.pos, p1: node1.pos };
+
+            iterWireGraphSegments(editWire, (editNode0, editNode1) => {
+                let seg2 = { p0: editNode0.pos, p1: editNode1.pos };
 
                 if (segsTouching(seg1, seg2)) {
                     merged = true;
                     wireIdxsToMerge.add(i);
-                    break;
+                    return false;
                 }
-            }
-        }
+            });
+
+            return !merged;
+        });
     }
 
     if (wireIdxsToMerge.size > 0) {
-        let newWire = assignImm(editWire, {
-            segments: editWire.segments.slice(),
-        });
-        wires[editIdx] = newWire;
+        let newWire = graphToWire(editWire);
 
         for (let idx of wireIdxsToMerge) {
-            let wire = wires[idx];
+            let wire = graphToWire(wires[idx]);
             for (let seg of wire.segments) {
                 newWire.segments.push(seg);
             }
         }
 
+        wires[editIdx] = wireToGraph(newWire);
+
         let idxsBelowNewIdx = Array.from(wireIdxsToMerge).filter(i => i < editIdx).length;
-        editIdx -= idxsBelowNewIdx;
-
         wires = wires.filter((_, i) => !wireIdxsToMerge.has(i));
-
-        wires[editIdx] = fixWire(newWire);
+        editIdx -= idxsBelowNewIdx;
     }
 
-    let editWireGraph = wireToGraph(wires[editIdx]);
+    wires[editIdx] = fixWire(wires[editIdx]);
+
+    let editWireGraph = wires[editIdx];
 
     let nodePosMap = createNodePosMap(layout);
     for (let node of editWireGraph.nodes) {
@@ -163,13 +200,20 @@ export function fixWires(layout: ICpuLayoutBase, wires: IWire[], editIdx: number
         }
     }
 
-    let islands = splitIntoIslands(editWireGraph);
-    let newWires: IWire[] = [];
+    checkWires(wires, 'fixWires (pre-splitIntoIslands)');
 
-    let editWireSplit = islands.map(graphToWire);
-    wires.splice(editIdx, 1, editWireSplit[0]);
+    let islands = splitIntoIslands(editWireGraph);
+
+    wires.splice(editIdx, 1, islands[0]);
     wires = wires.filter(a => !!a);
-    newWires = editWireSplit.slice(1);
+    let newWires = islands.slice(1);
+
+    if (newWires.length > 0) {
+        console.log('islands:', islands);
+    }
+
+    checkWires(wires, 'fixWires (post-splitIntoIslands)');
+    checkWires(newWires, 'fixWires (post-splitIntoIslands new)');
 
     return [wires, newWires];
 }
@@ -198,7 +242,9 @@ export function splitIntoIslands(wire: IWireGraph): IWireGraph[] {
                     }
                 }
             }
-            islands.push(island);
+            if (island.length > 1) {
+                islands.push(island);
+            }
         }
     }
 
@@ -315,8 +361,9 @@ export function graphToWire(graph: IWireGraph): IWire {
 
 export const EPSILON = 0.001;
 
-export function fixWire(wire: IWire) {
+export function fixWire(wireGraph: IWireGraph) {
 
+    let wire = graphToWire(wireGraph);
     let segs = wire.segments.map(a => ({ ...a }));
 
     let segIdsToRemove = new Set<number>();
@@ -345,15 +392,12 @@ export function fixWire(wire: IWire) {
         }
     }
 
-    let newSegs = segs.filter((_, i) => !segIdsToRemove.has(i));
+    let newSegs = segs
+        .filter((_, i) => !segIdsToRemove.has(i))
+        .filter(s => s.p0.distSq(s.p1) > EPSILON * EPSILON);
     wire = assignImm(wire, { segments: newSegs });
 
-    wire = graphToWire(wireToGraph(wire));
-
-    // remove any segments of no length
-    return assignImm(wire, {
-        segments: filterImm(wire.segments, s => s.p0.distSq(s.p1) > EPSILON),
-    });
+    return wireToGraph(wire);
 }
 
 export function filterImm<T>(arr: T[], pred: (t: T) => boolean) {

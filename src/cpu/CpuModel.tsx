@@ -31,8 +31,9 @@ export interface IElRef {
     type: RefType;
     id: string;
     compNodeId?: string; // node for comp
-    wireSegId?: number;
-    wireSegEnd?: number; // 0 or 1 (if defined)
+    wireNode0Id?: number;
+    wireNode1Id?: number;
+    // wireSegEnd?: number; // 0 or 1 (if defined)
 }
 
 export enum RefType {
@@ -119,6 +120,6 @@ export enum CompType {
 export interface ICpuLayoutBase {
     nextWireId: number;
     comps: IComp[];
-    wires: IWire[];
+    wires: IWireGraph[];
     buses: IBus[]; // deprecated
 }
