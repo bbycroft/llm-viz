@@ -19,8 +19,7 @@ export interface IExeComp<T = any> {
     data: T;
     phaseCount: number;
     phaseIdx: number;
-    stepFunc: (comp: IExeComp<T>, nets: IExeNet[]) => void;
-    phases: IExePhase[];
+    phases: IExePhase<T>[];
     subSystem?: IExeSystem;
 }
 
@@ -50,9 +49,11 @@ export interface IExeComp<T = any> {
 // this way we can have arbitrary logic within a stepFunc (such as a sub-system, and have it execute in the correct order)
 // and all with only 1 stepFunc per component
 
-export interface IExePhase {
+export interface IExePhase<T = any> {
     readPortIdxs: number[];
     writePortIdxs: number[];
+    func: (comp: IExeComp<T>) => void;
+    isLatch: boolean;
 }
 
 export interface IExePort {
@@ -71,6 +72,7 @@ export interface IExeNet {
     tristate: boolean;
     width: number;
     value: number;
+    enabledCount: number;
 }
 
 // in our execution data model, we use indexes rather than ids for perf
@@ -167,7 +169,7 @@ export interface IComp {
     pos: Vec3;
     size: Vec3;
     type: CompType;
-    nodes?: ICompNode[];
+    nodes: ICompNode[];
 }
 
 export interface ICompNode {

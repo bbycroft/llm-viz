@@ -1,4 +1,6 @@
+import { exec } from "child_process";
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
+import { buildAlu, buildDefault, buildRegFile, buildSingleReg } from "./ComponentDefs";
 import { CompNodeType, IComp, ICpuLayoutBase, IExeComp, IExeNet, IExePort, IExePortRef, IExeSystem, RefType } from "./CpuModel";
 
 export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
@@ -37,7 +39,7 @@ export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
         let outputs: IExePortRef[] = [];
         for (let ref of refs) {
             const comp = connectedComps[compIdToIdx.get(ref.id)!];
-            if (!comp?.nodes) {
+            if (!comp) {
                 continue;
             }
             for (let nodeIdx = 0; nodeIdx < comp.nodes.length; nodeIdx++) {
@@ -54,12 +56,13 @@ export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
         }
 
         let net: IExeNet = {
-            value: 0,
             width: 1,
             wire,
             tristate: false,
             inputs: inputs,
             outputs: outputs,
+            value: 0,
+            enabledCount: 0,
         };
 
         nets.push(net);
@@ -67,43 +70,13 @@ export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
 
     for (let comp of connectedComps) {
 
-        let ports: IExePort[] = (comp.nodes ?? []).map((node, i) => {
-            return {
-                portIdx: i,
-                netIdx: -1,
-                outputEnabled: true,
-                type: node.type ?? CompNodeType.Input,
-                value: 0,
-                width: node.width ?? 1,
-            };
-        });
-
-        let readPorts: number[] = [];
-        let writePorts: number[] = [];
-        ports.forEach((p, i) => {
-            if (hasFlag(p.type, CompNodeType.Input)) {
-                readPorts.push(i);
-            } else {
-                writePorts.push(i);
-            }
-        });
-
-        // based on the type, we need to set up the step function and potentially the phases correctly
-        // the default phase is just a single phase that reads all inputs and writes all outputs (i.e. combinatorial logic)
-        let exeComp: IExeComp = {
-            comp,
-            ports,
-            stepFunc: (comp, nets) => {},
-            phaseCount: 1,
-            phaseIdx: 0,
-            data: null,
-            phases: [{
-                readPortIdxs: readPorts,
-                writePortIdxs: writePorts,
-            }],
-            type: comp.type,
-        };
-
+        let exeComp: IExeComp;
+        switch (comp.id) {
+            case 'alu': exeComp = buildAlu(comp); break;
+            case 'reg': exeComp = buildRegFile(comp); break;
+            case 'pc': exeComp = buildSingleReg(comp); break;
+            default: exeComp = buildDefault(comp); break;
+        }
         comps.push(exeComp);
     }
 
@@ -167,15 +140,16 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): numb
         for (let pIdx = 0; pIdx < comp.phases.length; pIdx++) {
             let phase = comp.phases[pIdx];
             let nodeId = compPhaseToNodeId(cId, pIdx);
-            let afterPrevPhase = pIdx > 0;
+            // let afterPrevPhase = pIdx > 0;
+            let hasNextPhase = pIdx < comp.phases.length - 1;
 
-            let linkedReadPortCount = phase.readPortIdxs.filter(i => comp.ports[i].netIdx >= 0).length;
+            // let linkedReadPortCount = phase.readPortIdxs.filter(i => comp.ports[i].netIdx >= 0).length;
 
-            inDegree.set(nodeId, linkedReadPortCount + (afterPrevPhase ? 1 : 0));
+            inDegree.set(nodeId, 0);
             let nodeEdges = getOrAddToMap(edges, nodeId, () => []);
-            if (afterPrevPhase) {
-                let prevNodeId = compPhaseToNodeId(cId, pIdx - 1);
-                nodeEdges.push(prevNodeId);
+            if (hasNextPhase) {
+                let nextNodeId = compPhaseToNodeId(cId, pIdx + 1);
+                nodeEdges.push(nextNodeId);
             }
             numExeNodes += 1;
             for (let portIdx of phase.writePortIdxs) {
@@ -193,7 +167,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): numb
     for (let nId = 0; nId < nets.length; nId++) {
         let net = nets[nId];
         let netNodeId = netToNodeId(nId);
-        inDegree.set(netNodeId, net.outputs.length);
+        inDegree.set(netNodeId, 0);
         let nodeEdges = getOrAddToMap(edges, netNodeId, () => []);
 
         for (let input of net.inputs) {
@@ -206,6 +180,15 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): numb
         }
 
     }
+
+    for (let [, destIds] of edges) {
+        for (let destId of destIds) {
+            let deg = inDegree.get(destId) ?? 0;
+            inDegree.set(destId, deg + 1);
+        }
+    }
+
+    // console.log('inDegreeOriginal:', new Map(inDegree));
 
     let queue: number[] = [];
     for (let [nodeId, degree] of inDegree) {
@@ -233,22 +216,20 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): numb
     let numPhasesRun: number[] = comps.map(_ => 0);
 
     let compExecutionOrder: number[] = [];
-    /*
-    console.log('--- topoNodeOrder ---');
-    console.log('comps:', comps.map((c, i) => `${compPhaseToNodeId(i, 0)}: ${c.comp.name}`).join(', '));
-    console.log('nets:', nets.map((n, i) => `${netToNodeId(i)}: ${netToString(n, comps)}`).join(', '));
-    console.log('inDegree:', inDegree);
-    console.log('edges:', edges);
-    */
+    // console.log('--- topoNodeOrder ---');
+    // console.log('comps:', comps.map((c, i) => `${compPhaseToNodeId(i, 0)}: ${c.comp.name}`).join(', '));
+    // console.log('nets:', nets.map((n, i) => `${netToNodeId(i)}: ${netToString(n, comps)}`).join(', '));
+    // console.log('inDegree:', new Map(inDegree));
+    // console.log('edges:', edges);
 
     for (let nodeId of topoNodeOrder) {
         let compPhase = nodeIdToCompPhaseIdx(nodeId);
         if (!compPhase) {
             let netIdx = nodeIdToNetIdx(nodeId)!;
-            // console.log('found net idx', netIdx, netToString(nets[netIdx], comps));
+            // console.log('found net', nodeId, netToString(nets[netIdx], comps));
             continue;
         }
-        // console.log('found, for node id', nodeId, 'compPhase', compPhase, 'comp', comps[compPhase.compIdx].comp.name);
+        // console.log('found comp', nodeId, 'compPhase', compPhase, 'comp', comps[compPhase.compIdx].comp.name, `(${compPhase.phaseIdx+1}/${comps[compPhase.compIdx].phases.length})`);
         let { compIdx, phaseIdx } = compPhase;
         if (phaseIdx !== numPhasesRun[compIdx]) {
             console.log('detected an incorrectly ordered phase; execution order may be incorrect');
@@ -259,6 +240,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): numb
 
     if (compExecutionOrder.length !== numExeNodes) {
         console.log('detected a cycle; execution order may be incorrect: expected exe nodes', numExeNodes, 'got', compExecutionOrder.length);
+        console.log(comps, nets);
     } else {
         // console.log('execution order:');
     }
@@ -274,7 +256,8 @@ function netToString(net: IExeNet, comps: IExeComp[]) {
         let comp = comps[portRef.compIdx];
         let port = comp.ports[portRef.portIdx];
         let tristateStr = hasFlag(port.type, CompNodeType.Tristate) ? '(ts)' : '';
-        return `${comp.comp.id}.${port.portIdx}${tristateStr}`;
+        let portId = comp.comp.nodes[portRef.portIdx].id;
+        return `${comp.comp.id}.${portId}${tristateStr}`;
     };
 
     return `(${net.outputs.map(a => portStr(a)).join(', ')}) -> (${net.inputs.map(a => portStr(a)).join(', ')})`;

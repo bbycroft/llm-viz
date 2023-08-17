@@ -8,7 +8,7 @@ import { useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, isNil } from "../utils/data";
 import { editLayout } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
-import { RefType, IElRef, ISegment, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase, IWireGraph } from "./CpuModel";
+import { RefType, IElRef, ISegment, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase, IWireGraph, IWireGraphNode } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel } from "./CpuExecution";
 
@@ -113,7 +113,7 @@ export const CpuCanvas: React.FC<{
     let compNodePoints = useMemo(() => {
         let points: Vec3[] = [];
         for (let comp of editorState.layout.comps) {
-            for (let node of comp.nodes ?? []) {
+            for (let node of comp.nodes) {
                 let nodePos = node.pos.add(comp.pos);
                 points.push(nodePos);
             }
@@ -200,7 +200,7 @@ export const CpuCanvas: React.FC<{
         setEditorState(editLayout(end, layout => {
 
             let startComp = layout.comps.find(c => c.id === ref.id)!;
-            let startNode = startComp.nodes!.find(n => n.id === ref.compNodeId)!;
+            let startNode = startComp.nodes.find(n => n.id === ref.compNodeId)!;
             let startPt = startComp.pos.add(startNode.pos);
             let endPt = snapToGrid(newModelPos);
 
@@ -396,7 +396,7 @@ export const CpuCanvas: React.FC<{
 
         for (let i = comps.length - 1; i >= 0; i--) {
             let comp = comps[i];
-            for (let node of comp.nodes ?? []) {
+            for (let node of comp.nodes) {
                 let modelPos = comp.pos.add(node.pos);
                 let nodeScreenPos = modelToScreen(modelPos);
                 let modelDist = modelPos.dist(mousePt);
@@ -560,6 +560,7 @@ function constructCpuLayout() {
         pos: new Vec3(),
         size: new Vec3(10, 10),
         type: CompType.RAM,
+        nodes: [],
     };
 
     let rom: IComp = {
@@ -568,6 +569,7 @@ function constructCpuLayout() {
         pos: new Vec3(),
         size: new Vec3(10, 10),
         type: CompType.ROM,
+        nodes: [],
     };
 
     let insDecode: IComp = {
@@ -576,13 +578,9 @@ function constructCpuLayout() {
         pos: new Vec3(10, busPad),
         size: new Vec3(10, 3),
         type: CompType.ID,
-        nodes: [{
-            id: 'rhsImm',
-            name: 'RHS Imm',
-            pos: new Vec3(10, 2),
-            type: CompNodeType.Output,
-            width: 32,
-        }],
+        nodes: [
+            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(10, 2), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+        ],
     };
 
     let loadStore: IComp = {
@@ -620,6 +618,11 @@ function constructCpuLayout() {
         pos: new Vec3(),
         size: new Vec3(10, 2),
         type: CompType.PC,
+        nodes: [
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(3, 0), type: CompNodeType.Input, width: 1 },
+            { id: 'in', name: 'In', pos: new Vec3(0, 1), type: CompNodeType.Input, width: 32 },
+            { id: 'out', name: 'Out', pos: new Vec3(10, 1), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+        ],
     };
 
     let reg: IComp = {
@@ -628,6 +631,12 @@ function constructCpuLayout() {
         pos: new Vec3(),
         size: new Vec3(10, 24),
         type: CompType.REG,
+        nodes: [
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(5, 0), type: CompNodeType.Input, width: 3 * 6 },
+            { id: 'in', name: 'In', pos: new Vec3(0, 3), type: CompNodeType.Input, width: 32 },
+            { id: 'outA', name: 'Out A', pos: new Vec3(10, 3), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+            { id: 'outB', name: 'Out B', pos: new Vec3(10, 5), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+        ],
     };
 
     moveLeftOf(ram, busX - busPad);
@@ -783,7 +792,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
         ctx.fill();
         ctx.stroke();
 
-        for (let node of comp.nodes ?? []) {
+        for (let node of comp.nodes) {
             renderNode(cvs, editorState, comp, node);
         }
 
@@ -806,6 +815,9 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
 function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompNode) {
     let hoverRef = editorState.hovered?.ref;
     let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === node.id;
+    let type = node.type ?? 0;
+    let isInput = (type & CompNodeType.Input) !== 0;
+    let isTristate = (type & CompNodeType.Tristate) !== 0;
     let ctx = cvs.ctx;
     let x = comp.pos.x + node.pos.x;
     let y = comp.pos.y + node.pos.y;
@@ -813,9 +825,27 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2 * Math.PI);
     ctx.strokeStyle = isHover ? "#f00" : "#000";
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = isInput ? "#fff" : isTristate ? "#a3f" : "#00f";
     ctx.fill();
     ctx.stroke();
+
+    if (node.name) {
+        let isTop = node.pos.y === 0;
+        let isBot = node.pos.y === comp.size.y;
+        let isLeft = node.pos.x === 0;
+        let isRight = node.pos.x === comp.size.x;
+
+        let text = node.name;
+        let textHeight = 1.8;
+        ctx.font = `${textHeight / 4}px Arial`;
+        ctx.textAlign = (isTop || isBot) ? 'center' : isLeft ? 'start' : 'end';
+        ctx.textBaseline = (isLeft || isRight) ? "middle" : isTop ? 'top' : 'bottom';
+        ctx.fillStyle = "#000";
+        let deltaAmt = 0.3;
+        let deltaX = isLeft ? deltaAmt : isRight ? -deltaAmt : 0;
+        let deltaY = isTop ? deltaAmt : isBot ? -deltaAmt : 0;
+        ctx.fillText(text, x + deltaX, y + deltaY);
+    }
 }
 
 // 32bit pc
@@ -891,16 +921,40 @@ function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGra
     ctx.lineCap = "square";
     ctx.lineJoin = "round";
 
-    iterWireGraphSegments(wire, (node0, node1) => {
+    function isSegHover(node0: IWireGraphNode, node1: IWireGraphNode) {
+        return isHover && hoverRef?.wireNode0Id === node0.id && hoverRef?.wireNode1Id === node1.id;
+    }
 
+    if (isHover) {
+        ctx.save();
+        iterWireGraphSegments(wire, (node0, node1) => {
+            ctx.beginPath();
+            if (isSegHover(node0, node1)) {
+                ctx.strokeStyle = '#55f';
+            } else {
+                ctx.strokeStyle = '#000';
+            }
+            ctx.lineWidth = 3 * cvs.scale;
+            ctx.filter = 'blur(4px)';
+            ctx.moveTo(node0.pos.x, node0.pos.y);
+            ctx.lineTo(node1.pos.x, node1.pos.y);
+            ctx.stroke();
+        });
+        ctx.restore();
+    }
+
+    iterWireGraphSegments(wire, (node0, node1) => {
         ctx.beginPath();
-        if (isHover && node0.id === hoverRef?.wireNode0Id && node1.id === hoverRef?.wireNode1Id) {
-            ctx.strokeStyle = '#f00';
-        } else if (isHover) {
-            ctx.strokeStyle = '#aaa';
-        } else {
+        // if (isSegHover(node0, node1)) {
+        //     ctx.strokeStyle = '#f00';
+        // } else if (isHover) {
+        //     ctx.strokeStyle = '#aaa';
+        // } else {
             ctx.strokeStyle = '#333';
-        }
+            if (isHover) {
+                // ctx.strokeStyle = '#aaa';
+            }
+        // }
         ctx.lineWidth = 4 * cvs.scale;
         ctx.moveTo(node0.pos.x, node0.pos.y);
         ctx.lineTo(node1.pos.x, node1.pos.y);
@@ -908,16 +962,15 @@ function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGra
     });
 
     function drawEndCircle(p: Vec3, isHover: boolean) {
+        if (!isHover) {
+            return;
+        }
         ctx.beginPath();
         ctx.arc(p.x, p.y, 5 * cvs.scale, 0, 2 * Math.PI);
         // ctx.fillStyle = isHover ? '#f00' : '#000';
         ctx.strokeStyle = isHover ? '#f00' : '#000';
         ctx.lineWidth = 2 * cvs.scale;
         ctx.stroke();
-    }
-
-    for (let node of wire.nodes) {
-        drawEndCircle(node.pos, isHover && isNil(hoverRef?.wireNode1Id) && hoverRef?.wireNode0Id === node.id);
     }
 
     for (let node of wire.nodes) {
@@ -942,6 +995,10 @@ function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGra
             ctx.fillStyle = "#000";
             ctx.fill();
         }
+    }
+
+    for (let node of wire.nodes) {
+        drawEndCircle(node.pos, isHover && isNil(hoverRef?.wireNode1Id) && hoverRef?.wireNode0Id === node.id);
     }
 
 }
