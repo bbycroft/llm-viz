@@ -91,6 +91,16 @@ export function checkWires(wires: IWireGraph[], name: string) {
         if (wire.nodes.some(n => n.edges.some(e => isNil(e) || isNil(wire.nodes[e])))) {
             throw new Error(`CHECK [${name}]: Wire ${wire.id} has dangling edges`);
         }
+
+        for (let node0 of wire.nodes) {
+            for (let node1Idx of node0.edges) {
+                let node1 = wire.nodes[node1Idx];
+                if (node1.edges.includes(node0.id)) {
+                    continue;
+                }
+                throw new Error(`CHECK [${name}]: Wire ${wire.id} has unidirectional edge ${node0.id} -> ${node1.id}`);
+            }
+        }
     }
 }
 
@@ -398,7 +408,22 @@ export function fixWire(wireGraph: IWireGraph) {
         .filter(s => s.p0.distSq(s.p1) > EPSILON * EPSILON);
     wire = assignImm(wire, { segments: newSegs });
 
-    return wireToGraph(wire);
+    let graph = wireToGraph(wire);
+
+    iterWireGraphSegments(graph, (node0, node1) => {
+
+        for (let node of graph.nodes) {
+            if (node === node0 || node === node1) {
+                continue;
+            }
+
+            if (segAttachedTo({ p0: node0.pos, p1: node1.pos }, node.pos)) {
+            }
+        }
+
+    });
+
+    return graph;
 }
 
 export function filterImm<T>(arr: T[], pred: (t: T) => boolean) {

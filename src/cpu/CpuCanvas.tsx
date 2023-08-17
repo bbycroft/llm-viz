@@ -4,7 +4,7 @@ import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../
 import { ISystem, regNames } from "./CpuMain";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
-import { useCombinedMouseTouchDrag } from "../utils/pointer";
+import { IDragStart, useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, isNil } from "../utils/data";
 import { editLayout } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
@@ -56,6 +56,8 @@ function wiresFromLsState(layoutBase: ICpuLayoutBase, ls: ILSState): ICpuLayoutB
         maxId = Math.max(maxId, parseInt(w.id));
     }
 
+    checkWires(newWires, 'wiresFromLsState');
+
     return assignImm(layoutBase, {
         nextWireId: maxId + 1,
         wires: newWires,
@@ -71,6 +73,12 @@ function wiresToLsState(wires: IWireGraph[]): ILSState {
                 nodes: w.nodes.map(n => ({ id: n.id, x: n.pos.x, y: n.pos.y, edges: n.edges, ref: n.ref })),
             })),
     };
+}
+
+interface ICanvasDragState {
+    mtx: AffineMat2d;
+    hovered: IHitTest | null;
+    modelPos: Vec3;
 }
 
 export const CpuCanvas: React.FC<{
@@ -143,7 +151,10 @@ export const CpuCanvas: React.FC<{
         ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
         ctx.transform(...editorState.mtx.toTransformParams());
-        renderCpuToCanvas(cvsState, editorState, cpuState);
+        ctx.save();
+        renderCpu(cvsState, editorState, editorState.layoutTemp ?? editorState.layout, cpuState);
+        renderDragState(cvsState, editorState, dragStart, grabDirRef.current);
+        ctx.restore();
 
         ctx.restore();
     });
@@ -245,31 +256,29 @@ export const CpuCanvas: React.FC<{
         */
     function handleWireExtendDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
         setEditorState(editLayout(end, function handleWireExtendDrag(layout) {
+            checkWires(editorState.layout.wires, 'handleWireExtendDrag (pre edit)');
             let wireIdx = editorState.layout.wires.findIndex(w => w.id === ref.id)!;
             let wire = copyWireGraph(editorState.layout.wires[wireIdx]);
             let delta = newModelPos.sub(origModelPos);
             let node = wire.nodes[ref.wireNode0Id!];
-
             let startPos = node.pos;
-            // let otherPos = ref.wireSegEnd === 0 ? seg.p1 : seg.p0;
-            // let isHoriz = seg.p0.y === seg.p1.y;
-
-            // @TODO: many things to fix here!
-            // let inwardDir = new Vec3(0, 1); // otherPos.sub(startPos).normalize();
-            let isHoriz = false;
 
             let screenPos = modelToScreen(startPos);
             let mouseScreenPos = modelToScreen(newModelPos);
-            let mouseDir = mouseScreenPos.sub(screenPos).abs();
+            let mouseDir = mouseScreenPos.sub(screenPos);
+            let mouseDirSnapped = mouseDir.normalize().round();
+            if (mouseDirSnapped.x !== 0 && mouseDirSnapped.y !== 0) {
+                mouseDirSnapped.y = 0;
+            }
             let grabDirPx = 20;
             if (!grabDirRef.current && mouseDir.len() > grabDirPx) {
                 // want to make one of the 4 cardinal directions
-                grabDirRef.current = mouseDir.normalize().round(); //  mouseDir.x > mouseDir.y ? new Vec3(1, 0) : new Vec3(0, 1);
+                grabDirRef.current = mouseDirSnapped;
             } else if (mouseDir.len() < grabDirPx) {
                 grabDirRef.current = null;
             }
 
-            let grabDir = grabDirRef.current ?? (isHoriz ? new Vec3(1, 0) : new Vec3(0, 1));
+            let grabDir = grabDirRef.current ?? mouseDirSnapped;
 
             if (end) {
                 grabDirRef.current = null;
@@ -280,6 +289,7 @@ export const CpuCanvas: React.FC<{
             let moveDelta = endPos.sub(startPos);
 
             let isReversing = false;
+            let allDirs: Vec3[] = [];
             for (let node1Idx of node.edges) {
                 let node1 = wire.nodes[node1Idx];
                 let dir = node1.pos.sub(startPos).normalize();
@@ -291,20 +301,31 @@ export const CpuCanvas: React.FC<{
                     let midPos = startPos.add(projectOntoVector(moveDelta, grabDir));
                     node1.edges.push(newNode0Id);
                     node1.edges = node1.edges.filter(e => e !== node.id);
-                    wire.nodes.push({ id: newNode0Id, pos: midPos, edges: [node1Idx] });
+                    node.edges = node.edges.filter(e => e !== node1.id);
+                    wire.nodes.push({ id: newNode0Id, pos: midPos, edges: [node1Idx, newNode1Id] });
                     wire.nodes.push({ id: newNode1Id, pos: endPos, edges: [newNode0Id] });
                     isReversing = true;
                     break;
                 }
+                allDirs.push(dir);
             }
 
             if (!isReversing) {
-                let newNode0Id = wire.nodes.length;
-                let newNode1Id = wire.nodes.length + 1;
-                let midPos = startPos.add(projectOntoVector(moveDelta, grabDir));
-                node.edges.push(newNode0Id);
-                wire.nodes.push({ id: newNode0Id, pos: midPos, edges: [node.id, newNode1Id] });
-                wire.nodes.push({ id: newNode1Id, pos: endPos, edges: [newNode0Id] });
+                if (node.edges.length === 1 && grabDir.dot(wire.nodes[node.edges[0]].pos.sub(startPos)) < -1.0 + EPSILON) {
+                    // we're extending a bare end
+                    let newNode0Id = wire.nodes.length;
+                    let midPos = startPos.add(projectOntoVector(moveDelta, grabDir));
+                    node.pos = midPos;
+                    node.edges.push(newNode0Id);
+                    wire.nodes.push({ id: newNode0Id, pos: endPos, edges: [node.id] });
+                } else {
+                    let newNode0Id = wire.nodes.length;
+                    let newNode1Id = wire.nodes.length + 1;
+                    let midPos = startPos.add(projectOntoVector(moveDelta, grabDir));
+                    node.edges.push(newNode0Id);
+                    wire.nodes.push({ id: newNode0Id, pos: midPos, edges: [node.id, newNode1Id] });
+                    wire.nodes.push({ id: newNode1Id, pos: endPos, edges: [newNode0Id] });
+                }
             }
 
             // how are we manipulating our graph?
@@ -522,14 +543,6 @@ thick for really small objects)
 
 */
 
-function renderCpuToCanvas(cvs: ICanvasState, editorState: IEditorState, cpu: ICpuState) {
-    let ctx = cvs.ctx;
-
-    ctx.save();
-    renderCpu(cvs, editorState, editorState.layoutTemp ?? editorState.layout, cpu);
-    ctx.restore();
-}
-
 type ICpuLayout = ReturnType<typeof constructCpuLayout>;
 
 enum StackPos {
@@ -572,6 +585,20 @@ function constructCpuLayout() {
         nodes: [],
     };
 
+    let insFetch: IComp = {
+        id: 'insFetch',
+        name: "Instruction Fetch",
+        pos: new Vec3(-12, busPad),
+        size: new Vec3(10, 3),
+        type: CompType.IF,
+        nodes: [
+            { id: 'pc', name: 'PC', pos: new Vec3(5, 3), type: CompNodeType.In, width: 32 },
+            { id: 'ins', name: 'Ins', pos: new Vec3(10, 1), type: CompNodeType.Out, width: 32 },
+            { id: 'addr', name: 'Addr', pos: new Vec3(0, 1), type: CompNodeType.Out, width: 32 },
+            { id: 'data', name: 'Data', pos: new Vec3(0, 2), type: CompNodeType.In, width: 32 },
+        ],
+    };
+
     let insDecode: IComp = {
         id: 'id',
         name: "Instruction Decode",
@@ -579,7 +606,8 @@ function constructCpuLayout() {
         size: new Vec3(10, 3),
         type: CompType.ID,
         nodes: [
-            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(10, 2), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+            { id: 'ins', name: 'Ins', pos: new Vec3(0, 1), type: CompNodeType.In, width: 32 },
+            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(10, 2), type: CompNodeType.OutTri, width: 32 },
         ],
     };
 
@@ -590,11 +618,11 @@ function constructCpuLayout() {
         size: new Vec3(10, 3),
         type: CompType.LS,
         nodes: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: CompNodeType.Input, width: 4 },
-            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: CompNodeType.Input, width: 12 },
-            { id: 'addrBase', name: 'Addr Base', pos: new Vec3(3, 3), type: CompNodeType.Input, width: 32 },
-            { id: 'data', name: 'Data', pos: new Vec3(7, 3), type: CompNodeType.Input, width: 32 },
-            { id: 'dataOut', name: 'Data Out', pos: new Vec3(10, 2), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: CompNodeType.In, width: 4 },
+            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: CompNodeType.In, width: 12 },
+            { id: 'addrBase', name: 'Addr Base', pos: new Vec3(3, 3), type: CompNodeType.In, width: 32 },
+            { id: 'data', name: 'Data', pos: new Vec3(7, 3), type: CompNodeType.In, width: 32 },
+            { id: 'dataOut', name: 'Data Out', pos: new Vec3(10, 2), type: CompNodeType.OutTri, width: 32 },
         ],
     };
 
@@ -605,10 +633,10 @@ function constructCpuLayout() {
         size: new Vec3(10, 6),
         type: CompType.ALU,
         nodes: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 3), type: CompNodeType.Input, width: 6 },
-            { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: CompNodeType.Input, width: 32 },
-            { id: 'rhs', name: 'RHS', pos: new Vec3(7, 0), type: CompNodeType.Input, width: 32 },
-            { id: 'result', name: 'Result', pos: new Vec3(5, 6), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 3), type: CompNodeType.In, width: 6 },
+            { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: CompNodeType.In, width: 32 },
+            { id: 'rhs', name: 'RHS', pos: new Vec3(7, 0), type: CompNodeType.In, width: 32 },
+            { id: 'result', name: 'Result', pos: new Vec3(5, 6), type: CompNodeType.OutTri, width: 32 },
         ],
     };
 
@@ -619,9 +647,9 @@ function constructCpuLayout() {
         size: new Vec3(10, 2),
         type: CompType.PC,
         nodes: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(3, 0), type: CompNodeType.Input, width: 1 },
-            { id: 'in', name: 'In', pos: new Vec3(0, 1), type: CompNodeType.Input, width: 32 },
-            { id: 'out', name: 'Out', pos: new Vec3(10, 1), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(3, 0), type: CompNodeType.In, width: 1 },
+            { id: 'in', name: 'In', pos: new Vec3(0, 1), type: CompNodeType.In, width: 32 },
+            { id: 'out', name: 'Out', pos: new Vec3(10, 1), type: CompNodeType.Out, width: 32 },
         ],
     };
 
@@ -632,10 +660,10 @@ function constructCpuLayout() {
         size: new Vec3(10, 24),
         type: CompType.REG,
         nodes: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(5, 0), type: CompNodeType.Input, width: 3 * 6 },
-            { id: 'in', name: 'In', pos: new Vec3(0, 3), type: CompNodeType.Input, width: 32 },
-            { id: 'outA', name: 'Out A', pos: new Vec3(10, 3), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
-            { id: 'outB', name: 'Out B', pos: new Vec3(10, 5), type: CompNodeType.Output | CompNodeType.Tristate, width: 32 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(5, 0), type: CompNodeType.In, width: 3 * 6 },
+            { id: 'in', name: 'In', pos: new Vec3(0, 3), type: CompNodeType.In, width: 32 },
+            { id: 'outA', name: 'Out A', pos: new Vec3(10, 3), type: CompNodeType.OutTri, width: 32 },
+            { id: 'outB', name: 'Out B', pos: new Vec3(10, 5), type: CompNodeType.OutTri, width: 32 },
         ],
     };
 
@@ -653,57 +681,7 @@ function constructCpuLayout() {
     mainBus.truncPts[2].x = loadStore.pos.x + loadStore.size.x / 2;
     alu.pos.y = reg.pos.y;
 
-    let lhsY = below(loadStore) + pad;
-    let rhsY = lhsY + pad;
-
-    let lhsX = rightOf(insDecode) + pad * 2;
-    let rhsX = lhsX + pad;
-
-    let lhsBotY = alu.pos.y + pad;
-    let rhsBotY = lhsBotY + pad;
-
-    let regRight = rightOf(reg);
-
-    let pcMid = pc.pos.y + pc.size.y / 2;
-
-    let insLower = insDecode.pos.y + 2;
-
-    let lsLeft = loadStore.pos.x + loadStore.size.x * 0.25;
-    let lsRight = loadStore.pos.x + loadStore.size.x * 0.75;
-
-    // top line
-    let lhsLine: IBus = {
-        id: 'lhsLine',
-        type: BusType.Data,
-        width: 32,
-        truncPts: [new Vec3(regRight, lhsBotY), new Vec3(lhsX, lhsBotY), new Vec3(lhsX, lhsY), new Vec3(lsLeft, lhsY)],
-        branches: [
-            [new Vec3(regRight, pcMid), new Vec3(lhsX, pcMid)],
-            [new Vec3(lsLeft, lhsY), new Vec3(lsLeft, below(loadStore))],
-            [new Vec3(lsLeft, lhsY), new Vec3(lsLeft, alu.pos.y)],
-        ],
-        color: "#3a1",
-    };
-
-    // bottom line
-    let rhsLine: IBus = {
-        id: 'rhsLine',
-        type: BusType.Data,
-        width: 32,
-        truncPts: [new Vec3(regRight, rhsBotY), new Vec3(rhsX, rhsBotY), new Vec3(rhsX, rhsY), new Vec3(lsRight, rhsY)],
-        branches: [
-            [new Vec3(regRight, insLower), new Vec3(rhsX, insLower), new Vec3(rhsX, rhsY)],
-            [new Vec3(lsRight, rhsY), new Vec3(lsRight, below(loadStore))],
-            [new Vec3(lsRight, rhsY), new Vec3(lsRight, alu.pos.y)],
-        ],
-        color: "#3a7",
-    };
-
-    // how to define the line?
-    // we're splitting LS/ALU into two lines, so 1/3 & 2/3 between them
-
-    // buses.push(mainBus, rhsLine, lhsLine);
-    comps.push(ram, rom, insDecode, loadStore, alu, pc, reg);
+    comps.push(ram, rom, insFetch, insDecode, loadStore, alu, pc, reg);
 
     return {
         nextWireId: 0,
@@ -726,14 +704,6 @@ function moveBelow(comp: IComp, y: number) {
 
 function moveRightOf(comp: IComp, x: number) {
     comp.pos.x = x;
-}
-
-function rightOf(comp: IComp) {
-    return comp.pos.x + comp.size.x;
-}
-
-function below(comp: IComp) {
-    return comp.pos.y + comp.size.y;
 }
 
 function stackVertically(comps: IComp[], pad: number, anchorY: number, pos: StackPos = StackPos.Start) {
@@ -812,11 +782,63 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
     }
 }
 
+function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart: IDragStart<ICanvasDragState> | null, dragDir: Vec3 | null) {
+    let ctx = cvs.ctx;
+    if (!dragStart || !dragStart.data.hovered) {
+        return;
+    }
+
+    let hover = dragStart.data.hovered;
+
+    if (hover.ref.type === RefType.Wire && !isNil(hover.ref.wireNode0Id) && isNil(hover.ref.wireNode1Id)) {
+        let wireNodeId = hover.ref.wireNode0Id;
+        let node = editorState.layout.wires.find(w => w.id === hover.ref.id)?.nodes[wireNodeId!];
+
+        if (node) {
+            // draw a light grey circle here
+            let x = node.pos.x;
+            let y = node.pos.y;
+            let r = 20 * cvs.scale;
+            // ctx.beginPath();
+            // ctx.arc(x, y, r, 0, 2 * Math.PI);
+            // ctx.lineWidth = 1 * cvs.scale;
+            // ctx.strokeStyle = "#aaa";
+            // ctx.stroke();
+
+            // draw a cross in the circle (lines at 45deg)
+            let r2 = r * Math.SQRT1_2;
+
+            ctx.beginPath();
+            ctx.moveTo(x - r2, y - r2);
+            ctx.lineTo(x + r2, y + r2);
+            ctx.moveTo(x - r2, y + r2);
+            ctx.lineTo(x + r2, y - r2);
+            ctx.strokeStyle = "#aaa";
+            ctx.lineWidth = 1 * cvs.scale;
+            ctx.stroke();
+
+            // draw an arc according to the drag direction
+            if (dragDir) {
+                let arcStart = Math.atan2(dragDir.y, dragDir.x) - Math.PI / 4;
+                let arcEnd = arcStart + Math.PI / 2;
+                ctx.beginPath();
+                ctx.arc(x, y, r, arcStart, arcEnd);
+                ctx.strokeStyle = "#aaa";
+                ctx.lineWidth = 3 * cvs.scale;
+                ctx.stroke();
+
+            }
+
+        }
+    }
+
+}
+
 function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompNode) {
     let hoverRef = editorState.hovered?.ref;
     let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === node.id;
     let type = node.type ?? 0;
-    let isInput = (type & CompNodeType.Input) !== 0;
+    let isInput = (type & CompNodeType.In) !== 0;
     let isTristate = (type & CompNodeType.Tristate) !== 0;
     let ctx = cvs.ctx;
     let x = comp.pos.x + node.pos.x;

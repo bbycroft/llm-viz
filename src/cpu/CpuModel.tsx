@@ -181,15 +181,17 @@ export interface ICompNode {
 }
 
 export enum CompNodeType {
-    Input = 1,
-    Output = 1 << 1,
+    In = 1,
+    Out = 1 << 1,
     Tristate = 1 << 2,
+    OutTri = Out | Tristate,
 }
 
 export enum CompType {
     RAM,
     ROM,
     ID,
+    IF,
     ALU,
     PC,
     REG,

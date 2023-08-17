@@ -22,7 +22,7 @@ class ExeCompBuilder<T> {
                 portIdx: i,
                 netIdx: -1,
                 outputEnabled: true,
-                type: node.type ?? CompNodeType.Input,
+                type: node.type ?? CompNodeType.In,
                 value: 0,
                 width: node.width ?? 1,
             };
@@ -75,8 +75,8 @@ class ExeCompBuilder<T> {
 export function buildDefault(comp: IComp): IExeComp<{}> {
     let builder = new ExeCompBuilder<{}>(comp);
     let data = {};
-    let inPorts = builder.ports.filter(p => hasFlag(p.type, CompNodeType.Input));
-    let outPorts = builder.ports.filter(p => hasFlag(p.type, CompNodeType.Output));
+    let inPorts = builder.ports.filter(p => hasFlag(p.type, CompNodeType.In));
+    let outPorts = builder.ports.filter(p => hasFlag(p.type, CompNodeType.Out));
     builder.addPhase(defaultPhase0, inPorts, outPorts);
     return builder.build(data);
 }

@@ -45,7 +45,7 @@ export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
             for (let nodeIdx = 0; nodeIdx < comp.nodes.length; nodeIdx++) {
                 const node = comp.nodes[nodeIdx];
                 if (node.id === ref.compNodeId) {
-                    if (node.type === CompNodeType.Input) {
+                    if (node.type === CompNodeType.In) {
                         inputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx });
                     } else {
                         outputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx });
