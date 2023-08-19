@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react';
 import { assignImm } from '../utils/data';
 import { ICpuLayoutBase, IEditorState } from './CpuModel';
 
@@ -46,4 +47,19 @@ export function redoAction(state: IEditorState) {
         undoStack: [...state.undoStack, state.layout],
         redoStack: state.redoStack.slice(0, state.redoStack.length - 1),
     });
+}
+
+const EditorContext = createContext<EditorContext | null>(null);
+
+export interface EditorContext {
+    editorState: IEditorState;
+    setEditorState: (state: IEditorState) => void;
+}
+
+export function useEditorContext() {
+    const ctx = useContext(EditorContext);
+    if (!ctx) {
+        throw new Error('EditorContext not found');
+    }
+    return ctx;
 }

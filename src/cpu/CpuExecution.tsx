@@ -1,7 +1,6 @@
-import { exec } from "child_process";
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { buildAlu, buildDefault, buildRegFile, buildSingleReg } from "./ComponentDefs";
-import { CompNodeType, IComp, ICpuLayoutBase, IExeComp, IExeNet, IExePort, IExePortRef, IExeSystem, RefType } from "./CpuModel";
+import { CompNodeType, ICpuLayoutBase, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType } from "./CpuModel";
 
 export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
 
@@ -94,7 +93,21 @@ export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
 
     let compExecutionOrder = calcCompExecutionOrder(comps, nets);
 
-    return { comps, nets, compExecutionOrder };
+    return { comps, nets, compExecutionOrder, lookup: createLookupTable(comps, nets) };
+}
+
+export function createLookupTable(comps: IExeComp[], nets: IExeNet[]) {
+    let compIdToIdx = new Map<string, number>();
+    for (let i = 0; i < comps.length; i++) {
+        compIdToIdx.set(comps[i].comp.id, i);
+    }
+
+    let netIdToIdx = new Map<string, number>();
+    for (let i = 0; i < nets.length; i++) {
+        netIdToIdx.set(nets[i].wire.id, i);
+    }
+
+    return { compIdToIdx, netIdToIdx };
 }
 
 export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): number[] {

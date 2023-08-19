@@ -8,9 +8,10 @@ import { IDragStart, useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, isNil } from "../utils/data";
 import { editLayout } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
-import { RefType, IElRef, ISegment, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase, IWireGraph, IWireGraphNode } from "./CpuModel";
+import { RefType, IElRef, ISegment, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, IExeComp } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel } from "./CpuExecution";
+import { ICompDataRegFile, ICompDataSingleReg } from "./ComponentDefs";
 
 interface ICpuState {
     system: ISystem;
@@ -19,6 +20,13 @@ interface ICpuState {
 interface ILSGraphWire {
     id: string;
     nodes: ILSGraphWireNode[];
+}
+
+interface ILSComp {
+    id: string;
+    type: CompType;
+    x: number;
+    y: number;
 }
 
 interface ILSGraphWireNode {
@@ -31,11 +39,13 @@ interface ILSGraphWireNode {
 
 interface ILSState {
     wires: ILSGraphWire[];
+    comps: ILSComp[];
 }
 
 function hydrateFromLS(ls: Partial<ILSState> | undefined): ILSState {
     return {
         wires: ls?.wires ?? [],
+        comps: ls?.comps ?? [],
     };
 }
 
@@ -58,20 +68,42 @@ function wiresFromLsState(layoutBase: ICpuLayoutBase, ls: ILSState): ICpuLayoutB
 
     checkWires(newWires, 'wiresFromLsState');
 
+    let lsCompLookup = new Map<string, ILSComp>();
+    for (let c of ls.comps) {
+        lsCompLookup.set(c.id, c);
+    }
+
+    let comps = layoutBase.comps.map(c => {
+        let lsComp = lsCompLookup.get(c.id);
+        if (!lsComp) {
+            return c;
+        }
+        return assignImm(c, {
+            pos: new Vec3(lsComp.x, lsComp.y),
+        });
+    });
+
     return assignImm(layoutBase, {
         nextWireId: maxId + 1,
         wires: newWires,
+        comps: comps,
     });
 }
 
-function wiresToLsState(wires: IWireGraph[]): ILSState {
+function wiresToLsState(layout: ICpuLayoutBase): ILSState {
     return {
-        wires: wires
+        wires: layout.wires
             .filter(w => w.nodes.length > 0)
             .map(w => ({
                 id: w.id,
                 nodes: w.nodes.map(n => ({ id: n.id, x: n.pos.x, y: n.pos.y, edges: n.edges, ref: n.ref })),
             })),
+        comps: layout.comps.map(c => ({
+            id: c.id,
+            type: c.type,
+            x: c.pos.x,
+            y: c.pos.y,
+        })),
     };
 }
 
@@ -114,21 +146,9 @@ export const CpuCanvas: React.FC<{
     }, []);
 
     useEffect(() => {
-        let newState = wiresToLsState(editorState.layout.wires);
+        let newState = wiresToLsState(editorState.layout);
         setLsState(a => assignImm(a, newState));
-    }, [editorState.layout.wires, setLsState]);
-
-    let compNodePoints = useMemo(() => {
-        let points: Vec3[] = [];
-        for (let comp of editorState.layout.comps) {
-            for (let node of comp.nodes) {
-                let nodePos = node.pos.add(comp.pos);
-                points.push(nodePos);
-            }
-        }
-
-        return points;
-    }, [editorState.layout]);
+    }, [editorState.layout, setLsState]);
 
     useLayoutEffect(() => {
         if (!cvsState) {
@@ -152,7 +172,7 @@ export const CpuCanvas: React.FC<{
 
         ctx.transform(...editorState.mtx.toTransformParams());
         ctx.save();
-        renderCpu(cvsState, editorState, editorState.layoutTemp ?? editorState.layout, cpuState);
+        renderCpu(cvsState, editorState, editorState.layoutTemp ?? editorState.layout, exeModel);
         renderDragState(cvsState, editorState, dragStart, grabDirRef.current);
         ctx.restore();
 
@@ -730,7 +750,7 @@ function stackHorizontally(comps: IComp[], pad: number, anchorX: number, pos: St
     }
 }
 
-function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayoutBase, cpuState: ICpuState) {
+function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayoutBase, exeSystem: IExeSystem) {
     let ctx = cvs.ctx;
 
     // for (let bus of cpuOpts.buses) {
@@ -738,7 +758,8 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
     // }
 
     for (let wire of cpuOpts.wires) {
-        renderWire(cvs, editorState, wire);
+        let exeNet = exeSystem.nets[exeSystem.lookup.netIdToIdx.get(wire.id) ?? -1];
+        renderWire(cvs, editorState, wire, exeNet, exeSystem);
     }
 
     // if (editorState.hovered?.modelPt) {
@@ -750,26 +771,36 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
     // }
 
     for (let comp of cpuOpts.comps) {
+        let exeComp = exeSystem.comps[exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1];
 
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === comp.id;
 
         ctx.beginPath();
         ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
 
-        ctx.fillStyle = "#aaa";
+        let isValidExe = exeComp?.valid ?? false;
+
+        ctx.fillStyle = isValidExe ? "#8a8" : "#aaa";
         ctx.strokeStyle = isHover ? "#a00" : "#000";
         ctx.lineWidth = 1 * cvs.scale;
         ctx.fill();
         ctx.stroke();
+
+        let compRenderArgs: ICompRenderArgs<any> = {
+            comp,
+            ctx,
+            cvs,
+            exeComp,
+        };
 
         for (let node of comp.nodes) {
             renderNode(cvs, editorState, comp, node);
         }
 
         if (comp.type === CompType.PC) {
-            renderPc(cvs, comp, cpuState);
+            renderPc(compRenderArgs);
         } else if (comp.type === CompType.REG) {
-            renderRegisterFile(cvs, comp, cpuState);
+            renderRegisterFile(compRenderArgs);
         } else {
             let text = comp.name;
             let textHeight = 3;
@@ -870,10 +901,16 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
     }
 }
 
+interface ICompRenderArgs<T> {
+    cvs: ICanvasState;
+    ctx: CanvasRenderingContext2D;
+    comp: IComp;
+    exeComp: IExeComp<T> | null;
+}
+
 // 32bit pc
-function renderPc(cvs: ICanvasState, comp: IComp, cpuState: ICpuState) {
-    let ctx = cvs.ctx;
-    let pcValue = cpuState.system.cpu.pc;
+function renderPc({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataSingleReg>) {
+    let pcValue = exeComp?.data.value ?? 0;
     let pcHexStr = '0x' + pcValue.toString(16).toUpperCase().padStart(8, "0");
 
     ctx.font = `${3 / 4}px Arial`;
@@ -884,13 +921,12 @@ function renderPc(cvs: ICanvasState, comp: IComp, cpuState: ICpuState) {
 }
 
 // x0-x31 32bit registers, each with names
-function renderRegisterFile(cvs: ICanvasState, comp: IComp, cpuState: ICpuState) {
-    let ctx = cvs.ctx;
+function renderRegisterFile({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataRegFile>) {
     let pad = 0.2;
     let lineHeight = (comp.size.y - pad * 2) / 32;
 
     for (let i = 0; i < 32; i++) {
-        let regValue = cpuState.system.cpu.x[i];
+        let regValue = exeComp?.data.file[i] ?? 0;
         let regHexStr = '0x' + regValue.toString(16).toUpperCase().padStart(8, "0");
 
         ctx.font = `${2 / 4}px Arial`;
@@ -934,7 +970,7 @@ function renderBus(cvs: ICanvasState, busOpts: IBus) {
     ctx.stroke();
 }
 
-function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph) {
+function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem) {
     let ctx = cvs.ctx;
 
     let hoverRef = editorState.hovered?.ref;

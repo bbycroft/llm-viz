@@ -10,6 +10,12 @@ export interface IExeSystem {
     comps: IExeComp[];
     nets: IExeNet[];
     compExecutionOrder: number[];
+    lookup: IExeSystemLookup;
+}
+
+export interface IExeSystemLookup {
+    compIdToIdx: Map<string, number>;
+    netIdToIdx: Map<string, number>;
 }
 
 export interface IExeComp<T = any> {
@@ -20,6 +26,7 @@ export interface IExeComp<T = any> {
     phaseCount: number;
     phaseIdx: number;
     phases: IExePhase<T>[];
+    valid: boolean;
     subSystem?: IExeSystem;
 }
 

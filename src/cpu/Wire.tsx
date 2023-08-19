@@ -1,5 +1,5 @@
 import { assignImm, getOrAddToMap, isNil } from "../utils/data";
-import { segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
+import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
 import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayoutBase, IElRef, RefType } from "./CpuModel";
 
 export function moveWiresWithComp(layout: ICpuLayoutBase, compIdx: number, delta: Vec3): IWireGraph[] {
@@ -8,15 +8,120 @@ export function moveWiresWithComp(layout: ICpuLayoutBase, compIdx: number, delta
     let newWires: IWireGraph[] = [];
     for (let wire of layout.wires) {
         wire = copyWireGraph(wire);
+        let nodeIdsToMove: number[] = [];
         for (let node of wire.nodes) {
             if (node.ref?.type === RefType.CompNode && node.ref.id === comp.id) {
-                node.pos = snapToGrid(node.pos.add(delta));
+                nodeIdsToMove.push(node.id);
             }
         }
+
+        if (nodeIdsToMove.length > 0) {
+            wire = dragNodes(wire, nodeIdsToMove, delta);
+        }
+
         newWires.push(wire);
     }
 
     return newWires;
+}
+
+export function dragNodes(wire: IWireGraph, nodeIdxs: number[], delta: Vec3) {
+    // kinda complicated, but assume we're dragging a component (or 3) with wires attached to their nodes
+
+    // we do something similar to segment dragging, where we try to extend down co-linear segments
+    // but if we hit a node that's on an anchored node, we walk back and only move the first co-linear segment,
+    // creating extra segments as needed
+
+    // if we have segments where there's no breakpoint, we'll need to introduce a dog-leg
+    // if we're moving right, we start from the leftmost seg, and vice versa
+    // we need to pick a dog-leg height, so choose the smallest one
+    // then increase that height for subsequent segments
+
+    let nodesToMove = new Map<number, Vec3>();
+
+    for (let node0Idx of nodeIdxs) {
+        nodesToMove.set(node0Idx, delta);
+    }
+
+    let initialNodes = new Set(nodeIdxs);
+
+    function isPinnedNode(nodeIdx: number) {
+        let node = wire.nodes[nodeIdx];
+        return node.ref?.type === RefType.CompNode && !initialNodes.has(nodeIdx);
+    }
+
+    let nextNodeId = wire.nodes.length;
+    let newNodes = [...wire.nodes];
+
+    for (let node0Idx of nodeIdxs) {
+        let node0 = wire.nodes[node0Idx];
+        for (let node1Idx of node0.edges) {
+            let node1 = wire.nodes[node1Idx];
+            let dir = node1.pos.sub(node0.pos).normalize();
+            let dirPerp = new Vec3(-dir.y, dir.x, 0);
+            let colinearDelta = projectOntoVector(delta, dirPerp);
+            let maybeMoves = new Map<number, Vec3>();
+            let anyPinnedNodes = false;
+            iterColinearNodes(wire, node1Idx, dir, node => {
+                let moveAmt = nodesToMove.get(node.id);
+
+                if (isPinnedNode(node.id)) {
+                    anyPinnedNodes = true;
+                }
+
+                if (!moveAmt) {
+                    maybeMoves.set(node.id, colinearDelta);
+                }
+            });
+
+            if (!anyPinnedNodes) {
+                for (let move of maybeMoves) {
+                    nodesToMove.set(move[0], move[1]);
+                }
+            } else {
+                // need to disjoint the first node
+                if (!isPinnedNode(node1Idx)) {
+                    let newNode = assignImm(node1, { id: newNodes.length, pos: snapToGrid(node1.pos.add(colinearDelta)), edges: [node0Idx, node1Idx] });
+                    node1.edges = node1.edges.filter(e => e !== node0.id);
+                    node1.edges.push(newNode.id);
+                    node0.edges = node0.edges.filter(e => e !== node1.id);
+                    newNodes.push(newNode);
+                }
+            }
+        }
+    }
+
+    for (let [nodeIdx, d] of nodesToMove) {
+        newNodes[nodeIdx] = assignImm(newNodes[nodeIdx], {
+            pos: snapToGrid(newNodes[nodeIdx].pos.add(d)),
+         });
+    }
+
+    return assignImm(wire, { nodes: newNodes });
+}
+
+export function iterColinearNodes(wire: IWireGraph, nodeIdx: number, dir: Vec3, cb: (node: IWireGraphNode) => void) {
+    let seenIds = new Set<number>();
+    let nodeStack = [nodeIdx];
+
+    while (nodeStack.length > 0) {
+        let nodeIdx = nodeStack.pop()!;
+        let node0 = wire.nodes[nodeIdx];
+        if (seenIds.has(node0.id)) {
+            continue;
+        }
+        seenIds.add(node0.id);
+        cb(node0);
+
+        for (let node1Idx of node0.edges) {
+            let node1 = wire.nodes[node1Idx];
+            let edgeDir = node1.pos.sub(node0.pos).normalize();
+            let dotProd = edgeDir.dot(dir);
+            if (Math.abs(dotProd) > 1 - EPSILON) {
+                nodeStack.push(node1Idx);
+            }
+        }
+    }
 }
 
 export function dragSegment(wire: IWireGraph, node0Idx: number, node1Idx: number, delta: Vec3) {
@@ -24,9 +129,6 @@ export function dragSegment(wire: IWireGraph, node0Idx: number, node1Idx: number
     // let seg = wire.segments[segId];
     let node0 = wire.nodes[node0Idx];
     let node1 = wire.nodes[node1Idx];
-
-    // let [node0, node1] = findNodesForSegment(wireGraph, seg);
-    // hmm, need to match the segId to the node id pair
 
     // we're gonna move both of these nodes
     // but also iterate through all nodes colinear with this segment, and move them by the same amount
@@ -98,7 +200,8 @@ export function checkWires(wires: IWireGraph[], name: string) {
                 if (node1.edges.includes(node0.id)) {
                     continue;
                 }
-                throw new Error(`CHECK [${name}]: Wire ${wire.id} has unidirectional edge ${node0.id} -> ${node1.id}`);
+                node1.edges.push(node0.id);
+                console.log(`CHECK [${name}]: Wire ${wire.id} has unidirectional edge ${node0.id} -> ${node1.id}`);
             }
         }
     }
