@@ -1,0 +1,36 @@
+@import '@/styles/variables.scss';
+
+.toolsTopLeft {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    margin: 20px;
+}
+
+.toolbar {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 0 5px 0 rgba(black, 0.2);
+    height: 40px;
+    min-width: 40px;
+    overflow: hidden;
+}
+
+.toolbarBtn {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    margin: 0;
+    outline: none;
+    padding: 0 10px;
+    &:hover:not(:disabled) {
+        background-color: rgba($color-highlight, 0.5);
+    }
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.5;
+    }
+
+}

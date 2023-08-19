@@ -1,18 +1,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CpuCanvas } from './CpuCanvas';
+import { useCreateGlobalKeyboardDocumentListener } from '../utils/keyboard';
+import { CpuCanvas, ICpu, IMemoryLayout, Io_Gpio, Io_Gpio_Register, regNames } from './CpuCanvas';
 import s from './CpuMain.module.scss';
 import { OpCode, Funct3Op, Funct3Branch, Funct3LoadStore, Funct3CSR, CSR_Reg } from './RiscvIsa';
 
 export const CPUMain = () => {
+    useCreateGlobalKeyboardDocumentListener();
 
     let [cpuState] = useState(() => {
         return { system: createSystem() };
     });
 
    useEffect(() => {
-        console.log('Running tests...');
+        console.log('Running tests ...');
         runTests().then(() => {
         });
    }, []);
@@ -136,36 +138,6 @@ Global data structure (probably a rehash of the above but that's OK)
 
 */
 
-export interface ICpu {
-    pc: number;
-    x: Int32Array; // 32 registers, x0-x31, x0 is always 0 (even after writes!)
-    halt: boolean;
-    haltReason: string | null;
-    csr: Int32Array; // 4096 registers, csr0-csr4095
-}
-
-export interface Io_Gpio {
-    portDir: number;
-    portValue: number;
-}
-
-export enum Io_Gpio_Register {
-    PORT_DIR = 0,
-    PORT_VALUE = 1,
-    PORT_OUT_SET = 2,
-    PORT_OUT_CLEAR = 3,
-}
-
-export interface IMemoryLayout {
-    romOffset: number;
-    ramOffset: number;
-    ioOffset: number;
-
-    romSize: number;
-    ramSize: number;
-    ioSize: number;
-}
-
 const memoryLayout: IMemoryLayout = {
     romOffset: 0x0000_0000, // not actually used in our RISC-V implementation (PC starts at 0x8000_0000)
     ioOffset:  0x4000_0000,
@@ -218,9 +190,9 @@ let testNames = [
     'xori',
 ];
 
-export type ISystem = ReturnType<typeof createSystem>;
+type ISystem = ReturnType<typeof createSystem>;
 
-export function doSimulation(system: ISystem) {
+function doSimulation(system: ISystem) {
     let cpu = system.cpu;
     let memoryMap = system.memoryMap;
     cpu.pc = memoryMap.ramOffset;
@@ -779,14 +751,6 @@ function executeInstruction(cpu: ICpu, mem: IMemoryAccess) {
     cpu.x[0] = 0; // ensure x0 is always 0
 }
 
-export const regNames = [
-    'zero', 'ra', 'sp', 'gp', 'tp',
-    't0', 't1', 't2',
-    's0', 's1',
-    'a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7',
-    's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11',
-    't3', 't4', 't5', 't6'
-]
 
 function printHexAddr(addr: number) {
     return '0x' + (addr >>> 0).toString(16).padStart(8, '0');

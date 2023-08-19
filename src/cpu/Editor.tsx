@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import { assignImm } from '../utils/data';
-import { ICpuLayoutBase, IEditorState } from './CpuModel';
+import { ICpuLayoutBase, IEditorState, IExeSystem } from './CpuModel';
 
 export function editLayout(end: boolean, updateLayout: (element: ICpuLayoutBase) => ICpuLayoutBase) {
     return (state: IEditorState) => {
@@ -49,10 +49,11 @@ export function redoAction(state: IEditorState) {
     });
 }
 
-const EditorContext = createContext<EditorContext | null>(null);
+export const EditorContext = createContext<IEditorContext | null>(null);
 
-export interface EditorContext {
+export interface IEditorContext {
     editorState: IEditorState;
+    exeModel: IExeSystem;
     setEditorState: (state: IEditorState) => void;
 }
 

@@ -1,20 +1,60 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../utils/vector";
-import { ISystem, regNames } from "./CpuMain";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart, useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, isNil } from "../utils/data";
-import { editLayout } from "./Editor";
+import { editLayout, EditorContext, IEditorContext } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
 import { RefType, IElRef, ISegment, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, IExeComp } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel } from "./CpuExecution";
 import { ICompDataRegFile, ICompDataSingleReg } from "./ComponentDefs";
+import { CpuEditorToolbar } from "./EditorControls";
 
 interface ICpuState {
-    system: ISystem;
+    system: any;
+}
+
+
+export const regNames = [
+    'zero', 'ra', 'sp', 'gp', 'tp',
+    't0', 't1', 't2',
+    's0', 's1',
+    'a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7',
+    's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11',
+    't3', 't4', 't5', 't6'
+]
+
+export interface ICpu {
+    pc: number;
+    x: Int32Array; // 32 registers, x0-x31, x0 is always 0 (even after writes!)
+    halt: boolean;
+    haltReason: string | null;
+    csr: Int32Array; // 4096 registers, csr0-csr4095
+}
+
+export interface Io_Gpio {
+    portDir: number;
+    portValue: number;
+}
+
+export enum Io_Gpio_Register {
+    PORT_DIR = 0,
+    PORT_VALUE = 1,
+    PORT_OUT_SET = 2,
+    PORT_OUT_CLEAR = 3,
+}
+
+export interface IMemoryLayout {
+    romOffset: number;
+    ramOffset: number;
+    ioOffset: number;
+
+    romSize: number;
+    ramSize: number;
+    ioSize: number;
 }
 
 interface ILSGraphWire {
@@ -542,14 +582,21 @@ export const CpuCanvas: React.FC<{
         }
     }
 
-    return <div className={s.canvasWrap}>
-        <canvas className={s.canvas} ref={setCanvasEl}
-            style={{ cursor: cursor }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onWheel={handleWheel}
-        />
-    </div>;
+    let ctx: IEditorContext = useMemo(() => {
+        return { editorState, setEditorState, cvsState, exeModel };
+    }, [editorState, setEditorState, cvsState, exeModel]);
+
+    return <EditorContext.Provider value={ctx}>
+        <div className={s.canvasWrap}>
+            <canvas className={s.canvas} ref={setCanvasEl}
+                style={{ cursor: cursor }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onWheel={handleWheel}
+            />
+            <CpuEditorToolbar />
+    </div>
+    </EditorContext.Provider>;
 };
 
 /*
