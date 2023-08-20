@@ -4,7 +4,7 @@ import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart, useCombinedMouseTouchDrag } from "../utils/pointer";
-import { assignImm, assignImmFull, clamp, isNil, isNotNil } from "../utils/data";
+import { assignImm, assignImmFull, clamp, hasFlag, isNil, isNotNil } from "../utils/data";
 import { editLayout, EditorContext, IEditorContext } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
 import { RefType, IElRef, ISegment, IComp, PortDir, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, ICompRenderArgs } from "./CpuModel";
@@ -842,6 +842,29 @@ function renderRegisterFile({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataReg
 function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem) {
     let ctx = cvs.ctx;
 
+    let isCtrl = false;
+    let isData = false;
+    let isAddr = false;
+
+    for (let node of wire.nodes) {
+        if (node.ref?.type === RefType.CompNode) {
+            let port = editorState.layout.comps.find(c => c.id === node.ref!.id)?.ports.find(p => p.id === node.ref!.compNodeId);
+            if (port) {
+                if (hasFlag(port.type, PortDir.Ctrl)) {
+                    isCtrl = true;
+                }
+                if (hasFlag(port.type, PortDir.Data)) {
+                    isData = true;
+                }
+                if (hasFlag(port.type, PortDir.Addr)) {
+                    isAddr = true;
+                }
+            }
+        }
+    }
+
+    let width = isCtrl ? 1 : 3;
+
     let hoverRef = editorState.hovered?.ref;
     let isHover = hoverRef?.type === RefType.Wire && hoverRef.id === wire.id;
 
@@ -861,7 +884,7 @@ function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGra
             } else {
                 ctx.strokeStyle = '#000';
             }
-            ctx.lineWidth = 3 * cvs.scale;
+            ctx.lineWidth = (width - 1) * cvs.scale;
             ctx.filter = 'blur(4px)';
             ctx.moveTo(node0.pos.x, node0.pos.y);
             ctx.lineTo(node1.pos.x, node1.pos.y);
@@ -882,7 +905,7 @@ function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGra
                 // ctx.strokeStyle = '#aaa';
             }
         // }
-        ctx.lineWidth = 4 * cvs.scale;
+        ctx.lineWidth = width * cvs.scale;
         ctx.moveTo(node0.pos.x, node0.pos.y);
         ctx.lineTo(node1.pos.x, node1.pos.y);
         ctx.stroke();

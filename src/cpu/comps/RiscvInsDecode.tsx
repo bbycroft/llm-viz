@@ -5,21 +5,25 @@ import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 
 export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
+    let w = 10;
+    let h = 5;
     let alu: ICompDef<ICompDataInsDecoder> = {
         defId: 'insDecodeRiscv32_0',
         name: "Instruction Decoder",
-        size: new Vec3(10, 3),
+        size: new Vec3(w, h),
         ports: [
-            { id: 'ins', name: 'Ins', pos: new Vec3(0, 1), type: PortDir.In, width: 32 },
-            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(10, 2), type: PortDir.OutTri, width: 32 },
-            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(10, 1), type: PortDir.Out, width: 32 },
-            { id: 'pcAddImm', name: 'Imm', pos: new Vec3(2, 3), type: PortDir.Out, width: 32 },
-            { id: 'regCtrl', name: 'Reg', pos: new Vec3(3, 3), type: PortDir.Out, width: 3 * 6 },
-            { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(4, 3), type: PortDir.Out, width: 4 },
-            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(8, 3), type: PortDir.Out, width: 5 },
-            { id: 'pcOutTristateCtrl', name: 'PC LHS', pos: new Vec3(5, 3), type: PortDir.Out, width: 1 },
-            { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(6, 3), type: PortDir.Out, width: 1 },
-            { id: 'pcAddMuxCtrl', name: 'PC+Mux', pos: new Vec3(7, 3), type: PortDir.Out, width: 1 },
+            { id: 'ins', name: 'Ins', pos: new Vec3(0, 1), type: PortDir.In | PortDir.Data, width: 32 },
+
+            { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(w, 1), type: PortDir.Out | PortDir.Ctrl, width: 4 },
+            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(w, 2), type: PortDir.Out | PortDir.Addr, width: 32 },
+            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(w, 3), type: PortDir.OutTri | PortDir.Data, width: 32 },
+
+            { id: 'pcAddImm', name: 'Imm', pos: new Vec3(2, h), type: PortDir.Out | PortDir.Addr, width: 32 },
+            { id: 'regCtrl', name: 'Reg', pos: new Vec3(3, h), type: PortDir.Out | PortDir.Ctrl, width: 3 * 6 },
+            { id: 'pcOutTristateCtrl', name: 'PC LHS', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(6, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'pcAddMuxCtrl', name: 'PC+Mux', pos: new Vec3(7, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(8, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
         ],
         build: buildInsDecoder,
     };
@@ -78,6 +82,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
     // 1: ALU out => PC,  PC + x => REG
     data.pcRegMuxCtrl.value = 0;
     data.pcOutTristateCtrl.value = 0;
+    data.pcAddImm.value = 4;
 
     function setRegCtrl(enable: boolean, addr: number, offset: number) {
         let a = (enable ? 1 : 0) | (addr & 0b11111) << 1;

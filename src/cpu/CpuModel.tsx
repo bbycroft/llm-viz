@@ -185,7 +185,7 @@ export interface ICompPort {
     id: string;
     pos: Vec3; // relative to comp
     name: string;
-    type?: PortDir;
+    type: PortDir;
     width?: number;
 }
 
@@ -193,6 +193,11 @@ export enum PortDir {
     In = 1 << 0,
     Out = 1 << 1,
     Tristate = 1 << 2,
+
+    // these ones propagate onto the wire/net for display
+    Data = 1 << 3,
+    Addr = 1 << 4,
+    Ctrl = 1 << 5,
 
     OutTri = Out | Tristate,
 }
