@@ -62,7 +62,7 @@ export function buildRegFile(comp: IComp): IExeComp<ICompDataRegFile> {
     };
     builder.addPhase(regFilePhase0, [data.inCtrlPort], [data.outAPort, data.outBPort]);
     builder.addPhase(regFilePhase1, [data.inCtrlPort, data.inDataPort], []);
-    builder.addPhase(regFilePhase2Latch, [], [], true);
+    builder.addLatchedPhase(regFilePhase2Latch, [], []);
     return builder.build(data);
 }
 
@@ -125,7 +125,7 @@ export function buildSingleReg(comp: IComp) {
         writeEnabled: false,
     };
     builder.addPhase(singleRegPhase0, [data.inCtrlPort], [data.outPort]);
-    builder.addPhase(singleRegPhase1Latch, [data.inPort], []);
+    builder.addLatchedPhase(singleRegPhase1Latch, [data.inPort], []);
     return builder.build(data);
 }
 
@@ -134,11 +134,11 @@ function singleRegPhase0(comp: IExeComp<ICompDataSingleReg>) {
     let ctrl = data.inCtrlPort.value;
     let outPort = data.outPort;
 
-    let outEnabled = ctrl & 0b1;
+    let outEnabled = true; // ctrl & 0b1;
     outPort.outputEnabled = !!outEnabled;
     outPort.value = outEnabled ? data.value : 0;
 
-    let inEnabled = (ctrl >> 1) & 0b1;
+    let inEnabled = true; // (ctrl >> 1) & 0b1;
     data.writeEnabled = !!inEnabled;
 }
 

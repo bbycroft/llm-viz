@@ -68,6 +68,7 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
             builder.addPhase(({ data: { inAPort, inBPort, outPort } }) => {
                 outPort.value = inAPort.value + inBPort.value;
+                console.log(`adding ${inAPort.value} + ${inBPort.value} = ${outPort.value}`);
             }, [data.inAPort, data.inBPort], [data.outPort]);
 
             return builder.build();

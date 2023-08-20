@@ -36,6 +36,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             builder.addPhase(({ data: { addr, data, rom32View } }) => {
                 // need to read as a uint32
                 data.value = rom32View[addr.value >>> 2];
+                console.log('reading rom', addr.value, '=>', '0x' + data.value.toString(16));
             }, [data.addr], [data.data]);
 
             return builder.build();

@@ -192,6 +192,12 @@ export const CpuCanvas: React.FC<{
     });
     let [, redraw] = useReducer((x) => x + 1, 0);
 
+    useEffect(() => {
+        setEditorState(a => assignImm(a, {
+            compLibrary: buildCompLibrary(),
+        }))
+    }, []);
+
     useResizeChangeHandler(cvsState?.canvas, redraw);
 
     let exeModel = useMemo(() => {

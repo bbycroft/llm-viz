@@ -11,13 +11,21 @@ export interface IFullSystem {
 export interface IExeSystem {
     comps: IExeComp[];
     nets: IExeNet[];
-    compExecutionOrder: number[];
+    executionSteps: IExeStep[];
+    latchSteps: IExeStep[]; // latches are done just prior to the next round of execution steps (it's useful to pause prior to latching)
     lookup: IExeSystemLookup;
 }
 
 export interface IExeSystemLookup {
     compIdToIdx: Map<string, number>;
     netIdToIdx: Map<string, number>;
+}
+
+export interface IExeStep {
+    compIdx: number; // -1 for nets
+    phaseIdx: number; // -1 for nets
+
+    netIdx: number; // -1 for comps
 }
 
 export interface IExeComp<T = any> {

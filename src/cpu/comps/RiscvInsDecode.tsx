@@ -92,15 +92,17 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
     }
 
     function setAluCtrl(enable: boolean, isBranch: boolean, funct3: number, isSpecial: boolean) {
-        let val = (enable ? 1 : 0) << 4 |
-                  (isBranch ? 1 : 0) << 3 |
+        let val = (enable ? 1 : 0) << 5 |
+                  (isBranch ? 1 : 0) << 4 |
                   funct3 << 1 |
                   (isSpecial ? 1 : 0) << 0;
         data.aluCtrl.value = val;
     }
 
+    console.log('opcode: ' + opCode.toString(16), ins.toString(2).padStart(32, '0'), OpCode[opCode], Funct3Op[funct3]);
+
     if (opCode === OpCode.OPIMM || opCode === OpCode.OP) {
-        let rhs: number;
+        console.log('OPIMM/OP', ins.toString(2).padStart(32, '0'));
 
         if (opCode === OpCode.OP) {
             setRegCtrl(true, rs2, 1); // reg[rs2] => RHS

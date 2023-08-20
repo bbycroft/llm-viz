@@ -1,6 +1,6 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary } from "./comps/CompBuilder";
-import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType } from "./CpuModel";
+import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep } from "./CpuModel";
 
 export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout): IExeSystem {
 
@@ -44,7 +44,7 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
             for (let nodeIdx = 0; nodeIdx < comp.ports.length; nodeIdx++) {
                 const node = comp.ports[nodeIdx];
                 if (node.id === ref.compNodeId) {
-                    if (node.type === PortDir.In) {
+                    if (hasFlag(node.type, PortDir.In)) {
                         inputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx });
                     } else {
                         outputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx });
@@ -85,7 +85,7 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
 
     let compExecutionOrder = calcCompExecutionOrder(comps, nets);
 
-    return { comps, nets, compExecutionOrder, lookup: createLookupTable(comps, nets) };
+    return { comps, nets, ...compExecutionOrder, lookup: createLookupTable(comps, nets) };
 }
 
 export function createLookupTable(comps: IExeComp[], nets: IExeNet[]) {
@@ -102,7 +102,7 @@ export function createLookupTable(comps: IExeComp[], nets: IExeNet[]) {
     return { compIdToIdx, netIdToIdx };
 }
 
-export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): number[] {
+export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { executionSteps: IExeStep[], latchSteps: IExeStep[] } {
 
     // tristate nets can only propagate once all comps have completed, so consider them as nodes
     // in the graph as well (do this with all nets for simplicity)
@@ -220,7 +220,8 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): numb
 
     let numPhasesRun: number[] = comps.map(_ => 0);
 
-    let compExecutionOrder: number[] = [];
+    let executionSteps: IExeStep[] = [];
+    let latchSteps: IExeStep[] = [];
     // console.log('--- topoNodeOrder ---');
     // console.log('comps:', comps.map((c, i) => `${compPhaseToNodeId(i, 0)}: ${c.comp.name}`).join(', '));
     // console.log('nets:', nets.map((n, i) => `${netToNodeId(i)}: ${netToString(n, comps)}`).join(', '));
@@ -229,22 +230,44 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): numb
 
     for (let nodeId of topoNodeOrder) {
         let compPhase = nodeIdToCompPhaseIdx(nodeId);
-        if (!compPhase) {
+        if (compPhase) {
+            console.log('found comp', nodeId, 'compPhase', compPhase, 'comp', comps[compPhase.compIdx].comp.name, `(${compPhase.phaseIdx+1}/${comps[compPhase.compIdx].phases.length})`);
+            let { compIdx, phaseIdx } = compPhase;
+            if (phaseIdx !== numPhasesRun[compIdx]) {
+                console.log('detected an incorrectly ordered phase; execution order may be incorrect');
+            }
+            numPhasesRun[compIdx] = phaseIdx + 1;
+
+            let comp = comps[compIdx];
+            let phase = comp.phases[phaseIdx];
+            let step: IExeStep = {
+                compIdx,
+                phaseIdx,
+                netIdx: -1,
+            };
+            if (phase.isLatch) {
+                latchSteps.push(step);
+            } else {
+                executionSteps.push(step);
+            }
+        } else {
             let netIdx = nodeIdToNetIdx(nodeId)!;
-            // console.log('found net', nodeId, netToString(nets[netIdx], comps));
-            continue;
+            console.log('found net', nodeId, netToString(nets[netIdx], comps));
+
+            let step: IExeStep = {
+                compIdx: -1,
+                phaseIdx: -1,
+                netIdx,
+            };
+            executionSteps.push(step);
         }
-        // console.log('found comp', nodeId, 'compPhase', compPhase, 'comp', comps[compPhase.compIdx].comp.name, `(${compPhase.phaseIdx+1}/${comps[compPhase.compIdx].phases.length})`);
-        let { compIdx, phaseIdx } = compPhase;
-        if (phaseIdx !== numPhasesRun[compIdx]) {
-            console.log('detected an incorrectly ordered phase; execution order may be incorrect');
-        }
-        numPhasesRun[compIdx] = phaseIdx + 1;
-        compExecutionOrder.push(compIdx);
+
     }
 
-    if (compExecutionOrder.length !== numExeNodes) {
-        console.log('detected a cycle; execution order may be incorrect: expected exe nodes', numExeNodes, 'got', compExecutionOrder.length);
+    let phaseStepCount = [...executionSteps, ...latchSteps].filter(a => a.compIdx >= 0).length;
+
+    if (phaseStepCount !== numExeNodes) {
+        console.log('detected a cycle; execution order may be incorrect: expected exe nodes', numExeNodes, 'got', phaseStepCount);
         console.log(comps, nets);
     } else {
         // console.log('execution order:');
@@ -253,10 +276,10 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): numb
     // let compsToExecute = compExecutionOrder.map(i => comps[i].comp.name);
     // console.log('compsToExecute', compsToExecute);
 
-    return compExecutionOrder;
+    return { executionSteps, latchSteps };
 }
 
-function netToString(net: IExeNet, comps: IExeComp[]) {
+export function netToString(net: IExeNet, comps: IExeComp[]) {
     let portStr = (portRef: IExePortRef) => {
         let comp = comps[portRef.compIdx];
         let port = comp.ports[portRef.portIdx];

@@ -4,6 +4,8 @@ import s from "./CompExampleView.module.scss";
 import { IElfTextSection, listElfTextSections, readElfHeader } from "./ElfParser";
 import { ICompDataRom } from "./comps/SimpleMemory";
 import { IExeComp } from "./CpuModel";
+import { runNet } from "./comps/ComponentDefs";
+import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
 
 interface IExampleEntry {
     name: string;
@@ -52,12 +54,49 @@ export const CompExampleView: React.FC = () => {
     }
 
     function onStepClicked() {
-        console.log('we should step here!');
-        let order = exeModel.compExecutionOrder;
+        console.log('--- running execution (latching followed by steps) ---', exeModel);
+        let exeSteps = exeModel.executionSteps;
+        let latchSteps = exeModel.latchSteps;
 
-        for (let i = 0; i < order.length; i++) {
-            let comp = order[i];
+        for (let i = 0; i < exeSteps.length; i++) {
+            let step = exeSteps[i];
+            if (step.compIdx >= 0) {
+                let comp = exeModel.comps[step.compIdx];
+                console.log(`running comp ${comp.comp.name} phase ${step.phaseIdx}`);
+                comp.phases[step.phaseIdx].func(comp);
+            } else {
+                let net = exeModel.nets[step.netIdx];
+                runNet(exeModel.comps, net);
+            }
         }
+
+        for (let i = 0; i < latchSteps.length; i++) {
+            let step = latchSteps[i];
+            let comp = exeModel.comps[step.compIdx];
+            comp.phases[step.phaseIdx].func(comp);
+        }
+
+        setEditorState(a => ({ ...a }));
+    }
+
+    function findCompByDefId(defId: string) {
+        return exeModel.comps.find(comp => comp.comp.defId === defId);
+    }
+
+    function onResetClicked() {
+        let pcComp = findCompByDefId('reg1') as IExeComp<ICompDataSingleReg> | undefined;
+        let regComp = findCompByDefId('reg32Riscv') as IExeComp<ICompDataRegFile> | undefined;
+
+        if (pcComp && regComp) {
+            pcComp.data.value = 0;
+            for (let i = 0; i < regComp.data.file.length; i++) {
+                regComp.data.file[i] = 0;
+            }
+        } else {
+            console.log('could not find pc or reg comp');
+        }
+
+        setEditorState(a => ({ ...a }));
     }
 
     return <div className={s.exampleView}>
@@ -78,6 +117,7 @@ export const CompExampleView: React.FC = () => {
 
         <div className={s.body}>
             <button onClick={onStepClicked}>Step</button>
+            <button onClick={onResetClicked}>Reset</button>
         </div>
 
     </div>;

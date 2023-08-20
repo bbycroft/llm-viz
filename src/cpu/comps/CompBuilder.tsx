@@ -89,6 +89,10 @@ export class ExeCompBuilder<T> {
         return data;
     }
 
+    public addLatchedPhase(func: (comp: IExeComp<T>) => void, inPorts: IExePort[], outPorts: IExePort[]): ExeCompBuilder<T> {
+        return this.addPhase(func, inPorts, outPorts, true);
+    }
+
     public addPhase(func: (comp: IExeComp<T>) => void, inPorts: IExePort[], outPorts: IExePort[], isLatch: boolean = false): ExeCompBuilder<T> {
         if (this.seenLatch) {
             throw new Error(`Cannot add phase after latch phase`);

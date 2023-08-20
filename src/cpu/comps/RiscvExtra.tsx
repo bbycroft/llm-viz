@@ -48,13 +48,30 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
             builder.addPhase(({ data: { pc, addr }}) => {
                 addr.value = pc.value;
+                console.log('setting addr', '0x' + pc.value.toString(16));
             }, [data.pc], [data.addr]);
 
             builder.addPhase(({ data: { data, ins } }) => {
                 ins.value = data.value;
+                console.log('setting ins', '0x' + ins.value.toString(16));
             }, [data.data], [data.ins]);
 
             return builder.build();
+        },
+        render: ({ comp, ctx, cvs, exeComp }) => {
+            if (exeComp) {
+                let lineHeight = 0.5;
+                let textHeight = lineHeight * 0.8;
+                let x = comp.pos.x + 0.3;
+                let y = comp.pos.y + 0.3;
+                let word = exeComp.data.data.value;
+                ctx.fillStyle = 'black';
+                ctx.font = `${textHeight}px monospace`;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+
+                ctx.fillText('0x' + word.toString(16).padStart(8, '0'), x, y);
+            }
         },
     }
 

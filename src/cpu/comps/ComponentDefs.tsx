@@ -1,5 +1,6 @@
 import { ExeCompBuilder } from "./CompBuilder";
 import { IComp, IExeComp, IExeNet, IExePort } from "../CpuModel";
+import { netToString } from "../CpuExecution";
 
 export interface ICompDataAdder {
     inPort0: IExePort;
@@ -24,25 +25,30 @@ function adderPhase0({ data: { inPort0, inPort1, outPort } }: IExeComp<ICompData
 
 export function runNet(comps: IExeComp[], net: IExeNet) {
 
+
     if (net.tristate) {
         // need to ensure exactly 1 output is enabled
         let enabledCount = 0;
         let enabledPortValue = 0;
         for (let portRef of net.outputs) {
-            let port = comps[portRef.compIdx].ports[portRef.portIdx];
-            if (port.outputEnabled) {
+            let comp = comps[portRef.compIdx];
+            let port = comp.ports[portRef.portIdx];
+            if (comp.valid && port.outputEnabled) {
                 enabledCount++;
                 enabledPortValue = port.value;
             }
         }
         net.enabledCount = enabledCount;
         net.value = enabledCount === 1 ? enabledPortValue : 0;
+        if (enabledCount !== 1) {
+            console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs');
+        }
     } else {
         // has exactly 1 input
-        if (net.inputs.length !== 1) {
+        if (net.outputs.length !== 1) {
             net.value = 0;
         } else {
-            let portRef = net.inputs[0];
+            let portRef = net.outputs[0];
             let port = comps[portRef.compIdx].ports[portRef.portIdx];
             net.value = port.value;
         }
@@ -52,4 +58,6 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         let port = comps[portRef.compIdx].ports[portRef.portIdx];
         port.value = net.value;
     }
+
+    console.log('running net', netToString(net, comps), 'with value', net.value.toString(16));
 }
