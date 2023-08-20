@@ -16,6 +16,7 @@ import { buildCompLibrary } from "./comps/CompLibrary";
 import { ICompDataRegFile, ICompDataSingleReg, riscvRegNames } from "./comps/Registers";
 import { CompLibrary } from "./comps/CompBuilder";
 import { CompLibraryView } from "./CompLibraryView";
+import { CompExampleView } from "./CompExampleView";
 
 interface ICpuState {
     system: any;
@@ -656,8 +657,11 @@ export const CpuCanvas: React.FC<{
                 onMouseLeave={handleMouseLeave}
                 onWheel={handleWheel}
             />
-            <CpuEditorToolbar />
-            <CompLibraryView />
+            <div className={s.toolsLeftTop}>
+                <CpuEditorToolbar />
+                <CompLibraryView />
+                <CompExampleView />
+            </div>
     </div>
     </EditorContext.Provider>;
 };
@@ -672,6 +676,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
 
     for (let comp of cpuOpts.comps) {
         let exeComp = exeSystem.comps[exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1];
+        let compDef = editorState.compLibrary.comps.get(comp.defId);
 
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === comp.id;
 
@@ -699,8 +704,13 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
 
         if (comp.defId === 'reg1') {
             renderPc(compRenderArgs);
+
         } else if (comp.defId === 'reg32Riscv') {
             renderRegisterFile(compRenderArgs);
+
+        } else if (compDef?.render) {
+            compDef.render(compRenderArgs);
+
         } else {
             let text = comp.name;
             let textHeight = 3;

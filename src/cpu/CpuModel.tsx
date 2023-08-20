@@ -220,3 +220,13 @@ export interface ICpuLayout {
     comps: IComp[];
     wires: IWireGraph[];
 }
+
+export interface IMemoryMap {
+    romOffset: number;
+    ramOffset: number;
+    ioOffset: number;
+    ioSize: number;
+
+    rom: Uint8Array;
+    ram: Uint8Array;
+}

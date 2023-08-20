@@ -1,0 +1,16 @@
+
+add_tests:	file format elf32-littleriscv
+
+Disassembly of section .text_add0:
+
+00000000 <_start_add0>:
+       0: 93 00 a0 00  	li	ra, 10
+       4: 13 01 40 01  	li	sp, 20
+       8: b3 81 20 00  	add	gp, ra, sp
+
+Disassembly of section .text_add1:
+
+00000000 <_start_add1>:
+       0: 13 02 e0 01  	li	tp, 30
+       4: 93 02 80 02  	li	t0, 40
+       8: 33 03 52 00  	add	t1, tp, t0

@@ -5,6 +5,8 @@ import { useCreateGlobalKeyboardDocumentListener } from '../utils/keyboard';
 import { riscvRegNames } from './comps/Registers';
 import { CpuCanvas, ICpu, IMemoryLayout, Io_Gpio, Io_Gpio_Register } from './CpuCanvas';
 import s from './CpuMain.module.scss';
+import { IMemoryMap } from './CpuModel';
+import { readElfFileIntoMemory } from './ElfParser';
 import { OpCode, Funct3Op, Funct3Branch, Funct3LoadStore, Funct3CSR, CSR_Reg } from './RiscvIsa';
 
 export const CPUMain = () => {
@@ -233,86 +235,6 @@ async function runTests() {
     }
 }
 
-function readElfFileIntoMemory(elfFile: Uint8Array, memory: IMemoryMap) {
-
-    let magic = elfFile.subarray(0, 0x4);
-    if (magic[0] !== 0x7F || magic[1] !== 0x45 || magic[2] !== 0x4C || magic[3] !== 0x46) {
-        throw new Error(`Invalid ELF file (magic was ${magic}, but should be 0x7F 'E' 'L' 'F')`);
-    }
-
-    let class_ = elfFile[0x4];
-    let endian = elfFile[0x5];
-    let version = elfFile[0x6];
-
-    if (class_ !== 1 || endian !== 1 || version !== 1) {
-        throw new Error(`Invalid ELF file: (class, endian, version) was (${class_}, ${endian}, ${version}), but should be (1 [32bit], 1 [little endian], 1)`);
-    }
-
-    // let osAbi = elfFile[0x7];
-    // let abiVersion = elfFile[0x8];
-
-    let type = elfFile[0x10];
-    let machine = elfFile[0x12];
-
-    if (type !== 2 || machine !== 0xF3) {
-        throw new Error(`Invalid ELF file: (type, machine) was (${type}, ${machine}), but should be (2 [exe], 0xF3 [RISC-V])`);
-    }
-
-    let entryPoint = read32UintLe(elfFile, 0x18);
-
-    // console.log(`ELF type: 0x${type.toString(16)} (exe), machine: 0x${machine.toString(16)} (RISC-V), entry: 0x${entryPoint.toString(16)}`);
-
-    if (entryPoint !== 0x8000_0000) {
-        throw new Error(`Invalid ELF file: entry point was 0x${entryPoint.toString(16)}, but should be 0x8000_0000`);
-    }
-
-    let phOff = read32UintLe(elfFile, 0x1C);
-    let phEntSize = read16UintLe(elfFile, 0x2A);
-    let phNum = read16UintLe(elfFile, 0x2C);
-
-    let hasStartSegment = false;
-
-    for (let i = 0; i < Math.min(phNum, 10); i++) {
-        let base = phOff + i * phEntSize;
-        let pType = read32UintLe(elfFile, base + 0x0);
-        let pOffset = read32UintLe(elfFile, base + 0x4);
-        let pVaddr = read32UintLe(elfFile, base + 0x8); // virtual address (should be 0x8000_0000 for ones that we want to load)
-        let pPaddr = read32UintLe(elfFile, base + 0xC); // physical address (should be ??)
-        let pFilesz = read32UintLe(elfFile, base + 0x10);
-        let pMemsz = read32UintLe(elfFile, base + 0x14);
-        let pFlags = read32UintLe(elfFile, base + 0x18);
-        let pAlign = read32UintLe(elfFile, base + 0x1C);
-
-        if (pType !== 1 || pMemsz === 0) { // only look at PT_LOAD segments
-            continue;
-        }
-
-        if (pVaddr < 0x8000_0000 || pVaddr + pMemsz > 0x8000_0000 + memory.ram.length) {
-            continue;
-        }
-
-        memory.ram.set(elfFile.subarray(pOffset, pOffset + pFilesz), pVaddr - 0x8000_0000);
-
-        // console.log('Writing segment to memory: ' + pVaddr.toString(16) + ' - ' + (pVaddr + pFilesz).toString(16));
-
-        if (pVaddr === 0x8000_0000) {
-            hasStartSegment = true;
-        }
-        // loadedSegment = elfFile.subarray(pOffset, pOffset + pFilesz);
-    }
-
-    if (!hasStartSegment) {
-        throw new Error('No segment starting at 0x8000_0000 found!');
-    }
-}
-
-function read32UintLe(buffer: Uint8Array, offset: number): number {
-    return (buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24)) >>> 0;
-}
-
-function read16UintLe(buffer: Uint8Array, offset: number): number {
-    return (buffer[offset] | (buffer[offset + 1] << 8)) >>> 0;
-}
 
 function createSystem() {
     let layout = memoryLayout;
@@ -460,15 +382,6 @@ function createIo(ioOffset: number): [IO_Devices, IOHandler] {
     return [{ gpio, toHost }, ioHandler];
 }
 
-interface IMemoryMap {
-    romOffset: number;
-    ramOffset: number;
-    ioOffset: number;
-    ioSize: number;
-
-    rom: Uint8Array;
-    ram: Uint8Array;
-}
 
 function mapByteToWord(addr: number): [wordAddr: number, bitShift: number] {
     return [addr & ~0x3, (addr & 0x3) * 8];

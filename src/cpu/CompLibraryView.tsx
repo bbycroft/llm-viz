@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { editLayout, useEditorContext } from "./Editor";
 import s from "./CompLibraryView.module.scss";
 import { ICompDef } from "./comps/CompBuilder";

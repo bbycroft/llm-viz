@@ -2,11 +2,8 @@
 @import "./shared.scss";
 
 .toolsTopLeft {
-    position: absolute;
-    top: 0;
-    left: 0;
     display: flex;
-    margin: 20px;
+    margin: 20px 20px 0;
 }
 
 .toolbar {
