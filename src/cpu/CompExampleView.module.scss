@@ -29,3 +29,21 @@
 .divider {
     border-bottom: 1px solid $color-light-grey;
 }
+
+.btn {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    margin: 0;
+    outline: none;
+    padding: 0 10px;
+
+    &:hover:not(:disabled) {
+        background-color: rgba($color-highlight, 0.5);
+    }
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.5;
+    }
+}

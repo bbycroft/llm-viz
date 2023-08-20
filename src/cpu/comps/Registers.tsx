@@ -7,12 +7,12 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     let reg32: ICompDef<ICompDataRegFile> = {
         defId: 'reg32Riscv',
         name: "Registers",
-        size: new Vec3(10, 24),
+        size: new Vec3(10, 12),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(5, 0), type: PortDir.In, width: 3 * 6 },
             { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
-            { id: 'outA', name: 'Out A', pos: new Vec3(10, 3), type: PortDir.OutTri, width: 32 },
-            { id: 'outB', name: 'Out B', pos: new Vec3(10, 5), type: PortDir.OutTri, width: 32 },
+            { id: 'outA', name: 'A', pos: new Vec3(10, 3), type: PortDir.OutTri, width: 32 },
+            { id: 'outB', name: 'B', pos: new Vec3(10, 5), type: PortDir.OutTri, width: 32 },
         ],
         build: buildRegFile,
     };
@@ -22,7 +22,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         name: "Register",
         size: new Vec3(10, 2),
         ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(3, 0), type: PortDir.In, width: 1 },
+            // { id: 'ctrl', name: 'Ctrl', pos: new Vec3(3, 0), type: PortDir.In, width: 1 },
             { id: 'in', name: 'In', pos: new Vec3(0, 1), type: PortDir.In, width: 32 },
             { id: 'out', name: 'Out', pos: new Vec3(10, 1), type: PortDir.Out, width: 32 },
         ],
@@ -81,6 +81,8 @@ function regFilePhase0({ data: { inCtrlPort, outAPort, outBPort, file } }: IExeC
     outBPort.outputEnabled = !!outBEnabled;
     outAPort.value = outAEnabled ? file[outBitsA] : 0;
     outBPort.value = outBEnabled ? file[outBitsB] : 0;
+
+    console.log(`reading reg: ${outAEnabled}? ${outBitsA} => ${outAPort.value}; ${outBEnabled}? ${outBitsB} => ${outBPort.value}`);
 }
 
 // phase1 writes
@@ -105,7 +107,7 @@ function regFilePhase2Latch({ data }: IExeComp) {
 
 
 export interface ICompDataSingleReg {
-    inCtrlPort: IExePort;
+    // inCtrlPort: IExePort;
     outPort: IExePort;
     inPort: IExePort;
 
@@ -117,21 +119,21 @@ export interface ICompDataSingleReg {
 export function buildSingleReg(comp: IComp) {
     let builder = new ExeCompBuilder<ICompDataSingleReg>(comp);
     let data: ICompDataSingleReg = {
-        inCtrlPort: builder.getPort('ctrl'),
+        // inCtrlPort: builder.getPort('ctrl'),
         inPort: builder.getPort('in'),
         outPort: builder.getPort('out'),
 
         value: 0,
         writeEnabled: false,
     };
-    builder.addPhase(singleRegPhase0, [data.inCtrlPort], [data.outPort]);
+    builder.addPhase(singleRegPhase0, [], [data.outPort]);
     builder.addLatchedPhase(singleRegPhase1Latch, [data.inPort], []);
     return builder.build(data);
 }
 
 function singleRegPhase0(comp: IExeComp<ICompDataSingleReg>) {
     let data = comp.data;
-    let ctrl = data.inCtrlPort.value;
+    // let ctrl = data.inCtrlPort.value;
     let outPort = data.outPort;
 
     let outEnabled = true; // ctrl & 0b1;

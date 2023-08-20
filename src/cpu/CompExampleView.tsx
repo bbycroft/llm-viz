@@ -116,8 +116,8 @@ export const CompExampleView: React.FC = () => {
         <div className={s.divider} />
 
         <div className={s.body}>
-            <button onClick={onStepClicked}>Step</button>
-            <button onClick={onResetClicked}>Reset</button>
+            <button className={s.btn} onClick={onStepClicked}>Step</button>
+            <button className={s.btn} onClick={onResetClicked}>Reset</button>
         </div>
 
     </div>;

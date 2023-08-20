@@ -18,12 +18,12 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
             { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(w, 2), type: PortDir.Out | PortDir.Addr, width: 32 },
             { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(w, 3), type: PortDir.OutTri | PortDir.Data, width: 32 },
 
-            { id: 'pcAddImm', name: 'Imm', pos: new Vec3(2, h), type: PortDir.Out | PortDir.Addr, width: 32 },
+            { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(1, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
             { id: 'regCtrl', name: 'Reg', pos: new Vec3(3, h), type: PortDir.Out | PortDir.Ctrl, width: 3 * 6 },
-            { id: 'pcOutTristateCtrl', name: 'PC LHS', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(6, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'pcAddMuxCtrl', name: 'PC+Mux', pos: new Vec3(7, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(8, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
+            { id: 'pcAddImm', name: 'PC+Imm', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Addr, width: 32 },
+            // { id: 'pcOutTristateCtrl', name: 'PC LHS', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'pcAddMuxCtrl', name: 'LHS Sel', pos: new Vec3(7, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(9, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
         ],
         build: buildInsDecoder,
     };
@@ -39,7 +39,7 @@ export interface ICompDataInsDecoder {
     regCtrl: IExePort; // 3x 6-bit values: [0: outA, 1: outB, 2: inA]
     loadStoreCtrl: IExePort; // controls load/store
     aluCtrl: IExePort; // controls ALU, 5-bit value: [0: enable, 1: isBranch, 2: funct3, 3: isSpecial]
-    pcOutTristateCtrl: IExePort; // 1-bit value, enables PC -> LHS
+    // pcOutTristateCtrl: IExePort; // 1-bit value, enables PC -> LHS
     pcRegMuxCtrl: IExePort; // 1-bit value, controls writes to (PC, REG), from (ALU out, PC + x), or swaps them
 
     pcAddImm: IExePort; // gets added to PC, overrides +4 for jumps
@@ -48,7 +48,7 @@ export interface ICompDataInsDecoder {
 
 export function buildInsDecoder(comp: IComp) {
     let builder = new ExeCompBuilder<ICompDataInsDecoder>(comp);
-    let data = {
+    let data = builder.addData({
         ins: builder.getPort('ins'),
 
         addrOffset: builder.getPort('addrOffset'),
@@ -56,12 +56,12 @@ export function buildInsDecoder(comp: IComp) {
         regCtrl: builder.getPort('regCtrl'),
         loadStoreCtrl: builder.getPort('loadStoreCtrl'),
         aluCtrl: builder.getPort('aluCtrl'),
-        pcOutTristateCtrl: builder.getPort('pcOutTristateCtrl'),
+        // pcOutTristateCtrl: builder.getPort('pcOutTristateCtrl'),
         pcRegMuxCtrl: builder.getPort('pcRegMuxCtrl'),
 
         pcAddImm: builder.getPort('pcAddImm'),
         pcAddMuxCtrl: builder.getPort('pcAddMuxCtrl'),
-    };
+    });
     builder.addPhase(insDecoderPhase0, [data.ins], [data.addrOffset, data.rhsImm, data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.pcAddMuxCtrl, data.pcAddImm]);
     return builder.build(data);
 }
@@ -81,8 +81,9 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
     // 0: ALU out => REG, PC + x => PC
     // 1: ALU out => PC,  PC + x => REG
     data.pcRegMuxCtrl.value = 0;
-    data.pcOutTristateCtrl.value = 0;
+    // data.pcOutTristateCtrl.value = 0;
     data.pcAddImm.value = 4;
+    data.pcAddMuxCtrl.value = 1; // inverted
 
     function setRegCtrl(enable: boolean, addr: number, offset: number) {
         let a = (enable ? 1 : 0) | (addr & 0b11111) << 1;
@@ -128,7 +129,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
 
     } else if (opCode === OpCode.AUIPC) {
         data.rhsImm.value = signExtend20Bit(ins >>> 12) << 12;
-        data.pcOutTristateCtrl.value = 1; // PC -> LHS enabled
+        data.pcAddMuxCtrl.value = 0; // PC -> LHS enabled
         setAluCtrl(true, false, Funct3Op.ADD, false);
         setRegCtrl(true, rd, 2); // ALU out => reg[rd]
 
@@ -138,7 +139,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
                         (((ins >>> 12) & 0xFF) << 12) | // 8 bytes
                         (((ins >>> 31) & 0x01) << 20);  // 1 byte
 
-        data.pcOutTristateCtrl.value = 1; // PC -> LHS enabled
+        data.pcAddMuxCtrl.value = 0; // PC -> LHS enabled
         data.rhsImm.value = signExtend20Bit(offsetRaw);
         data.pcRegMuxCtrl.value = 1; // ALU out => PC; PC + 4 => REG
         setRegCtrl(true, rd, 2); // PC + 4 => reg[rd]

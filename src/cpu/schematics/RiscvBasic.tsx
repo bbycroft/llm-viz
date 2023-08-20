@@ -1,19 +1,33 @@
 
 export const riscvBasicSchematic = `
 #wire-schema 1
-C ram 0 p:-12,-23
-C rom 1 p:-12,-10
-C insFetch 3 p:-12,2
-C id 2 p:3,4
-C ls 8 p:26,4
-C alu 4 p:26,18
-C pc 5 p:3,11
-C reg 6 p:3,21
-W 6 ns:[-12,3 p:insFetch/addr|-17,3,0]
-W 7 ns:[-12,4 p:insFetch/data|-17,4,0]
-W 10 ns:[3,24 p:reg/in|-1,24,0|-1,30,1|31,30,2|31,24,3 p:alu/result|38,30,3|38,6,5|36,6,6 p:ls/dataOut]
-W 11 ns:[3,12 p:pc/in|-5,12,0]
-W 13 ns:[29,10|29,7,0 p:ls/addrBase|20,10,0|29,18,0 p:alu/lhs|16,10,2|20,24,2|16,12,4|16,9,4|13,24,5 p:reg/outA|13,12,6 p:pc/out|-7,9,7|-7,5,10 p:insFetch/pc]
-W 16 ns:[3,5 p:id/ins|0,5,0|0,3,1|-2,3,2 p:insFetch/ins]
-W 21 ns:[33,18 p:alu/rhs|33,12,0|22,12,1|33,7,1 p:ls/data|22,6,2|22,26,2|13,6,4 p:id/rhsImm|13,26,5 p:reg/outB]
+C 1 reg32Riscv p:2,16
+C 2 aluRiscv32_0 p:22,15
+C 3 reg1 p:2,11
+C 4 riscvInsFetch p:-23,24
+C 5 insDecodeRiscv32_0 p:2,-1
+C 6 riscvLoadStore p:21,-1
+C 7 mux2 p:-2,9
+C 8 mux2 p:-2,16
+C 9 adder p:14,9
+C 10 mux2 p:14,16
+C 11 rom0 p:-12,-2
+W 34 ns:[12,1 p:5/addrOffset|21,1,0 p:6/addrOffset]
+W 35 ns:[12,0 p:5/loadStoreCtrl|21,0,0 p:6/ctrl]
+W 42 ns:[17,14|15,14,0|17,12,0|-3,14,1|16,12,2 p:9/out|-3,19,3|-3,10,3|-2,19,5 p:8/b|-2,10,6 p:7/a]
+W 64 ns:[20,14|20,2,0|20,21,0|28,14,0|12,2,1 p:5/rhsImm|12,21,2 p:1/outB|28,11,3|29,14,3|28,2,6 p:6/data|29,15,7 p:2/rhs]
+W 69 ns:[24,2 p:6/addrBase|24,13,0|19,13,1|25,13,1|19,19,2|25,15,3 p:2/lhs|16,19,4 p:10/out]
+W 76 ns:[0,12 p:7/out|2,12,0 p:3/in]
+W 78 ns:[11,4 p:5/aluCtrl|11,5,0|21,5,1|21,18,2|22,18,3 p:2/ctrl]
+W 80 ns:[0,19 p:8/out|0,19,0|0,19,1|2,19,2 p:1/in]
+W 82 ns:[27,21 p:2/result|27,23,0|33,23,1|25,23,1|33,1,2|-4,23,3|31,1,4 p:6/dataOut|-4,17,5|-2,17,7 p:8/a|-4,12,7|-2,12,9 p:7/b]
+W 84 ns:[12,19 p:1/outA|13,19,0|13,19,1|14,19,2 p:10/b]
+W 97 ns:[0,-1|0,7,0|-2,-1,0 p:11/addr|13,7,1|13,12,3|13,17,4|12,12,4 p:3/out|14,12,4 p:9/b|14,17,5 p:10/a]
+W 99 ns:[-2,0 p:11/data|2,0,0 p:5/ins]
+W 106 ns:[3,4 p:5/pcRegMuxCtrl|3,8,0|1,8,1|-1,8,2|1,15,2|-1,9,3 p:7/sel|-1,15,4|-1,16,6 p:8/sel]
+W 109 ns:[7,4 p:5/pcAddImm|7,8,0|7,10,1|14,10,2 p:9/a]
+W 121 ns:[5,4 p:5/regCtrl|5,5,0|5,15,1|7,15,2|7,16,3 p:1/ctrl]
+W 125 ns:[9,6|18,6,0|9,4,0 p:5/pcAddMuxCtrl|18,15,1|15,15,3|15,16,4 p:10/sel]
 `;
+
+// {"wires":[{"id":"34","nodes":[{"id":0,"x":12,"y":1,"edges":[1],"ref":{"type":2,"id":"5","compNodeId":"addrOffset"}},{"id":1,"x":21,"y":1,"edges":[0],"ref":{"type":2,"id":"6","compNodeId":"addrOffset"}}]},{"id":"35","nodes":[{"id":0,"x":12,"y":0,"edges":[1],"ref":{"type":2,"id":"5","compNodeId":"loadStoreCtrl"}},{"id":1,"x":21,"y":0,"edges":[0],"ref":{"type":2,"id":"6","compNodeId":"ctrl"}}]},{"id":"42","nodes":[{"id":0,"x":17,"y":14,"edges":[1,2]},{"id":1,"x":15,"y":14,"edges":[0,3]},{"id":2,"x":17,"y":12,"edges":[0,4]},{"id":3,"x":-3,"y":14,"edges":[1,5,6]},{"id":4,"x":16,"y":12,"edges":[2],"ref":{"type":2,"id":"9","compNodeId":"out"}},{"id":5,"x":-3,"y":19,"edges":[3,7]},{"id":6,"x":-3,"y":10,"edges":[3,8]},{"id":7,"x":-2,"y":19,"edges":[5],"ref":{"type":2,"id":"8","compNodeId":"b"}},{"id":8,"x":-2,"y":10,"edges":[6],"ref":{"type":2,"id":"7","compNodeId":"a"}}]},{"id":"64","nodes":[{"id":0,"x":20,"y":14,"edges":[1,2,3]},{"id":1,"x":20,"y":2,"edges":[0,4]},{"id":2,"x":20,"y":21,"edges":[0,5]},{"id":3,"x":28,"y":14,"edges":[0,6,7]},{"id":4,"x":12,"y":2,"edges":[1],"ref":{"type":2,"id":"5","compNodeId":"rhsImm"}},{"id":5,"x":12,"y":21,"edges":[2],"ref":{"type":2,"id":"1","compNodeId":"outB"}},{"id":6,"x":28,"y":11,"edges":[3,8]},{"id":7,"x":29,"y":14,"edges":[3,9]},{"id":8,"x":28,"y":2,"edges":[6],"ref":{"type":2,"id":"6","compNodeId":"data"}},{"id":9,"x":29,"y":15,"edges":[7],"ref":{"type":2,"id":"2","compNodeId":"rhs"}}]},{"id":"69","nodes":[{"id":0,"x":24,"y":2,"edges":[1],"ref":{"type":2,"id":"6","compNodeId":"addrBase"}},{"id":1,"x":24,"y":13,"edges":[0,2,3]},{"id":2,"x":19,"y":13,"edges":[1,4]},{"id":3,"x":25,"y":13,"edges":[1,5]},{"id":4,"x":19,"y":19,"edges":[2,6]},{"id":5,"x":25,"y":15,"edges":[3],"ref":{"type":2,"id":"2","compNodeId":"lhs"}},{"id":6,"x":16,"y":19,"edges":[4],"ref":{"type":2,"id":"10","compNodeId":"out"}}]},{"id":"76","nodes":[{"id":0,"x":0,"y":12,"edges":[1],"ref":{"type":2,"id":"7","compNodeId":"out"}},{"id":1,"x":2,"y":12,"edges":[0],"ref":{"type":2,"id":"3","compNodeId":"in"}}]},{"id":"78","nodes":[{"id":0,"x":11,"y":4,"edges":[1],"ref":{"type":2,"id":"5","compNodeId":"aluCtrl"}},{"id":1,"x":11,"y":5,"edges":[0,2]},{"id":2,"x":21,"y":5,"edges":[1,3]},{"id":3,"x":21,"y":18,"edges":[2,4]},{"id":4,"x":22,"y":18,"edges":[3],"ref":{"type":2,"id":"2","compNodeId":"ctrl"}}]},{"id":"80","nodes":[{"id":0,"x":0,"y":19,"edges":[1],"ref":{"type":2,"id":"8","compNodeId":"out"}},{"id":1,"x":0,"y":19,"edges":[0,2]},{"id":2,"x":0,"y":19,"edges":[1,3]},{"id":3,"x":2,"y":19,"edges":[2],"ref":{"type":2,"id":"1","compNodeId":"in"}}]},{"id":"82","nodes":[{"id":0,"x":27,"y":21,"edges":[1],"ref":{"type":2,"id":"2","compNodeId":"result"}},{"id":1,"x":27,"y":23,"edges":[0,2,3]},{"id":2,"x":33,"y":23,"edges":[1,4]},{"id":3,"x":25,"y":23,"edges":[1,5]},{"id":4,"x":33,"y":1,"edges":[2,6]},{"id":5,"x":-4,"y":23,"edges":[3,7]},{"id":6,"x":31,"y":1,"edges":[4],"ref":{"type":2,"id":"6","compNodeId":"dataOut"}},{"id":7,"x":-4,"y":17,"edges":[5,8,9]},{"id":8,"x":-2,"y":17,"edges":[7],"ref":{"type":2,"id":"8","compNodeId":"a"}},{"id":9,"x":-4,"y":12,"edges":[7,10]},{"id":10,"x":-2,"y":12,"edges":[9],"ref":{"type":2,"id":"7","compNodeId":"b"}}]},{"id":"84","nodes":[{"id":0,"x":12,"y":19,"edges":[1],"ref":{"type":2,"id":"1","compNodeId":"outA"}},{"id":1,"x":13,"y":19,"edges":[0,2]},{"id":2,"x":13,"y":19,"edges":[1,3]},{"id":3,"x":14,"y":19,"edges":[2],"ref":{"type":2,"id":"10","compNodeId":"b"}}]},{"id":"97","nodes":[{"id":0,"x":0,"y":-1,"edges":[1,2]},{"id":1,"x":0,"y":7,"edges":[0,3]},{"id":2,"x":-2,"y":-1,"edges":[0],"ref":{"type":2,"id":"11","compNodeId":"addr"}},{"id":3,"x":13,"y":7,"edges":[1,4]},{"id":4,"x":13,"y":12,"edges":[3,5,6,7]},{"id":5,"x":13,"y":17,"edges":[4,8]},{"id":6,"x":12,"y":12,"edges":[4],"ref":{"type":2,"id":"3","compNodeId":"out"}},{"id":7,"x":14,"y":12,"edges":[4],"ref":{"type":2,"id":"9","compNodeId":"b"}},{"id":8,"x":14,"y":17,"edges":[5],"ref":{"type":2,"id":"10","compNodeId":"a"}}]},{"id":"99","nodes":[{"id":0,"x":-2,"y":0,"edges":[1],"ref":{"type":2,"id":"11","compNodeId":"data"}},{"id":1,"x":2,"y":0,"edges":[0],"ref":{"type":2,"id":"5","compNodeId":"ins"}}]},{"id":"106","nodes":[{"id":0,"x":3,"y":4,"edges":[1],"ref":{"type":2,"id":"5","compNodeId":"pcRegMuxCtrl"}},{"id":1,"x":3,"y":8,"edges":[0,2]},{"id":2,"x":1,"y":8,"edges":[1,3,4]},{"id":3,"x":-1,"y":8,"edges":[2,5]},{"id":4,"x":1,"y":15,"edges":[2,6]},{"id":5,"x":-1,"y":9,"edges":[3],"ref":{"type":2,"id":"7","compNodeId":"sel"}},{"id":6,"x":-1,"y":15,"edges":[4,7]},{"id":7,"x":-1,"y":16,"edges":[6],"ref":{"type":2,"id":"8","compNodeId":"sel"}}]},{"id":"109","nodes":[{"id":0,"x":7,"y":4,"edges":[1],"ref":{"type":2,"id":"5","compNodeId":"pcAddImm"}},{"id":1,"x":7,"y":8,"edges":[0,2]},{"id":2,"x":7,"y":10,"edges":[1,3]},{"id":3,"x":14,"y":10,"edges":[2],"ref":{"type":2,"id":"9","compNodeId":"a"}}]},{"id":"121","nodes":[{"id":0,"x":5,"y":4,"edges":[1],"ref":{"type":2,"id":"5","compNodeId":"regCtrl"}},{"id":1,"x":5,"y":5,"edges":[0,2]},{"id":2,"x":5,"y":15,"edges":[1,3]},{"id":3,"x":7,"y":15,"edges":[2,4]},{"id":4,"x":7,"y":16,"edges":[3],"ref":{"type":2,"id":"1","compNodeId":"ctrl"}}]},{"id":"125","nodes":[{"id":0,"x":9,"y":6,"edges":[1,2]},{"id":1,"x":18,"y":6,"edges":[0,3]},{"id":2,"x":9,"y":4,"edges":[0],"ref":{"type":2,"id":"5","compNodeId":"pcAddMuxCtrl"}},{"id":3,"x":18,"y":15,"edges":[1,4]},{"id":4,"x":15,"y":15,"edges":[3,5]},{"id":5,"x":15,"y":16,"edges":[4],"ref":{"type":2,"id":"10","compNodeId":"sel"}}]}],"comps":[{"id":"1","defId":"reg32Riscv","x":2,"y":16},{"id":"2","defId":"aluRiscv32_0","x":22,"y":15},{"id":"3","defId":"reg1","x":2,"y":11},{"id":"4","defId":"riscvInsFetch","x":-23,"y":24},{"id":"5","defId":"insDecodeRiscv32_0","x":2,"y":-1},{"id":"6","defId":"riscvLoadStore","x":21,"y":-1},{"id":"7","defId":"mux2","x":-2,"y":9},{"id":"8","defId":"mux2","x":-2,"y":16},{"id":"9","defId":"adder","x":14,"y":9},{"id":"10","defId":"mux2","x":14,"y":16},{"id":"11","defId":"rom0","x":-12,"y":-2}]}

@@ -680,6 +680,8 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
         renderWire(cvs, editorState, wire, exeNet, exeSystem);
     }
 
+    ctx.save();
+    // ctx.globalAlpha = 0.5;
     for (let comp of cpuOpts.comps) {
         let exeComp = exeSystem.comps[exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1];
         let compDef = editorState.compLibrary.comps.get(comp.defId);
@@ -727,6 +729,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
             ctx.fillText(text, comp.pos.x + (comp.size.x) / 2, comp.pos.y + (comp.size.y) / 2);
         }
     }
+    ctx.restore();
 }
 
 function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart: IDragStart<ICanvasDragState> | null, dragDir: Vec3 | null) {
@@ -805,7 +808,7 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
         let isRight = node.pos.x === comp.size.x;
 
         let text = node.name;
-        let textHeight = 1.8;
+        let textHeight = 1.6;
         ctx.font = `${textHeight / 4}px Arial`;
         ctx.textAlign = (isTop || isBot) ? 'center' : isLeft ? 'start' : 'end';
         ctx.textBaseline = (isLeft || isRight) ? "middle" : isTop ? 'top' : 'bottom';
@@ -820,39 +823,74 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
 
 // 32bit pc
 function renderPc({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataSingleReg>) {
+    let padX = 1.2;
+    let padY = 0.8;
     let pcValue = exeComp?.data.value ?? 0;
     let pcHexStr = '0x' + pcValue.toString(16).toUpperCase().padStart(8, "0");
+    let pcValStr = pcValue.toString().padStart(2, "0");
 
-    ctx.font = `${3 / 4}px Arial`;
+    let padInner = new Vec3(0.2, 0.1);
+    let boxSize = comp.size.sub(new Vec3(padX * 2, padY * 2)).add(padInner.mul(2));
+    let boxOffset = new Vec3(padX, padY).sub(padInner);
+    ctx.beginPath();
+    ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#000";
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = `${2 / 4}px monospace`;
     ctx.textAlign = 'end';
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#000";
-    ctx.fillText(pcHexStr, comp.pos.x + comp.size.x - 0.5, comp.pos.y + comp.size.y / 2);
+    ctx.fillText(pcValStr + '   ' + pcHexStr, comp.pos.x + comp.size.x - 1.2, comp.pos.y + comp.size.y / 2);
+
+    ctx.textAlign = 'start';
+    ctx.fillText('pc', comp.pos.x + padX, comp.pos.y + comp.size.y / 2);
+
 }
 
 // x0-x31 32bit registers, each with names
 function renderRegisterFile({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataRegFile>) {
-    let pad = 0.2;
-    let lineHeight = (comp.size.y - pad * 2) / 32;
+    let padX = 1.2;
+    let padY = 0.8;
+    let lineHeight = 0.7; // (comp.size.y - padY * 2) / 32;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+    ctx.clip();
 
     for (let i = 0; i < 32; i++) {
         let regValue = exeComp?.data.file[i] ?? 0;
         let regHexStr = '0x' + regValue.toString(16).toUpperCase().padStart(8, "0");
+        let regNumStr = regValue.toString().padStart(2, "0");
 
-        ctx.font = `${2 / 4}px Arial`;
+        let padInner = new Vec3(0.2, 0);
+        let boxSize = new Vec3(comp.size.x, lineHeight).sub(new Vec3(padX * 2)).mulAdd(padInner, 2);
+        let boxOffset = new Vec3(padX, padY + lineHeight * i).sub(padInner);
+        ctx.beginPath();
+        ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = "#000";
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = `${2 / 4}px monospace`;
         ctx.textAlign = 'end';
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#000";
 
-        let yMid = comp.pos.y + pad + lineHeight * (i + 0.5);
+        let yMid = comp.pos.y + padY + lineHeight * (i + 0.5);
 
-        ctx.fillText(regHexStr, comp.pos.x + comp.size.x - 0.5, yMid);
+        ctx.fillText(regNumStr + '   ' + regHexStr, comp.pos.x + comp.size.x - padX, yMid);
 
         let text = riscvRegNames[i];
         ctx.textAlign = 'start';
-        ctx.fillText(text, comp.pos.x + 0.5, yMid);
+        ctx.fillText(text, comp.pos.x + padX, yMid);
     }
 
+    ctx.restore();
 }
 
 function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem) {
