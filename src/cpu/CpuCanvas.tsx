@@ -4,28 +4,22 @@ import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart, useCombinedMouseTouchDrag } from "../utils/pointer";
-import { assignImm, assignImmFull, clamp, isNil } from "../utils/data";
+import { assignImm, assignImmFull, clamp, isNil, isNotNil } from "../utils/data";
 import { editLayout, EditorContext, IEditorContext } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
-import { RefType, IElRef, ISegment, IComp, IBus, BusType, CompType, CompNodeType, ICompNode, ICanvasState, IEditorState, IHitTest, ICpuLayoutBase, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, IExeComp } from "./CpuModel";
+import { RefType, IElRef, ISegment, IComp, PortDir, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, ICompRenderArgs } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel } from "./CpuExecution";
-import { ICompDataRegFile, ICompDataSingleReg } from "./ComponentDefs";
 import { CpuEditorToolbar } from "./EditorControls";
+import { exportData, importData } from "./ImportExport";
+import { buildCompLibrary } from "./comps/CompLibrary";
+import { ICompDataRegFile, ICompDataSingleReg, riscvRegNames } from "./comps/Registers";
+import { CompLibrary } from "./comps/CompBuilder";
+import { CompLibraryView } from "./CompLibraryView";
 
 interface ICpuState {
     system: any;
 }
-
-
-export const regNames = [
-    'zero', 'ra', 'sp', 'gp', 'tp',
-    't0', 't1', 't2',
-    's0', 's1',
-    'a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7',
-    's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11',
-    't3', 't4', 't5', 't6'
-]
 
 export interface ICpu {
     pc: number;
@@ -64,7 +58,7 @@ interface ILSGraphWire {
 
 interface ILSComp {
     id: string;
-    type: CompType;
+    defId: string;
     x: number;
     y: number;
 }
@@ -89,7 +83,7 @@ function hydrateFromLS(ls: Partial<ILSState> | undefined): ILSState {
     };
 }
 
-function wiresFromLsState(layoutBase: ICpuLayoutBase, ls: ILSState): ICpuLayoutBase {
+function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibrary: CompLibrary): ICpuLayout {
 
     let newWires: IWireGraph[] = ls.wires.map(w => ({
         id: w.id,
@@ -101,9 +95,9 @@ function wiresFromLsState(layoutBase: ICpuLayoutBase, ls: ILSState): ICpuLayoutB
         })),
     }));
 
-    let maxId = 0;
+    let maxWireId = 0;
     for (let w of newWires) {
-        maxId = Math.max(maxId, parseInt(w.id));
+        maxWireId = Math.max(maxWireId, parseInt(w.id));
     }
 
     checkWires(newWires, 'wiresFromLsState');
@@ -113,24 +107,36 @@ function wiresFromLsState(layoutBase: ICpuLayoutBase, ls: ILSState): ICpuLayoutB
         lsCompLookup.set(c.id, c);
     }
 
-    let comps = layoutBase.comps.map(c => {
-        let lsComp = lsCompLookup.get(c.id);
-        if (!lsComp) {
-            return c;
+    let comps: IComp[] = ls.comps.map(c => {
+        let compDef = compLibrary.comps.get(c.defId);
+        if (!compDef) {
+            return null;
         }
-        return assignImm(c, {
-            pos: new Vec3(lsComp.x, lsComp.y),
-        });
-    });
+
+        return {
+            defId: c.defId,
+            id: c.id,
+            name: compDef?.name ?? 'unknown',
+            pos: new Vec3(c.x, c.y),
+            size: compDef.size,
+            ports: compDef.ports,
+        };
+    }).filter(isNotNil);
+
+    let maxCompId = 0;
+    for (let c of comps) {
+        maxCompId = Math.max(maxCompId, parseInt(c.id));
+    }
 
     return assignImm(layoutBase, {
-        nextWireId: maxId + 1,
+        nextWireId: maxWireId + 1,
+        nextCompId: maxCompId + 1,
         wires: newWires,
         comps: comps,
     });
 }
 
-function wiresToLsState(layout: ICpuLayoutBase): ILSState {
+function wiresToLsState(layout: ICpuLayout): ILSState {
     return {
         wires: layout.wires
             .filter(w => w.nodes.length > 0)
@@ -140,7 +146,7 @@ function wiresToLsState(layout: ICpuLayoutBase): ILSState {
             })),
         comps: layout.comps.map(c => ({
             id: c.id,
-            type: c.type,
+            defId: c.defId,
             x: c.pos.x,
             y: c.pos.y,
         })),
@@ -153,27 +159,43 @@ interface ICanvasDragState {
     modelPos: Vec3;
 }
 
+export function constructCpuLayout(): ICpuLayout {
+    return {
+        nextWireId: 0,
+        nextCompId: 0,
+        wires: [],
+        comps: [],
+    };
+}
+
 export const CpuCanvas: React.FC<{
     cpuState: ICpuState;
 }> = ({ cpuState }) => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
     let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
-    let [editorState, setEditorState] = useState<IEditorState>(() => ({
-        layout: wiresFromLsState(constructCpuLayout(), lsState),
-        layoutTemp: null,
-        mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
-        redoStack: [],
-        undoStack: [],
-        hovered: null,
-        addLine: false,
-    }));
+    let [editorState, setEditorState] = useState<IEditorState>(() => {
+
+        let compLibrary = buildCompLibrary();
+
+
+        return {
+            layout: wiresFromLsState(constructCpuLayout(), lsState, compLibrary),
+            layoutTemp: null,
+            mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
+            compLibrary: compLibrary,
+            redoStack: [],
+            undoStack: [],
+            hovered: null,
+            addLine: false,
+        };
+    });
     let [, redraw] = useReducer((x) => x + 1, 0);
 
     useResizeChangeHandler(cvsState?.canvas, redraw);
 
     let exeModel = useMemo(() => {
-        return createExecutionModel(editorState.layout);
-    }, [editorState.layout]);
+        return createExecutionModel(editorState.compLibrary, editorState.layout);
+    }, [editorState.layout, editorState.compLibrary]);
 
     let setCanvasEl = useCallback((el: HTMLCanvasElement | null) => {
 
@@ -188,6 +210,9 @@ export const CpuCanvas: React.FC<{
     useEffect(() => {
         let newState = wiresToLsState(editorState.layout);
         setLsState(a => assignImm(a, newState));
+        let strExport = exportData(editorState.layout);
+        localStorage.setItem("cpu-layout-str", strExport);
+        importData(strExport);
     }, [editorState.layout, setLsState]);
 
     useLayoutEffect(() => {
@@ -271,7 +296,7 @@ export const CpuCanvas: React.FC<{
         setEditorState(editLayout(end, layout => {
 
             let startComp = layout.comps.find(c => c.id === ref.id)!;
-            let startNode = startComp.nodes.find(n => n.id === ref.compNodeId)!;
+            let startNode = startComp.ports.find(n => n.id === ref.compNodeId)!;
             let startPt = startComp.pos.add(startNode.pos);
             let endPt = snapToGrid(newModelPos);
 
@@ -477,7 +502,7 @@ export const CpuCanvas: React.FC<{
 
         for (let i = comps.length - 1; i >= 0; i--) {
             let comp = comps[i];
-            for (let node of comp.nodes) {
+            for (let node of comp.ports) {
                 let modelPos = comp.pos.add(node.pos);
                 let nodeScreenPos = modelToScreen(modelPos);
                 let modelDist = modelPos.dist(mousePt);
@@ -546,9 +571,44 @@ export const CpuCanvas: React.FC<{
     }
 
     function handleMouseMove(ev: React.MouseEvent) {
+
+        if (editorState.dragCreateComp) {
+            let compOrig = editorState.dragCreateComp.compOrig;
+            let mousePos = snapToGrid(evToModel(ev));
+
+            let applyFunc = (a: ICpuLayout): ICpuLayout => {
+                let newComp = assignImm(compOrig, {
+                    id: '' + a.nextCompId,
+                    pos: mousePos,
+                });
+                return assignImm(a, {
+                    nextCompId: a.nextCompId + 1,
+                    comps: [...a.comps, newComp],
+                });
+            };
+
+            setEditorState(a => assignImm(a, {
+                dragCreateComp: assignImm(a.dragCreateComp, { applyFunc }),
+            }));
+
+            return;
+        }
+
         let isect = getRefUnderCursor(editorState, ev);
 
         setEditorState(a => assignImm(a, { hovered: assignImmFull(a.hovered, isect) }));
+    }
+
+    function handleMouseEnter(ev: React.MouseEvent) {
+    }
+
+    function handleMouseLeave(ev: React.MouseEvent) {
+        setEditorState(a => assignImm(a, {
+            hovered: null,
+            dragCreateComp: a.dragCreateComp ? assignImm(a.dragCreateComp, {
+                applyFunc: undefined
+            }) : undefined,
+        }));
     }
 
     function handleMouseDown(ev: React.MouseEvent) {
@@ -592,230 +652,23 @@ export const CpuCanvas: React.FC<{
                 style={{ cursor: cursor }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
                 onWheel={handleWheel}
             />
             <CpuEditorToolbar />
+            <CompLibraryView />
     </div>
     </EditorContext.Provider>;
 };
 
-/*
-
-So we have a grid, which we're drawing on, and we'll pan/zoom around it.
-
-Hard to know what scale to use exactly, but can choose scale sizes at different levels. So aim for
-nice round numbers at a given scale. Line widths are an important consideration tho. Also, maybe
-want to keep line widths a constant size on the screen? Yeah, up to a point (don't want them really
-thick for really small objects)
-
-*/
-
-type ICpuLayout = ReturnType<typeof constructCpuLayout>;
-
-enum StackPos {
-    Start,
-    End,
-    Center,
-}
-
-function constructCpuLayout() {
-    let comps: IComp[] = [];
-    let buses: IBus[] = [];
-
-    let busX = 0;
-    let pad = 2;
-    let busPad = 4;
-
-    let mainBus: IBus = {
-        id: 'mainBus0',
-        type: BusType.AddrDataSignal,
-        truncPts: [new Vec3(0, -1), new Vec3(0, 0), new Vec3(20, 0)],
-        branches: [],
-        color: "#a33",
-    };
-
-    let ram: IComp = {
-        id: 'ram',
-        name: "RAM",
-        pos: new Vec3(),
-        size: new Vec3(10, 10),
-        type: CompType.RAM,
-        nodes: [],
-    };
-
-    let rom: IComp = {
-        id: 'rom',
-        name: "ROM",
-        pos: new Vec3(),
-        size: new Vec3(10, 10),
-        type: CompType.ROM,
-        nodes: [],
-    };
-
-    let insFetch: IComp = {
-        id: 'insFetch',
-        name: "Instruction Fetch",
-        pos: new Vec3(-12, busPad),
-        size: new Vec3(10, 3),
-        type: CompType.IF,
-        nodes: [
-            { id: 'pc', name: 'PC', pos: new Vec3(5, 3), type: CompNodeType.In, width: 32 },
-            { id: 'ins', name: 'Ins', pos: new Vec3(10, 1), type: CompNodeType.Out, width: 32 },
-            { id: 'addr', name: 'Addr', pos: new Vec3(0, 1), type: CompNodeType.Out, width: 32 },
-            { id: 'data', name: 'Data', pos: new Vec3(0, 2), type: CompNodeType.In, width: 32 },
-        ],
-    };
-
-    let insDecode: IComp = {
-        id: 'id',
-        name: "Instruction Decode",
-        pos: new Vec3(10, busPad),
-        size: new Vec3(10, 3),
-        type: CompType.ID,
-        nodes: [
-            { id: 'ins', name: 'Ins', pos: new Vec3(0, 1), type: CompNodeType.In, width: 32 },
-            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(10, 2), type: CompNodeType.OutTri, width: 32 },
-        ],
-    };
-
-    let loadStore: IComp = {
-        id: 'ls',
-        name: "Load/Store",
-        pos: new Vec3(10, busPad),
-        size: new Vec3(10, 3),
-        type: CompType.LS,
-        nodes: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: CompNodeType.In, width: 4 },
-            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: CompNodeType.In, width: 12 },
-            { id: 'addrBase', name: 'Addr Base', pos: new Vec3(3, 3), type: CompNodeType.In, width: 32 },
-            { id: 'data', name: 'Data', pos: new Vec3(7, 3), type: CompNodeType.In, width: 32 },
-            { id: 'dataOut', name: 'Data Out', pos: new Vec3(10, 2), type: CompNodeType.OutTri, width: 32 },
-        ],
-    };
-
-    let alu: IComp = {
-        id: 'alu',
-        name: "ALU",
-        pos: new Vec3(),
-        size: new Vec3(10, 6),
-        type: CompType.ALU,
-        nodes: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 3), type: CompNodeType.In, width: 6 },
-            { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: CompNodeType.In, width: 32 },
-            { id: 'rhs', name: 'RHS', pos: new Vec3(7, 0), type: CompNodeType.In, width: 32 },
-            { id: 'result', name: 'Result', pos: new Vec3(5, 6), type: CompNodeType.OutTri, width: 32 },
-        ],
-    };
-
-    let pc: IComp = {
-        id: 'pc',
-        name: "PC",
-        pos: new Vec3(),
-        size: new Vec3(10, 2),
-        type: CompType.PC,
-        nodes: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(3, 0), type: CompNodeType.In, width: 1 },
-            { id: 'in', name: 'In', pos: new Vec3(0, 1), type: CompNodeType.In, width: 32 },
-            { id: 'out', name: 'Out', pos: new Vec3(10, 1), type: CompNodeType.Out, width: 32 },
-        ],
-    };
-
-    let reg: IComp = {
-        id: 'reg',
-        name: "Registers",
-        pos: new Vec3(),
-        size: new Vec3(10, 24),
-        type: CompType.REG,
-        nodes: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(5, 0), type: CompNodeType.In, width: 3 * 6 },
-            { id: 'in', name: 'In', pos: new Vec3(0, 3), type: CompNodeType.In, width: 32 },
-            { id: 'outA', name: 'Out A', pos: new Vec3(10, 3), type: CompNodeType.OutTri, width: 32 },
-            { id: 'outB', name: 'Out B', pos: new Vec3(10, 5), type: CompNodeType.OutTri, width: 32 },
-        ],
-    };
-
-    moveLeftOf(ram, busX - busPad);
-    moveLeftOf(rom, busX - busPad);
-    moveBelow(insDecode, 0 + busPad);
-    moveRightOf(insDecode, busX);
-    stackVertically([ram, rom], pad, 0, StackPos.End);
-    stackHorizontally([insDecode, loadStore], pad * 8, 0, StackPos.Start);
-    stackVertically([loadStore, alu], pad * 2, loadStore.pos.y, StackPos.Start);
-    stackVertically([insDecode, pc, reg], pad, insDecode.pos.y, StackPos.Start);
-
-    alu.pos.x = loadStore.pos.x;
-    mainBus.truncPts[0].y = ram.pos.y + ram.size.y / 2;
-    mainBus.truncPts[2].x = loadStore.pos.x + loadStore.size.x / 2;
-    alu.pos.y = reg.pos.y;
-
-    comps.push(ram, rom, insFetch, insDecode, loadStore, alu, pc, reg);
-
-    return {
-        nextWireId: 0,
-        comps,
-        buses,
-        wires: [] as IWireGraph[],
-        ram,
-        rom,
-        insDecode,
-    }
-}
-
-function moveLeftOf(comp: IComp, x: number) {
-    comp.pos.x = x - comp.size.x;
-}
-
-function moveBelow(comp: IComp, y: number) {
-    comp.pos.y = y;
-}
-
-function moveRightOf(comp: IComp, x: number) {
-    comp.pos.x = x;
-}
-
-function stackVertically(comps: IComp[], pad: number, anchorY: number, pos: StackPos = StackPos.Start) {
-    let height = -pad;
-    for (let comp of comps) {
-        height += comp.size.y + pad;
-    }
-    let y = (pos === StackPos.Start ? 0 : pos === StackPos.End ? -height : -height / 2) + anchorY;
-    for (let comp of comps) {
-        comp.pos.y = y;
-        y += comp.size.y + pad;
-    }
-}
-
-function stackHorizontally(comps: IComp[], pad: number, anchorX: number, pos: StackPos = StackPos.Start) {
-    let width = -pad;
-    for (let comp of comps) {
-        width += comp.size.x + pad;
-    }
-    let x = (pos === StackPos.Start ? 0 : pos === StackPos.End ? -width : -width / 2) + anchorX;
-    for (let comp of comps) {
-        comp.pos.x = x;
-        x += comp.size.x + pad;
-    }
-}
-
-function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayoutBase, exeSystem: IExeSystem) {
+function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayout, exeSystem: IExeSystem) {
     let ctx = cvs.ctx;
-
-    // for (let bus of cpuOpts.buses) {
-    //     renderBus(cvs, bus);
-    // }
 
     for (let wire of cpuOpts.wires) {
         let exeNet = exeSystem.nets[exeSystem.lookup.netIdToIdx.get(wire.id) ?? -1];
         renderWire(cvs, editorState, wire, exeNet, exeSystem);
     }
-
-    // if (editorState.hovered?.modelPt) {
-    //     let pt = editorState.hovered.modelPt;
-    //     ctx.beginPath();
-    //     ctx.arc(pt.x, pt.y, 1, 0, 2 * Math.PI);
-    //     ctx.strokeStyle = "#f00";
-    //     ctx.stroke();
-    // }
 
     for (let comp of cpuOpts.comps) {
         let exeComp = exeSystem.comps[exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1];
@@ -840,13 +693,13 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
             exeComp,
         };
 
-        for (let node of comp.nodes) {
+        for (let node of comp.ports) {
             renderNode(cvs, editorState, comp, node);
         }
 
-        if (comp.type === CompType.PC) {
+        if (comp.defId === 'reg1') {
             renderPc(compRenderArgs);
-        } else if (comp.type === CompType.REG) {
+        } else if (comp.defId === 'reg32Riscv') {
             renderRegisterFile(compRenderArgs);
         } else {
             let text = comp.name;
@@ -912,12 +765,12 @@ function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart
 
 }
 
-function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompNode) {
+function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompPort) {
     let hoverRef = editorState.hovered?.ref;
     let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === node.id;
     let type = node.type ?? 0;
-    let isInput = (type & CompNodeType.In) !== 0;
-    let isTristate = (type & CompNodeType.Tristate) !== 0;
+    let isInput = (type & PortDir.In) !== 0;
+    let isTristate = (type & PortDir.Tristate) !== 0;
     let ctx = cvs.ctx;
     let x = comp.pos.x + node.pos.x;
     let y = comp.pos.y + node.pos.y;
@@ -948,12 +801,6 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
     }
 }
 
-interface ICompRenderArgs<T> {
-    cvs: ICanvasState;
-    ctx: CanvasRenderingContext2D;
-    comp: IComp;
-    exeComp: IExeComp<T> | null;
-}
 
 // 32bit pc
 function renderPc({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataSingleReg>) {
@@ -985,36 +832,11 @@ function renderRegisterFile({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataReg
 
         ctx.fillText(regHexStr, comp.pos.x + comp.size.x - 0.5, yMid);
 
-        let text = regNames[i];
+        let text = riscvRegNames[i];
         ctx.textAlign = 'start';
         ctx.fillText(text, comp.pos.x + 0.5, yMid);
     }
 
-}
-
-function renderBus(cvs: ICanvasState, busOpts: IBus) {
-    let ctx = cvs.ctx;
-
-    ctx.beginPath();
-    ctx.strokeStyle = busOpts.color;
-    ctx.lineWidth = 4 * cvs.scale;
-    ctx.lineCap = "square";
-    ctx.lineJoin = "round";
-
-    let pts = busOpts.truncPts;
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 0; i < pts.length; i++) {
-        ctx.lineTo(pts[i].x, pts[i].y);
-    }
-
-    for (let b of busOpts.branches) {
-        ctx.moveTo(b[0].x, b[0].y);
-        for (let i = 0; i < b.length; i++) {
-            ctx.lineTo(b[i].x, b[i].y);
-        }
-    }
-
-    ctx.stroke();
 }
 
 function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem) {

@@ -1,0 +1,9 @@
+
+// make an scss mixin:
+
+@mixin overlayTool {
+    overflow: hidden;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 0 5px 0 rgba(black, 0.2);
+}

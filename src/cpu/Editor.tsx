@@ -1,8 +1,8 @@
 import { createContext, useContext } from 'react';
-import { assignImm } from '../utils/data';
-import { ICpuLayoutBase, IEditorState, IExeSystem } from './CpuModel';
+import { assignImm, StateSetter } from '../utils/data';
+import { ICpuLayout, IEditorState, IExeSystem } from './CpuModel';
 
-export function editLayout(end: boolean, updateLayout: (element: ICpuLayoutBase) => ICpuLayoutBase) {
+export function editLayout(end: boolean, updateLayout: (element: ICpuLayout) => ICpuLayout) {
     return (state: IEditorState) => {
         let changed = updateLayout(state.layout);
 
@@ -54,7 +54,7 @@ export const EditorContext = createContext<IEditorContext | null>(null);
 export interface IEditorContext {
     editorState: IEditorState;
     exeModel: IExeSystem;
-    setEditorState: (state: IEditorState) => void;
+    setEditorState: StateSetter<IEditorState>;
 }
 
 export function useEditorContext() {

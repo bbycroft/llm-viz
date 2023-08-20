@@ -1,4 +1,5 @@
 @import '@/styles/variables.scss';
+@import "./shared.scss";
 
 .toolsTopLeft {
     position: absolute;
@@ -9,12 +10,9 @@
 }
 
 .toolbar {
-    background-color: white;
-    border-radius: 5px;
-    box-shadow: 0 0 5px 0 rgba(black, 0.2);
+    @include overlayTool;
     height: 40px;
     min-width: 40px;
-    overflow: hidden;
 }
 
 .toolbarBtn {

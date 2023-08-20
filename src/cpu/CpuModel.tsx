@@ -1,8 +1,10 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
+import { StateSetter } from "../utils/data";
 import { Vec3 } from "../utils/vector";
+import { CompLibrary } from "./comps/CompBuilder";
 
 export interface IFullSystem {
-    layout: ICpuLayoutBase;
+    layout: ICpuLayout;
     exe: IExeSystem;
 }
 
@@ -21,7 +23,6 @@ export interface IExeSystemLookup {
 export interface IExeComp<T = any> {
     comp: IComp; // a (maybe) rendered component
     ports: IExePort[];
-    type: CompType;
     data: T;
     phaseCount: number;
     phaseIdx: number;
@@ -67,7 +68,7 @@ export interface IExePort {
     portIdx: number; // into IComp.nodes[i]
     netIdx: number;
     width: number;
-    type: CompNodeType;
+    type: PortDir;
     outputEnabled: boolean; // for tristate (true otherwise)
     value: number;
 }
@@ -91,14 +92,23 @@ export interface IExePortRef {
 export interface IEditorState {
     mtx: AffineMat2d;
 
-    layout: ICpuLayoutBase;
-    layoutTemp: ICpuLayoutBase | null;
+    layout: ICpuLayout;
+    layoutTemp: ICpuLayout | null;
 
-    undoStack: ICpuLayoutBase[];
-    redoStack: ICpuLayoutBase[];
+    compLibrary: CompLibrary;
+
+    undoStack: ICpuLayout[];
+    redoStack: ICpuLayout[];
 
     hovered: IHitTest | null;
     addLine: boolean
+
+    dragCreateComp?: IDragCreateComp;
+}
+
+export interface IDragCreateComp {
+    compOrig: IComp;
+    applyFunc?: (a : ICpuLayout) => ICpuLayout;
 }
 
 export interface IHitTest {
@@ -129,7 +139,7 @@ export enum RefType {
     CompNode,
 }
 
-export type IElement = IComp | ICompNode | IBus;
+export type IElement = IComp | ICompPort;
 
 export interface IWire {
     id: string;
@@ -155,42 +165,35 @@ export interface ISegment {
     comp1Ref?: IElRef;
 }
 
-export interface IBus {
-    id: string;
-    type: BusType;
-    width?: number;
-    truncPts: Vec3[];
-    branches: Vec3[][];
-    color: string;
-}
-
-export enum BusType {
-    Data,
-    Addr,
-    AddrDataSignal,
+export interface ICompRenderArgs<T> {
+    cvs: ICanvasState;
+    ctx: CanvasRenderingContext2D;
+    comp: IComp;
+    exeComp: IExeComp<T> | null;
 }
 
 export interface IComp {
     id: string;
+    defId: string;
     name: string;
     pos: Vec3;
     size: Vec3;
-    type: CompType;
-    nodes: ICompNode[];
+    ports: ICompPort[];
 }
 
-export interface ICompNode {
+export interface ICompPort {
     id: string;
     pos: Vec3; // relative to comp
     name: string;
-    type?: CompNodeType;
+    type?: PortDir;
     width?: number;
 }
 
-export enum CompNodeType {
-    In = 1,
+export enum PortDir {
+    In = 1 << 0,
     Out = 1 << 1,
     Tristate = 1 << 2,
+
     OutTri = Out | Tristate,
 }
 
@@ -206,9 +209,9 @@ export enum CompType {
     LS
 }
 
-export interface ICpuLayoutBase {
+export interface ICpuLayout {
+    nextCompId: number;
     nextWireId: number;
     comps: IComp[];
     wires: IWireGraph[];
-    buses: IBus[]; // deprecated
 }

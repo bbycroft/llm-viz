@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useCreateGlobalKeyboardDocumentListener } from '../utils/keyboard';
-import { CpuCanvas, ICpu, IMemoryLayout, Io_Gpio, Io_Gpio_Register, regNames } from './CpuCanvas';
+import { riscvRegNames } from './comps/Registers';
+import { CpuCanvas, ICpu, IMemoryLayout, Io_Gpio, Io_Gpio_Register } from './CpuCanvas';
 import s from './CpuMain.module.scss';
 import { OpCode, Funct3Op, Funct3Branch, Funct3LoadStore, Funct3CSR, CSR_Reg } from './RiscvIsa';
 
@@ -210,7 +211,7 @@ function doSimulation(system: ISystem) {
 }
 
 async function runTests() {
-    console.clear();
+    // console.clear();
 
     let basePath = (process.env.BASE_URL ?? '') + '/riscv/tests-ui-p/rv32ui-p-';
 
@@ -763,7 +764,7 @@ function printBinAddr(addr: number) {
 function dumpCpu(cpu: ICpu) {
     for (let i = 1; i < 32; i++) {
         let val = cpu.x[i];
-        console.log(`x${i.toString().padStart(2, '0')} (${regNames[i]}): ${val} (${printHexAddr(val)}) (${printBinAddr(val)})`);
+        console.log(`x${i.toString().padStart(2, '0')} (${riscvRegNames[i]}): ${val} (${printHexAddr(val)}) (${printBinAddr(val)})`);
     }
 }
 

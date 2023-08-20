@@ -1,8 +1,8 @@
 import { assignImm, getOrAddToMap, isNil } from "../utils/data";
 import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
-import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayoutBase, IElRef, RefType } from "./CpuModel";
+import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayout, IElRef, RefType } from "./CpuModel";
 
-export function moveWiresWithComp(layout: ICpuLayoutBase, compIdx: number, delta: Vec3): IWireGraph[] {
+export function moveWiresWithComp(layout: ICpuLayout, compIdx: number, delta: Vec3): IWireGraph[] {
     let comp = layout.comps[compIdx];
 
     let newWires: IWireGraph[] = [];
@@ -168,7 +168,7 @@ export function dragSegment(wire: IWireGraph, node0Idx: number, node1Idx: number
     return assignImm(wire, { nodes: newNodes });
 }
 
-export function applyWires(layout: ICpuLayoutBase, wires: IWireGraph[], editIdx: number): ICpuLayoutBase {
+export function applyWires(layout: ICpuLayout, wires: IWireGraph[], editIdx: number): ICpuLayout {
 
     let [editedWires, newWires] = fixWires(layout, wires, editIdx);
     let nextWireId = layout.nextWireId;
@@ -212,10 +212,10 @@ export function copyWireGraph(wire: IWireGraph): IWireGraph {
     return { ...wire, nodes };
 }
 
-function createNodePosMap(layout: ICpuLayoutBase) {
+function createNodePosMap(layout: ICpuLayout) {
     let nodePosMap = new Map<string, { pos: Vec3, ref: IElRef }>();
     for (let comp of layout.comps) {
-        for (let node of comp.nodes ?? []) {
+        for (let node of comp.ports ?? []) {
             let nodePos = comp.pos.add(node.pos);
             let ref: IElRef = {
                 type: RefType.CompNode,
@@ -251,7 +251,7 @@ export function iterWireGraphSegments(graph: IWireGraph, cb: (node0: IWireGraphN
     1. wires that are touching each other get merged
     2. wires that have islands get split
 */
-export function fixWires(layout: ICpuLayoutBase, wires: IWireGraph[], editIdx: number): [editedWires: IWireGraph[], newWires: IWireGraph[]] {
+export function fixWires(layout: ICpuLayout, wires: IWireGraph[], editIdx: number): [editedWires: IWireGraph[], newWires: IWireGraph[]] {
     wires = [...wires];
     let editWire = wires[editIdx];
 

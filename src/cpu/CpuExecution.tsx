@@ -1,8 +1,8 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
-import { buildAlu, buildDefault, buildRegFile, buildSingleReg } from "./ComponentDefs";
-import { CompNodeType, ICpuLayoutBase, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType } from "./CpuModel";
+import { CompLibrary } from "./comps/CompBuilder";
+import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType } from "./CpuModel";
 
-export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
+export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout): IExeSystem {
 
     let connectedCompIds = new Set<string>();
     let connectedNetIds = new Set<string>();
@@ -41,10 +41,10 @@ export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
             if (!comp) {
                 continue;
             }
-            for (let nodeIdx = 0; nodeIdx < comp.nodes.length; nodeIdx++) {
-                const node = comp.nodes[nodeIdx];
+            for (let nodeIdx = 0; nodeIdx < comp.ports.length; nodeIdx++) {
+                const node = comp.ports[nodeIdx];
                 if (node.id === ref.compNodeId) {
-                    if (node.type === CompNodeType.In) {
+                    if (node.type === PortDir.In) {
                         inputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx });
                     } else {
                         outputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx });
@@ -68,15 +68,7 @@ export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
     }
 
     for (let comp of connectedComps) {
-
-        let exeComp: IExeComp;
-        switch (comp.id) {
-            case 'alu': exeComp = buildAlu(comp); break;
-            case 'reg': exeComp = buildRegFile(comp); break;
-            case 'pc': exeComp = buildSingleReg(comp); break;
-            default: exeComp = buildDefault(comp); break;
-        }
-        comps.push(exeComp);
+        comps.push(compLibrary.build(comp));
     }
 
     for (let netIdx = 0; netIdx < nets.length; netIdx++) {
@@ -85,7 +77,7 @@ export function createExecutionModel(displayModel: ICpuLayoutBase): IExeSystem {
             let comp = comps[portRef.compIdx];
             let port = comp.ports[portRef.portIdx];
             port.netIdx = netIdx;
-            if (hasFlag(port.type, CompNodeType.Tristate)) {
+            if (hasFlag(port.type, PortDir.Tristate)) {
                 net.tristate = true;
             }
         }
@@ -268,8 +260,8 @@ function netToString(net: IExeNet, comps: IExeComp[]) {
     let portStr = (portRef: IExePortRef) => {
         let comp = comps[portRef.compIdx];
         let port = comp.ports[portRef.portIdx];
-        let tristateStr = hasFlag(port.type, CompNodeType.Tristate) ? '(ts)' : '';
-        let portId = comp.comp.nodes[portRef.portIdx].id;
+        let tristateStr = hasFlag(port.type, PortDir.Tristate) ? '(ts)' : '';
+        let portId = comp.comp.ports[portRef.portIdx].id;
         return `${comp.comp.id}.${portId}${tristateStr}`;
     };
 
