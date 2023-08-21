@@ -51,6 +51,7 @@ export const ModalWindow: React.FC<{
 }
 
 export enum PopupPos {
+    TopLeft,
     BottomLeft, // we position the popup below the target, and left-align it
 }
 
@@ -60,8 +61,10 @@ export const Popup: React.FC<{
     children?: React.ReactNode,
     className?: string,
     closeBackdrop?: boolean,
+    offsetX?: number,
+    offsetY?: number,
     onClose?: () => void,
-}> = ({ targetEl, placement, children, className, closeBackdrop, onClose }) => {
+}> = ({ targetEl, placement, children, className, closeBackdrop, onClose, offsetX, offsetY }) => {
     let [popupEl, setPopupEl] = useState<HTMLElement | null>(null);
     let targetBcr = useWatchElementRect(targetEl, true);
     let popupBcr = useWatchElementRect(popupEl); // we don't need position info for the popup (would cause an infinite loop)
@@ -69,8 +72,8 @@ export const Popup: React.FC<{
     let pos = computeTransform(targetBcr, popupBcr, placement);
 
     let el = <div ref={setPopupEl} className={clsx(s.popup, className)} style={{
-        left: pos.x,
-        top: pos.y,
+        left: pos.x + (offsetX ?? 0),
+        top: pos.y + (offsetY ?? 0),
     }}>
         {children}
     </div>;
@@ -99,6 +102,10 @@ function computeTransform(targetBcr: DOMRect | null, popupBcr: DOMRect | null, p
         case PopupPos.BottomLeft:
             x = targetBcr.x;
             y = targetBcr.bottom;
+            break;
+        case PopupPos.TopLeft:
+            x = targetBcr.x;
+            y = targetBcr.y - popupBcr.height;
             break;
     }
 

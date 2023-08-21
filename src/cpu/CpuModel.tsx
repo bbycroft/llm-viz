@@ -18,7 +18,7 @@ export interface IExeSystem {
 
 export interface IExeSystemLookup {
     compIdToIdx: Map<string, number>;
-    netIdToIdx: Map<string, number>;
+    wireIdToNetIdx: Map<string, number>;
 }
 
 export interface IExeStep {
@@ -87,6 +87,7 @@ export interface IExeNet {
     outputs: IExePortRef[];
     tristate: boolean;
     width: number;
+    type: PortDir;
     value: number;
     enabledCount: number;
 }

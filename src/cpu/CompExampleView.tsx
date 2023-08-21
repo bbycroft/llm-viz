@@ -51,6 +51,7 @@ export const CompExampleView: React.FC = () => {
         if (romComp) {
             romComp.data.rom.set(example.elfSection.arr);
         }
+        stepExecutionCombinatorial(exeModel);
         setEditorState(a => ({ ...a }));
     }
 

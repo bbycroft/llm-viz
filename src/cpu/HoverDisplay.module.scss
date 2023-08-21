@@ -1,0 +1,40 @@
+@import '@/styles/variables.scss';
+@import "./shared.scss";
+
+.hoverDisplay {
+    @include overlayTool;
+    // min-height: 40px;
+    min-width: 50px;
+    padding: 2px 6px;
+}
+
+.numVal {
+    font-family: monospace;
+    font-size: 120%;
+}
+
+.hexVal {
+    font-family: monospace;
+    font-size: 120%;
+    color: $color-text-light;
+}
+
+
+.bitVal {
+    font-family: monospace;
+    font-size: 80%;
+    line-height: 90%;
+    color: $color-text-light;
+}
+
+.compId {
+    font-size: 90%;
+    font-family: monospace;
+    color: $color-text-light;
+}
+
+.bitWidth {
+    font-size: 90%;
+    font-family: monospace;
+    color: $color-text-light;
+}

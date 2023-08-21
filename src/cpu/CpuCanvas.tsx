@@ -11,12 +11,13 @@ import { RefType, IElRef, ISegment, IComp, PortDir, ICompPort, ICanvasState, IEd
 import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CpuEditorToolbar } from "./EditorControls";
-import { exportData, importData } from "./ImportExport";
+import { exportData, hydrateFromLS, importData, wiresFromLsState, wiresToLsState } from "./ImportExport";
 import { buildCompLibrary } from "./comps/CompLibrary";
 import { ICompDataRegFile, ICompDataSingleReg, riscvRegNames } from "./comps/Registers";
 import { CompLibrary } from "./comps/CompBuilder";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
+import { HoverDisplay } from "./HoverDisplay";
 
 interface ICpuState {
     system: any;
@@ -50,108 +51,6 @@ export interface IMemoryLayout {
     romSize: number;
     ramSize: number;
     ioSize: number;
-}
-
-interface ILSGraphWire {
-    id: string;
-    nodes: ILSGraphWireNode[];
-}
-
-interface ILSComp {
-    id: string;
-    defId: string;
-    x: number;
-    y: number;
-}
-
-interface ILSGraphWireNode {
-    id: number;
-    x: number;
-    y: number;
-    edges: number[];
-    ref?: IElRef;
-}
-
-interface ILSState {
-    wires: ILSGraphWire[];
-    comps: ILSComp[];
-}
-
-function hydrateFromLS(ls: Partial<ILSState> | undefined): ILSState {
-    return {
-        wires: ls?.wires ?? [],
-        comps: ls?.comps ?? [],
-    };
-}
-
-function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibrary: CompLibrary): ICpuLayout {
-
-    let newWires: IWireGraph[] = ls.wires.map(w => ({
-        id: w.id,
-        nodes: w.nodes.map(n => ({
-            id: n.id,
-            pos: new Vec3(n.x, n.y),
-            edges: n.edges,
-            ref: n.ref,
-        })),
-    }));
-
-    let maxWireId = 0;
-    for (let w of newWires) {
-        maxWireId = Math.max(maxWireId, parseInt(w.id));
-    }
-
-    checkWires(newWires, 'wiresFromLsState');
-
-    let lsCompLookup = new Map<string, ILSComp>();
-    for (let c of ls.comps) {
-        lsCompLookup.set(c.id, c);
-    }
-
-    let comps: IComp[] = ls.comps.map(c => {
-        let compDef = compLibrary.comps.get(c.defId);
-        if (!compDef) {
-            return null;
-        }
-
-        return {
-            defId: c.defId,
-            id: c.id,
-            name: compDef?.name ?? 'unknown',
-            pos: new Vec3(c.x, c.y),
-            size: compDef.size,
-            ports: compDef.ports,
-        };
-    }).filter(isNotNil);
-
-    let maxCompId = 0;
-    for (let c of comps) {
-        maxCompId = Math.max(maxCompId, parseInt(c.id));
-    }
-
-    return assignImm(layoutBase, {
-        nextWireId: maxWireId + 1,
-        nextCompId: maxCompId + 1,
-        wires: newWires,
-        comps: comps,
-    });
-}
-
-function wiresToLsState(layout: ICpuLayout): ILSState {
-    return {
-        wires: layout.wires
-            .filter(w => w.nodes.length > 0)
-            .map(w => ({
-                id: w.id,
-                nodes: w.nodes.map(n => ({ id: n.id, x: n.pos.x, y: n.pos.y, edges: n.edges, ref: n.ref })),
-            })),
-        comps: layout.comps.map(c => ({
-            id: c.id,
-            defId: c.defId,
-            x: c.pos.x,
-            y: c.pos.y,
-        })),
-    };
 }
 
 interface ICanvasDragState {
@@ -675,8 +574,9 @@ export const CpuCanvas: React.FC<{
                 <CpuEditorToolbar />
                 <CompLibraryView />
                 <CompExampleView />
+                <HoverDisplay canvasEl={cvsState?.canvas ?? null} />
             </div>
-    </div>
+        </div>
     </EditorContext.Provider>;
 };
 
@@ -684,7 +584,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
     let ctx = cvs.ctx;
 
     for (let wire of cpuOpts.wires) {
-        let exeNet = exeSystem.nets[exeSystem.lookup.netIdToIdx.get(wire.id) ?? -1];
+        let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(wire.id) ?? -1];
         renderWire(cvs, editorState, wire, exeNet, exeSystem);
     }
 

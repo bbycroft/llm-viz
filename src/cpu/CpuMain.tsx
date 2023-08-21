@@ -22,9 +22,12 @@ export const CPUMain = () => {
         });
    }, []);
 
-    return <div className={s.content}>
-        <CpuCanvas cpuState={cpuState} />
-    </div>;
+    return <>
+        <div className={s.content}>
+            <CpuCanvas cpuState={cpuState} />
+        </div>
+        <div id="portal-container" />
+    </>;
 };
 
 /* Err, what am I doing?

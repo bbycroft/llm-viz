@@ -1,7 +1,7 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary } from "./comps/CompBuilder";
 import { runNet } from "./comps/ComponentDefs";
-import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep } from "./CpuModel";
+import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup } from "./CpuModel";
 
 export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout, existingSystem: IExeSystem | null): IExeSystem {
 
@@ -63,6 +63,7 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
             outputs: outputs,
             value: 0,
             enabledCount: 0,
+            type: 0,
         };
 
         nets.push(net);
@@ -90,6 +91,8 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
             if (hasFlag(port.type, PortDir.Tristate)) {
                 net.tristate = true;
             }
+            net.width = port.width;
+            net.type |= port.type;
         }
     }
 
@@ -98,18 +101,18 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
     return { comps, nets, ...compExecutionOrder, lookup: createLookupTable(comps, nets) };
 }
 
-export function createLookupTable(comps: IExeComp[], nets: IExeNet[]) {
+export function createLookupTable(comps: IExeComp[], nets: IExeNet[]): IExeSystemLookup {
     let compIdToIdx = new Map<string, number>();
     for (let i = 0; i < comps.length; i++) {
         compIdToIdx.set(comps[i].comp.id, i);
     }
 
-    let netIdToIdx = new Map<string, number>();
+    let wireIdToNetIdx = new Map<string, number>();
     for (let i = 0; i < nets.length; i++) {
-        netIdToIdx.set(nets[i].wire.id, i);
+        wireIdToNetIdx.set(nets[i].wire.id, i);
     }
 
-    return { compIdToIdx, netIdToIdx };
+    return { compIdToIdx, wireIdToNetIdx };
 }
 
 export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { executionSteps: IExeStep[], latchSteps: IExeStep[] } {
