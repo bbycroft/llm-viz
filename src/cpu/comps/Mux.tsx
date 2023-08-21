@@ -41,7 +41,10 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             });
 
             builder.addPhase(({ data: { inSelPort, inAPort, inBPort, outPort } }) => {
-                outPort.value = inSelPort.value === 0 ? inAPort.value : inBPort.value;
+                let isAPort = inSelPort.value === 0;
+                outPort.value = isAPort ? inAPort.value : inBPort.value;
+                inAPort.ioEnabled = isAPort;
+                inBPort.ioEnabled = !isAPort;
             }, [data.inSelPort, data.inAPort, data.inBPort], [data.outPort]);
 
             return builder.build();

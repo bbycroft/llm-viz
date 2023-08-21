@@ -76,7 +76,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
     const rs2 = (ins >>> 20) & 0b11111;
 
     data.regCtrl.value = 0;
-    data.rhsImm.outputEnabled = false;
+    data.rhsImm.ioEnabled = false;
 
     // 0: ALU out => REG, PC + x => PC
     // 1: ALU out => PC,  PC + x => REG
@@ -109,10 +109,10 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
             setRegCtrl(true, rs2, 1); // reg[rs2] => RHS
         } else if (funct3 === Funct3Op.SLLI || funct3 === Funct3Op.SRLI || funct3 === Funct3Op.SRAI) {
             data.rhsImm.value = rs2;
-            data.rhsImm.outputEnabled = true;
+            data.rhsImm.ioEnabled = true;
         } else {
             data.rhsImm.value = signExtend12Bit(ins >>> 20);
-            data.rhsImm.outputEnabled = true;
+            data.rhsImm.ioEnabled = true;
         }
 
         let isArithShiftOrSub = ((ins >>> 30) & 0b1) === 0b1;
@@ -261,6 +261,10 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
         */
     }
 
+    if (data.pcAddMuxCtrl.value) {
+        data.regCtrl.value |= 0b1;
+        // setRegCtrl(true, 0, 0); // 0 => LHS (to ensure we don't leave a floating value on the bus)
+    }
     // cpu.pc += pcOffset; // jump to location, or just move on to next instruction
     // cpu.x[0] = 0; // ensure x0 is always 0
 }

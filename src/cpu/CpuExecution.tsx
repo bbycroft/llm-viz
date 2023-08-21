@@ -1,8 +1,9 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary } from "./comps/CompBuilder";
+import { runNet } from "./comps/ComponentDefs";
 import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep } from "./CpuModel";
 
-export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout): IExeSystem {
+export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout, existingSystem: IExeSystem | null): IExeSystem {
 
     let connectedCompIds = new Set<string>();
     let connectedNetIds = new Set<string>();
@@ -68,6 +69,15 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
     }
 
     for (let comp of connectedComps) {
+
+        if (existingSystem) {
+            let existingComp = existingSystem.comps[existingSystem.lookup.compIdToIdx.get(comp.id)!];
+            if (existingComp) {
+                comps.push(existingComp);
+                continue;
+            }
+        }
+
         comps.push(compLibrary.build(comp));
     }
 
@@ -277,6 +287,32 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
     // console.log('compsToExecute', compsToExecute);
 
     return { executionSteps, latchSteps };
+}
+
+export function stepExecutionCombinatorial(exeModel: IExeSystem) {
+    let exeSteps = exeModel.executionSteps;
+
+    for (let i = 0; i < exeSteps.length; i++) {
+        let step = exeSteps[i];
+        if (step.compIdx >= 0) {
+            let comp = exeModel.comps[step.compIdx];
+            console.log(`running comp ${comp.comp.name} phase ${step.phaseIdx}`);
+            comp.phases[step.phaseIdx].func(comp);
+        } else {
+            let net = exeModel.nets[step.netIdx];
+            runNet(exeModel.comps, net);
+        }
+    }
+
+}
+
+export function stepExecutionLatch(exeModel: IExeSystem) {
+    let latchSteps = exeModel.latchSteps;
+    for (let i = 0; i < latchSteps.length; i++) {
+        let step = latchSteps[i];
+        let comp = exeModel.comps[step.compIdx];
+        comp.phases[step.phaseIdx].func(comp);
+    }
 }
 
 export function netToString(net: IExeNet, comps: IExeComp[]) {

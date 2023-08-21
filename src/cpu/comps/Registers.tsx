@@ -77,8 +77,8 @@ function regFilePhase0({ data: { inCtrlPort, outAPort, outBPort, file } }: IExeC
     let outAEnabled = ctrl & 0b1;
     let outBEnabled = (ctrl >> 6) & 0b1;
 
-    outAPort.outputEnabled = !!outAEnabled;
-    outBPort.outputEnabled = !!outBEnabled;
+    outAPort.ioEnabled = !!outAEnabled;
+    outBPort.ioEnabled = !!outBEnabled;
     outAPort.value = outAEnabled ? file[outBitsA] : 0;
     outBPort.value = outBEnabled ? file[outBitsB] : 0;
 
@@ -137,7 +137,7 @@ function singleRegPhase0(comp: IExeComp<ICompDataSingleReg>) {
     let outPort = data.outPort;
 
     let outEnabled = true; // ctrl & 0b1;
-    outPort.outputEnabled = !!outEnabled;
+    outPort.ioEnabled = !!outEnabled;
     outPort.value = outEnabled ? data.value : 0;
 
     let inEnabled = true; // (ctrl >> 1) & 0b1;

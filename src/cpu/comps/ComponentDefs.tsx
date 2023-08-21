@@ -33,7 +33,7 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         for (let portRef of net.outputs) {
             let comp = comps[portRef.compIdx];
             let port = comp.ports[portRef.portIdx];
-            if (comp.valid && port.outputEnabled) {
+            if (comp.valid && port.ioEnabled) {
                 enabledCount++;
                 enabledPortValue = port.value;
             }

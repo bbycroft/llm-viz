@@ -1,3 +1,4 @@
+import { initProgramState } from "@/src/Program";
 import { isNil, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
 import { PortDir, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort } from "../CpuModel";
@@ -59,11 +60,11 @@ export class ExeCompBuilder<T> {
     constructor(
         public comp: IComp,
     ) {
-        this.ports = comp.ports.map((node, i) => {
+        this.ports = comp.ports.map<IExePort>((node, i) => {
             return {
                 portIdx: i,
                 netIdx: -1,
-                outputEnabled: true,
+                ioEnabled: true,
                 type: node.type ?? PortDir.In,
                 value: 0,
                 width: node.width ?? 1,
@@ -129,6 +130,9 @@ export function buildDefault(comp: IComp): IExeComp<{}> {
     let data = {};
     let inPorts = builder.ports.filter(p => hasFlag(p.type, PortDir.In));
     let outPorts = builder.ports.filter(p => hasFlag(p.type, PortDir.Out));
+    for (let port of [...inPorts, ...outPorts]) {
+        port.ioEnabled = false;
+    }
     builder.addPhase(defaultPhase0, inPorts, outPorts);
     return builder.build(data);
 }

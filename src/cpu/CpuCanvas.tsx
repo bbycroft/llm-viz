@@ -7,9 +7,9 @@ import { IDragStart, useCombinedMouseTouchDrag } from "../utils/pointer";
 import { assignImm, assignImmFull, clamp, hasFlag, isNil, isNotNil } from "../utils/data";
 import { editLayout, EditorContext, IEditorContext } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
-import { RefType, IElRef, ISegment, IComp, PortDir, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, ICompRenderArgs } from "./CpuModel";
+import { RefType, IElRef, ISegment, IComp, PortDir, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, ICompRenderArgs, IExePort, IExePortRef } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
-import { createExecutionModel } from "./CpuExecution";
+import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CpuEditorToolbar } from "./EditorControls";
 import { exportData, importData } from "./ImportExport";
 import { buildCompLibrary } from "./comps/CompLibrary";
@@ -200,9 +200,17 @@ export const CpuCanvas: React.FC<{
 
     useResizeChangeHandler(cvsState?.canvas, redraw);
 
+    let prevExeModel = useRef<IExeSystem | null>(null);
+
     let exeModel = useMemo(() => {
-        return createExecutionModel(editorState.compLibrary, editorState.layout);
+        let model = createExecutionModel(editorState.compLibrary, editorState.layout, prevExeModel.current);
+
+        stepExecutionCombinatorial(model);
+
+        return model;
     }, [editorState.layout, editorState.compLibrary]);
+
+    prevExeModel.current = exeModel;
 
     let setCanvasEl = useCallback((el: HTMLCanvasElement | null) => {
 
@@ -900,18 +908,108 @@ function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGra
     let isData = false;
     let isAddr = false;
 
-    for (let node of wire.nodes) {
-        if (node.ref?.type === RefType.CompNode) {
-            let port = editorState.layout.comps.find(c => c.id === node.ref!.id)?.ports.find(p => p.id === node.ref!.compNodeId);
-            if (port) {
-                if (hasFlag(port.type, PortDir.Ctrl)) {
-                    isCtrl = true;
+    interface IPortBinding {
+        comp: IComp;
+        port: ICompPort;
+        exePort: IExePort;
+        nodeId: number;
+    }
+
+    let isNonZero = false;
+    let portBindings = new Map<string, IPortBinding>();
+    let flowSegs = new Set<string>(); // the direction of flow is given by id0 -> id1 in "id0:id1"
+    let flowNodes = new Set<number>();
+    let segKey = (id0: number, id1: number) => `${id0}:${id1}`;
+
+    if (exeNet) {
+        isNonZero = exeNet.value !== 0;
+
+        let key = (compId: string, portId: string) => `${compId}:${portId}`;
+
+        for (let exePortRef of [...exeNet.inputs, ...exeNet.outputs]) {
+            let exeComp = exeSystem.comps[exePortRef.compIdx];
+            let exePort = exeComp.ports[exePortRef.portIdx];
+            let comp = exeComp.comp;
+            let port = comp.ports[exePortRef.portIdx];
+
+            portBindings.set(key(comp.id, port.id), {
+                comp: comp,
+                port: comp.ports[exePortRef.portIdx],
+                exePort: exePort,
+                nodeId: -1,
+            });
+        }
+
+        let nodeIdToPortBinding = new Map<number, IPortBinding>();
+
+        for (let node of wire.nodes) {
+            if (node.ref?.type === RefType.CompNode) {
+                let portBinding = portBindings.get(key(node.ref.id, node.ref.compNodeId!));
+                if (portBinding) {
+                    let port = portBinding.port;
+                    if (hasFlag(port.type, PortDir.Ctrl)) {
+                        isCtrl = true;
+                    }
+                    if (hasFlag(port.type, PortDir.Data)) {
+                        isData = true;
+                    }
+                    if (hasFlag(port.type, PortDir.Addr)) {
+                        isAddr = true;
+                    }
+                    nodeIdToPortBinding.set(node.id, portBinding);
+                    portBinding.nodeId = node.id;
                 }
-                if (hasFlag(port.type, PortDir.Data)) {
-                    isData = true;
+            }
+        }
+
+        let inputNodeIds: number[] = []; // should only be one active input! multiple imply some failure, and should probably be rendered specially in some way
+        let outputNodeIds: number[] = [];
+
+        for (let binding of nodeIdToPortBinding.values()) {
+            if (hasFlag(binding.port.type, PortDir.In) && binding.exePort.ioEnabled) {
+                inputNodeIds.push(binding.nodeId);
+            }
+            if (hasFlag(binding.port.type, PortDir.Out) && binding.exePort.ioEnabled) {
+                outputNodeIds.push(binding.nodeId);
+            }
+        }
+
+        // now walk the wire graph from the inputNodeIds to all the outputNodeIds (shortest paths)
+        // and mark those segments as flow segments
+
+        for (let inputNodeId of inputNodeIds) {
+            let visited = new Set<number>();
+            let prevNodeId = new Map<number, number>();
+            let queue = [inputNodeId];
+
+            while (queue.length > 0) {
+                let nodeId = queue.shift()!;
+                if (visited.has(nodeId)) {
+                    continue;
                 }
-                if (hasFlag(port.type, PortDir.Addr)) {
-                    isAddr = true;
+                visited.add(nodeId);
+
+                let node = wire.nodes[nodeId];
+                for (let nextNodeId of node.edges) {
+                    let node1 = wire.nodes[nextNodeId];
+                    if (visited.has(node1.id)) {
+                        continue;
+                    }
+                    prevNodeId.set(node1.id, nodeId);
+                    queue.push(node1.id);
+                }
+            }
+
+            for (let outputNodeId of outputNodeIds) {
+                let nodeId = outputNodeId;
+                while (nodeId !== inputNodeId) {
+                    let prevId = prevNodeId.get(nodeId);
+                    if (prevId === undefined) {
+                        break;
+                    }
+                    flowSegs.add(segKey(prevId, nodeId));
+                    flowNodes.add(prevId);
+                    nodeId = prevId;
                 }
             }
         }
@@ -947,18 +1045,26 @@ function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGra
         ctx.restore();
     }
 
+    let noFlowColor = '#D3D3D3';
+    let zeroFlowColor = '#fec44f';
+    let nonZeroFlowColor = '#d95f0e';
+    let flowColor = isNonZero ? nonZeroFlowColor : zeroFlowColor;
+
     iterWireGraphSegments(wire, (node0, node1) => {
         ctx.beginPath();
-        // if (isSegHover(node0, node1)) {
-        //     ctx.strokeStyle = '#f00';
-        // } else if (isHover) {
-        //     ctx.strokeStyle = '#aaa';
-        // } else {
-            ctx.strokeStyle = '#333';
-            if (isHover) {
-                // ctx.strokeStyle = '#aaa';
-            }
-        // }
+
+        let isForwardFlow = flowSegs.has(segKey(node0.id, node1.id));
+        let isBackwardFlow = flowSegs.has(segKey(node1.id, node0.id));
+        let isFlow = isForwardFlow || isBackwardFlow;
+
+        // somehow will need to indicate flow direction (not yet)
+
+        ctx.strokeStyle = noFlowColor; //'#333';
+
+        if (isFlow) {
+            ctx.strokeStyle = flowColor;
+        }
+
         ctx.lineWidth = width * cvs.scale;
         ctx.moveTo(node0.pos.x, node0.pos.y);
         ctx.lineTo(node1.pos.x, node1.pos.y);
@@ -993,10 +1099,11 @@ function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGra
         if (isJunction) {
             let x = node.pos.x;
             let y = node.pos.y;
-            let r = 6 * cvs.scale;
+            let r = Math.max(width, 2) * 1.7 * cvs.scale;
             ctx.beginPath();
             ctx.arc(x, y, r, 0, 2 * Math.PI);
-            ctx.fillStyle = "#000";
+            let isFlow = flowNodes.has(node.id);
+            ctx.fillStyle = isFlow ? flowColor : noFlowColor;
             ctx.fill();
         }
     }

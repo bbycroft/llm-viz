@@ -73,11 +73,11 @@ export interface IExePhase<T = any> {
 }
 
 export interface IExePort {
-    portIdx: number; // into IComp.nodes[i]
+    portIdx: number; // into IComp.ports[i]
     netIdx: number;
     width: number;
     type: PortDir;
-    outputEnabled: boolean; // for tristate (true otherwise)
+    ioEnabled: boolean; // for tristate (true otherwise). For inputs, false means the input is ignored (e.g. an inactive mux input). The latter is useful for rendering
     value: number;
 }
 

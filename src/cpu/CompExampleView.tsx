@@ -6,6 +6,7 @@ import { ICompDataRom } from "./comps/SimpleMemory";
 import { IExeComp } from "./CpuModel";
 import { runNet } from "./comps/ComponentDefs";
 import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
+import { stepExecutionCombinatorial, stepExecutionLatch } from "./CpuExecution";
 
 interface IExampleEntry {
     name: string;
@@ -55,27 +56,8 @@ export const CompExampleView: React.FC = () => {
 
     function onStepClicked() {
         console.log('--- running execution (latching followed by steps) ---', exeModel);
-        let exeSteps = exeModel.executionSteps;
-        let latchSteps = exeModel.latchSteps;
-
-        for (let i = 0; i < exeSteps.length; i++) {
-            let step = exeSteps[i];
-            if (step.compIdx >= 0) {
-                let comp = exeModel.comps[step.compIdx];
-                console.log(`running comp ${comp.comp.name} phase ${step.phaseIdx}`);
-                comp.phases[step.phaseIdx].func(comp);
-            } else {
-                let net = exeModel.nets[step.netIdx];
-                runNet(exeModel.comps, net);
-            }
-        }
-
-        for (let i = 0; i < latchSteps.length; i++) {
-            let step = latchSteps[i];
-            let comp = exeModel.comps[step.compIdx];
-            comp.phases[step.phaseIdx].func(comp);
-        }
-
+        stepExecutionLatch(exeModel);
+        stepExecutionCombinatorial(exeModel);
         setEditorState(a => ({ ...a }));
     }
 
@@ -95,6 +77,8 @@ export const CompExampleView: React.FC = () => {
         } else {
             console.log('could not find pc or reg comp');
         }
+
+        stepExecutionCombinatorial(exeModel);
 
         setEditorState(a => ({ ...a }));
     }

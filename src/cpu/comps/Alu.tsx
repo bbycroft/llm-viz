@@ -75,12 +75,15 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort } }: IExeComp
     let ctrl = inCtrlPort.value;
     let lhs = inAPort.value;
     let rhs = inBPort.value;
-    outPort.outputEnabled = false;
 
     let isEnabled = (ctrl & 0b100000) !== 0;
     let isBranch =  (ctrl & 0b010000) !== 0;
 
     console.log(`alu: ctrl=${ctrl.toString(2)} lhs=${lhs} rhs=${rhs} isEnabled=${isEnabled} isBranch=${isBranch}`);
+
+    inAPort.ioEnabled = isEnabled;
+    inBPort.ioEnabled = isEnabled;
+    outPort.ioEnabled = isEnabled;
 
     if (!isEnabled) {
         return;
@@ -95,7 +98,7 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort } }: IExeComp
             case 0b100: res = lhs < rhs; break;
             case 0b110: res = (lhs >>> 0) < (rhs >>> 0); break;
         }
-        outPort.outputEnabled = true; // branch may need its own output port?
+        // branch may need its own output port?
         outPort.value = (res ? 1 : 0) ^ isInverted;
     } else {
         let funct3 = (ctrl >> 1) & 0b111;
@@ -111,7 +114,6 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort } }: IExeComp
             case 0b110: res = lhs | rhs; break; // or
             case 0b111: res = lhs & rhs; break; // and
         }
-        outPort.outputEnabled = true;
         outPort.value = res;
     }
 
