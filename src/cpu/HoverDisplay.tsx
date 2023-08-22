@@ -2,6 +2,7 @@ import React from "react";
 import { hasFlag } from "../utils/data";
 import { Popup, PopupPos } from "../utils/Portal";
 import { Vec3 } from "../utils/vector";
+import { lookupPortInfo } from "./CpuExecution";
 import { PortDir, RefType } from "./CpuModel";
 import { useEditorContext } from "./Editor";
 import s from "./HoverDisplay.module.scss";
@@ -65,10 +66,44 @@ export const HoverDisplay: React.FC<{
         } else {
             let compIdx = exeModel.lookup.compIdToIdx.get(hovered.ref.id);
             let comp = exeModel.comps[compIdx ?? -1];
+
+            let portElNode: React.ReactNode = null;
+            let portIdStr: React.ReactNode = null;
+            if (hovered.ref.type === RefType.CompNode) {
+                let portInfo = lookupPortInfo(exeModel, hovered.ref);
+                if (portInfo) {
+                    let { portExe, port } = portInfo;
+                    let type = portExe.type;
+                    let typeStr = '';
+                    if (hasFlag(type, PortDir.In)) {
+                        typeStr = 'in';
+                    }
+                    if (hasFlag(type, PortDir.Out)) {
+                        typeStr = 'out';
+                    }
+                    if (hasFlag(type, PortDir.Ctrl)) {
+                        typeStr += ' ctrl';
+                    }
+                    if (hasFlag(type, PortDir.Data)) {
+                        typeStr += ' data';
+                    }
+                    if (hasFlag(type, PortDir.Tristate)) {
+                        typeStr += ' tristate';
+                    }
+                    if (hasFlag(type, PortDir.Addr)) {
+                        typeStr += ' addr';
+                    }
+                    portElNode = <>
+                        <span>&nbsp; Port {port.name} ({typeStr})</span>
+                    </>;
+                    portIdStr = <span className={s.portId}>/{port.id}</span>;
+                }
+            }
+
             if (comp) {
                 content = <div>
-                    <div>{comp.comp.name}</div>
-                    <div className={s.compId}>{comp.comp.id}/{comp.comp.defId}</div>
+                    <div>{portElNode ?? comp.comp.name}</div>
+                    <div className={s.compId}>{comp.comp.id}/{comp.comp.defId}{portIdStr}</div>
                 </div>;
 
             } else {

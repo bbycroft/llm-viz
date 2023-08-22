@@ -1,7 +1,7 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary } from "./comps/CompBuilder";
 import { runNet } from "./comps/ComponentDefs";
-import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup } from "./CpuModel";
+import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef } from "./CpuModel";
 
 export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout, existingSystem: IExeSystem | null): IExeSystem {
 
@@ -113,6 +113,22 @@ export function createLookupTable(comps: IExeComp[], nets: IExeNet[]): IExeSyste
     }
 
     return { compIdToIdx, wireIdToNetIdx };
+}
+
+export function lookupPortInfo(system: IExeSystem, ref: IElRef) {
+    let compIdx = system.lookup.compIdToIdx.get(ref.id) ?? -1;
+    let compExe = system.comps[compIdx];
+    if (!compExe) {
+        return null;
+    }
+    let portIdx = compExe.comp.ports.findIndex(p => p.id === ref.compNodeId);
+    if (portIdx < 0) {
+        return null;
+    }
+    let portExe = compExe.ports[portIdx];
+    let comp = compExe.comp;
+    let port = comp.ports[portIdx];
+    return { compIdx, portIdx, compExe, portExe, comp, port };
 }
 
 export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { executionSteps: IExeStep[], latchSteps: IExeStep[] } {
