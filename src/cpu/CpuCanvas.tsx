@@ -733,12 +733,13 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
 function renderPc({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataSingleReg>) {
     let padX = 1.2;
     let padY = 0.8;
+    let lineHeight = 1.4;
     let pcValue = exeComp?.data.value ?? 0;
     let pcHexStr = '0x' + pcValue.toString(16).toUpperCase().padStart(8, "0");
     let pcValStr = pcValue.toString().padStart(2, "0");
 
     let padInner = new Vec3(0.2, 0.1);
-    let boxSize = comp.size.sub(new Vec3(padX * 2, padY * 2)).add(padInner.mul(2));
+    let boxSize = new Vec3(comp.size.x, lineHeight).sub(new Vec3(padX * 2)).mulAdd(padInner, 2);
     let boxOffset = new Vec3(padX, padY).sub(padInner);
     ctx.beginPath();
     ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);
@@ -747,7 +748,7 @@ function renderPc({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataSingleReg>) {
     ctx.fill();
     ctx.stroke();
 
-    ctx.font = `${2 / 4}px monospace`;
+    ctx.font = `${3 / 4}px monospace`;
     ctx.textAlign = 'end';
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#000";
@@ -760,9 +761,9 @@ function renderPc({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataSingleReg>) {
 
 // x0-x31 32bit registers, each with names
 function renderRegisterFile({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataRegFile>) {
-    let padX = 1.2;
-    let padY = 0.8;
-    let lineHeight = 0.7; // (comp.size.y - padY * 2) / 32;
+    let padX = 1.5;
+    let padY = 1.0;
+    let lineHeight = 1.4; // (comp.size.y - padY * 2) / 32;
 
     ctx.save();
     ctx.beginPath();
@@ -784,7 +785,7 @@ function renderRegisterFile({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataReg
         ctx.fill();
         ctx.stroke();
 
-        ctx.font = `${2 / 4}px monospace`;
+        ctx.font = `${3 / 4}px monospace`;
         ctx.textAlign = 'end';
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#000";

@@ -57,8 +57,15 @@ export const CompExampleView: React.FC = () => {
 
     function onStepClicked() {
         console.log('--- running execution (latching followed by steps) ---', exeModel);
-        stepExecutionLatch(exeModel);
-        stepExecutionCombinatorial(exeModel);
+        if (!exeModel.runArgs.halt) {
+            stepExecutionLatch(exeModel);
+        }
+
+        if (!exeModel.runArgs.halt) {
+            console.log('--- halted ---');
+            stepExecutionCombinatorial(exeModel);
+        }
+
         setEditorState(a => ({ ...a }));
     }
 
@@ -78,6 +85,8 @@ export const CompExampleView: React.FC = () => {
         } else {
             console.log('could not find pc or reg comp');
         }
+
+        exeModel.runArgs.halt = false;
 
         stepExecutionCombinatorial(exeModel);
 
@@ -101,7 +110,7 @@ export const CompExampleView: React.FC = () => {
         <div className={s.divider} />
 
         <div className={s.body}>
-            <button className={s.btn} onClick={onStepClicked}>Step</button>
+            <button className={s.btn} disabled={exeModel.runArgs.halt} onClick={onStepClicked}>Step</button>
             <button className={s.btn} onClick={onResetClicked}>Reset</button>
         </div>
 

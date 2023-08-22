@@ -1,7 +1,7 @@
 import { initProgramState } from "@/src/Program";
 import { isNil, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
-import { PortDir, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort } from "../CpuModel";
+import { PortDir, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -90,11 +90,11 @@ export class ExeCompBuilder<T> {
         return data;
     }
 
-    public addLatchedPhase(func: (comp: IExeComp<T>) => void, inPorts: IExePort[], outPorts: IExePort[]): ExeCompBuilder<T> {
+    public addLatchedPhase(func: (comp: IExeComp<T>, args: IExeRunArgs) => void, inPorts: IExePort[], outPorts: IExePort[]): ExeCompBuilder<T> {
         return this.addPhase(func, inPorts, outPorts, true);
     }
 
-    public addPhase(func: (comp: IExeComp<T>) => void, inPorts: IExePort[], outPorts: IExePort[], isLatch: boolean = false): ExeCompBuilder<T> {
+    public addPhase(func: (comp: IExeComp<T>, args: IExeRunArgs) => void, inPorts: IExePort[], outPorts: IExePort[], isLatch: boolean = false): ExeCompBuilder<T> {
         if (this.seenLatch) {
             throw new Error(`Cannot add phase after latch phase`);
         }

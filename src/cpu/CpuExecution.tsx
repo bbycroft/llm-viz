@@ -98,7 +98,7 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
 
     let compExecutionOrder = calcCompExecutionOrder(comps, nets);
 
-    return { comps, nets, ...compExecutionOrder, lookup: createLookupTable(comps, nets) };
+    return { comps, nets, ...compExecutionOrder, lookup: createLookupTable(comps, nets), runArgs: { halt: false } };
 }
 
 export function createLookupTable(comps: IExeComp[], nets: IExeNet[]): IExeSystemLookup {
@@ -316,7 +316,7 @@ export function stepExecutionCombinatorial(exeModel: IExeSystem) {
         if (step.compIdx >= 0) {
             let comp = exeModel.comps[step.compIdx];
             console.log(`running comp ${comp.comp.name} phase ${step.phaseIdx}`);
-            comp.phases[step.phaseIdx].func(comp);
+            comp.phases[step.phaseIdx].func(comp, exeModel.runArgs);
         } else {
             let net = exeModel.nets[step.netIdx];
             runNet(exeModel.comps, net);
@@ -330,7 +330,7 @@ export function stepExecutionLatch(exeModel: IExeSystem) {
     for (let i = 0; i < latchSteps.length; i++) {
         let step = latchSteps[i];
         let comp = exeModel.comps[step.compIdx];
-        comp.phases[step.phaseIdx].func(comp);
+        comp.phases[step.phaseIdx].func(comp, exeModel.runArgs);
     }
 }
 

@@ -7,12 +7,12 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     let alu: ICompDef<ICompDataAlu> = {
         defId: 'aluRiscv32_0',
         name: "ALU",
-        size: new Vec3(10, 6),
+        size: new Vec3(16, 12),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 3), type: PortDir.In, width: 6 },
             { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: PortDir.In, width: 32 },
-            { id: 'rhs', name: 'RHS', pos: new Vec3(7, 0), type: PortDir.In, width: 32 },
-            { id: 'result', name: 'Result', pos: new Vec3(5, 6), type: PortDir.OutTri, width: 32 },
+            { id: 'rhs', name: 'RHS', pos: new Vec3(13, 0), type: PortDir.In, width: 32 },
+            { id: 'result', name: 'Result', pos: new Vec3(8, 12), type: PortDir.OutTri, width: 32 },
         ],
         build: buildAlu,
     };

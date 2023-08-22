@@ -7,12 +7,12 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     let reg32: ICompDef<ICompDataRegFile> = {
         defId: 'reg32Riscv',
         name: "Registers",
-        size: new Vec3(10, 12),
+        size: new Vec3(16, 20),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(5, 0), type: PortDir.In, width: 3 * 6 },
             { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
-            { id: 'outA', name: 'A', pos: new Vec3(10, 3), type: PortDir.OutTri, width: 32 },
-            { id: 'outB', name: 'B', pos: new Vec3(10, 5), type: PortDir.OutTri, width: 32 },
+            { id: 'outA', name: 'A', pos: new Vec3(16, 3), type: PortDir.OutTri, width: 32 },
+            { id: 'outB', name: 'B', pos: new Vec3(16, 5), type: PortDir.OutTri, width: 32 },
         ],
         build: buildRegFile,
     };
@@ -20,11 +20,11 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     let regSingle: ICompDef<ICompDataSingleReg> = {
         defId: 'reg1',
         name: "Register",
-        size: new Vec3(10, 2),
+        size: new Vec3(16, 3),
         ports: [
             // { id: 'ctrl', name: 'Ctrl', pos: new Vec3(3, 0), type: PortDir.In, width: 1 },
             { id: 'in', name: 'In', pos: new Vec3(0, 1), type: PortDir.In, width: 32 },
-            { id: 'out', name: 'Out', pos: new Vec3(10, 1), type: PortDir.Out, width: 32 },
+            { id: 'out', name: 'Out', pos: new Vec3(16, 1), type: PortDir.Out, width: 32 },
         ],
         build: buildSingleReg,
     };

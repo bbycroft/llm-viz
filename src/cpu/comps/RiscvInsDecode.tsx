@@ -5,8 +5,8 @@ import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 
 export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let w = 10;
-    let h = 5;
+    let w = 15;
+    let h = 10;
     let alu: ICompDef<ICompDataInsDecoder> = {
         defId: 'insDecodeRiscv32_0',
         name: "Instruction Decoder",
@@ -16,14 +16,14 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
 
             { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(w, 1), type: PortDir.Out | PortDir.Ctrl, width: 4 },
             { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(w, 2), type: PortDir.Out | PortDir.Addr, width: 32 },
-            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(w, 3), type: PortDir.OutTri | PortDir.Data, width: 32 },
+            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(w, 6), type: PortDir.OutTri | PortDir.Data, width: 32 },
 
             { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(1, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'regCtrl', name: 'Reg', pos: new Vec3(3, h), type: PortDir.Out | PortDir.Ctrl, width: 3 * 6 },
-            { id: 'pcAddImm', name: 'PC+Imm', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Addr, width: 32 },
+            { id: 'regCtrl', name: 'Reg', pos: new Vec3(4, h), type: PortDir.Out | PortDir.Ctrl, width: 3 * 6 },
+            { id: 'pcAddImm', name: 'PC+Imm', pos: new Vec3(7, h), type: PortDir.Out | PortDir.Addr, width: 32 },
             // { id: 'pcOutTristateCtrl', name: 'PC LHS', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'pcAddMuxCtrl', name: 'LHS Sel', pos: new Vec3(7, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(9, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
+            { id: 'pcAddMuxCtrl', name: 'LHS Sel', pos: new Vec3(10, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(13, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
         ],
         build: buildInsDecoder,
     };
@@ -44,6 +44,8 @@ export interface ICompDataInsDecoder {
 
     pcAddImm: IExePort; // gets added to PC, overrides +4 for jumps
     pcAddMuxCtrl: IExePort; // 1-bit value, selects between PC + 4 and PC + imm
+
+    willHalt: boolean;
 }
 
 export function buildInsDecoder(comp: IComp) {
@@ -61,8 +63,16 @@ export function buildInsDecoder(comp: IComp) {
 
         pcAddImm: builder.getPort('pcAddImm'),
         pcAddMuxCtrl: builder.getPort('pcAddMuxCtrl'),
+
+        willHalt: false,
     });
     builder.addPhase(insDecoderPhase0, [data.ins], [data.addrOffset, data.rhsImm, data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.pcAddMuxCtrl, data.pcAddImm]);
+    builder.addLatchedPhase(({ data }, args) => {
+        if (data.willHalt) {
+            args.halt = true;
+            data.willHalt = false;
+        }
+    }, [], []);
     return builder.build(data);
 }
 
@@ -84,6 +94,12 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
     // data.pcOutTristateCtrl.value = 0;
     data.pcAddImm.value = 4;
     data.pcAddMuxCtrl.value = 1; // inverted
+
+    if (ins === 0) {
+        console.log('ILLEGAL INSTRUCTION: 0x0');
+        data.willHalt = true;
+        return;
+    }
 
     function setRegCtrl(enable: boolean, addr: number, offset: number) {
         let a = (enable ? 1 : 0) | (addr & 0b11111) << 1;
@@ -209,6 +225,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
         setAluCtrl(true, false, Funct3Op.ADD, false);
 
     } else if (opCode === OpCode.SYSTEM) {
+        data.willHalt = true;
         /*
         let csr = (ins >>> 20);
         if (funct3 !== 0x0) {

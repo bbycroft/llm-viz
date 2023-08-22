@@ -8,12 +8,17 @@ export interface IFullSystem {
     exe: IExeSystem;
 }
 
+export interface IExeRunArgs {
+    halt: boolean;
+}
+
 export interface IExeSystem {
     comps: IExeComp[];
     nets: IExeNet[];
     executionSteps: IExeStep[];
     latchSteps: IExeStep[]; // latches are done just prior to the next round of execution steps (it's useful to pause prior to latching)
     lookup: IExeSystemLookup;
+    runArgs: IExeRunArgs;
 }
 
 export interface IExeSystemLookup {
@@ -68,7 +73,7 @@ export interface IExeComp<T = any> {
 export interface IExePhase<T = any> {
     readPortIdxs: number[];
     writePortIdxs: number[];
-    func: (comp: IExeComp<T>) => void;
+    func: (comp: IExeComp<T>, args: IExeRunArgs) => void;
     isLatch: boolean;
 }
 
