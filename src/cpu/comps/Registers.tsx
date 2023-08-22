@@ -4,15 +4,16 @@ import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder"
 
 export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
+    let w = 40;
     let reg32: ICompDef<ICompDataRegFile> = {
         defId: 'reg32Riscv',
         name: "Registers",
-        size: new Vec3(16, 20),
+        size: new Vec3(w, 30),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(5, 0), type: PortDir.In, width: 3 * 6 },
             { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
-            { id: 'outA', name: 'A', pos: new Vec3(16, 3), type: PortDir.OutTri, width: 32 },
-            { id: 'outB', name: 'B', pos: new Vec3(16, 5), type: PortDir.OutTri, width: 32 },
+            { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortDir.OutTri, width: 32 },
+            { id: 'outB', name: 'B', pos: new Vec3(w, 5), type: PortDir.OutTri, width: 32 },
         ],
         build: buildRegFile,
     };
@@ -20,11 +21,11 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     let regSingle: ICompDef<ICompDataSingleReg> = {
         defId: 'reg1',
         name: "Register",
-        size: new Vec3(16, 3),
+        size: new Vec3(40, 6),
         ports: [
             // { id: 'ctrl', name: 'Ctrl', pos: new Vec3(3, 0), type: PortDir.In, width: 1 },
-            { id: 'in', name: 'In', pos: new Vec3(0, 1), type: PortDir.In, width: 32 },
-            { id: 'out', name: 'Out', pos: new Vec3(16, 1), type: PortDir.Out, width: 32 },
+            { id: 'in', name: 'I', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
+            { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
         ],
         build: buildSingleReg,
     };
@@ -44,6 +45,9 @@ export interface ICompDataRegFile {
     writeEnabled: boolean;
     writeReg: number;
     writeData: number;
+
+    readAReg: number; // -1 means no read
+    readBReg: number;
 }
 
 export function buildRegFile(comp: IComp): IExeComp<ICompDataRegFile> {
@@ -59,6 +63,8 @@ export function buildRegFile(comp: IComp): IExeComp<ICompDataRegFile> {
         writeEnabled: false,
         writeReg: 0,
         writeData: 0,
+        readAReg: -1,
+        readBReg: -1,
     };
     builder.addPhase(regFilePhase0, [data.inCtrlPort], [data.outAPort, data.outBPort]);
     builder.addPhase(regFilePhase1, [data.inCtrlPort, data.inDataPort], []);
@@ -69,7 +75,8 @@ export function buildRegFile(comp: IComp): IExeComp<ICompDataRegFile> {
 // inCtrl bits ((1 + 5) * 3 = 18 bits)
 
 // phase0 reads
-function regFilePhase0({ data: { inCtrlPort, outAPort, outBPort, file } }: IExeComp<ICompDataRegFile>) {
+function regFilePhase0({ data }: IExeComp<ICompDataRegFile>) {
+    let { inCtrlPort, outAPort, outBPort, file } = data;
     let ctrl = inCtrlPort.value;
     let outBitsA = (ctrl >> (1 + 0)) & 0x1f;
     let outBitsB = (ctrl >> (1 + 6)) & 0x1f;
@@ -82,7 +89,8 @@ function regFilePhase0({ data: { inCtrlPort, outAPort, outBPort, file } }: IExeC
     outAPort.value = outAEnabled ? file[outBitsA] : 0;
     outBPort.value = outBEnabled ? file[outBitsB] : 0;
 
-    console.log(`reading reg: ${outAEnabled}? ${outBitsA} => ${outAPort.value}; ${outBEnabled}? ${outBitsB} => ${outBPort.value}`);
+    data.readAReg = outAEnabled ? outBitsA : -1;
+    data.readBReg = outBEnabled ? outBitsB : -1;
 }
 
 // phase1 writes

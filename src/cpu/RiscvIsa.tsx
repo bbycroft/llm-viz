@@ -32,10 +32,23 @@ export enum Funct3Op {
     SLT   = 0b010, // set less than
     SLTU  = 0b011, // set less than unsigned
     XOR   = 0b100, // xor
-    SRA   = 0b101, // shift right arithmetic
     SRL   = 0b101, // shift right logical
+    SRx   = 0b101, // shift right arithmetic
     OR    = 0b110, // or
     AND   = 0b111, // and
+}
+
+export enum Funct3OpImm {
+    ADDI  = 0b000, // add
+    SLTI  = 0b010, // set less than
+    SLTIU = 0b011, // set less than unsigned
+    XORI  = 0b100, // xor
+    ORI   = 0b110, // or
+    ANDI  = 0b111, // and
+
+    SLLI  = 0b001, // shift left logical
+    SRxI  = 0b101, // shift right logical
+    // SRAI  = 0b101, // shift right arithmetic
 }
 
 export enum Funct3Branch {

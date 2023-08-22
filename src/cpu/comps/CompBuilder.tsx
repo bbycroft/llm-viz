@@ -15,6 +15,7 @@ export interface ICompDef<T> {
 
     build?: (comp: IComp) => IExeComp<T>;
     render?: (args: ICompRenderArgs<T>) => void;
+    renderAll?: boolean;
 }
 
 export class CompLibrary {

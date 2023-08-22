@@ -13,8 +13,8 @@ export interface ICompDataRom {
 
 export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let w = 16;
-    let h = 16;
+    let w = 40;
+    let h = 30;
     let rom: ICompDef<ICompDataRom> = {
         defId: 'rom0',
         name: "ROM",
@@ -41,16 +41,14 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
 
             return builder.build();
         },
-        render: ({ comp, ctx, cvs, exeComp }) => {
+        render: ({ comp, ctx, cvs, exeComp, styles }) => {
             if (exeComp) {
                 for (let i = 0; i < 10; i++) {
-                    let lineHeight = 1.0;
-                    let textHeight = lineHeight * 0.8;
                     let x = comp.pos.x + 0.3;
-                    let y = comp.pos.y + 0.3 + i * lineHeight;
+                    let y = comp.pos.y + 0.3 + i * styles.lineHeight;
                     let word = exeComp.data.rom32View[i];
                     ctx.fillStyle = 'black';
-                    ctx.font = `${textHeight}px monospace`;
+                    ctx.font = `${styles.fontSize}px monospace`;
                     ctx.textAlign = 'left';
                     ctx.textBaseline = 'top';
 

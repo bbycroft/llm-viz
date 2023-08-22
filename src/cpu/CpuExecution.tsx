@@ -310,6 +310,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
 
 export function stepExecutionCombinatorial(exeModel: IExeSystem) {
     let exeSteps = exeModel.executionSteps;
+    exeModel.runArgs.halt = false;
 
     for (let i = 0; i < exeSteps.length; i++) {
         let step = exeSteps[i];

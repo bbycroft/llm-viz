@@ -4,7 +4,7 @@ import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart, useCombinedMouseTouchDrag } from "../utils/pointer";
-import { assignImm, assignImmFull, clamp, hasFlag, isNil, isNotNil } from "../utils/data";
+import { assignImm, assignImmFull, clamp, getOrAddToMap, hasFlag, isNil, isNotNil } from "../utils/data";
 import { editLayout, EditorContext, IEditorContext } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
 import { RefType, IElRef, ISegment, IComp, PortDir, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, ICompRenderArgs, IExePort, IExePortRef } from "./CpuModel";
@@ -115,7 +115,7 @@ export const CpuCanvas: React.FC<{
 
         if (el) {
             let ctx = el.getContext("2d")!;
-            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1 });
+            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1, tileCanvases: new Map() });
         } else {
             setCvsState(null);
         }
@@ -161,7 +161,7 @@ export const CpuCanvas: React.FC<{
     let [dragStart, setDragStart] = useCombinedMouseTouchDrag(cvsState?.canvas ?? null, ev => {
         return {
             mtx: editorState!.mtx,
-            hovered: editorState!.hovered,
+            hovered: ev.button === 0 ? editorState!.hovered : null,
             modelPos: evToModel(ev),
         };
      }, function handleDrag(ev, ds, end) {
@@ -583,6 +583,67 @@ export const CpuCanvas: React.FC<{
 function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayout, exeSystem: IExeSystem) {
     let ctx = cvs.ctx;
 
+    let tl = editorState.mtx.mulVec3Inv(new Vec3(0, 0));
+    let br = editorState.mtx.mulVec3Inv(cvs.size);
+
+    // draw grid
+
+    // we create a tile canvas for the 1-cell grid. We'll draw it such that ??
+    let gridCvs = getOrAddToMap(cvs.tileCanvases, 'grid1', () => document.createElement('canvas')!);
+    let gridSize = 64;
+    gridCvs.width = gridSize;
+    gridCvs.height = gridSize;
+    let gridCtx = gridCvs.getContext('2d')!;
+    gridCtx.save();
+    gridCtx.clearRect(0, 0, gridCvs.width, gridCvs.height);
+    gridCtx.beginPath();
+    let r = 2.0;
+    gridCtx.moveTo(gridSize/2, gridSize/2);
+    gridCtx.arc(gridSize/2, gridSize/2, r, 0, 2 * Math.PI);
+    gridCtx.fillStyle = "#aaa";
+    gridCtx.fill();
+    gridCtx.restore();
+
+    let gridPattern = ctx.createPattern(gridCvs, 'repeat')!;
+    function drawGridAtScale(scale: number) {
+        ctx.save();
+        ctx.fillStyle = gridPattern;
+        let scaleFactor = 1 / gridSize * scale;
+        ctx.translate(0.5, 0.5);
+        ctx.scale(scaleFactor, scaleFactor);
+        let tl2 = tl.sub(new Vec3(0.5, 0.5)).mul(1 / scaleFactor);
+        let br2 = br.sub(new Vec3(0.5, 0.5)).mul(1 / scaleFactor);
+        ctx.fillRect(tl2.x, tl2.y, br2.x - tl2.x, br2.y - tl2.y);
+        ctx.restore();
+    }
+    drawGridAtScale(1);
+    // drawGridAtScale(10);
+
+    /*
+    ctx.save();
+    let pxPerCell = editorState.mtx.mulVec3(new Vec3(1, 0)).dist(editorState.mtx.mulVec3(new Vec3(0, 0)));
+    // scale by 10 each time; 1, 10, 100, 1000, ..., with min 10px per cell
+    let gridStep = 1;
+    while (pxPerCell * gridStep < 10) {
+        gridStep *= 10;
+    }
+
+    let gridStepRatio = gridStep * pxPerCell / 10;
+
+    ctx.beginPath();
+    for (let xPos = Math.floor(tl.x / gridStep) * gridStep; xPos <= br.x; xPos += gridStep) {
+        for (let yPos = Math.floor(tl.y / gridStep) * gridStep; yPos <= br.y; yPos += gridStep) {
+            let isBold = xPos % (gridStep * 10) === 0 && yPos % (gridStep * 10) === 0;
+            let smallSize = Math.min(1, gridStepRatio / 2);
+            ctx.moveTo(xPos, yPos);
+            ctx.arc(xPos, yPos, (isBold ? 2 : smallSize) * cvs.scale, 0, 2 * Math.PI);
+        }
+    }
+    ctx.fillStyle = "#aaa";
+    ctx.fill();
+    ctx.restore();
+    */
+
     for (let wire of cpuOpts.wires) {
         let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(wire.id) ?? -1];
         renderWire(cvs, editorState, wire, exeNet, exeSystem);
@@ -596,27 +657,31 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
 
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === comp.id;
 
-        ctx.beginPath();
-        ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
-
         let isValidExe = exeComp?.valid ?? false;
-
         ctx.fillStyle = isValidExe ? "#8a8" : "#aaa";
         ctx.strokeStyle = isHover ? "#a00" : "#000";
         ctx.lineWidth = 1 * cvs.scale;
-        ctx.fill();
-        ctx.stroke();
+
+        if (compDef?.renderAll !== true) {
+            ctx.beginPath();
+            ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+            ctx.fill();
+            ctx.stroke();
+        }
 
         let compRenderArgs: ICompRenderArgs<any> = {
             comp,
             ctx,
             cvs,
             exeComp,
+            styles: {
+                fontSize: 1.8,
+                lineHeight: 2.0,
+                fillColor: isValidExe ? "#8a8" : "#aaa",
+                strokeColor: isHover ? "#a00" : "#000",
+                lineWidth: 1 * cvs.scale,
+            },
         };
-
-        for (let node of comp.ports) {
-            renderNode(cvs, editorState, comp, node);
-        }
 
         if (comp.defId === 'reg1') {
             renderPc(compRenderArgs);
@@ -635,6 +700,10 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
             ctx.textBaseline = "middle";
             ctx.fillStyle = "#000";
             ctx.fillText(text, comp.pos.x + (comp.size.x) / 2, comp.pos.y + (comp.size.y) / 2);
+        }
+
+        for (let node of comp.ports) {
+            renderNode(cvs, editorState, comp, node);
         }
     }
     ctx.restore();
@@ -716,8 +785,8 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
         let isRight = node.pos.x === comp.size.x;
 
         let text = node.name;
-        let textHeight = 1.6;
-        ctx.font = `${textHeight / 4}px Arial`;
+        let textHeight = 0.7;
+        ctx.font = `${textHeight}px Arial`;
         ctx.textAlign = (isTop || isBot) ? 'center' : isLeft ? 'start' : 'end';
         ctx.textBaseline = (isLeft || isRight) ? "middle" : isTop ? 'top' : 'bottom';
         ctx.fillStyle = "#000";
@@ -728,42 +797,56 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
     }
 }
 
+function regValToStr(val: number) {
+    let pcHexStr = '0x' + val.toString(16).toUpperCase().padStart(8, "0");
+    let pcValStr = val.toString().padStart(2, "0");
+    return pcValStr + '  ' + pcHexStr;
+}
+
+let innerPadX = 0.4;
 
 // 32bit pc
-function renderPc({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataSingleReg>) {
+function renderPc({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataSingleReg>) {
     let padX = 1.2;
     let padY = 0.8;
-    let lineHeight = 1.4;
     let pcValue = exeComp?.data.value ?? 0;
-    let pcHexStr = '0x' + pcValue.toString(16).toUpperCase().padStart(8, "0");
-    let pcValStr = pcValue.toString().padStart(2, "0");
 
-    let padInner = new Vec3(0.2, 0.1);
-    let boxSize = new Vec3(comp.size.x, lineHeight).sub(new Vec3(padX * 2)).mulAdd(padInner, 2);
-    let boxOffset = new Vec3(padX, padY).sub(padInner);
+    let boxSize =  new Vec3(comp.size.x - 2 * padX, styles.lineHeight);
+    let boxOffset = new Vec3(padX, comp.size.y / 2 - boxSize.y / 2);
     ctx.beginPath();
     ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);
     ctx.fillStyle = "#fff";
-    ctx.strokeStyle = "#000";
+    ctx.strokeStyle = "#0004";
     ctx.fill();
     ctx.stroke();
 
-    ctx.font = `${3 / 4}px monospace`;
+    ctx.font = `${styles.fontSize}px monospace`;
     ctx.textAlign = 'end';
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#000";
-    ctx.fillText(pcValStr + '   ' + pcHexStr, comp.pos.x + comp.size.x - 1.2, comp.pos.y + comp.size.y / 2);
+    let xRight = comp.pos.x + boxOffset.x + boxSize.x - innerPadX;
+    let yMid = comp.pos.y + boxOffset.y + boxSize.y / 2;
+    let currText = regValToStr(pcValue);
+    ctx.fillText(currText, xRight, yMid);
 
     ctx.textAlign = 'start';
-    ctx.fillText('pc', comp.pos.x + padX, comp.pos.y + comp.size.y / 2);
+    ctx.fillText('pc', comp.pos.x + padX + innerPadX, yMid);
 
+    let xNewRight = xRight - ctx.measureText(currText).width - padX * 3;
+
+    if (exeComp?.data.writeEnabled) {
+        ctx.textAlign = 'end';
+        let newValStr = regValToStr(exeComp.data.inPort.value);
+        ctx.fillStyle = "#44c9";
+        ctx.fillText(newValStr, xNewRight, yMid);
+    }
 }
 
 // x0-x31 32bit registers, each with names
-function renderRegisterFile({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataRegFile>) {
-    let padX = 1.5;
+function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataRegFile>) {
+    let padX = 1.2;
     let padY = 1.0;
-    let lineHeight = 1.4; // (comp.size.y - padY * 2) / 32;
+    let lineHeight = styles.lineHeight; // (comp.size.y - padY * 2) / 32;
 
     ctx.save();
     ctx.beginPath();
@@ -772,31 +855,61 @@ function renderRegisterFile({ ctx, comp, exeComp }: ICompRenderArgs<ICompDataReg
 
     for (let i = 0; i < 32; i++) {
         let regValue = exeComp?.data.file[i] ?? 0;
-        let regHexStr = '0x' + regValue.toString(16).toUpperCase().padStart(8, "0");
-        let regNumStr = regValue.toString().padStart(2, "0");
 
-        let padInner = new Vec3(0.2, 0);
-        let boxSize = new Vec3(comp.size.x, lineHeight).sub(new Vec3(padX * 2)).mulAdd(padInner, 2);
-        let boxOffset = new Vec3(padX, padY + lineHeight * i).sub(padInner);
+        let boxSize = new Vec3(comp.size.x, lineHeight).sub(new Vec3(padX * 2));
+        let boxOffset = new Vec3(padX, padY + lineHeight * i);
+
+
+
         ctx.beginPath();
         ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);
-        ctx.fillStyle = "#fff";
-        ctx.strokeStyle = "#000";
+        ctx.fillStyle = i === 0 ? "#ddd" : "#fff";
+        ctx.strokeStyle = "#0004";
         ctx.fill();
         ctx.stroke();
 
-        ctx.font = `${3 / 4}px monospace`;
+        // draw transparent circle on upper right (or lower right for B)
+        let drawReadCircle = (yPos: number, color: string) => {
+            let r = 4 / 10;
+            let x = comp.pos.x + boxOffset.x + boxSize.x - innerPadX - r;
+            let y = comp.pos.y + boxOffset.y + yPos * boxSize.y;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+        };
+
+        if (i === exeComp?.data.readAReg) {
+            drawReadCircle(0.333, "#3f39");
+        }
+        if (i === exeComp?.data.readBReg) {
+            drawReadCircle(0.666, "#33f9");
+        }
+
+        ctx.font = `${styles.fontSize}px monospace`;
         ctx.textAlign = 'end';
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#000";
 
         let yMid = comp.pos.y + padY + lineHeight * (i + 0.5);
 
-        ctx.fillText(regNumStr + '   ' + regHexStr, comp.pos.x + comp.size.x - padX, yMid);
+        let regCurrStr = regValToStr(regValue);
 
+        let xRight = comp.pos.x + boxOffset.x + boxSize.x - innerPadX;
+        ctx.fillText(regCurrStr, xRight, yMid);
+
+        if (i > 0 && exeComp?.data.writeEnabled && i === exeComp.data.writeReg) {
+            let xNewRight = xRight - ctx.measureText(regCurrStr).width - padX * 3;
+            ctx.textAlign = 'end';
+            let newValStr = regValToStr(exeComp.data.writeData);
+            ctx.fillStyle = "#44c9";
+            ctx.fillText(newValStr, xNewRight, yMid);
+        }
+
+        ctx.fillStyle = "#000";
         let text = riscvRegNames[i];
         ctx.textAlign = 'start';
-        ctx.fillText(text, comp.pos.x + padX, yMid);
+        ctx.fillText(text, comp.pos.x + boxOffset.x + innerPadX, yMid);
     }
 
     ctx.restore();

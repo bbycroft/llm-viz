@@ -17,7 +17,7 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
     let defLs: ICompDef<ICompDataLoadStore> = {
         defId: 'riscvLoadStore',
         name: "Load/Store",
-        size: new Vec3(10, 3),
+        size: new Vec3(24, 12),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: PortDir.In, width: 4 },
             { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: PortDir.In, width: 12 },
@@ -30,7 +30,7 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
     let defIf: ICompDef<ICompDataInsFetch> = {
         defId: 'riscvInsFetch',
         name: "Instruction Fetch",
-        size: new Vec3(10, 3),
+        size: new Vec3(20, 12),
         ports: [
             { id: 'pc', name: 'PC', pos: new Vec3(5, 3), type: PortDir.In, width: 32 },
             { id: 'ins', name: 'Ins', pos: new Vec3(10, 1), type: PortDir.Out, width: 32 },

@@ -1,12 +1,12 @@
 import { Vec3 } from "@/src/utils/vector";
-import { IExePort, IComp, IExeComp, PortDir } from "../CpuModel";
-import { OpCode, Funct3Op } from "../RiscvIsa";
+import { IExePort, IComp, IExeComp, PortDir, ICompRenderArgs, IExeRunArgs } from "../CpuModel";
+import { OpCode, Funct3Op, Funct3OpImm } from "../RiscvIsa";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 
 export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let w = 15;
-    let h = 10;
+    let w = 40;
+    let h = 20;
     let alu: ICompDef<ICompDataInsDecoder> = {
         defId: 'insDecodeRiscv32_0',
         name: "Instruction Decoder",
@@ -26,6 +26,7 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
             { id: 'aluCtrl', name: 'ALU', pos: new Vec3(13, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
         ],
         build: buildInsDecoder,
+        render: renderInsDecoder,
     };
 
     return [alu];
@@ -44,8 +45,6 @@ export interface ICompDataInsDecoder {
 
     pcAddImm: IExePort; // gets added to PC, overrides +4 for jumps
     pcAddMuxCtrl: IExePort; // 1-bit value, selects between PC + 4 and PC + imm
-
-    willHalt: boolean;
 }
 
 export function buildInsDecoder(comp: IComp) {
@@ -63,20 +62,12 @@ export function buildInsDecoder(comp: IComp) {
 
         pcAddImm: builder.getPort('pcAddImm'),
         pcAddMuxCtrl: builder.getPort('pcAddMuxCtrl'),
-
-        willHalt: false,
     });
     builder.addPhase(insDecoderPhase0, [data.ins], [data.addrOffset, data.rhsImm, data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.pcAddMuxCtrl, data.pcAddImm]);
-    builder.addLatchedPhase(({ data }, args) => {
-        if (data.willHalt) {
-            args.halt = true;
-            data.willHalt = false;
-        }
-    }, [], []);
     return builder.build(data);
 }
 
-function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
+function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExeRunArgs) {
     let ins = data.ins.value >>> 0;
 
     const opCode = ins & 0b1111111;
@@ -88,16 +79,17 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
     data.regCtrl.value = 0;
     data.rhsImm.ioEnabled = false;
 
-    // 0: ALU out => REG, PC + x => PC
-    // 1: ALU out => PC,  PC + x => REG
-    data.pcRegMuxCtrl.value = 0;
+    // 1: ALU out => REG, PC + x => PC
+    // 0: ALU out => PC,  PC + x => REG
+    data.pcRegMuxCtrl.value = 1;
     // data.pcOutTristateCtrl.value = 0;
     data.pcAddImm.value = 4;
     data.pcAddMuxCtrl.value = 1; // inverted
 
     if (ins === 0) {
         console.log('ILLEGAL INSTRUCTION: 0x0');
-        data.willHalt = true;
+        runArgs.halt = true;
+        // data.willHalt = true;
         return;
     }
 
@@ -157,14 +149,14 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
 
         data.pcAddMuxCtrl.value = 0; // PC -> LHS enabled
         data.rhsImm.value = signExtend20Bit(offsetRaw);
-        data.pcRegMuxCtrl.value = 1; // ALU out => PC; PC + 4 => REG
+        data.pcRegMuxCtrl.value = 0; // ALU out => PC; PC + 4 => REG
         setRegCtrl(true, rd, 2); // PC + 4 => reg[rd]
 
     } else if (opCode === OpCode.JALR) {
         let offset = signExtend12Bit(ins >>> 20);
         setRegCtrl(true, rs1, 0); // reg[rs1] => LHS
         data.rhsImm.value = offset;
-        data.pcRegMuxCtrl.value = 1; // ALU out => PC; PC + 4 => REG
+        data.pcRegMuxCtrl.value = 0; // ALU out => PC; PC + 4 => REG
         setRegCtrl(true, rd, 2); // PC + 4 => reg[rd]
 
     } else if (opCode === OpCode.BRANCH) {
@@ -225,7 +217,8 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>) {
         setAluCtrl(true, false, Funct3Op.ADD, false);
 
     } else if (opCode === OpCode.SYSTEM) {
-        data.willHalt = true;
+        runArgs.halt = true;
+        // data.willHalt = true;
         /*
         let csr = (ins >>> 20);
         if (funct3 !== 0x0) {
@@ -306,4 +299,125 @@ function signExtend20Bit(x: number) {
 
 function signExtend32Bit(x: number) {
     return ((x & 0x80000000) === 0x80000000) ? x - 0x100000000 : x;
+}
+
+function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<ICompDataInsDecoder>) {
+
+
+    if (!exeComp) {
+        return;
+    }
+
+    let data = exeComp.data;
+    let ins = data.ins.value;
+
+    ctx.font = `${styles.fontSize}px monospace`;
+    let originalBitStr = ins.toString(2).padStart(32, '0');
+    let width = ctx.measureText(originalBitStr).width;
+
+    let leftX = comp.pos.x + comp.size.x/2 - width/2;
+    let lineY = (a: number) => comp.pos.y + 1.0 + styles.lineHeight * (a + 2.0);
+
+    ctx.font = `italic ${styles.fontSize}px sans-serif`;
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('RISCV 32-bit Instruction Decode', leftX + width/2, lineY(-1.5));
+
+    ctx.font = `${styles.fontSize}px monospace`;
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    let hexText = ins.toString(16).padStart(8, '0');
+
+    let alignedHexText = '';
+    for (let i = 0; i < 4; i++) {
+        alignedHexText += '   ' + hexText.substring(i * 2, i * 2 + 2) + '   ';
+    }
+
+
+    ctx.fillText(alignedHexText, leftX, lineY(0));
+    // ctx.fillText(ins.toString(2).padStart(32, '0'), leftX, comp.pos.y + 0.5 + styles.lineHeight);
+
+
+    // vertical lines separating the hex digits
+    for (let i = 0; i < 3; i++) {
+        let x = leftX + width / 4 * (i + 1);
+        ctx.beginPath();
+        ctx.moveTo(x, lineY(0));
+        ctx.lineTo(x, lineY(2) - 0.2 * styles.lineHeight);
+        ctx.setLineDash([0.4, 0.3]);
+        ctx.strokeStyle = '#0005';
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    let strRemain = originalBitStr;
+
+    let drawBitRange = (rightBit: number, count: number, color: string) => {
+        let totalBits = originalBitStr.length;
+        let rightIdx = totalBits - rightBit - 1;
+        let leftIdx = rightIdx - count + 1;
+        let str = originalBitStr.substring(leftIdx, rightIdx + 1);
+        let strWrapped = ' '.repeat(leftIdx) + str + ' '.repeat(totalBits - rightIdx - 1);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = color;
+        ctx.fillText(strWrapped, leftX, lineY(1));
+        strRemain = strRemain.substring(0, leftIdx) + ' '.repeat(count) + strRemain.substring(rightIdx + 1);
+    };
+    let bitRangeCenter = (rightBit: number, count: number) => {
+        let bitWidth = width / originalBitStr.length;
+        let targetIdx = originalBitStr.length - rightBit - count / 2;
+        return leftX + bitWidth * targetIdx;
+    };
+
+    let opColor = '#e33';
+
+    let rs1Color = '#3e3';
+    let rs2Color = '#33e';
+    let rdColor = '#ee3';
+    let immColor = '#a3a';
+    let func3Color = '#333';
+
+    drawBitRange(0, 7, opColor);
+
+    let opCode = ins & 0b1111111;
+    const rd = (ins >>> 7) & 0b11111;
+    const rs1 = (ins >>> 15) & 0b11111;
+    const rs2 = (ins >>> 20) & 0b11111;
+
+    let funct3 = (ins >>> 12) & 0b111;
+
+    let drawBitsAndText = (rightBit: number, count: number, color: string, text: string, label: string) => {
+        drawBitRange(rightBit, count, color);
+        let center = bitRangeCenter(rightBit, count);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = color;
+        ctx.fillText(text, center, lineY(2));
+    }
+
+    drawBitsAndText(0, 7, opColor, OpCode[opCode] || '<invalid>', 'op');
+
+    if (opCode === OpCode.OP || opCode === OpCode.OPIMM) {
+        drawBitsAndText(15, 5, rs1Color, rs1.toString(), 'rs1');
+
+        let funct3Str: string = '';
+
+        if (opCode === OpCode.OP) {
+            drawBitsAndText(20, 5, rs2Color, rs2.toString(), 'rs2');
+            funct3Str = Funct3Op[funct3];
+
+        } else if (opCode === OpCode.OPIMM) {
+            drawBitsAndText(20, 12, immColor, data.rhsImm.value.toString(), 'imm');
+            funct3Str = Funct3OpImm[funct3];
+        }
+
+        drawBitsAndText(12, 3, func3Color, funct3Str, 'funct3');
+        drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
+    }
+
+    ctx.fillStyle = '#777';
+    ctx.textAlign = 'left';
+    ctx.fillText(strRemain, leftX, lineY(1));
 }

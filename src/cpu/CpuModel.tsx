@@ -136,6 +136,7 @@ export interface ICanvasState {
     ctx: CanvasRenderingContext2D;
     size: Vec3; // derived
     scale: number; // derived
+    tileCanvases: Map<string, HTMLCanvasElement>;
 }
 
 export interface IElRef {
@@ -184,6 +185,15 @@ export interface ICompRenderArgs<T> {
     ctx: CanvasRenderingContext2D;
     comp: IComp;
     exeComp: IExeComp<T> | null;
+    styles: IRenderStyles;
+}
+
+export interface IRenderStyles {
+    lineHeight: number;
+    fontSize: number;
+    lineWidth: number;
+    strokeColor: string;
+    fillColor: string;
 }
 
 export interface IComp {
