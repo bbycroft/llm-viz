@@ -12,6 +12,8 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 3), type: PortDir.In, width: 6 },
             { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: PortDir.In, width: 32 },
             { id: 'rhs', name: 'RHS', pos: new Vec3(13, 0), type: PortDir.In, width: 32 },
+
+            { id: 'branch', name: 'Branch', pos: new Vec3(4, 12), type: PortDir.Out | PortDir.Ctrl, width: 1 },
             { id: 'result', name: 'Result', pos: new Vec3(8, 12), type: PortDir.OutTri, width: 32 },
         ],
         build: buildAlu,
@@ -26,6 +28,7 @@ interface ICompDataAlu {
     inAPort: IExePort;
     inBPort: IExePort;
     outPort: IExePort;
+    branchPort: IExePort;
 }
 
 export function buildAlu(comp: IComp): IExeComp<ICompDataAlu> {
@@ -35,6 +38,7 @@ export function buildAlu(comp: IComp): IExeComp<ICompDataAlu> {
         inAPort: builder.getPort('lhs'),
         inBPort: builder.getPort('rhs'),
         outPort: builder.getPort('result'),
+        branchPort: builder.getPort('branch'),
     };
     builder.addPhase(aluPhase0, [data.inCtrlPort, data.inAPort, data.inBPort], [data.outPort]);
     return builder.build(data);
@@ -71,7 +75,7 @@ BGEU  = 0b111, // branch greater than or equal unsigned
 -- bit      0: sub/shift logical
 */
 
-function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort } }: IExeComp<ICompDataAlu>) {
+function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort } }: IExeComp<ICompDataAlu>) {
     let ctrl = inCtrlPort.value;
     let lhs = inAPort.value;
     let rhs = inBPort.value;
@@ -79,7 +83,7 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort } }: IExeComp
     let isEnabled = (ctrl & 0b100000) !== 0;
     let isBranch =  (ctrl & 0b010000) !== 0;
 
-    console.log(`alu: ctrl=${ctrl.toString(2)} lhs=${lhs} rhs=${rhs} isEnabled=${isEnabled} isBranch=${isBranch}`);
+    console.log(`alu: ctrl=${ctrl.toString(2)} lhs=${lhs} rhs=${rhs} isEnabled=${isEnabled} isBranch=${isBranch}`, rhs);
 
     inAPort.ioEnabled = isEnabled;
     inBPort.ioEnabled = isEnabled;
@@ -99,7 +103,8 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort } }: IExeComp
             case 0b110: res = (lhs >>> 0) < (rhs >>> 0); break;
         }
         // branch may need its own output port?
-        outPort.value = (res ? 1 : 0) ^ isInverted;
+        outPort.value = 0;
+        branchPort.value = (res ? 1 : 0) ^ isInverted;
     } else {
         let funct3 = (ctrl >> 1) & 0b111;
         let isArithShiftOrSub = (ctrl & 0b1) !== 0;

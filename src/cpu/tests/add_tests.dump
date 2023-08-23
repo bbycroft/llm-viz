@@ -7,6 +7,16 @@ Disassembly of section .text_add0:
        0: 93 00 a0 00  	li	ra, 10
        4: 13 01 40 01  	li	sp, 20
        8: b3 81 20 00  	add	gp, ra, sp
+       c: 13 02 e0 01  	li	tp, 30
+      10: 63 96 41 00  	bne	gp, tp, 0x1c <fail_add0>
+
+00000014 <success_add0>:
+      14: 13 05 c0 02  	li	a0, 44
+      18: 73 00 00 00  	ecall	
+
+0000001c <fail_add0>:
+      1c: 13 05 f0 38  	li	a0, 911
+      20: 73 00 00 00  	ecall	
 
 Disassembly of section .text_add1:
 
@@ -14,3 +24,30 @@ Disassembly of section .text_add1:
        0: 13 02 e0 01  	li	tp, 30
        4: 93 02 80 02  	li	t0, 40
        8: 33 03 52 00  	add	t1, tp, t0
+       c: 13 02 60 04  	li	tp, 70
+      10: 63 16 43 00  	bne	t1, tp, 0x1c <fail_add1>
+
+00000014 <success_add1>:
+      14: 13 05 c0 02  	li	a0, 44
+      18: 73 00 00 00  	ecall	
+
+0000001c <fail_add1>:
+      1c: 13 05 f0 38  	li	a0, 911
+      20: 73 00 00 00  	ecall	
+
+Disassembly of section .text_add2:
+
+00000000 <_start_add2>:
+       0: 93 00 40 00  	li	ra, 4
+       4: 13 01 80 ff  	li	sp, -8
+       8: b3 81 20 00  	add	gp, ra, sp
+       c: 13 02 c0 ff  	li	tp, -4
+      10: 63 96 41 00  	bne	gp, tp, 0x1c <fail_add2>
+
+00000014 <success_add2>:
+      14: 13 05 c0 02  	li	a0, 44
+      18: 73 00 00 00  	ecall	
+
+0000001c <fail_add2>:
+      1c: 13 05 f0 38  	li	a0, 911
+      20: 73 00 00 00  	ecall	

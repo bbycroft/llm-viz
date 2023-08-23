@@ -1,7 +1,8 @@
 import { Vec3 } from "@/src/utils/vector";
 import { IExePort, IComp, IExeComp, PortDir, ICompRenderArgs, IExeRunArgs } from "../CpuModel";
-import { OpCode, Funct3Op, Funct3OpImm } from "../RiscvIsa";
+import { OpCode, Funct3Op, Funct3OpImm, Funct3Branch } from "../RiscvIsa";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import * as d3Color from 'd3-color';
 
 export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
@@ -22,8 +23,9 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
             { id: 'regCtrl', name: 'Reg', pos: new Vec3(4, h), type: PortDir.Out | PortDir.Ctrl, width: 3 * 6 },
             { id: 'pcAddImm', name: 'PC+Imm', pos: new Vec3(7, h), type: PortDir.Out | PortDir.Addr, width: 32 },
             // { id: 'pcOutTristateCtrl', name: 'PC LHS', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'pcAddMuxCtrl', name: 'LHS Sel', pos: new Vec3(10, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(13, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
+            { id: 'pcBranchCtrl', name: 'PC Branch', pos: new Vec3(11, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'lhsMuxCtrl', name: 'LHS Sel', pos: new Vec3(15, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(18, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
         ],
         build: buildInsDecoder,
         render: renderInsDecoder,
@@ -44,7 +46,8 @@ export interface ICompDataInsDecoder {
     pcRegMuxCtrl: IExePort; // 1-bit value, controls writes to (PC, REG), from (ALU out, PC + x), or swaps them
 
     pcAddImm: IExePort; // gets added to PC, overrides +4 for jumps
-    pcAddMuxCtrl: IExePort; // 1-bit value, selects between PC + 4 and PC + imm
+    lhsMuxCtrl: IExePort; // 1-bit value, selects between PC & Reg A for LHS
+    pcBranchCtrl: IExePort; // 1-bit value, selects between PC + 4 and PC + imm
 }
 
 export function buildInsDecoder(comp: IComp) {
@@ -61,9 +64,11 @@ export function buildInsDecoder(comp: IComp) {
         pcRegMuxCtrl: builder.getPort('pcRegMuxCtrl'),
 
         pcAddImm: builder.getPort('pcAddImm'),
-        pcAddMuxCtrl: builder.getPort('pcAddMuxCtrl'),
+        lhsMuxCtrl: builder.getPort('lhsMuxCtrl'),
+
+        pcBranchCtrl: builder.getPort('pcBranchCtrl'),
     });
-    builder.addPhase(insDecoderPhase0, [data.ins], [data.addrOffset, data.rhsImm, data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.pcAddMuxCtrl, data.pcAddImm]);
+    builder.addPhase(insDecoderPhase0, [data.ins], [data.addrOffset, data.rhsImm, data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.lhsMuxCtrl, data.pcAddImm]);
     return builder.build(data);
 }
 
@@ -84,7 +89,8 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     data.pcRegMuxCtrl.value = 1;
     // data.pcOutTristateCtrl.value = 0;
     data.pcAddImm.value = 4;
-    data.pcAddMuxCtrl.value = 1; // inverted
+    data.lhsMuxCtrl.value = 1; // inverted
+    data.pcBranchCtrl.value = 1;
 
     if (ins === 0) {
         console.log('ILLEGAL INSTRUCTION: 0x0');
@@ -112,9 +118,11 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
     if (opCode === OpCode.OPIMM || opCode === OpCode.OP) {
         console.log('OPIMM/OP', ins.toString(2).padStart(32, '0'));
+        let isArithShiftOrSub = false;
 
         if (opCode === OpCode.OP) {
             setRegCtrl(true, rs2, 1); // reg[rs2] => RHS
+            isArithShiftOrSub = ((ins >>> 30) & 0b1) === 0b1;
         } else if (funct3 === Funct3Op.SLLI || funct3 === Funct3Op.SRLI || funct3 === Funct3Op.SRAI) {
             data.rhsImm.value = rs2;
             data.rhsImm.ioEnabled = true;
@@ -122,8 +130,6 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
             data.rhsImm.value = signExtend12Bit(ins >>> 20);
             data.rhsImm.ioEnabled = true;
         }
-
-        let isArithShiftOrSub = ((ins >>> 30) & 0b1) === 0b1;
 
         setRegCtrl(true, rs1, 0); // reg[rs1] => LHS
         setAluCtrl(true, false, funct3, isArithShiftOrSub);
@@ -137,7 +143,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
     } else if (opCode === OpCode.AUIPC) {
         data.rhsImm.value = signExtend20Bit(ins >>> 12) << 12;
-        data.pcAddMuxCtrl.value = 0; // PC -> LHS enabled
+        data.lhsMuxCtrl.value = 0; // PC -> LHS enabled
         setAluCtrl(true, false, Funct3Op.ADD, false);
         setRegCtrl(true, rd, 2); // ALU out => reg[rd]
 
@@ -147,7 +153,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
                         (((ins >>> 12) & 0xFF) << 12) | // 8 bytes
                         (((ins >>> 31) & 0x01) << 20);  // 1 byte
 
-        data.pcAddMuxCtrl.value = 0; // PC -> LHS enabled
+        data.lhsMuxCtrl.value = 0; // PC -> LHS enabled
         data.rhsImm.value = signExtend20Bit(offsetRaw);
         data.pcRegMuxCtrl.value = 0; // ALU out => PC; PC + 4 => REG
         setRegCtrl(true, rd, 2); // PC + 4 => reg[rd]
@@ -166,13 +172,15 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
         setAluCtrl(true, true, funct3, false);
 
-        let offsetRaw = (((ins >>>  8) & 0x0F) << 0 ) | // 4 bytes
-                        (((ins >>> 25) & 0x3F) << 4 ) | // 6 bytes
-                        (((ins >>>  7) & 0x01) << 10) | // 1 byte
-                        (((ins >>> 31) & 0x01) << 11);  // 1 byte
+        let offsetRaw = (((ins >>>  8) & 0x0F) << 0 ) | // 4 bits
+                        (((ins >>> 25) & 0x3F) << 4 ) | // 6 bits
+                        (((ins >>>  7) & 0x01) << 10) | // 1 bits
+                        (((ins >>> 31) & 0x01) << 11);  // 1 bits
 
         data.pcAddImm.value = signExtend12Bit(offsetRaw) << 1;
-        data.pcAddMuxCtrl.value = 1; // PC + offset => PC @TODO: not sure about this one, als a function of branch output
+        console.log('branch offset: ' + data.pcAddImm.value.toString(16), data.pcAddImm.value);
+        data.lhsMuxCtrl.value = 1; // PC + offset => PC @TODO: not sure about this one, als a function of branch output
+        data.pcBranchCtrl.value = 1; // PC + offset => PC
 
     } else if (opCode === OpCode.LOAD) {
         // let offset = signExtend12Bit(ins >>> 20);
@@ -271,7 +279,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
         */
     }
 
-    if (data.pcAddMuxCtrl.value) {
+    if (data.lhsMuxCtrl.value) {
         data.regCtrl.value |= 0b1;
         // setRegCtrl(true, 0, 0); // 0 => LHS (to ensure we don't leave a floating value on the bus)
     }
@@ -281,24 +289,37 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
 
 
-function signExtend8Bit(x: number) {
+export function signExtend8Bit(x: number) {
     return ((x & 0x80) === 0x80) ? x - 0x100 : x;
 }
 
-function signExtend12Bit(x: number) {
+export function signExtend12Bit(x: number) {
     return ((x & 0x800) === 0x800) ? x - 0x1000 : x;
 }
 
-function signExtend16Bit(x: number) {
+export function signExtend16Bit(x: number) {
     return ((x & 0x8000) === 0x8000) ? x - 0x10000 : x;
 }
 
-function signExtend20Bit(x: number) {
+export function signExtend20Bit(x: number) {
     return ((x & 0x80000) === 0x80000) ? x - 0x100000 : x;
 }
 
-function signExtend32Bit(x: number) {
-    return ((x & 0x80000000) === 0x80000000) ? x - 0x100000000 : x;
+export function signExtend32Bit(x: number) {
+    return ((x & 0x80000000) !== 0) ? x - 0x100000000 : x;
+}
+
+let u32Arr = new Uint32Array(1);
+let s32Arr = new Int32Array(1);
+
+export function ensureSigned32Bit(x: number) {
+    s32Arr[0] = x;
+    return s32Arr[0];
+}
+
+export function ensureUnsigned32Bit(x: number) {
+    u32Arr[0] = x;
+    return u32Arr[0];
 }
 
 function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<ICompDataInsDecoder>) {
@@ -415,6 +436,18 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
 
         drawBitsAndText(12, 3, func3Color, funct3Str, 'funct3');
         drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
+    } else if (opCode === OpCode.BRANCH) {
+        drawBitsAndText(15, 5, rs1Color, rs1.toString(), 'rs1');
+        drawBitsAndText(20, 5, rs2Color, rs2.toString(), 'rs2');
+        drawBitsAndText(12, 3, func3Color, Funct3Branch[funct3], 'funct3');
+        // 8 (nbits: 4)
+        // 25 (nbits: 6)
+        // 7 (nbits: 1)
+        // 31 (nbits: 1)
+        drawBitsAndText(8, 4, d3Color.rgb(immColor).darker(-2).toString(), '.', 'i0');
+        drawBitsAndText(25, 6, d3Color.rgb(immColor).darker(-1).toString(), '.', 'i1');
+        drawBitsAndText(7, 1, d3Color.rgb(immColor).darker(0).toString(), '.', 'i2');
+        drawBitsAndText(31, 1, d3Color.rgb(immColor).darker(1).toString(), '.', 'i2');
     }
 
     ctx.fillStyle = '#777';

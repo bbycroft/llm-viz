@@ -13,8 +13,8 @@ export interface ICompDataRom {
 
 export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let w = 40;
-    let h = 30;
+    let w = 16;
+    let h = 68;
     let rom: ICompDef<ICompDataRom> = {
         defId: 'rom0',
         name: "ROM",
@@ -36,23 +36,33 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             builder.addPhase(({ data: { addr, data, rom32View } }) => {
                 // need to read as a uint32
                 data.value = rom32View[addr.value >>> 2];
-                console.log('reading rom', addr.value, '=>', '0x' + data.value.toString(16));
             }, [data.addr], [data.data]);
 
             return builder.build();
         },
         render: ({ comp, ctx, cvs, exeComp, styles }) => {
             if (exeComp) {
-                for (let i = 0; i < 10; i++) {
+                for (let i = 0; i < 32; i++) {
                     let x = comp.pos.x + 0.3;
                     let y = comp.pos.y + 0.3 + i * styles.lineHeight;
                     let word = exeComp.data.rom32View[i];
-                    ctx.fillStyle = 'black';
+                    let wordStr = '0x' + word.toString(16).padStart(8, '0');
+
                     ctx.font = `${styles.fontSize}px monospace`;
+                    let width = ctx.measureText(wordStr).width;
+
+                    let isActive = exeComp.data.addr.value >>> 2 === i;
+                    if (isActive) {
+                        ctx.fillStyle = '#a55';
+                        ctx.fillRect(x - 0.2, y - 0.2, width + 0.4, styles.lineHeight);
+                    }
+
+                    ctx.fillStyle = word === 0 ? '#0005' : '#000';
                     ctx.textAlign = 'left';
                     ctx.textBaseline = 'top';
 
-                    ctx.fillText('0x' + word.toString(16).padStart(8, '0'), x, y);
+                    ctx.fillText(wordStr, x, y);
+
                 }
             }
         },

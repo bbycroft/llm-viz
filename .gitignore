@@ -41,3 +41,4 @@ yarn-error.log*
 styles/dist.css
 
 *.wat
+src/cpu/tests/*_.s

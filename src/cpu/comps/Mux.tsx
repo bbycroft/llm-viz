@@ -1,6 +1,8 @@
 import { Vec3 } from "@/src/utils/vector";
+import { exec } from "child_process";
 import { PortDir, IExePort, IComp } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef, ExeCompBuilder } from "./CompBuilder";
+import { ensureSigned32Bit } from "./RiscvInsDecode";
 
 interface ICompDataMux {
     inSelPort: IExePort;
@@ -12,6 +14,11 @@ interface ICompDataMux {
 interface ICompDataAdder {
     inAPort: IExePort;
     inBPort: IExePort;
+    outPort: IExePort;
+}
+
+export interface ICompDataConst {
+    value: number;
     outPort: IExePort;
 }
 
@@ -67,15 +74,16 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         },
     };
 
+    let aH = 4;
     let adder: ICompDef<ICompDataAdder> = {
         defId: 'adder',
         name: "+",
-        size: new Vec3(w, h),
+        size: new Vec3(w, aH),
         ports: [
             { id: 'a', name: 'A', pos: new Vec3(0, 1), type: PortDir.In, width: 32 },
             { id: 'b', name: 'B', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
 
-            { id: 'out', name: 'Out', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
+            { id: 'out', name: 'O2', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
         ],
         build: (comp: IComp) => {
             let builder = new ExeCompBuilder<ICompDataAdder>(comp);
@@ -87,12 +95,40 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
             builder.addPhase(({ data: { inAPort, inBPort, outPort } }) => {
                 outPort.value = inAPort.value + inBPort.value;
-                console.log(`adding ${inAPort.value} + ${inBPort.value} = ${outPort.value}`);
             }, [data.inAPort, data.inBPort], [data.outPort]);
 
             return builder.build();
         },
     };
 
-    return [mux2, adder];
+    let const32: ICompDef<ICompDataConst> = {
+        defId: 'const32',
+        name: "Const32",
+        size: new Vec3(2, 2),
+        ports: [
+            { id: 'out', name: '', pos: new Vec3(2, 1), type: PortDir.Out, width: 32 },
+        ],
+        build: (comp: IComp) => {
+            let builder = new ExeCompBuilder<ICompDataConst>(comp);
+            let data = builder.addData({
+                value: 4,
+                outPort: builder.getPort('out'),
+            });
+
+            builder.addPhase(({ data }) => {
+                data.outPort.value = data.value;
+            }, [], [data.outPort]);
+
+            return builder.build();
+        },
+        render: ({ comp, ctx, cvs, exeComp, styles }) => {
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `${styles.fontSize}px monospace`;
+            ctx.fillStyle = 'black';
+            ctx.fillText('' + ensureSigned32Bit(exeComp?.data.value ?? 0), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y * 0.6);
+        },
+    };
+
+    return [mux2, adder, const32];
 }

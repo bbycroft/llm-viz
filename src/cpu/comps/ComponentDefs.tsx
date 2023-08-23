@@ -59,5 +59,5 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         port.value = net.value;
     }
 
-    console.log('running net', netToString(net, comps), 'with value', net.value.toString(16));
+    console.log('running net', netToString(net, comps), 'with value', net.value.toString(16), net.value);
 }

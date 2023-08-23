@@ -18,6 +18,7 @@ import { CompLibrary } from "./comps/CompBuilder";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
 import { HoverDisplay } from "./HoverDisplay";
+import { ensureSigned32Bit, ensureUnsigned32Bit, signExtend32Bit } from "./comps/RiscvInsDecode";
 
 interface ICpuState {
     system: any;
@@ -798,8 +799,10 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
 }
 
 function regValToStr(val: number) {
-    let pcHexStr = '0x' + val.toString(16).toUpperCase().padStart(8, "0");
-    let pcValStr = val.toString().padStart(2, "0");
+    let valU32 = ensureUnsigned32Bit(val);
+    let valS32 = ensureSigned32Bit(val);
+    let pcHexStr = '0x' + valU32.toString(16).toUpperCase().padStart(8, "0");
+    let pcValStr = valS32.toString().padStart(2, "0");
     return pcValStr + '  ' + pcHexStr;
 }
 
@@ -858,8 +861,6 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
 
         let boxSize = new Vec3(comp.size.x, lineHeight).sub(new Vec3(padX * 2));
         let boxOffset = new Vec3(padX, padY + lineHeight * i);
-
-
 
         ctx.beginPath();
         ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);

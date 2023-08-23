@@ -2,6 +2,7 @@ import React from "react";
 import { hasFlag } from "../utils/data";
 import { Popup, PopupPos } from "../utils/Portal";
 import { Vec3 } from "../utils/vector";
+import { ensureSigned32Bit, ensureUnsigned32Bit, signExtend32Bit } from "./comps/RiscvInsDecode";
 import { lookupPortInfo } from "./CpuExecution";
 import { PortDir, RefType } from "./CpuModel";
 import { useEditorContext } from "./Editor";
@@ -46,9 +47,9 @@ export const HoverDisplay: React.FC<{
                         </div>;
                     } else {
                         topLine = <div>
-                            <span className={s.numVal}>{net.value.toString().padStart(2, '0')}</span>
+                            <span className={s.numVal}>{ensureSigned32Bit(net.value).toString().padStart(2, '0')}</span>
                             &nbsp;
-                            <span className={s.hexVal}>0x{net.value.toString(16).padStart(net.width >>> 2, '0')}</span>
+                            <span className={s.hexVal}>0x{ensureUnsigned32Bit(net.value).toString(16).padStart(net.width >>> 2, '0')}</span>
                         </div>;
                     }
 
