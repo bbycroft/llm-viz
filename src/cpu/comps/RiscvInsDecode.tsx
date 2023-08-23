@@ -3,6 +3,8 @@ import { IExePort, IComp, IExeComp, PortDir, ICompRenderArgs, IExeRunArgs } from
 import { OpCode, Funct3Op, Funct3OpImm, Funct3Branch } from "../RiscvIsa";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import * as d3Color from 'd3-color';
+import { riscvRegNames } from "./Registers";
+import { isNotNil } from "@/src/utils/data";
 
 export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
@@ -91,6 +93,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     data.pcAddImm.value = 0;
     data.lhsMuxCtrl.value = 1; // inverted
     data.pcBranchCtrl.value = 0;
+    data.aluCtrl.value = 0;
 
     if (ins === 0) {
         // console.log('ILLEGAL INSTRUCTION: 0x0');
@@ -155,15 +158,19 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
         data.lhsMuxCtrl.value = 0; // PC -> LHS enabled
         data.rhsImm.value = signExtend20Bit(offsetRaw);
+        data.rhsImm.ioEnabled = true;
         data.pcRegMuxCtrl.value = 0; // ALU out => PC; PC + 4 => REG
         setRegCtrl(true, rd, 2); // PC + 4 => reg[rd]
+        setAluCtrl(true, false, Funct3Op.ADD, false);
 
     } else if (opCode === OpCode.JALR) {
         let offset = signExtend12Bit(ins >>> 20);
         setRegCtrl(true, rs1, 0); // reg[rs1] => LHS
         data.rhsImm.value = offset;
+        data.rhsImm.ioEnabled = true;
         data.pcRegMuxCtrl.value = 0; // ALU out => PC; PC + 4 => REG
         setRegCtrl(true, rd, 2); // PC + 4 => reg[rd]
+        setAluCtrl(true, false, Funct3Op.ADD, false);
 
     } else if (opCode === OpCode.BRANCH) {
 
@@ -401,6 +408,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
     let rdColor = '#ee3';
     let immColor = '#a3a';
     let func3Color = '#333';
+    let infoColor = '#555';
 
     drawBitRange(0, 7, opColor);
 
@@ -419,6 +427,66 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
         ctx.fillText(text, center, lineY(2));
     }
 
+    let infoFont1 = `${styles.fontSize * 0.8}px monospace`;
+    let infoFont2 = `italic ${styles.fontSize * 0.6}px sans-serif`;
+    let line2Height = 3.5;
+    let line3Height = 4.5;
+    let line4Height = 5.5;
+
+    interface IMessagePart {
+        color: string;
+        text: string;
+        italic?: boolean;
+    }
+
+    let drawMessage = (parts: IMessagePart[], height: number, noBullet?: boolean) => {
+        ctx.save();
+        ctx.textAlign = 'left';
+        let offset = leftX;
+        if (!noBullet) {
+            parts = [{ text: '• ', color: infoColor }, ...parts];
+        }
+        for (let part of parts) {
+            ctx.font = part.italic ? infoFont2 : infoFont1;
+            ctx.fillStyle = part.color;
+            ctx.fillText(part.text, offset, lineY(height) + (part.italic ? 0.1 : 0));
+            offset += ctx.measureText(part.text).width;
+        }
+        ctx.restore();
+    };
+
+    let drawOpAndMessage = (opCodeStr: string, funct3Str: string, message: string) => {
+        let parts: IMessagePart[] = [{ color: opColor, text: opCodeStr }];
+        if (funct3Str) {
+            parts.push({ color: infoColor, text: ', ' }, { color: func3Color, text: funct3Str });
+        }
+        parts.push({ color: infoColor, text: '  —  ' + message, italic: true });
+        drawMessage(parts, line2Height, true);
+    };
+
+    let drawMultiBits = (bitPattern: number[], bitColorOffsets: number[], color: string, label: string) => {
+        for (let i = 0; i < bitColorOffsets.length; i += 1) {
+            drawBitsAndText(bitPattern[i * 2], bitPattern[i * 2 + 1], d3Color.rgb(color).darker(bitColorOffsets[i]).toString(), '.', label + i);
+        }
+    };
+
+    let buildBitsMessage = (bitPattern: number[], bitColorOffsets: number[], color: string) => {
+        let parts: IMessagePart[] = [];
+        for (let i = bitColorOffsets.length - 1; i >= 0; i -= 1) {
+            let rightBit = bitPattern[i * 2];
+            let count = bitPattern[i * 2 + 1];
+            let totalBits = originalBitStr.length;
+            let rightIdx = totalBits - rightBit - 1;
+            let leftIdx = rightIdx - count + 1;
+            let str = originalBitStr.substring(leftIdx, rightIdx + 1);
+            parts.push({ color: d3Color.rgb(color).darker(bitColorOffsets[i]).toString(), text: str });
+        }
+        return parts;
+    };
+    // let drawFunc3AndMessage = (funct3Str: string, message: string) => {
+    //     drawInfoAndMessage(funct3Str, func3Color, message, 4.5);
+    // }
+
     drawBitsAndText(0, 7, opColor, OpCode[opCode] || '<invalid>', 'op');
 
     if (opCode === OpCode.OP || opCode === OpCode.OPIMM) {
@@ -429,29 +497,141 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
         if (opCode === OpCode.OP) {
             drawBitsAndText(20, 5, rs2Color, rs2.toString(), 'rs2');
             funct3Str = Funct3Op[funct3];
+            let checkExtraBit = funct3 === Funct3Op.SLL || funct3 === Funct3Op.SRL || funct3 === Funct3Op.ADD;
+            let isArithShiftOrSub = ((ins >>> 30) & 0b1) === 0b1;
+            let isSub = funct3 === Funct3Op.ADD && isArithShiftOrSub;
+            if (checkExtraBit) {
+                drawBitsAndText(30, 1, func3Color, isArithShiftOrSub ? ('sub') : '0', 'extra');
+            }
+            drawOpAndMessage('OP', Funct3Op[funct3], `binary op between 2 registers`);
+            // set [rd] <= [rs1] + [rs2]
+            drawMessage([
+                { color: infoColor, text: 'set ' },
+                { color: rdColor, text: regFormatted(rd) },
+                { color: infoColor, text: ' to: ' },
+                { color: rs1Color, text: regFormatted(rs1) },
+                { color: func3Color, text: ' ' + (isSub ? '-' : funct3OpIcon[funct3]) + ' ' },
+                { color: rs2Color, text: regFormatted(rs2) },
+            ], line3Height);
 
         } else if (opCode === OpCode.OPIMM) {
             drawBitsAndText(20, 12, immColor, data.rhsImm.value.toString(), 'imm');
+            if (funct3 === Funct3OpImm.ADDI && rs1 === 0) {
+                drawOpAndMessage('LI', '', `load immediate into register (via OPIMM ADDI & zero reg)`);
+                drawMessage([
+                    { color: infoColor, text: 'load immediate' },
+                    { color: immColor, text: ` ${ensureSigned32Bit(data.rhsImm.value)} ` },
+                    { color: infoColor, text: 'into ' },
+                    { color: rdColor, text: regFormatted(rd) },
+                ], line3Height);
+            } else {
+                drawOpAndMessage('OPIMM', Funct3OpImm[funct3], `binary op between register & immediate`);
+                // set [rd] <= [rs1] + [imm]
+                drawMessage([
+                    { color: infoColor, text: 'set ' },
+                    { color: rdColor, text: regFormatted(rd) },
+                    { color: infoColor, text: ' to: ' },
+                    { color: rs1Color, text: regFormatted(rs1) },
+                    { color: func3Color, text: ' ' + funct3OpIcon[funct3] + ' ' },
+                    { color: immColor, text: `${ensureSigned32Bit(data.rhsImm.value)}` },
+                ], line3Height);
+            }
             funct3Str = Funct3OpImm[funct3];
         }
 
         drawBitsAndText(12, 3, func3Color, funct3Str, 'funct3');
         drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
+
     } else if (opCode === OpCode.BRANCH) {
         drawBitsAndText(15, 5, rs1Color, rs1.toString(), 'rs1');
         drawBitsAndText(20, 5, rs2Color, rs2.toString(), 'rs2');
         drawBitsAndText(12, 3, func3Color, Funct3Branch[funct3], 'funct3');
-        // 8 (nbits: 4)
-        // 25 (nbits: 6)
-        // 7 (nbits: 1)
-        // 31 (nbits: 1)
-        drawBitsAndText(8, 4, d3Color.rgb(immColor).darker(-2).toString(), '.', 'i0');
-        drawBitsAndText(25, 6, d3Color.rgb(immColor).darker(-1).toString(), '.', 'i1');
-        drawBitsAndText(7, 1, d3Color.rgb(immColor).darker(0).toString(), '.', 'i2');
-        drawBitsAndText(31, 1, d3Color.rgb(immColor).darker(1).toString(), '.', 'i2');
+
+        let bitPattern = [8, 4,  25, 6,  7, 1,  31, 1];
+        let bitColorOffsets = [-0.5, 0, 1, 2];
+
+        drawMultiBits(bitPattern, bitColorOffsets, immColor, 'i');
+
+        drawOpAndMessage('BRANCH', Funct3Branch[funct3], `jump if the condition is met (${funct3BranchNames[funct3]})`);
+
+        let isUnsigned = funct3 === Funct3Branch.BLTU || funct3 === Funct3Branch.BGEU;
+        drawMessage([
+            { color: infoColor, text: 'branch if ' },
+            { color: rs1Color, text: regFormatted(rs1) },
+            { color: func3Color, text: ' ' + funct3BranchIcon[funct3] + ' ' },
+            { color: rs2Color, text: regFormatted(rs2) },
+            isUnsigned ? { color: infoColor, text: ' (unsigned)' } : null,
+        ].filter(isNotNil), line3Height);
+
+        drawMessage([
+            { color: infoColor, text: 'to ' },
+            { color: '#000', text: 'PC + ' },
+            ...buildBitsMessage(bitPattern, bitColorOffsets, immColor),
+            { color: '#000', text: '0' },
+            { color: immColor, text: ` (${ensureSigned32Bit(data.pcAddImm.value)})` },
+        ], line4Height);
+
+    } else if (opCode === OpCode.JAL) {
+        let bitPattern = [21, 10,  20, 1,  12, 8,  31, 1];
+        let bitColorOffsets = [-0.5, 0, 1, 2];
+
+        drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
+        drawMultiBits(bitPattern, bitColorOffsets, immColor, 'i');
+
+        drawOpAndMessage('JAL', '', `jump to address (& store PC + 4 in register)`);
+        drawMessage([
+            { color: infoColor, text: 'set ' },
+            { color: rdColor, text: regFormatted(rd) },
+            { color: infoColor, text: ' to ' },
+            { color: '#000', text: 'PC + 4' },
+        ], line3Height);
+        // jump to PC + <imm>
+        drawMessage([
+            { color: infoColor, text: 'jump to ' },
+            { color: '#000', text: 'PC + ' },
+            ...buildBitsMessage(bitPattern, bitColorOffsets, immColor),
+            { color: immColor, text: ` (${ensureSigned32Bit(data.rhsImm.value)})` },
+        ], line4Height);
+    } else if (opCode === OpCode.SYSTEM) {
+
+        drawOpAndMessage('SYSTEM', '', `system call (halt)`);
     }
 
     ctx.fillStyle = '#777';
     ctx.textAlign = 'left';
     ctx.fillText(strRemain, leftX, lineY(1));
 }
+
+function regFormatted(reg: number) {
+    return `x${reg}(${riscvRegNames[reg]})`;
+}
+
+let funct3BranchNames: Record<number, string> = {
+    [Funct3Branch.BEQ]: 'equal',
+    [Funct3Branch.BNE]: 'not equal',
+    [Funct3Branch.BLT]: 'less than',
+    [Funct3Branch.BGE]: 'greater or equal',
+    [Funct3Branch.BLTU]: 'less than (unsigned)',
+    [Funct3Branch.BGEU]: 'greater or equal (unsigned)',
+};
+
+let funct3BranchIcon: Record<number, string> = {
+    [Funct3Branch.BEQ]: '==',
+    [Funct3Branch.BNE]: '!=',
+    [Funct3Branch.BLT]: '<',
+    [Funct3Branch.BGE]: '>=',
+    [Funct3Branch.BLTU]: '<',
+    [Funct3Branch.BGEU]: '>=',
+};
+
+let funct3OpIcon: Record<number, string> = {
+    [Funct3Op.ADD]: '+',
+    // [Funct3Op.SLL]: '<<',
+    // [Funct3Op.SLT]: '<',
+    // [Funct3Op.SLTU]: '<',
+    // [Funct3Op.XOR]: '^',
+    // [Funct3Op.SRL]: '>>',
+    // [Funct3Op.SRAI]: '>>',
+    [Funct3Op.OR]: '|',
+    [Funct3Op.AND]: '&',
+};

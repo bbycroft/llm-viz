@@ -137,6 +137,8 @@ export interface ICanvasState {
     size: Vec3; // derived
     scale: number; // derived
     tileCanvases: Map<string, HTMLCanvasElement>;
+
+    showTransparentComps: boolean;
 }
 
 export interface IElRef {
@@ -239,6 +241,8 @@ export enum CompType {
 }
 
 export interface ICpuLayout {
+    selected: IElRef[];
+
     nextCompId: number;
     nextWireId: number;
     comps: IComp[];

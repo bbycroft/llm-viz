@@ -9,20 +9,25 @@ export enum KeyboardOrder {
 export interface IKeyHandler {
     order: KeyboardOrder;
     handler: (ev: KeyboardEvent) => void;
+    receiveKeyUp: boolean;
+}
+
+export interface IKeyHandlerOptions {
+    receiveKeyUp?: boolean;
 }
 
 export class KeyboardManager {
     private handlers: IKeyHandler[] = [];
 
-    registerHandler(order: KeyboardOrder, handler: (ev: KeyboardEvent) => void): () => void {
-        let newHandler: IKeyHandler = { order, handler };
+    registerHandler(order: KeyboardOrder, handler: (ev: KeyboardEvent) => void, opts?: IKeyHandlerOptions): () => void {
+        let newHandler: IKeyHandler = { order, handler, receiveKeyUp: opts?.receiveKeyUp ?? false };
         this.handlers.push(newHandler);
         return () => {
             this.handlers = this.handlers.filter(h => h !== newHandler);
         };
     }
 
-    handleKeyDown = (ev: KeyboardEvent) => {
+    handleKey = (ev: KeyboardEvent) => {
         let handlersSorted = this.handlers.sort((a, b) => a.order - b.order);
 
         let propagationStopped = false;
@@ -34,6 +39,9 @@ export class KeyboardManager {
         };
 
         for (let handler of handlersSorted) {
+            if (handler.receiveKeyUp && ev.type === "keyup") {
+                continue;
+            }
             handler.handler(ev);
             if (propagationStopped) {
                 break;
@@ -59,8 +67,12 @@ export function useCreateGlobalKeyboardDocumentListener() {
     let manager = useContext(KeyboardManagerContext);
 
     useEffect(() => {
-        document.addEventListener("keydown", manager.handleKeyDown);
-        return () => document.removeEventListener("keydown", manager.handleKeyDown);
+        document.addEventListener("keydown", manager.handleKey);
+        document.addEventListener("keyup", manager.handleKey);
+        return () => {
+            document.removeEventListener("keydown", manager.handleKey);
+            document.removeEventListener("keyup", manager.handleKey);
+        };
     }, [manager]);
 }
 

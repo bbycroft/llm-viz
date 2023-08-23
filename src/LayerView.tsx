@@ -100,9 +100,9 @@ export function LayerView() {
     });
 
     useEffect(() => {
-        document.addEventListener('keydown', keyboardManager.handleKeyDown);
+        document.addEventListener('keydown', keyboardManager.handleKey);
         return () => {
-            document.removeEventListener('keydown', keyboardManager.handleKeyDown);
+            document.removeEventListener('keydown', keyboardManager.handleKey);
         };
     }, [keyboardManager]);
 

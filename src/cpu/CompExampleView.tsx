@@ -65,7 +65,6 @@ export const CompExampleView: React.FC = () => {
         }
 
         if (!exeModel.runArgs.halt) {
-            console.log('--- halted ---');
             stepExecutionCombinatorial(exeModel);
         }
 
@@ -73,7 +72,7 @@ export const CompExampleView: React.FC = () => {
     }
 
     function onRunAllTestsClicked() {
-        console.log('running all tests...');
+        console.log('Running all tests...');
         let startTime = performance.now();
         let successCount = 0;
         let totalCount = 0;
@@ -89,15 +88,15 @@ export const CompExampleView: React.FC = () => {
                     let resRegValue = regs?.data.file[10] ?? 0;
 
                     if (resRegValue !== 44 && resRegValue !== 911) {
-                        console.log(`--- halted with unknown result in reg[a0]: ${ensureSigned32Bit(resRegValue)} ---`);
+                        console.log(`--- test '${test.name}' halted with unknown result in reg[a0]: ${ensureSigned32Bit(resRegValue)} ---`);
                     } else {
                         let isSuccess = (resRegValue === 44) !== test.name.startsWith('must_fail');
 
                         if (isSuccess) {
                             successCount += 1;
-                            console.log(`--- halted with success ---`);
+                            // console.log(`--- halted with success ---`);
                         } else {
-                            console.log(`--- halted with FAILURE ---`);
+                            console.log(`--- test '${test.name}' halted with FAILURE ---`);
                         }
                     }
                     completed = true;
@@ -109,7 +108,7 @@ export const CompExampleView: React.FC = () => {
             }
 
             if (!completed) {
-                console.log(`--- halted after too many instructions ---`);
+                console.log(`--- test '${test.name}' halted after too many instructions ---`);
             }
         }
         let endTime = performance.now();

@@ -87,7 +87,7 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
 
     inAPort.ioEnabled = isEnabled;
     inBPort.ioEnabled = isEnabled;
-    outPort.ioEnabled = isEnabled;
+    outPort.ioEnabled = isEnabled && !isBranch;
     branchPort.value = 0;
 
     if (!isEnabled) {

@@ -4,7 +4,7 @@ import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart, useCombinedMouseTouchDrag } from "../utils/pointer";
-import { assignImm, assignImmFull, clamp, getOrAddToMap, hasFlag, isNil, isNotNil } from "../utils/data";
+import { assignImm, assignImmFull, clamp, getOrAddToMap, hasFlag, isNil, useFunctionRef } from "../utils/data";
 import { editLayout, EditorContext, IEditorContext } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
 import { RefType, IElRef, ISegment, IComp, PortDir, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, ICompRenderArgs, IExePort, IExePortRef } from "./CpuModel";
@@ -14,11 +14,11 @@ import { CpuEditorToolbar } from "./EditorControls";
 import { exportData, hydrateFromLS, importData, wiresFromLsState, wiresToLsState } from "./ImportExport";
 import { buildCompLibrary } from "./comps/CompLibrary";
 import { ICompDataRegFile, ICompDataSingleReg, riscvRegNames } from "./comps/Registers";
-import { CompLibrary } from "./comps/CompBuilder";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
 import { HoverDisplay } from "./HoverDisplay";
-import { ensureSigned32Bit, ensureUnsigned32Bit, signExtend32Bit } from "./comps/RiscvInsDecode";
+import { ensureSigned32Bit, ensureUnsigned32Bit } from "./comps/RiscvInsDecode";
+import { KeyboardOrder, useGlobalKeyboard } from "../utils/keyboard";
 
 interface ICpuState {
     system: any;
@@ -62,6 +62,8 @@ interface ICanvasDragState {
 
 export function constructCpuLayout(): ICpuLayout {
     return {
+        selected: [],
+
         nextWireId: 0,
         nextCompId: 0,
         wires: [],
@@ -78,7 +80,6 @@ export const CpuCanvas: React.FC<{
 
         let compLibrary = buildCompLibrary();
 
-
         return {
             layout: wiresFromLsState(constructCpuLayout(), lsState, compLibrary),
             layoutTemp: null,
@@ -90,9 +91,11 @@ export const CpuCanvas: React.FC<{
             addLine: false,
         };
     });
+    let [ctrlDown, setCtrlDown] = useState(false);
     let [, redraw] = useReducer((x) => x + 1, 0);
 
     useEffect(() => {
+        setCtrlDown(false);
         setEditorState(a => assignImm(a, {
             compLibrary: buildCompLibrary(),
         }))
@@ -112,15 +115,25 @@ export const CpuCanvas: React.FC<{
 
     prevExeModel.current = exeModel;
 
+    let handleWheelFuncRef = useFunctionRef(handleWheel);
+
     let setCanvasEl = useCallback((el: HTMLCanvasElement | null) => {
 
         if (el) {
             let ctx = el.getContext("2d")!;
-            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1, tileCanvases: new Map() });
+            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1, tileCanvases: new Map(), showTransparentComps: false });
+
+            function wheelHandler(ev: WheelEvent) {
+                handleWheelFuncRef.current(ev);
+            }
+            el.addEventListener("wheel", wheelHandler, { passive: false });
+            return () => {
+                el.removeEventListener("wheel", wheelHandler);
+            };
         } else {
             setCvsState(null);
         }
-    }, []);
+    }, [handleWheelFuncRef]);
 
     useEffect(() => {
         let newState = wiresToLsState(editorState.layout);
@@ -145,6 +158,7 @@ export const CpuCanvas: React.FC<{
         cvsState.size.x = w;
         cvsState.size.y = h;
         cvsState.scale = 1.0 / editorState.mtx.a;
+        cvsState.showTransparentComps = showTransparentComponents;
 
         ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -159,11 +173,33 @@ export const CpuCanvas: React.FC<{
         ctx.restore();
     });
 
+    useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
+        if (ev.key === "Control") {
+            setCtrlDown(ev.type === "keydown");
+        }
+        if (ev.key === "Delete") {
+            setEditorState(editLayout(true, layout => {
+
+                function matchesRef(ref: IElRef, id: string, type: RefType) {
+                    return ref.id === id && ref.type === type;
+                }
+
+                let newLayout = assignImm(layout, {
+                    comps: layout.comps.filter(c => !layout.selected.some(s => matchesRef(s, c.id, RefType.Comp))),
+                    wires: layout.wires.filter(w => !layout.selected.some(s => matchesRef(s, w.id, RefType.Wire))),
+                    selected: [],
+                });
+                return newLayout;
+            }));
+        }
+    });
+
     let [dragStart, setDragStart] = useCombinedMouseTouchDrag(cvsState?.canvas ?? null, ev => {
         return {
             mtx: editorState!.mtx,
             hovered: ev.button === 0 ? editorState!.hovered : null,
             modelPos: evToModel(ev),
+            ctrlDown: ctrlDown,
         };
      }, function handleDrag(ev, ds, end) {
         let delta = new Vec3(ev.clientX - ds.clientX, ev.clientY - ds.clientY);
@@ -189,7 +225,22 @@ export const CpuCanvas: React.FC<{
 
         ev.stopPropagation();
         ev.preventDefault();
+    }, function handleClick(ev, ds) {
+
+        if (ds.data.hovered) {
+            let hoveredRef = ds.data.hovered.ref;
+            setEditorState(a => assignImm(a, {
+                layout: assignImm(a.layout, {
+                    selected: [hoveredRef],
+                }),
+            }));
+        }
+
+        ev.stopPropagation();
+        ev.preventDefault();
     });
+
+    let showTransparentComponents = dragStart?.data.ctrlDown || ctrlDown;
 
     function handleComponentDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
 
@@ -392,7 +443,7 @@ export const CpuCanvas: React.FC<{
         return editorState.mtx.mulVec3Inv(pt);
     }
 
-    function handleWheel(ev: React.WheelEvent) {
+    function handleWheel(ev: WheelEvent) {
         let scale = editorState.mtx.a;
         let newScale = clamp(scale * Math.pow(1.0013, -ev.deltaY), 0.01, 100000) / scale;
 
@@ -406,7 +457,7 @@ export const CpuCanvas: React.FC<{
         editorState.mtx = newMtx;
         redraw();
         ev.stopPropagation();
-        // ev.preventDefault();
+        ev.preventDefault();
     }
 
     function getRefUnderCursor(editorState: IEditorState, ev: React.MouseEvent): IHitTest | null {
@@ -432,15 +483,17 @@ export const CpuCanvas: React.FC<{
             }
         }
 
-        for (let i = comps.length - 1; i >= 0; i--) {
-            let comp = comps[i];
-            let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
-            if (bb.contains(mousePt)) {
-                return {
-                    ref: { type: RefType.Comp, id: comp.id },
-                    distPx: 0,
-                    modelPt: mousePt,
-                };
+        if (!showTransparentComponents) {
+            for (let i = comps.length - 1; i >= 0; i--) {
+                let comp = comps[i];
+                let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
+                if (bb.contains(mousePt)) {
+                    return {
+                        ref: { type: RefType.Comp, id: comp.id },
+                        distPx: 0,
+                        modelPt: mousePt,
+                    };
+                }
             }
         }
 
@@ -569,7 +622,6 @@ export const CpuCanvas: React.FC<{
                 onMouseMove={handleMouseMove}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
-                onWheel={handleWheel}
             />
             <div className={s.toolsLeftTop}>
                 <CpuEditorToolbar />
@@ -651,7 +703,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
     }
 
     ctx.save();
-    // ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = cvs.showTransparentComps ? 0.5 : 1.0;
     for (let comp of cpuOpts.comps) {
         let exeComp = exeSystem.comps[exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1];
         let compDef = editorState.compLibrary.comps.get(comp.defId);
@@ -1035,11 +1087,26 @@ function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGra
     let hoverRef = editorState.hovered?.ref;
     let isHover = hoverRef?.type === RefType.Wire && hoverRef.id === wire.id;
 
+    let isSelected = editorState.layout.selected.some(a => a.type === RefType.Wire && a.id === wire.id);
+
     ctx.lineCap = "square";
     ctx.lineJoin = "round";
 
     function isSegHover(node0: IWireGraphNode, node1: IWireGraphNode) {
         return isHover && hoverRef?.wireNode0Id === node0.id && hoverRef?.wireNode1Id === node1.id;
+    }
+
+    if (isSelected) {
+        ctx.save();
+        ctx.beginPath();
+        iterWireGraphSegments(wire, (node0, node1) => {
+            ctx.moveTo(node0.pos.x, node0.pos.y);
+            ctx.lineTo(node1.pos.x, node1.pos.y);
+        });
+        ctx.strokeStyle = '#00f';
+        ctx.lineWidth = (width + 3) * cvs.scale;
+        ctx.stroke();
+        ctx.restore();
     }
 
     if (isHover) {
