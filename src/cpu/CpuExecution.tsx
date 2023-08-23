@@ -260,7 +260,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
     for (let nodeId of topoNodeOrder) {
         let compPhase = nodeIdToCompPhaseIdx(nodeId);
         if (compPhase) {
-            console.log('found comp', nodeId, 'compPhase', compPhase, 'comp', comps[compPhase.compIdx].comp.name, `(${compPhase.phaseIdx+1}/${comps[compPhase.compIdx].phases.length})`);
+            // console.log('found comp', nodeId, 'compPhase', compPhase, 'comp', comps[compPhase.compIdx].comp.name, `(${compPhase.phaseIdx+1}/${comps[compPhase.compIdx].phases.length})`);
             let { compIdx, phaseIdx } = compPhase;
             if (phaseIdx !== numPhasesRun[compIdx]) {
                 console.log('detected an incorrectly ordered phase; execution order may be incorrect');
@@ -281,7 +281,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
             }
         } else {
             let netIdx = nodeIdToNetIdx(nodeId)!;
-            console.log('found net', nodeId, netToString(nets[netIdx], comps));
+            // console.log('found net', nodeId, netToString(nets[netIdx], comps));
 
             let step: IExeStep = {
                 compIdx: -1,
@@ -316,7 +316,7 @@ export function stepExecutionCombinatorial(exeModel: IExeSystem) {
         let step = exeSteps[i];
         if (step.compIdx >= 0) {
             let comp = exeModel.comps[step.compIdx];
-            console.log(`running comp ${comp.comp.name} phase ${step.phaseIdx}`);
+            // console.log(`running comp ${comp.comp.name} phase ${step.phaseIdx}`);
             comp.phases[step.phaseIdx].func(comp, exeModel.runArgs);
         } else {
             let net = exeModel.nets[step.netIdx];

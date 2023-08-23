@@ -88,12 +88,12 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     // 0: ALU out => PC,  PC + x => REG
     data.pcRegMuxCtrl.value = 1;
     // data.pcOutTristateCtrl.value = 0;
-    data.pcAddImm.value = 4;
+    data.pcAddImm.value = 0;
     data.lhsMuxCtrl.value = 1; // inverted
-    data.pcBranchCtrl.value = 1;
+    data.pcBranchCtrl.value = 0;
 
     if (ins === 0) {
-        console.log('ILLEGAL INSTRUCTION: 0x0');
+        // console.log('ILLEGAL INSTRUCTION: 0x0');
         runArgs.halt = true;
         // data.willHalt = true;
         return;
@@ -114,10 +114,10 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
         data.aluCtrl.value = val;
     }
 
-    console.log('opcode: ' + opCode.toString(16), ins.toString(2).padStart(32, '0'), OpCode[opCode], Funct3Op[funct3]);
+    // console.log('opcode: ' + opCode.toString(16), ins.toString(2).padStart(32, '0'), OpCode[opCode], Funct3Op[funct3]);
 
     if (opCode === OpCode.OPIMM || opCode === OpCode.OP) {
-        console.log('OPIMM/OP', ins.toString(2).padStart(32, '0'));
+        // console.log('OPIMM/OP', ins.toString(2).padStart(32, '0'));
         let isArithShiftOrSub = false;
 
         if (opCode === OpCode.OP) {
@@ -178,9 +178,9 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
                         (((ins >>> 31) & 0x01) << 11);  // 1 bits
 
         data.pcAddImm.value = signExtend12Bit(offsetRaw) << 1;
-        console.log('branch offset: ' + data.pcAddImm.value.toString(16), data.pcAddImm.value);
+        // console.log('branch offset: ' + data.pcAddImm.value.toString(16), data.pcAddImm.value);
         data.lhsMuxCtrl.value = 1; // PC + offset => PC @TODO: not sure about this one, als a function of branch output
-        data.pcBranchCtrl.value = 1; // PC + offset => PC
+        data.pcBranchCtrl.value = 0; // PC + offset => PC
 
     } else if (opCode === OpCode.LOAD) {
         // let offset = signExtend12Bit(ins >>> 20);
@@ -270,7 +270,8 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
             }
         }
         */
-    } else if (opCode === 0x0) {
+    } else {
+        runArgs.halt = true;
         /*
         console.log('Unknown op: ' + opCode, ins.toString(2).padStart(32, '0'), cpu.pc.toString(16));
         // dumpCpu(cpu);

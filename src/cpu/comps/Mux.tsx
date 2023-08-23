@@ -83,7 +83,7 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'a', name: 'A', pos: new Vec3(0, 1), type: PortDir.In, width: 32 },
             { id: 'b', name: 'B', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
 
-            { id: 'out', name: 'O2', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
+            { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
         ],
         build: (comp: IComp) => {
             let builder = new ExeCompBuilder<ICompDataAdder>(comp);

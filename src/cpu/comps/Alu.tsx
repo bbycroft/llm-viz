@@ -40,7 +40,7 @@ export function buildAlu(comp: IComp): IExeComp<ICompDataAlu> {
         outPort: builder.getPort('result'),
         branchPort: builder.getPort('branch'),
     };
-    builder.addPhase(aluPhase0, [data.inCtrlPort, data.inAPort, data.inBPort], [data.outPort]);
+    builder.addPhase(aluPhase0, [data.inCtrlPort, data.inAPort, data.inBPort], [data.outPort, data.branchPort]);
     return builder.build(data);
 }
 
@@ -83,19 +83,21 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
     let isEnabled = (ctrl & 0b100000) !== 0;
     let isBranch =  (ctrl & 0b010000) !== 0;
 
-    console.log(`alu: ctrl=${ctrl.toString(2)} lhs=${lhs} rhs=${rhs} isEnabled=${isEnabled} isBranch=${isBranch}`, rhs);
+    // console.log(`alu: ctrl=${ctrl.toString(2)} lhs=${lhs} rhs=${rhs} isEnabled=${isEnabled} isBranch=${isBranch}`, rhs);
 
     inAPort.ioEnabled = isEnabled;
     inBPort.ioEnabled = isEnabled;
     outPort.ioEnabled = isEnabled;
+    branchPort.value = 0;
 
     if (!isEnabled) {
         return;
     }
 
     if (isBranch) {
-        let isInverted = ctrl & 0b1;
-        let opts = ctrl & 0b110;
+        let funct3 = (ctrl >> 1) & 0b111;
+        let isInverted = funct3 & 0b1;
+        let opts = funct3 & 0b110;
         let res = false;
         switch (opts) {
             case 0b000: res = lhs === rhs; break;
@@ -105,6 +107,7 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
         // branch may need its own output port?
         outPort.value = 0;
         branchPort.value = (res ? 1 : 0) ^ isInverted;
+        // console.log('alu: branch res=' + res + ' isInverted=' + isInverted + ' branchPort=' + branchPort.value);
     } else {
         let funct3 = (ctrl >> 1) & 0b111;
         let isArithShiftOrSub = (ctrl & 0b1) !== 0;
@@ -122,5 +125,5 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
         outPort.value = res;
     }
 
-    console.log('alu: res=' + outPort.value);
+    // console.log('alu: res=' + outPort.value);
 }

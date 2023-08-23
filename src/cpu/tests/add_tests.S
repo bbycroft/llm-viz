@@ -39,3 +39,20 @@ SECTION(add2)
     li x4, -4
     bne x3, x4, fail_add2
 END_SECTION(add2)
+
+SECTION(bne0)
+    li x1, 10
+    bne x1, x1, fail_bne0
+    li x2, 20
+    bne x1, x2, bn0_step
+    li x3, 30
+bn0_step:
+    li x4, 30
+    beq x3, x4, fail_bne0
+END_SECTION(bne0)
+
+SECTION(must_fail0)
+    li x1, 10
+    li x2, 20
+    bne x1, x2, fail_must_fail0
+END_SECTION(must_fail0)

@@ -7,6 +7,7 @@ import { IExeComp } from "./CpuModel";
 import { runNet } from "./comps/ComponentDefs";
 import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
 import { stepExecutionCombinatorial, stepExecutionLatch } from "./CpuExecution";
+import { ensureSigned32Bit } from "./comps/RiscvInsDecode";
 
 interface IExampleEntry {
     name: string;
@@ -47,16 +48,18 @@ export const CompExampleView: React.FC = () => {
     }, []);
 
     function handleEntryClick(example: IExampleEntry) {
-        let romComp = exeModel.comps.find(comp => comp.comp.defId === 'rom0') as IExeComp<ICompDataRom> | undefined;
+        let romComp = getRomComp();
         if (romComp) {
-            romComp.data.rom.set(example.elfSection.arr);
+            let romArr = romComp.data.rom;
+            romArr.set(example.elfSection.arr);
+            romArr.fill(0, example.elfSection.arr.length);
         }
         stepExecutionCombinatorial(exeModel);
         setEditorState(a => ({ ...a }));
     }
 
     function onStepClicked() {
-        console.log('--- running execution (latching followed by steps) ---', exeModel);
+        // console.log('--- running execution (latching followed by steps) ---', exeModel);
         if (!exeModel.runArgs.halt) {
             stepExecutionLatch(exeModel);
         }
@@ -69,13 +72,67 @@ export const CompExampleView: React.FC = () => {
         setEditorState(a => ({ ...a }));
     }
 
+    function onRunAllTestsClicked() {
+        console.log('running all tests...');
+        let startTime = performance.now();
+        let successCount = 0;
+        let totalCount = 0;
+        for (let test of examples) {
+            handleEntryClick(test);
+            onResetClicked();
+            totalCount += 1;
+            let completed = false;
+
+            for (let i = 0; i < 200; i++) {
+                if (exeModel.runArgs.halt) {
+                    let regs = getRegsComp();
+                    let resRegValue = regs?.data.file[10] ?? 0;
+
+                    if (resRegValue !== 44 && resRegValue !== 911) {
+                        console.log(`--- halted with unknown result in reg[a0]: ${ensureSigned32Bit(resRegValue)} ---`);
+                    } else {
+                        let isSuccess = (resRegValue === 44) !== test.name.startsWith('must_fail');
+
+                        if (isSuccess) {
+                            successCount += 1;
+                            console.log(`--- halted with success ---`);
+                        } else {
+                            console.log(`--- halted with FAILURE ---`);
+                        }
+                    }
+                    completed = true;
+                    break;
+                }
+
+                stepExecutionLatch(exeModel);
+                stepExecutionCombinatorial(exeModel);
+            }
+
+            if (!completed) {
+                console.log(`--- halted after too many instructions ---`);
+            }
+        }
+        let endTime = performance.now();
+        console.log(`All tests done in ${(endTime - startTime).toFixed(1)}ms. Success: ${successCount}/${totalCount}.`);
+    }
+
     function findCompByDefId(defId: string) {
         return exeModel.comps.find(comp => comp.comp.defId === defId);
     }
 
+    function getPcComp() {
+        return findCompByDefId('reg1') as IExeComp<ICompDataSingleReg> | undefined;
+    }
+    function getRegsComp() {
+        return findCompByDefId('reg32Riscv') as IExeComp<ICompDataRegFile> | undefined;
+    }
+    function getRomComp() {
+        return findCompByDefId('rom0') as IExeComp<ICompDataRom> | undefined;
+    }
+
     function onResetClicked() {
-        let pcComp = findCompByDefId('reg1') as IExeComp<ICompDataSingleReg> | undefined;
-        let regComp = findCompByDefId('reg32Riscv') as IExeComp<ICompDataRegFile> | undefined;
+        let pcComp = getPcComp();
+        let regComp = getRegsComp();
 
         if (pcComp && regComp) {
             pcComp.data.value = 0;
@@ -112,6 +169,7 @@ export const CompExampleView: React.FC = () => {
         <div className={s.body}>
             <button className={s.btn} disabled={exeModel.runArgs.halt} onClick={onStepClicked}>Step</button>
             <button className={s.btn} onClick={onResetClicked}>Reset</button>
+            <button className={s.btn} onClick={onRunAllTestsClicked}>Run all</button>
         </div>
 
     </div>;

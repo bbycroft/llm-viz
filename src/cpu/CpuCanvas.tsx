@@ -775,7 +775,7 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2 * Math.PI);
     ctx.strokeStyle = isHover ? "#f00" : "#000";
-    ctx.fillStyle = isInput ? "#fff" : isTristate ? "#a3f" : "#00f";
+    ctx.fillStyle = isInput ? "#fff" : isTristate ? "#a3f" : "#00fa";
     ctx.fill();
     ctx.stroke();
 
@@ -890,7 +890,7 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
         ctx.font = `${styles.fontSize}px monospace`;
         ctx.textAlign = 'end';
         ctx.textBaseline = "middle";
-        ctx.fillStyle = "#000";
+        ctx.fillStyle = (i > 0 && regValue === 0) ? '#0007' : "#000";
 
         let yMid = comp.pos.y + padY + lineHeight * (i + 0.5);
 

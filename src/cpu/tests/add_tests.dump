@@ -51,3 +51,39 @@ Disassembly of section .text_add2:
 0000001c <fail_add2>:
       1c: 13 05 f0 38  	li	a0, 911
       20: 73 00 00 00  	ecall	
+
+Disassembly of section .text_bne0:
+
+00000000 <_start_bne0>:
+       0: 93 00 a0 00  	li	ra, 10
+       4: 63 90 10 02  	bne	ra, ra, 0x24 <fail_bne0>
+       8: 13 01 40 01  	li	sp, 20
+       c: 63 94 20 00  	bne	ra, sp, 0x14 <bn0_step>
+      10: 93 01 e0 01  	li	gp, 30
+
+00000014 <bn0_step>:
+      14: 13 02 e0 01  	li	tp, 30
+      18: 63 86 41 00  	beq	gp, tp, 0x24 <fail_bne0>
+
+0000001c <success_bne0>:
+      1c: 13 05 c0 02  	li	a0, 44
+      20: 73 00 00 00  	ecall	
+
+00000024 <fail_bne0>:
+      24: 13 05 f0 38  	li	a0, 911
+      28: 73 00 00 00  	ecall	
+
+Disassembly of section .text_must_fail0:
+
+00000000 <_start_must_fail0>:
+       0: 93 00 a0 00  	li	ra, 10
+       4: 13 01 40 01  	li	sp, 20
+       8: 63 96 20 00  	bne	ra, sp, 0x14 <fail_must_fail0>
+
+0000000c <success_must_fail0>:
+       c: 13 05 c0 02  	li	a0, 44
+      10: 73 00 00 00  	ecall	
+
+00000014 <fail_must_fail0>:
+      14: 13 05 f0 38  	li	a0, 911
+      18: 73 00 00 00  	ecall	

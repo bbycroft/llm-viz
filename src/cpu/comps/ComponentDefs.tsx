@@ -40,7 +40,7 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         }
         net.enabledCount = enabledCount;
         net.value = enabledCount === 1 ? enabledPortValue : 0;
-        if (enabledCount !== 1) {
+        if (enabledCount > 1) {
             console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs');
         }
     } else {
@@ -59,5 +59,5 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         port.value = net.value;
     }
 
-    console.log('running net', netToString(net, comps), 'with value', net.value.toString(16), net.value);
+    // console.log('running net', netToString(net, comps), 'with value', net.value.toString(16), net.value);
 }
