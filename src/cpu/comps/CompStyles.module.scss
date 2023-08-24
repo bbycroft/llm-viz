@@ -1,0 +1,28 @@
+
+// position: 'absolute',
+// left: 0,
+// top: 0,
+// width: comp.size.x * scale,
+// height: comp.size.y * scale,
+// transform: `${mtxStr} translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`,
+// transformOrigin: '0 0',
+// backgroundColor: 'rgba(255, 0, 0, 0.5)',
+// pointerEvents: 'none',
+// boxSizing: 'border-box',
+
+.baseComp {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    transform: translate(0px, 0px) scale(1);
+    transform-origin: 0 0;
+    pointer-events: none;
+    box-sizing: border-box;
+    font-family: sans-serif;
+}
+
+.rectComp {
+    padding: 20px;
+}

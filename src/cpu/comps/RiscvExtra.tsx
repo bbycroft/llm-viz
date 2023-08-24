@@ -3,6 +3,11 @@ import { IExeComp, IExePort, PortDir } from "../CpuModel";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 
 export interface ICompDataLoadStore {
+    ctrl: IExePort;
+    addrOffset: IExePort;
+    addrBase: IExePort;
+    dataIn: IExePort;
+    dataOut: IExePort;
 }
 
 export interface ICompDataInsFetch {
@@ -14,17 +19,41 @@ export interface ICompDataInsFetch {
 
 export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
+    let lsW = 24;
+    let lsH = 12;
     let defLs: ICompDef<ICompDataLoadStore> = {
         defId: 'riscvLoadStore',
         name: "Load/Store",
-        size: new Vec3(24, 12),
+        size: new Vec3(lsW, lsH),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: PortDir.In, width: 4 },
             { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: PortDir.In, width: 12 },
-            { id: 'addrBase', name: 'Addr Base', pos: new Vec3(3, 3), type: PortDir.In, width: 32 },
-            { id: 'data', name: 'Data', pos: new Vec3(7, 3), type: PortDir.In, width: 32 },
-            { id: 'dataOut', name: 'Data Out', pos: new Vec3(10, 2), type: PortDir.OutTri, width: 32 },
+            { id: 'addrBase', name: 'Addr Base', pos: new Vec3(5, lsH), type: PortDir.In, width: 32 },
+            { id: 'dataIn', name: 'Data In', pos: new Vec3(12, lsH), type: PortDir.In, width: 32 },
+            { id: 'dataOut', name: 'Data Out', pos: new Vec3(lsW, 6), type: PortDir.OutTri, width: 32 },
         ],
+        build: (comp) => {
+            let builder = new ExeCompBuilder<ICompDataLoadStore>(comp);
+            let data = builder.addData({
+                ctrl: builder.getPort('ctrl'),
+                addrOffset: builder.getPort('addrOffset'),
+                addrBase: builder.getPort('addrBase'),
+                dataIn: builder.getPort('dataIn'),
+                dataOut: builder.getPort('dataOut'),
+            });
+
+            builder.addPhase(({ data: { ctrl, addrOffset, addrBase, dataIn, dataOut } }) => {
+                if (ctrl.value === 0b0000) {
+                    addrOffset.ioEnabled = false;
+                    addrBase.ioEnabled = false;
+                    dataIn.ioEnabled = false;
+                    dataOut.ioEnabled = false;
+                }
+
+            }, [data.ctrl, data.addrOffset, data.addrBase, data.dataIn], [data.dataOut]);
+
+            return builder.build();
+        },
     };
 
     let defIf: ICompDef<ICompDataInsFetch> = {

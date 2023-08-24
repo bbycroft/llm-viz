@@ -19,6 +19,24 @@ Disassembly of section .text_addi0:
       1c: 13 05 c0 02  	li	a0, 44
       20: 73 00 00 00  	ecall	
 
+Disassembly of section .text_addi1:
+
+00000000 <_start_addi1>:
+       0: 93 00 a0 00  	li	ra, 10
+       4: 93 80 40 01  	addi	ra, ra, 20
+       8: 13 02 e0 01  	li	tp, 30
+       c: 63 88 40 00  	beq	ra, tp, 0x1c <success_addi1>
+
+00000010 <fail_addi1>:
+      10: 13 05 f0 38  	li	a0, 911
+      14: 73 00 00 00  	ecall	
+      18: 00 00        	<unknown>
+      1a: 00 00        	<unknown>
+
+0000001c <success_addi1>:
+      1c: 13 05 c0 02  	li	a0, 44
+      20: 73 00 00 00  	ecall	
+
 Disassembly of section .text_bne0:
 
 00000000 <_start_bne0>:

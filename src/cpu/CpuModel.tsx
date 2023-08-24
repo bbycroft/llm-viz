@@ -138,6 +138,7 @@ export interface ICanvasState {
     ctx: CanvasRenderingContext2D;
     size: Vec3; // derived
     scale: number; // derived
+    mtx: AffineMat2d; // derived
     tileCanvases: Map<string, HTMLCanvasElement>;
 
     showTransparentComps: boolean;

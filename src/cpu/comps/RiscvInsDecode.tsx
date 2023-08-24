@@ -637,7 +637,7 @@ let funct3BranchNames: Record<number, string> = {
     [Funct3Branch.BGEU]: 'greater or equal (unsigned)',
 };
 
-let funct3BranchIcon: Record<number, string> = {
+export const funct3BranchIcon: Record<number, string> = {
     [Funct3Branch.BEQ]: '==',
     [Funct3Branch.BNE]: '!=',
     [Funct3Branch.BLT]: '<',
@@ -646,7 +646,7 @@ let funct3BranchIcon: Record<number, string> = {
     [Funct3Branch.BGEU]: '>=',
 };
 
-let funct3OpIcon: Record<number, string> = {
+export const funct3OpIcon: Record<number, string> = {
     [Funct3Op.ADD]: '+',
     [Funct3Op.SLL]: '<<',
     [Funct3Op.SLT]: '<',

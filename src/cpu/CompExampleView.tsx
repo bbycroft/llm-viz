@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useEditorContext } from "./Editor";
 import s from "./CompExampleView.module.scss";
 import { IElfTextSection, listElfTextSections, readElfHeader } from "./ElfParser";
@@ -17,7 +17,8 @@ interface IExampleEntry {
 export const CompExampleView: React.FC = () => {
     let { editorState, setEditorState, exeModel } = useEditorContext();
 
-    let [examples, setExamples] = React.useState<IExampleEntry[]>([]);
+    let [examples, setExamples] = useState<IExampleEntry[]>([]);
+    let [reloadCntr, setReloadCntr] = useState(0);
 
     useEffect(() => {
         let basePath = (process.env.BASE_URL ?? '') + '/riscv/examples/';
@@ -47,7 +48,7 @@ export const CompExampleView: React.FC = () => {
 
         run();
 
-    }, []);
+    }, [reloadCntr]);
 
     function handleEntryClick(example: IExampleEntry) {
         loadEntryData(example);
@@ -142,6 +143,50 @@ export const CompExampleView: React.FC = () => {
         let endTime = performance.now();
         let timeMs = endTime - startTime;
         console.log(`All tests done in ${timeMs.toFixed(1)}ms. Success: ${successCount}/${totalCount} (repeats=${repeatCount}). Instructions: ${insCount} (${(insCount / timeMs).toFixed(0)} kHz)`);
+
+        setEditorState(a => ({ ...a }));
+    }
+
+    async function runTestsQuickly() {
+        for (let test of examples) {
+            loadEntryData(test);
+            resetRegs();
+            stepExecutionCombinatorial(exeModel);
+
+            let completed = false;
+
+            for (let i = 0; i < 200; i++) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+                setEditorState(a => ({ ...a }));
+
+                stepExecutionCombinatorial(exeModel);
+                if (exeModel.runArgs.halt) {
+                    let regs = getRegsComp();
+                    let resRegValue = regs?.data.file[10] ?? 0;
+                    let testNumValue = regs?.data.file[11] ?? 0;
+
+                    if (resRegValue !== 44 && resRegValue !== 911) {
+                        console.log(`--- test '${test.name}' halted with unknown result in reg[a0]: ${ensureSigned32Bit(resRegValue)} ---`);
+                    } else {
+                        let isSuccess = (resRegValue === 44) !== test.expectFail;
+
+                        if (isSuccess) {
+                            // console.log(`--- halted with success ---`);
+                        } else {
+                            console.log(`--- test '${test.name}' halted with FAILURE (test ${testNumValue}) ---`);
+                        }
+                    }
+                    completed = true;
+                    break;
+                }
+
+                stepExecutionLatch(exeModel);
+            }
+
+            if (!completed) {
+                console.log(`--- test '${test.name}' halted after too many instructions ---`);
+            }
+        }
     }
 
     function findCompByDefId(defId: string) {
@@ -165,7 +210,9 @@ export const CompExampleView: React.FC = () => {
     }
 
     return <div className={s.exampleView}>
-        <div className={s.header}>Examples</div>
+        <div className={s.header}>Examples
+            <div style={{ position: 'absolute', right: '0', top: '0' }} onClick={() => setReloadCntr(a => a + 1)}>reload</div>
+        </div>
 
         <div className={s.body}>
             {examples.map((example, idx) => {
@@ -184,6 +231,7 @@ export const CompExampleView: React.FC = () => {
             <button className={s.btn} disabled={exeModel.runArgs.halt} onClick={onStepClicked}>Step</button>
             <button className={s.btn} onClick={onResetClicked}>Reset</button>
             <button className={s.btn} onClick={onRunAllTestsClicked}>Run all</button>
+            <button className={s.btn} onClick={runTestsQuickly}>Run all (slow)</button>
         </div>
 
     </div>;

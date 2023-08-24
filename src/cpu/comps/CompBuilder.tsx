@@ -15,7 +15,9 @@ export interface ICompDef<T> {
 
     build?: (comp: IComp) => IExeComp<T>;
     render?: (args: ICompRenderArgs<T>) => void;
+    renderDom?: (args: ICompRenderArgs<T>) => JSX.Element;
     renderAll?: boolean;
+    copyStatefulData?: (src: T, dest: T) => void; // should copy things like memory & registers (not ports)
 }
 
 export class CompLibrary {
@@ -41,6 +43,23 @@ export class CompLibrary {
         };
 
         return comp;
+    }
+
+    updateCompFromDef(comp: IComp) {
+        let compDef = this.comps.get(comp.defId);
+        if (!compDef) {
+            return;
+        }
+        comp.name = compDef.name;
+        comp.ports = compDef.ports;
+        comp.size = compDef.size;
+    }
+
+    updateAllCompsFromDefs(comps: IComp[]) {
+        for (let comp of comps) {
+            this.updateCompFromDef(comp);
+        }
+        return comps;
     }
 
     build(comp: IComp): IExeComp<any> {

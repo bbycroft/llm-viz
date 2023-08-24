@@ -16,6 +16,9 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'outB', name: 'B', pos: new Vec3(w, 5), type: PortDir.OutTri, width: 32 },
         ],
         build: buildRegFile,
+        copyStatefulData: (src, dest) => {
+            dest.file.set(src.file);
+        },
     };
 
     let regSingle: ICompDef<ICompDataSingleReg> = {
@@ -28,6 +31,9 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
         ],
         build: buildSingleReg,
+        copyStatefulData: (src, dest) => {
+            dest.value = src.value;
+        },
     };
 
     return [reg32, regSingle];

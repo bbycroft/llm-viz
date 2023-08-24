@@ -1,4 +1,4 @@
-import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
+import { assignImm, getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary } from "./comps/CompBuilder";
 import { runNet } from "./comps/ComponentDefs";
 import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef } from "./CpuModel";
@@ -70,16 +70,22 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
     }
 
     for (let comp of connectedComps) {
+        let createdComp = compLibrary.build(comp);
 
         if (existingSystem) {
             let existingComp = existingSystem.comps[existingSystem.lookup.compIdToIdx.get(comp.id)!];
             if (existingComp) {
-                comps.push(existingComp);
-                continue;
+                // @TODO: while this keeps the data around, it doesn't update other things
+                // that might get modified in code with hot-reloading
+                // Maybe want per-comp custom logic to copy stateful data around? (mem;regs)
+                let def = compLibrary.comps.get(comp.defId)!;
+                if (def.copyStatefulData) {
+                    def.copyStatefulData(existingComp.data, createdComp.data);
+                }
             }
         }
 
-        comps.push(compLibrary.build(comp));
+        comps.push(createdComp);
     }
 
     for (let netIdx = 0; netIdx < nets.length; netIdx++) {

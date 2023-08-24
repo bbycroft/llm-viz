@@ -13,15 +13,15 @@ export interface ICompDataRom {
 
 export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let w = 16;
-    let h = 68;
+    let romW = 16;
+    let romH = 68;
     let rom: ICompDef<ICompDataRom> = {
         defId: 'rom0',
         name: "ROM",
-        size: new Vec3(w, h),
+        size: new Vec3(romW, romH),
         ports: [
-            { id: 'addr', name: 'Addr', pos: new Vec3(w, 1), type: PortDir.In, width: 32 },
-            { id: 'data', name: 'Data', pos: new Vec3(w, 2), type: PortDir.Out, width: 32 },
+            { id: 'addr', name: 'Addr', pos: new Vec3(romW, 1), type: PortDir.In, width: 32 },
+            { id: 'data', name: 'Data', pos: new Vec3(romW, 2), type: PortDir.Out, width: 32 },
         ],
         build: (comp: IComp) => {
             let builder = new ExeCompBuilder<ICompDataRom>(comp);
@@ -65,6 +65,9 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
 
                 }
             }
+        },
+        copyStatefulData: (src, dest) => {
+            dest.rom.set(src.rom);
         },
     };
 

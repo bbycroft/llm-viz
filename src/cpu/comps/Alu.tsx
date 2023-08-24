@@ -1,7 +1,19 @@
+import React, { CSSProperties } from "react";
 import { Vec3 } from "@/src/utils/vector";
-import { PortDir, IComp, IExeComp, IExePort } from "../CpuModel";
+import { PortDir, IComp, IExeComp, IExePort, ICanvasState } from "../CpuModel";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { ensureSigned32Bit, ensureUnsigned32Bit } from "./RiscvInsDecode";
+import { ensureSigned32Bit, ensureUnsigned32Bit, funct3BranchIcon, funct3OpIcon } from "./RiscvInsDecode";
+import s from './CompStyles.module.scss';
+import clsx from "clsx";
+import { Funct3Op } from "../RiscvIsa";
+
+interface ICompDataAlu {
+    inCtrlPort: IExePort;
+    inAPort: IExePort;
+    inBPort: IExePort;
+    outPort: IExePort;
+    branchPort: IExePort;
+}
 
 export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
@@ -17,32 +29,89 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'branch', name: 'Branch', pos: new Vec3(4, 12), type: PortDir.Out | PortDir.Ctrl, width: 1 },
             { id: 'result', name: 'Result', pos: new Vec3(8, 12), type: PortDir.OutTri, width: 32 },
         ],
-        build: buildAlu,
+        build: (comp: IComp) => {
+            let builder = new ExeCompBuilder<ICompDataAlu>(comp);
+            let data = builder.addData({
+                inCtrlPort: builder.getPort('ctrl'),
+                inAPort: builder.getPort('lhs'),
+                inBPort: builder.getPort('rhs'),
+                outPort: builder.getPort('result'),
+                branchPort: builder.getPort('branch'),
+            });
+            builder.addPhase(aluPhase0, [data.inCtrlPort, data.inAPort, data.inBPort], [data.outPort, data.branchPort]);
+            return builder.build();
+        },
+        renderDom: ({ comp, ctx, cvs, exeComp, styles }) => {
+            if (!exeComp) {
+                return <div className={clsx(s.baseComp, s.rectComp)} style={{ ...createCanvasDivStyle(cvs, comp) }}>
+                    <div>ALU <span style={{ fontFamily: 'monospace' }}>{(0).toString(2).padStart(5, '0')}</span></div>
+                </div>;
+            }
+
+            let { inCtrlPort, inAPort, inBPort } = exeComp.data;
+
+            let ctrl = inCtrlPort.value;
+            let lhs = ensureSigned32Bit(inAPort.value);
+            let rhs = ensureSigned32Bit(inBPort.value);
+
+            let isEnabled = (ctrl & 0b100000) !== 0;
+            let isBranch =  (ctrl & 0b010000) !== 0;
+
+            let funct3 = (ctrl >> 1) & 0b111;
+            let isInverted = funct3 & 0b1;
+            let isArithShiftOrSub = (ctrl & 0b1) !== 0;
+
+            // want to show the integer values of the inputs and outputs (unless doing unsigned op)
+            let opStr = '';
+            if (isBranch) {
+                opStr = funct3BranchIcon[funct3];
+            } else {
+                if (isArithShiftOrSub && funct3 === Funct3Op.ADD) {
+                    opStr = '-';
+                } else {
+                    opStr = funct3OpIcon[funct3];
+                }
+            }
+            let res = exeComp.data.outPort.value;
+            let takeBranch = exeComp.data.branchPort.value;
+
+            // also show the OP (branch or otherwise), and show the result, as well as the branch result
+            return <div className={clsx(s.baseComp, s.rectComp)} style={{ ...createCanvasDivStyle(cvs, comp), display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div>ALU <span style={{ fontFamily: 'monospace' }}>{exeComp?.data.inCtrlPort.value.toString(2).padStart(5, '0')}</span></div>
+                {!isEnabled && <div>{'[disabled]'}</div>}
+                {isEnabled && <>
+                    {!isBranch && <>
+                        <div>
+                            {lhs} {opStr} {rhs}
+                        </div>
+                        <div>v</div>
+                        <div>{ensureSigned32Bit(res).toString()}</div>
+                    </>}
+                    {isBranch && <>
+                        <div>
+                            {lhs} {opStr} {rhs}
+                        </div>
+                        <div>v</div>
+                        <div>{takeBranch ? 'BRANCH' : '(no branch)'}</div>
+                    </>}
+                </>}
+            </div>;
+        },
     };
 
     return [alu];
 }
 
+export function createCanvasDivStyle(cvs: ICanvasState, comp: IComp): CSSProperties {
 
-interface ICompDataAlu {
-    inCtrlPort: IExePort;
-    inAPort: IExePort;
-    inBPort: IExePort;
-    outPort: IExePort;
-    branchPort: IExePort;
-}
+    let mtxStr = `matrix(${cvs.mtx.toTransformParams().join(',')})`;
+    let scale = 15;
 
-export function buildAlu(comp: IComp): IExeComp<ICompDataAlu> {
-    let builder = new ExeCompBuilder<ICompDataAlu>(comp);
-    let data: ICompDataAlu = {
-        inCtrlPort: builder.getPort('ctrl'),
-        inAPort: builder.getPort('lhs'),
-        inBPort: builder.getPort('rhs'),
-        outPort: builder.getPort('result'),
-        branchPort: builder.getPort('branch'),
+    return {
+        width: comp.size.x * scale,
+        height: comp.size.y * scale,
+        transform: `${mtxStr} translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`,
     };
-    builder.addPhase(aluPhase0, [data.inCtrlPort, data.inAPort, data.inBPort], [data.outPort, data.branchPort]);
-    return builder.build(data);
 }
 
 /*
@@ -89,6 +158,7 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
     inAPort.ioEnabled = isEnabled;
     inBPort.ioEnabled = isEnabled;
     outPort.ioEnabled = isEnabled && !isBranch;
+    branchPort.ioEnabled = false;
     branchPort.value = 0;
 
     if (!isEnabled) {
@@ -108,6 +178,7 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
         // branch may need its own output port?
         outPort.value = 0;
         branchPort.value = (res ? 1 : 0) ^ isInverted;
+        branchPort.ioEnabled = true;
         // console.log('alu: branch res=' + res + ' isInverted=' + isInverted + ' branchPort=' + branchPort.value);
     } else {
         let funct3 = (ctrl >> 1) & 0b111;

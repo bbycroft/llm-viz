@@ -4,7 +4,7 @@ import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from "../
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart, useCombinedMouseTouchDrag } from "../utils/pointer";
-import { assignImm, assignImmFull, clamp, getOrAddToMap, hasFlag, isNil, useFunctionRef } from "../utils/data";
+import { assignImm, assignImmFull, clamp, getOrAddToMap, hasFlag, isNil, isNotNil, useFunctionRef } from "../utils/data";
 import { editLayout, EditorContext, IEditorContext } from "./Editor";
 import { applyWires, checkWires, copyWireGraph, dragSegment, EPSILON, fixWire, iterWireGraphSegments, moveWiresWithComp, wireToGraph } from "./Wire";
 import { RefType, IElRef, ISegment, IComp, PortDir, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IWireGraph, IWireGraphNode, IExeSystem, IExeNet, ICompRenderArgs, IExePort, IExePortRef } from "./CpuModel";
@@ -96,9 +96,13 @@ export const CpuCanvas: React.FC<{
 
     useEffect(() => {
         setCtrlDown(false);
+        let compLibrary = buildCompLibrary();
         setEditorState(a => assignImm(a, {
-            compLibrary: buildCompLibrary(),
-        }))
+            compLibrary,
+            layout: assignImm(a.layout, {
+                comps: compLibrary.updateAllCompsFromDefs(a.layout.comps),
+            }),
+        }));
     }, []);
 
     useResizeChangeHandler(cvsState?.canvas, redraw);
@@ -121,7 +125,7 @@ export const CpuCanvas: React.FC<{
 
         if (el) {
             let ctx = el.getContext("2d")!;
-            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1, tileCanvases: new Map(), showTransparentComps: false });
+            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1, tileCanvases: new Map(), showTransparentComps: false, mtx: AffineMat2d.identity() });
 
             function wheelHandler(ev: WheelEvent) {
                 handleWheelFuncRef.current(ev);
@@ -159,6 +163,7 @@ export const CpuCanvas: React.FC<{
         cvsState.size.y = h;
         cvsState.scale = 1.0 / editorState.mtx.a;
         cvsState.showTransparentComps = showTransparentComponents;
+        cvsState.mtx = editorState.mtx;
 
         ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -614,6 +619,20 @@ export const CpuCanvas: React.FC<{
         return { editorState, setEditorState, cvsState, exeModel };
     }, [editorState, setEditorState, cvsState, exeModel]);
 
+
+    let compDivs = (editorState.layoutTemp ?? editorState.layout).comps.map(comp => {
+        let def = editorState.compLibrary.comps.get(comp.defId)!;
+        return def.renderDom && cvsState ? {
+            comp,
+            renderDom: def.renderDom,
+        } : null;
+    }).filter(isNotNil).map(a => {
+        cvsState!.mtx = editorState.mtx;
+        return <React.Fragment key={a.comp.id}>
+            {a.renderDom({ comp: a.comp, ctx: cvsState?.ctx!, cvs: cvsState!, exeComp: exeModel.comps[exeModel.lookup.compIdToIdx.get(a.comp.id) ?? -1], styles: null! })}
+        </React.Fragment>;
+    });
+
     return <EditorContext.Provider value={ctx}>
         <div className={s.canvasWrap}>
             <canvas className={s.canvas} ref={setCanvasEl}
@@ -623,6 +642,7 @@ export const CpuCanvas: React.FC<{
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
             />
+            {compDivs}
             <div className={s.toolsLeftTop}>
                 <CpuEditorToolbar />
                 <CompLibraryView />
@@ -744,7 +764,8 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
 
         } else if (compDef?.render) {
             compDef.render(compRenderArgs);
-
+        } else if (compDef?.renderDom) {
+            // handled elsewhere
         } else {
             let text = comp.name;
             let textHeight = 3;
