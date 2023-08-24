@@ -640,15 +640,73 @@ Disassembly of section .text_auipc_suite:
        8: 93 81 81 67  	addi	gp, gp, 1656
        c: 37 52 34 12  	lui	tp, 74565
       10: 13 02 c2 67  	addi	tp, tp, 1660
-      14: 63 94 41 00  	bne	gp, tp, 0x1c <fail_auipc_suite>
-      18: 6f 00 00 01  	j	0x28 <success_auipc_suite>
+      14: 63 94 41 02  	bne	gp, tp, 0x3c <fail_auipc_suite>
+      18: 93 85 15 00  	addi	a1, a1, 1
+      1c: 93 01 00 00  	li	gp, 0
+      20: 13 02 00 00  	li	tp, 0
+      24: 17 01 00 00  	auipc	sp, 0
+      28: ef 00 40 00  	jal	0x2c <auipc_step>
 
-0000001c <fail_auipc_suite>:
-      1c: 13 05 f0 38  	li	a0, 911
-      20: 73 00 00 00  	ecall	
-      24: 00 00        	<unknown>
-      26: 00 00        	<unknown>
+0000002c <auipc_step>:
+      2c: 93 80 80 ff  	addi	ra, ra, -8
+      30: 63 96 20 00  	bne	ra, sp, 0x3c <fail_auipc_suite>
+      34: 93 85 15 00  	addi	a1, a1, 1
+      38: 6f 00 00 01  	j	0x48 <success_auipc_suite>
 
-00000028 <success_auipc_suite>:
-      28: 13 05 c0 02  	li	a0, 44
-      2c: 73 00 00 00  	ecall	
+0000003c <fail_auipc_suite>:
+      3c: 13 05 f0 38  	li	a0, 911
+      40: 73 00 00 00  	ecall	
+      44: 00 00        	<unknown>
+      46: 00 00        	<unknown>
+
+00000048 <success_auipc_suite>:
+      48: 13 05 c0 02  	li	a0, 44
+      4c: 73 00 00 00  	ecall	
+
+Disassembly of section .text_jal_suite:
+
+00000000 <_start_jal_suite>:
+       0: 13 01 90 1a  	li	sp, 425
+       4: ef 00 00 01  	jal	0x14 <jal_step0>
+
+00000008 <jal_step1>:
+       8: 93 01 b0 04  	li	gp, 75
+       c: 97 02 00 00  	auipc	t0, 0
+      10: ef 00 00 01  	jal	0x20 <jal_step2>
+
+00000014 <jal_step0>:
+      14: 93 01 10 01  	li	gp, 17
+      18: 13 02 b0 04  	li	tp, 75
+      1c: ef f0 df fe  	jal	0x8 <jal_step1>
+
+00000020 <jal_step2>:
+      20: 93 82 82 00  	addi	t0, t0, 8
+      24: 63 9e 50 02  	bne	ra, t0, 0x60 <fail_jal_suite>
+      28: 93 85 15 00  	addi	a1, a1, 1
+      2c: 13 01 f0 00  	li	sp, 15
+      30: ef 00 40 01  	jal	0x44 <jal_f1>
+      34: 13 01 41 00  	addi	sp, sp, 4
+      38: ef 00 c0 00  	jal	0x44 <jal_f1>
+      3c: 13 01 41 00  	addi	sp, sp, 4
+      40: 6f 00 00 01  	j	0x50 <jal_end1>
+
+00000044 <jal_f1>:
+      44: 13 01 71 00  	addi	sp, sp, 7
+      48: 67 80 00 00  	ret
+      4c: 6f 00 40 01  	j	0x60 <fail_jal_suite>
+
+00000050 <jal_end1>:
+      50: 13 02 50 02  	li	tp, 37
+      54: 63 16 41 00  	bne	sp, tp, 0x60 <fail_jal_suite>
+      58: 93 85 15 00  	addi	a1, a1, 1
+      5c: 6f 00 00 01  	j	0x6c <success_jal_suite>
+
+00000060 <fail_jal_suite>:
+      60: 13 05 f0 38  	li	a0, 911
+      64: 73 00 00 00  	ecall	
+      68: 00 00        	<unknown>
+      6a: 00 00        	<unknown>
+
+0000006c <success_jal_suite>:
+      6c: 13 05 c0 02  	li	a0, 44
+      70: 73 00 00 00  	ecall	

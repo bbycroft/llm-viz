@@ -74,6 +74,10 @@ jump0_step:
 END_SECTION2()
 #undef SECNAME
 
+#define LI_LARGE(reg, val) \
+    lui reg, %hi(val); \
+    addi reg, reg, %lo(val);
+
 #define TEST_OP(OP, a, b, c) \
     li x2, a; \
     li x3, b; \
@@ -83,13 +87,10 @@ END_SECTION2()
     addi a1, a1, 1;
 
 #define TEST_OP_LARGE(OP, a, b, c) \
-    lui x2, %hi(a); \
-    addi x2, x2, %lo(a); \
-    lui x3, %hi(b); \
-    addi x3, x3, %lo(b); \
+    LI_LARGE(x2, a); \
+    LI_LARGE(x3, b); \
     OP x4, x2, x3; \
-    lui x5, %hi(c); \
-    addi x5, x5, %lo(c); \
+    LI_LARGE(x5, c); \
     bne x4, x5, FAIL; \
     addi a1, a1, 1;
 
@@ -214,9 +215,58 @@ SECTION2()
     .equ A, 0x12345678
     auipc x3, %hi(A)
     addi x3, x3, %lo(A)
-    lui x4, %hi(A + 4)
-    addi x4, x4, %lo(A + 4)
+    LI_LARGE(x4, A + 4)
     bne x3, x4, FAIL
+    addi a1, a1, 1;
+    li x3, 0
+    li x4, 0
+
+    auipc x2, 0x0
+    jal x1, auipc_step
+auipc_step:
+    addi x1, x1, -8
+    bne x1, x2, FAIL
+    addi a1, a1, 1;
+
+    j SUCCESS
+END_SECTION2()
+#undef SECNAME
+
+#define SECNAME jal_suite
+SECTION2()
+    li x2, 425
+    jal x1, jal_step0 // 1. jump forwards
+jal_step1:
+    li x3, 75
+    auipc x5, 0
+    jal x1, jal_step2 // 2. and jump forwards again
+jal_step0:
+    li x3, 17
+    li x4, 75
+    jal x1, jal_step1 // 3. then jump backwards
+jal_step2:
+    addi x5, x5, 8
+    bne x1, x5, FAIL // ra should be 8 bytes ahead of x5 (aiupc)
+    addi a1, a1, 1;
+
+// next one is to do a ret!
+    li x2, 15
+    jal x1, jal_f1
+    addi x2, x2, 4
+    jal x1, jal_f1
+    addi x2, x2, 4
+    j jal_end1
+
+jal_f1:
+    addi x2, x2, 7
+    ret
+    j FAIL
+
+jal_end1:
+    li x4, (15 + 7 + 4 + 4 + 7)
+    bne x2, x4, FAIL
+    addi a1, a1, 1;
+
     j SUCCESS
 END_SECTION2()
 #undef SECNAME

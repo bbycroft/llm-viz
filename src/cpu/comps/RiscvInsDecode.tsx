@@ -153,13 +153,13 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
         setRegCtrl(true, rd, 2); // ALU out => reg[rd]
 
     } else if (opCode === OpCode.JAL) {
-        let offsetRaw = (((ins >>> 21) & 0x3FF) << 1) | // 10 bytes
-                        (((ins >>> 20) & 0x01) << 11) | // 1 byte
-                        (((ins >>> 12) & 0xFF) << 12) | // 8 bytes
-                        (((ins >>> 31) & 0x01) << 20);  // 1 byte
+        let offsetRaw = (((ins >>> 21) & 0x3FF) << 0) | // 10 bytes
+                        (((ins >>> 20) & 0x01) << 10) | // 1 byte
+                        (((ins >>> 12) & 0xFF) << 11) | // 8 bytes
+                        (((ins >>> 31) & 0x01) << 19);  // 1 byte
 
         data.lhsMuxCtrl.value = 0; // PC -> LHS enabled
-        data.rhsImm.value = signExtend20Bit(offsetRaw);
+        data.rhsImm.value = signExtend20Bit(offsetRaw) << 1;
         data.rhsImm.ioEnabled = true;
         data.pcRegMuxCtrl.value = 0; // ALU out => PC; PC + 4 => REG
         setRegCtrl(true, rd, 2); // PC + 4 => reg[rd]
@@ -300,19 +300,19 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
 
 export function signExtend8Bit(x: number) {
-    return ((x & 0x80) === 0x80) ? x - 0x100 : x;
+    return ((x & 0x80) !== 0) ? x - 0x100 : x;
 }
 
 export function signExtend12Bit(x: number) {
-    return ((x & 0x800) === 0x800) ? x - 0x1000 : x;
+    return ((x & 0x800) !== 0) ? x - 0x1000 : x;
 }
 
 export function signExtend16Bit(x: number) {
-    return ((x & 0x8000) === 0x8000) ? x - 0x10000 : x;
+    return ((x & 0x8000) !== 0) ? x - 0x10000 : x;
 }
 
 export function signExtend20Bit(x: number) {
-    return ((x & 0x80000) === 0x80000) ? x - 0x100000 : x;
+    return (x & (1 << 19)) ? x - (1 << 20) : x;
 }
 
 export function signExtend32Bit(x: number) {
@@ -594,6 +594,26 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
             ...buildBitsMessage(bitPattern, bitColorOffsets, immColor),
             { color: immColor, text: ` (${ensureSigned32Bit(data.rhsImm.value)})` },
         ], line4Height);
+
+    } else if (opCode === OpCode.JALR) {
+        drawBitsAndText(15, 5, rs1Color, rs1.toString(), 'rs1');
+        drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
+        drawBitsAndText(20, 12, immColor, data.rhsImm.value.toString(), 'imm');
+
+        drawOpAndMessage('JALR', '', `jump to reg + imm (& store PC + 4 in register)`);
+        drawMessage([
+            { color: infoColor, text: 'set ' },
+            { color: rdColor, text: regFormatted(rd) },
+            { color: infoColor, text: ' to ' },
+            { color: '#000', text: 'PC + 4' },
+        ], line3Height);
+        drawMessage([
+            { color: infoColor, text: 'jump to ' },
+            { color: rs1Color, text: regFormatted(rs1) },
+            { color: infoColor, text: ' + ' },
+            ...buildBitsMessage([20, 12], [0], immColor),
+        ], line4Height);
+
     } else if (opCode === OpCode.SYSTEM) {
 
         drawOpAndMessage('SYSTEM', '', `system call (halt)`);
