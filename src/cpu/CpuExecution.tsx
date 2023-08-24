@@ -1,5 +1,5 @@
-import { assignImm, getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
-import { CompLibrary } from "./comps/CompBuilder";
+import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
+import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
 import { runNet } from "./comps/ComponentDefs";
 import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef } from "./CpuModel";
 
@@ -106,7 +106,7 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
 
     let compExecutionOrder = calcCompExecutionOrder(comps, nets);
 
-    return { comps, nets, ...compExecutionOrder, lookup: createLookupTable(comps, nets), runArgs: { halt: false } };
+    return { comps, nets, ...compExecutionOrder, lookup: createLookupTable(comps, nets), runArgs: { halt: false }, compLibrary };
 }
 
 export function createLookupTable(comps: IExeComp[], nets: IExeNet[]): IExeSystemLookup {
@@ -340,6 +340,13 @@ export function stepExecutionLatch(exeModel: IExeSystem) {
         let step = latchSteps[i];
         let comp = exeModel.comps[step.compIdx];
         comp.phases[step.phaseIdx].func(comp, exeModel.runArgs);
+    }
+}
+
+export function resetExeModel(exeModel: IExeSystem, opts: IResetOptions) {
+    for (let comp of exeModel.comps) {
+        let def = exeModel.compLibrary.comps.get(comp.comp.defId)!;
+        def.reset?.(comp, opts);
     }
 }
 

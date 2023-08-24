@@ -1,10 +1,13 @@
-import { initProgramState } from "@/src/Program";
 import { isNil, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
 import { PortDir, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
+}
+
+export interface IResetOptions {
+    hardReset: boolean; // reset everything including ROMs (that would usually be expected to be persistent over device restarts)
 }
 
 export interface ICompDef<T> {
@@ -14,10 +17,12 @@ export interface ICompDef<T> {
     ports: ICompPort[];
 
     build?: (comp: IComp) => IExeComp<T>;
+    build2?: (builder: ExeCompBuilder<T>) => IExeComp<T>;
     render?: (args: ICompRenderArgs<T>) => void;
     renderDom?: (args: ICompRenderArgs<T>) => JSX.Element;
     renderAll?: boolean;
     copyStatefulData?: (src: T, dest: T) => void; // should copy things like memory & registers (not ports)
+    reset?: (exeComp: IExeComp<T>, resetOpts: IResetOptions) => void;
 }
 
 export class CompLibrary {
@@ -64,6 +69,10 @@ export class CompLibrary {
 
     build(comp: IComp): IExeComp<any> {
         let compDef = this.comps.get(comp.defId);
+        if (compDef?.build2) {
+            let builder = new ExeCompBuilder<any>(comp);
+            return compDef.build2(builder);
+        }
         let buildFn = compDef?.build ?? buildDefault;
         return buildFn(comp);
     }

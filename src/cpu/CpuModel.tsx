@@ -1,7 +1,7 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { StateSetter } from "../utils/data";
 import { Vec3 } from "../utils/vector";
-import { CompLibrary } from "./comps/CompBuilder";
+import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
 
 export interface IFullSystem {
     layout: ICpuLayout;
@@ -19,6 +19,7 @@ export interface IExeSystem {
     latchSteps: IExeStep[]; // latches are done just prior to the next round of execution steps (it's useful to pause prior to latching)
     lookup: IExeSystemLookup;
     runArgs: IExeRunArgs;
+    compLibrary: CompLibrary;
 }
 
 export interface IExeSystemLookup {

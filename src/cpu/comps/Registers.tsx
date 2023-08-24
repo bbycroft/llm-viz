@@ -1,44 +1,7 @@
 import { Vec3 } from "@/src/utils/vector";
-import { PortDir, IComp, IExeComp, IExePort } from "../CpuModel";
-import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder"
-
-export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
-
-    let w = 40;
-    let reg32: ICompDef<ICompDataRegFile> = {
-        defId: 'reg32Riscv',
-        name: "Registers",
-        size: new Vec3(w, 30),
-        ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortDir.In, width: 3 * 6 },
-            { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
-            { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortDir.OutTri, width: 32 },
-            { id: 'outB', name: 'B', pos: new Vec3(w, 5), type: PortDir.OutTri, width: 32 },
-        ],
-        build: buildRegFile,
-        copyStatefulData: (src, dest) => {
-            dest.file.set(src.file);
-        },
-    };
-
-    let regSingle: ICompDef<ICompDataSingleReg> = {
-        defId: 'reg1',
-        name: "Register",
-        size: new Vec3(40, 6),
-        ports: [
-            // { id: 'ctrl', name: 'Ctrl', pos: new Vec3(3, 0), type: PortDir.In, width: 1 },
-            { id: 'in', name: 'I', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
-            { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
-        ],
-        build: buildSingleReg,
-        copyStatefulData: (src, dest) => {
-            dest.value = src.value;
-        },
-    };
-
-    return [reg32, regSingle];
-}
-
+import { PortDir, IExeComp, IExePort, ICompRenderArgs } from "../CpuModel";
+import { ICompBuilderArgs, ICompDef } from "./CompBuilder"
+import { registerOpts, regValToStr } from "./RenderHelpers";
 
 export interface ICompDataRegFile {
     inCtrlPort: IExePort;
@@ -56,26 +19,88 @@ export interface ICompDataRegFile {
     readBReg: number;
 }
 
-export function buildRegFile(comp: IComp): IExeComp<ICompDataRegFile> {
-    let builder = new ExeCompBuilder<ICompDataRegFile>(comp);
-    let data: ICompDataRegFile = {
-        inCtrlPort: builder.getPort('ctrl'),
-        inDataPort: builder.getPort('in'),
-        outAPort: builder.getPort('outA'),
-        outBPort: builder.getPort('outB'),
+export interface ICompDataSingleReg {
+    outPort: IExePort;
+    inPort: IExePort;
+    value: number;
+}
 
-        file: new Uint32Array(32),
+export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-        writeEnabled: false,
-        writeReg: 0,
-        writeData: 0,
-        readAReg: -1,
-        readBReg: -1,
+    let w = 40;
+    let reg32: ICompDef<ICompDataRegFile> = {
+        defId: 'reg32Riscv',
+        name: "Registers",
+        size: new Vec3(w, 30),
+        ports: [
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortDir.In, width: 3 * 6 },
+            { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
+            { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortDir.OutTri, width: 32 },
+            { id: 'outB', name: 'B', pos: new Vec3(w, 5), type: PortDir.OutTri, width: 32 },
+        ],
+        build2: (builder) => {
+            let data = builder.addData({
+                inCtrlPort: builder.getPort('ctrl'),
+                inDataPort: builder.getPort('in'),
+                outAPort: builder.getPort('outA'),
+                outBPort: builder.getPort('outB'),
+
+                file: new Uint32Array(32),
+
+                writeEnabled: false,
+                writeReg: 0,
+                writeData: 0,
+                readAReg: -1,
+                readBReg: -1,
+            });
+            builder.addPhase(regFilePhase0, [data.inCtrlPort], [data.outAPort, data.outBPort]);
+            builder.addPhase(regFilePhase1, [data.inCtrlPort, data.inDataPort], []);
+            builder.addLatchedPhase(regFilePhase2Latch, [], []);
+            return builder.build(data);
+        },
+        render: renderRegisterFile,
+        copyStatefulData: (src, dest) => {
+            dest.file.set(src.file);
+        },
+        reset: (comp) => {
+            comp.data.file.fill(0);
+        },
     };
-    builder.addPhase(regFilePhase0, [data.inCtrlPort], [data.outAPort, data.outBPort]);
-    builder.addPhase(regFilePhase1, [data.inCtrlPort, data.inDataPort], []);
-    builder.addLatchedPhase(regFilePhase2Latch, [], []);
-    return builder.build(data);
+
+    let regSingle: ICompDef<ICompDataSingleReg> = {
+        defId: 'reg1',
+        name: "Register",
+        size: new Vec3(40, 6),
+        ports: [
+            { id: 'in', name: 'I', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
+            { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
+        ],
+        build2: (builder) => {
+            let data = builder.addData({
+                inPort: builder.getPort('in'),
+                outPort: builder.getPort('out'),
+                value: 0,
+            });
+            builder.addPhase(({ data }) => {
+                let outPort = data.outPort;
+                outPort.value = data.value;
+            }, [], [data.outPort]);
+
+            builder.addLatchedPhase(({ data }) => {
+                data.value = data.inPort.value;
+            }, [data.inPort], []);
+            return builder.build(data);
+        },
+        copyStatefulData: (src, dest) => {
+            dest.value = src.value;
+        },
+        reset: (comp) => {
+            comp.data.value = 0;
+        },
+        render: renderPc,
+    };
+
+    return [reg32, regSingle];
 }
 
 // inCtrl bits ((1 + 5) * 3 = 18 bits)
@@ -119,55 +144,6 @@ function regFilePhase2Latch({ data }: IExeComp) {
     }
 }
 
-
-export interface ICompDataSingleReg {
-    // inCtrlPort: IExePort;
-    outPort: IExePort;
-    inPort: IExePort;
-
-    value: number;
-
-    writeEnabled: boolean;
-}
-
-export function buildSingleReg(comp: IComp) {
-    let builder = new ExeCompBuilder<ICompDataSingleReg>(comp);
-    let data: ICompDataSingleReg = {
-        // inCtrlPort: builder.getPort('ctrl'),
-        inPort: builder.getPort('in'),
-        outPort: builder.getPort('out'),
-
-        value: 0,
-        writeEnabled: false,
-    };
-    builder.addPhase(singleRegPhase0, [], [data.outPort]);
-    builder.addLatchedPhase(singleRegPhase1Latch, [data.inPort], []);
-    return builder.build(data);
-}
-
-function singleRegPhase0(comp: IExeComp<ICompDataSingleReg>) {
-    let data = comp.data;
-    // let ctrl = data.inCtrlPort.value;
-    let outPort = data.outPort;
-
-    let outEnabled = true; // ctrl & 0b1;
-    outPort.ioEnabled = !!outEnabled;
-    outPort.value = outEnabled ? data.value : 0;
-
-    let inEnabled = true; // (ctrl >> 1) & 0b1;
-    data.writeEnabled = !!inEnabled;
-}
-
-function singleRegPhase1Latch(comp: IExeComp<ICompDataSingleReg>) {
-    let data = comp.data;
-    let inPort = data.inPort;
-
-    if (data.writeEnabled) {
-        data.value = inPort.value;
-    }
-}
-
-
 export const riscvRegNames = [
     'zero', 'ra', 'sp', 'gp', 'tp',
     't0', 't1', 't2',
@@ -176,3 +152,121 @@ export const riscvRegNames = [
     's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11',
     't3', 't4', 't5', 't6'
 ];
+
+// 32bit pc
+function renderPc({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataSingleReg>) {
+    let padX = 1.2;
+    let padY = 0.8;
+    let pcValue = exeComp?.data.value ?? 0;
+
+    let boxSize =  new Vec3(comp.size.x - 2 * padX, styles.lineHeight);
+    let boxOffset = new Vec3(padX, comp.size.y / 2 - boxSize.y / 2);
+    ctx.beginPath();
+    ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#0004";
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = `${styles.fontSize}px monospace`;
+    ctx.textAlign = 'end';
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#000";
+    let xRight = comp.pos.x + boxOffset.x + boxSize.x - registerOpts.innerPadX;
+    let yMid = comp.pos.y + boxOffset.y + boxSize.y / 2;
+    let currText = regValToStr(pcValue);
+    ctx.fillText(currText, xRight, yMid);
+
+    ctx.textAlign = 'start';
+    ctx.fillText('pc', comp.pos.x + padX + registerOpts.innerPadX, yMid);
+
+    let xNewRight = xRight - ctx.measureText(currText).width - padX * 3;
+
+    ctx.textAlign = 'end';
+    let newValStr = regValToStr(exeComp?.data.inPort.value ?? 0);
+    ctx.fillStyle = "#44c9";
+    ctx.fillText(newValStr, xNewRight, yMid);
+}
+
+
+
+// x0-x31 32bit registers, each with names
+function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataRegFile>) {
+    let padX = 1.2;
+    let padY = 1.0;
+    let lineHeight = styles.lineHeight; // (comp.size.y - padY * 2) / 32;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+    ctx.clip();
+
+    for (let i = 0; i < 32; i++) {
+        let regValue = exeComp?.data.file[i] ?? 0;
+
+        let boxSize = new Vec3(comp.size.x, lineHeight).sub(new Vec3(padX * 2));
+        let boxOffset = new Vec3(padX, padY + lineHeight * i);
+
+        ctx.beginPath();
+        ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);
+        ctx.fillStyle = i === 0 ? "#ddd" : "#fff";
+        ctx.strokeStyle = "#0004";
+        ctx.fill();
+        ctx.stroke();
+
+        // draw transparent circle on upper right (or lower right for B)
+        let drawReadCircle = (xStart: number, xEnd: number, color: string) => {
+            let r = 4 / 10;
+            ctx.beginPath();
+            (ctx as any).roundRect(xStart, comp.pos.y + boxOffset.y + 0.2, xEnd - xStart, boxSize.y - 0.4, r);
+            ctx.fillStyle = color;
+            ctx.fill();
+        };
+
+        ctx.font = `${styles.fontSize}px monospace`;
+        ctx.textAlign = 'end';
+        ctx.textBaseline = "middle";
+
+        let yMid = comp.pos.y + padY + lineHeight * (i + 0.5);
+
+        let regCurrStr = regValToStr(regValue);
+
+        let textWidth = ctx.measureText(regCurrStr).width;
+        let xRight = comp.pos.x + boxOffset.x + boxSize.x - registerOpts.innerPadX;
+        let xLeft = xRight - textWidth;
+
+        let isARead = exeComp?.data.readAReg === i;
+        let isBRead = exeComp?.data.readBReg === i;
+        let xMid = (xLeft + xRight) / 2;
+
+        if (isARead) {
+            drawReadCircle(xLeft, isBRead ? xMid : xRight, "#3f39");
+        }
+        if (isBRead) {
+            drawReadCircle(isARead ? xMid : xLeft, xRight, "#33f9");
+        }
+
+        ctx.fillStyle = (i > 0 && regValue === 0) ? '#0007' : "#000";
+        ctx.fillText(regCurrStr, xRight, yMid + 0.1);
+
+        if (i > 0 && exeComp?.data.writeEnabled && i === exeComp.data.writeReg) {
+
+            let writeStr = regValToStr(exeComp.data.writeData);
+            let writeTextWidth = ctx.measureText(writeStr).width;
+            let xNewRight = xRight - writeTextWidth - padX * 3;
+
+            drawReadCircle(xNewRight - writeTextWidth - 0.2, xNewRight + 0.2, "#ee39");
+
+            ctx.textAlign = 'end';
+            ctx.fillStyle = "#883f";
+            ctx.fillText(writeStr, xNewRight, yMid);
+        }
+
+        ctx.fillStyle = "#000";
+        let text = riscvRegNames[i];
+        ctx.textAlign = 'start';
+        ctx.fillText(text, comp.pos.x + boxOffset.x + registerOpts.innerPadX, yMid);
+    }
+
+    ctx.restore();
+}

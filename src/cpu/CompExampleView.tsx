@@ -5,7 +5,7 @@ import { IElfTextSection, listElfTextSections, readElfHeader } from "./ElfParser
 import { ICompDataRom } from "./comps/SimpleMemory";
 import { IExeComp } from "./CpuModel";
 import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
-import { stepExecutionCombinatorial, stepExecutionLatch } from "./CpuExecution";
+import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from "./CpuExecution";
 import { ensureSigned32Bit } from "./comps/RiscvInsDecode";
 
 interface IExampleEntry {
@@ -78,20 +78,6 @@ export const CompExampleView: React.FC = () => {
         }
     }
 
-    function resetRegs() {
-        let pcComp = getPcComp();
-        let regComp = getRegsComp();
-
-        if (pcComp && regComp) {
-            pcComp.data.value = 0;
-            for (let i = 0; i < regComp.data.file.length; i++) {
-                regComp.data.file[i] = 0;
-            }
-        } else {
-            console.log('could not find pc or reg comp');
-        }
-    }
-
     function onRunAllTestsClicked() {
         console.log('Running all tests...');
         let startTime = performance.now();
@@ -102,7 +88,7 @@ export const CompExampleView: React.FC = () => {
         for (; repeatCount < 100 && successCount === totalCount; repeatCount++) {
             for (let test of examples) {
                 loadEntryData(test);
-                resetRegs();
+                resetExeModel(exeModel, { hardReset: false });
                 stepExecutionCombinatorial(exeModel);
 
                 totalCount += 1;
@@ -150,7 +136,7 @@ export const CompExampleView: React.FC = () => {
     async function runTestsQuickly() {
         for (let test of examples) {
             loadEntryData(test);
-            resetRegs();
+            resetExeModel(exeModel, { hardReset: false });
             stepExecutionCombinatorial(exeModel);
 
             let completed = false;
@@ -204,7 +190,7 @@ export const CompExampleView: React.FC = () => {
     }
 
     function onResetClicked() {
-        resetRegs();
+        resetExeModel(exeModel, { hardReset: false });
         stepExecutionCombinatorial(exeModel);
         setEditorState(a => ({ ...a }));
     }
