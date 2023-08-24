@@ -922,41 +922,51 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
         ctx.stroke();
 
         // draw transparent circle on upper right (or lower right for B)
-        let drawReadCircle = (yPos: number, color: string) => {
+        let drawReadCircle = (xStart: number, xEnd: number, color: string) => {
             let r = 4 / 10;
-            let x = comp.pos.x + boxOffset.x + boxSize.x - innerPadX - r;
-            let y = comp.pos.y + boxOffset.y + yPos * boxSize.y;
             ctx.beginPath();
-            ctx.arc(x, y, r, 0, 2 * Math.PI);
+            (ctx as any).roundRect(xStart, comp.pos.y + boxOffset.y + 0.2, xEnd - xStart, boxSize.y - 0.4, r);
             ctx.fillStyle = color;
             ctx.fill();
         };
 
-        if (i === exeComp?.data.readAReg) {
-            drawReadCircle(0.333, "#3f39");
-        }
-        if (i === exeComp?.data.readBReg) {
-            drawReadCircle(0.666, "#33f9");
-        }
-
         ctx.font = `${styles.fontSize}px monospace`;
         ctx.textAlign = 'end';
         ctx.textBaseline = "middle";
-        ctx.fillStyle = (i > 0 && regValue === 0) ? '#0007' : "#000";
 
         let yMid = comp.pos.y + padY + lineHeight * (i + 0.5);
 
         let regCurrStr = regValToStr(regValue);
 
+        let textWidth = ctx.measureText(regCurrStr).width;
         let xRight = comp.pos.x + boxOffset.x + boxSize.x - innerPadX;
-        ctx.fillText(regCurrStr, xRight, yMid);
+        let xLeft = xRight - textWidth;
+
+        let isARead = exeComp?.data.readAReg === i;
+        let isBRead = exeComp?.data.readBReg === i;
+        let xMid = (xLeft + xRight) / 2;
+
+        if (isARead) {
+            drawReadCircle(xLeft, isBRead ? xMid : xRight, "#3f39");
+        }
+        if (isBRead) {
+            drawReadCircle(isARead ? xMid : xLeft, xRight, "#33f9");
+        }
+
+        ctx.fillStyle = (i > 0 && regValue === 0) ? '#0007' : "#000";
+        ctx.fillText(regCurrStr, xRight, yMid + 0.1);
 
         if (i > 0 && exeComp?.data.writeEnabled && i === exeComp.data.writeReg) {
-            let xNewRight = xRight - ctx.measureText(regCurrStr).width - padX * 3;
+
+            let writeStr = regValToStr(exeComp.data.writeData);
+            let writeTextWidth = ctx.measureText(writeStr).width;
+            let xNewRight = xRight - writeTextWidth - padX * 3;
+
+            drawReadCircle(xNewRight - writeTextWidth - 0.2, xNewRight + 0.2, "#ee39");
+
             ctx.textAlign = 'end';
-            let newValStr = regValToStr(exeComp.data.writeData);
-            ctx.fillStyle = "#44c9";
-            ctx.fillText(newValStr, xNewRight, yMid);
+            ctx.fillStyle = "#883f";
+            ctx.fillText(writeStr, xNewRight, yMid);
         }
 
         ctx.fillStyle = "#000";

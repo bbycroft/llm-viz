@@ -140,12 +140,14 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
     } else if (opCode === OpCode.LUI) {
         data.rhsImm.value = signExtend20Bit(ins >>> 12) << 12;
+        data.rhsImm.ioEnabled = true;
         setRegCtrl(true, 0x0, 0); // 0 => LHS
         setAluCtrl(true, false, Funct3Op.ADD, false);
         setRegCtrl(true, rd, 2); // ALU out => reg[rd]
 
     } else if (opCode === OpCode.AUIPC) {
         data.rhsImm.value = signExtend20Bit(ins >>> 12) << 12;
+        data.rhsImm.ioEnabled = true;
         data.lhsMuxCtrl.value = 0; // PC -> LHS enabled
         setAluCtrl(true, false, Funct3Op.ADD, false);
         setRegCtrl(true, rd, 2); // ALU out => reg[rd]
@@ -626,12 +628,12 @@ let funct3BranchIcon: Record<number, string> = {
 
 let funct3OpIcon: Record<number, string> = {
     [Funct3Op.ADD]: '+',
-    // [Funct3Op.SLL]: '<<',
-    // [Funct3Op.SLT]: '<',
-    // [Funct3Op.SLTU]: '<',
-    // [Funct3Op.XOR]: '^',
-    // [Funct3Op.SRL]: '>>',
-    // [Funct3Op.SRAI]: '>>',
+    [Funct3Op.SLL]: '<<',
+    [Funct3Op.SLT]: '<',
+    [Funct3Op.SLTU]: '<',
+    [Funct3Op.XOR]: '^',
+    [Funct3Op.SRL]: '>>',
+    [Funct3Op.SRAI]: '>>',
     [Funct3Op.OR]: '|',
     [Funct3Op.AND]: '&',
 };

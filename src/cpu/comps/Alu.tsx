@@ -1,6 +1,7 @@
 import { Vec3 } from "@/src/utils/vector";
 import { PortDir, IComp, IExeComp, IExePort } from "../CpuModel";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { ensureSigned32Bit, ensureUnsigned32Bit } from "./RiscvInsDecode";
 
 export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
@@ -77,8 +78,8 @@ BGEU  = 0b111, // branch greater than or equal unsigned
 
 function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort } }: IExeComp<ICompDataAlu>) {
     let ctrl = inCtrlPort.value;
-    let lhs = inAPort.value;
-    let rhs = inBPort.value;
+    let lhs = ensureSigned32Bit(inAPort.value);
+    let rhs = ensureSigned32Bit(inBPort.value);
 
     let isEnabled = (ctrl & 0b100000) !== 0;
     let isBranch =  (ctrl & 0b010000) !== 0;
@@ -115,8 +116,8 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
         switch (funct3) {
             case 0b000: res = isArithShiftOrSub ? lhs - rhs : lhs + rhs; break; // add/sub
             case 0b001: res = lhs << rhs; break; // shift left logical
-            case 0b010: res = lhs < rhs ? 1 : 0; break; // set less than
-            case 0b011: res = (lhs >>> 0) < (rhs >>> 0) ? 1 : 0; break; // set less than unsigned
+            case 0b010: res = ensureSigned32Bit(lhs) < ensureSigned32Bit(rhs) ? 1 : 0; break; // set less than
+            case 0b011: res = ensureUnsigned32Bit(lhs) < ensureUnsigned32Bit(rhs) ? 1 : 0; break; // set less than unsigned
             case 0b100: res = lhs ^ rhs; break; // xor
             case 0b101: res = isArithShiftOrSub ? lhs >> rhs : lhs >>> rhs ; break; // shift right arithmetic/logical
             case 0b110: res = lhs | rhs; break; // or

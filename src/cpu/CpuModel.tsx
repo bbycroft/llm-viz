@@ -101,6 +101,8 @@ export interface IExeNet {
 export interface IExePortRef {
     compIdx: number;
     portIdx: number;
+    exePort: IExePort;
+    valid: boolean;
 }
 
 export interface IEditorState {

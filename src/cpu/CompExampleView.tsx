@@ -4,7 +4,6 @@ import s from "./CompExampleView.module.scss";
 import { IElfTextSection, listElfTextSections, readElfHeader } from "./ElfParser";
 import { ICompDataRom } from "./comps/SimpleMemory";
 import { IExeComp } from "./CpuModel";
-import { runNet } from "./comps/ComponentDefs";
 import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
 import { stepExecutionCombinatorial, stepExecutionLatch } from "./CpuExecution";
 import { ensureSigned32Bit } from "./comps/RiscvInsDecode";
@@ -12,6 +11,7 @@ import { ensureSigned32Bit } from "./comps/RiscvInsDecode";
 interface IExampleEntry {
     name: string;
     elfSection: IElfTextSection;
+    expectFail: boolean;
 }
 
 export const CompExampleView: React.FC = () => {
@@ -33,9 +33,11 @@ export const CompExampleView: React.FC = () => {
 
                 let examples = sections.map(section => {
                     // name is '.text_add0', and we want 'add0'
+                    let name = section.name.slice(6);
                     return {
-                        name: section.name.slice(6),
+                        name,
                         elfSection: section,
+                        expectFail: name.startsWith('must_fail'),
                     };
                 });
 
@@ -48,12 +50,7 @@ export const CompExampleView: React.FC = () => {
     }, []);
 
     function handleEntryClick(example: IExampleEntry) {
-        let romComp = getRomComp();
-        if (romComp) {
-            let romArr = romComp.data.rom;
-            romArr.set(example.elfSection.arr);
-            romArr.fill(0, example.elfSection.arr.length);
-        }
+        loadEntryData(example);
         stepExecutionCombinatorial(exeModel);
         setEditorState(a => ({ ...a }));
     }
@@ -71,48 +68,80 @@ export const CompExampleView: React.FC = () => {
         setEditorState(a => ({ ...a }));
     }
 
+    function loadEntryData(example: IExampleEntry) {
+        let romComp = getRomComp();
+        if (romComp) {
+            let romArr = romComp.data.rom;
+            romArr.set(example.elfSection.arr);
+            romArr.fill(0, example.elfSection.arr.length);
+        }
+    }
+
+    function resetRegs() {
+        let pcComp = getPcComp();
+        let regComp = getRegsComp();
+
+        if (pcComp && regComp) {
+            pcComp.data.value = 0;
+            for (let i = 0; i < regComp.data.file.length; i++) {
+                regComp.data.file[i] = 0;
+            }
+        } else {
+            console.log('could not find pc or reg comp');
+        }
+    }
+
     function onRunAllTestsClicked() {
         console.log('Running all tests...');
         let startTime = performance.now();
         let successCount = 0;
         let totalCount = 0;
-        for (let test of examples) {
-            handleEntryClick(test);
-            onResetClicked();
-            totalCount += 1;
-            let completed = false;
+        let insCount = 0;
+        let repeatCount = 0;
+        for (; repeatCount < 100 && successCount === totalCount; repeatCount++) {
+            for (let test of examples) {
+                loadEntryData(test);
+                resetRegs();
+                stepExecutionCombinatorial(exeModel);
 
-            for (let i = 0; i < 200; i++) {
-                if (exeModel.runArgs.halt) {
-                    let regs = getRegsComp();
-                    let resRegValue = regs?.data.file[10] ?? 0;
+                totalCount += 1;
+                let completed = false;
 
-                    if (resRegValue !== 44 && resRegValue !== 911) {
-                        console.log(`--- test '${test.name}' halted with unknown result in reg[a0]: ${ensureSigned32Bit(resRegValue)} ---`);
-                    } else {
-                        let isSuccess = (resRegValue === 44) !== test.name.startsWith('must_fail');
+                for (let i = 0; i < 200; i++) {
+                    if (exeModel.runArgs.halt) {
+                        let regs = getRegsComp();
+                        let resRegValue = regs?.data.file[10] ?? 0;
+                        let testNumValue = regs?.data.file[11] ?? 0;
 
-                        if (isSuccess) {
-                            successCount += 1;
-                            // console.log(`--- halted with success ---`);
+                        if (resRegValue !== 44 && resRegValue !== 911) {
+                            console.log(`--- test '${test.name}' halted with unknown result in reg[a0]: ${ensureSigned32Bit(resRegValue)} ---`);
                         } else {
-                            console.log(`--- test '${test.name}' halted with FAILURE ---`);
+                            let isSuccess = (resRegValue === 44) !== test.expectFail;
+
+                            if (isSuccess) {
+                                successCount += 1;
+                                // console.log(`--- halted with success ---`);
+                            } else {
+                                console.log(`--- test '${test.name}' halted with FAILURE (test ${testNumValue}) ---`);
+                            }
                         }
+                        completed = true;
+                        break;
                     }
-                    completed = true;
-                    break;
+
+                    insCount += 1;
+                    stepExecutionLatch(exeModel);
+                    stepExecutionCombinatorial(exeModel);
                 }
 
-                stepExecutionLatch(exeModel);
-                stepExecutionCombinatorial(exeModel);
-            }
-
-            if (!completed) {
-                console.log(`--- test '${test.name}' halted after too many instructions ---`);
+                if (!completed) {
+                    console.log(`--- test '${test.name}' halted after too many instructions ---`);
+                }
             }
         }
         let endTime = performance.now();
-        console.log(`All tests done in ${(endTime - startTime).toFixed(1)}ms. Success: ${successCount}/${totalCount}.`);
+        let timeMs = endTime - startTime;
+        console.log(`All tests done in ${timeMs.toFixed(1)}ms. Success: ${successCount}/${totalCount} (repeats=${repeatCount}). Instructions: ${insCount} (${(insCount / timeMs).toFixed(0)} kHz)`);
     }
 
     function findCompByDefId(defId: string) {
@@ -130,22 +159,8 @@ export const CompExampleView: React.FC = () => {
     }
 
     function onResetClicked() {
-        let pcComp = getPcComp();
-        let regComp = getRegsComp();
-
-        if (pcComp && regComp) {
-            pcComp.data.value = 0;
-            for (let i = 0; i < regComp.data.file.length; i++) {
-                regComp.data.file[i] = 0;
-            }
-        } else {
-            console.log('could not find pc or reg comp');
-        }
-
-        exeModel.runArgs.halt = false;
-
+        resetRegs();
         stepExecutionCombinatorial(exeModel);
-
         setEditorState(a => ({ ...a }));
     }
 

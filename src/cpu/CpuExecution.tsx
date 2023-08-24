@@ -46,9 +46,9 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
                 const node = comp.ports[nodeIdx];
                 if (node.id === ref.compNodeId) {
                     if (hasFlag(node.type, PortDir.In)) {
-                        inputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx });
+                        inputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx, exePort: null!, valid: false });
                     } else {
-                        outputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx });
+                        outputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx, exePort: null!, valid: false });
                     }
                     break;
                 }
@@ -93,6 +93,8 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
             }
             net.width = port.width;
             net.type |= port.type;
+            portRef.exePort = port;
+            portRef.valid = comp.valid;
         }
     }
 

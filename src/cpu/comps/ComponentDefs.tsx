@@ -31,32 +31,29 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         let enabledCount = 0;
         let enabledPortValue = 0;
         for (let portRef of net.outputs) {
-            let comp = comps[portRef.compIdx];
-            let port = comp.ports[portRef.portIdx];
-            if (comp.valid && port.ioEnabled) {
+            let port = portRef.exePort;
+            if (portRef.valid && port.ioEnabled) {
                 enabledCount++;
                 enabledPortValue = port.value;
             }
         }
         net.enabledCount = enabledCount;
         net.value = enabledCount === 1 ? enabledPortValue : 0;
-        if (enabledCount > 1) {
-            console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs');
-        }
+        // if (enabledCount > 1) {
+        //     console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs');
+        // }
     } else {
         // has exactly 1 input
         if (net.outputs.length !== 1) {
             net.value = 0;
         } else {
-            let portRef = net.outputs[0];
-            let port = comps[portRef.compIdx].ports[portRef.portIdx];
+            let port = net.outputs[0].exePort;
             net.value = port.value;
         }
     }
 
     for (let portRef of net.inputs) {
-        let port = comps[portRef.compIdx].ports[portRef.portIdx];
-        port.value = net.value;
+        portRef.exePort.value = net.value;
     }
 
     // console.log('running net', netToString(net, comps), 'with value', net.value.toString(16), net.value);

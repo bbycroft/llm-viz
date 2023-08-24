@@ -1,0 +1,17 @@
+# 1 "test_c_preproc.c"
+# 1 "<built-in>" 1
+# 1 "<built-in>" 3
+# 374 "<built-in>" 3
+# 1 "<command line>" 1
+# 1 "<built-in>" 2
+# 1 "test_c_preproc.c" 2
+# 14 "test_c_preproc.c"
+.section .text_what, "ax", @progbits; .globl _start_what; _start_what:; .org 0x00
+
+
+const failure = what_fail;
+
+
+int main() {
+
+}
