@@ -89,7 +89,7 @@ export const CompExampleView: React.FC = () => {
             for (let test of examples) {
                 loadEntryData(test);
                 resetExeModel(exeModel, { hardReset: false });
-                stepExecutionCombinatorial(exeModel);
+                stepExecutionCombinatorial(exeModel, true);
 
                 totalCount += 1;
                 let completed = false;
@@ -118,7 +118,7 @@ export const CompExampleView: React.FC = () => {
 
                     insCount += 1;
                     stepExecutionLatch(exeModel);
-                    stepExecutionCombinatorial(exeModel);
+                    stepExecutionCombinatorial(exeModel, true);
                 }
 
                 if (!completed) {
@@ -130,6 +130,7 @@ export const CompExampleView: React.FC = () => {
         let timeMs = endTime - startTime;
         console.log(`All tests done in ${timeMs.toFixed(1)}ms. Success: ${successCount}/${totalCount} (repeats=${repeatCount}). Instructions: ${insCount} (${(insCount / timeMs).toFixed(0)} kHz)`);
 
+        stepExecutionCombinatorial(exeModel);
         setEditorState(a => ({ ...a }));
     }
 

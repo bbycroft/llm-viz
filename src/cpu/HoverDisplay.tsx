@@ -58,6 +58,7 @@ export const HoverDisplay: React.FC<{
                         {bitVals.map((val, i) => {
                             return <div key={i} className={s.bitVal}>{val.toString(2).padStart(bitWidth, '0')}</div>;
                         })}
+                        <div className={s.compId}>{net.wire.id}</div>
                     </div>;
                 }
             } else {
@@ -95,7 +96,7 @@ export const HoverDisplay: React.FC<{
                         typeStr += ' addr';
                     }
                     portElNode = <>
-                        <span>&nbsp; Port {port.name} ({typeStr})</span>
+                        <span>&nbsp; Port {port.name} ({typeStr}) io:{portExe.ioEnabled ? '1' : '0'}, du:{portExe.dataUsed ? '1' : '0'}</span>
                     </>;
                     portIdStr = <span className={s.portId}>/{port.id}</span>;
                 }

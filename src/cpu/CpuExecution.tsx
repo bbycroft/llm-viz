@@ -1,6 +1,5 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
-import { runNet } from "./comps/ComponentDefs";
 import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef } from "./CpuModel";
 
 export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout, existingSystem: IExeSystem | null): IExeSystem {
@@ -316,7 +315,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
     return { executionSteps, latchSteps };
 }
 
-export function stepExecutionCombinatorial(exeModel: IExeSystem) {
+export function stepExecutionCombinatorial(exeModel: IExeSystem, disableBackProp = false) {
     let exeSteps = exeModel.executionSteps;
     exeModel.runArgs.halt = false;
 
@@ -332,6 +331,9 @@ export function stepExecutionCombinatorial(exeModel: IExeSystem) {
         }
     }
 
+    if (!disableBackProp) {
+        backpropagateUnusedSignals(exeModel);
+    }
 }
 
 export function stepExecutionLatch(exeModel: IExeSystem) {
@@ -360,4 +362,103 @@ export function netToString(net: IExeNet, comps: IExeComp[]) {
     };
 
     return `(${net.outputs.map(a => portStr(a)).join(', ')}) -> (${net.inputs.map(a => portStr(a)).join(', ')})`;
+}
+
+export function runNet(comps: IExeComp[], net: IExeNet) {
+
+    if (net.tristate) {
+        // need to ensure exactly 1 output is enabled
+        let enabledCount = 0;
+        let enabledPortValue = 0;
+        for (let portRef of net.outputs) {
+            let port = portRef.exePort;
+            if (portRef.valid && port.ioEnabled) {
+                enabledCount++;
+                enabledPortValue = port.value;
+            }
+        }
+        net.enabledCount = enabledCount;
+        net.value = enabledCount === 1 ? enabledPortValue : 0;
+        // if (enabledCount > 1) {
+        //     console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs');
+        // }
+    } else {
+        // has exactly 1 input
+        if (net.outputs.length !== 1) {
+            net.value = 0;
+        } else {
+            let port = net.outputs[0].exePort;
+            net.value = port.value;
+        }
+    }
+
+    for (let portRef of net.inputs) {
+        portRef.exePort.value = net.value;
+    }
+
+    // console.log('running net', netToString(net, comps), 'with value', net.value.toString(16), net.value);
+}
+
+export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
+    // this if for determining if we should render a wire as being active or not in the UI
+    // e.g. if the output of a mux is not used, we want to mark its input wires as not active
+    // either
+
+    // essentially, if all output ports of a component are unused, then all input ports are also marked as unused
+    // can do this for each phase to some degree.
+
+    // not sure if we want to mess with the port.ioEnabled flags, or just have a separate flag for this
+    // primarily because those flags are used in latching, say (actually, that doesn't matter)
+
+    // OK, let's use ioEnabled, and set all inputs of a phase to false if all outputs are false
+    for (let comp of exeSystem.comps) {
+        for (let phase of comp.phases) {
+            for (let portIdx of [...phase.readPortIdxs, ...phase.writePortIdxs]) {
+                let port = comp.ports[portIdx];
+                port.dataUsed = port.ioEnabled;
+            }
+        }
+    }
+
+    for (let i = exeSystem.executionSteps.length - 1; i >= 0; i--) {
+        let step = exeSystem.executionSteps[i];
+        if (step.compIdx !== -1) {
+            let comp = exeSystem.comps[step.compIdx];
+            let phase = comp.phases[step.phaseIdx];
+
+            let allOutputsUnused = phase.writePortIdxs.length > 0;
+            for (let portIdx of phase.writePortIdxs) {
+                let port = comp.ports[portIdx];
+                if (port.dataUsed) {
+                    allOutputsUnused = false;
+                    break;
+                }
+            }
+
+            if (allOutputsUnused) {
+                for (let portIdx of phase.readPortIdxs) {
+                    let port = comp.ports[portIdx];
+                    port.dataUsed = false;
+                }
+            }
+
+
+        } else if (step.netIdx !== -1) {
+            let net = exeSystem.nets[step.netIdx];
+            let allOutputsUnused = true;
+            for (let portRef of net.inputs) {
+                if (portRef.exePort.dataUsed) {
+                    allOutputsUnused = false;
+                    break;
+                }
+            }
+
+            if (allOutputsUnused) {
+                for (let portRef of net.outputs) {
+                    portRef.exePort.dataUsed = false;
+                }
+            }
+        }
+    }
+
 }

@@ -36,7 +36,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortDir.In, width: 3 * 6 },
             { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
             { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortDir.OutTri, width: 32 },
-            { id: 'outB', name: 'B', pos: new Vec3(w, 5), type: PortDir.OutTri, width: 32 },
+            { id: 'outB', name: 'B', pos: new Vec3(w, 6), type: PortDir.OutTri, width: 32 },
         ],
         build2: (builder) => {
             let data = builder.addData({
@@ -125,7 +125,7 @@ function regFilePhase0({ data }: IExeComp<ICompDataRegFile>) {
 }
 
 // phase1 writes
-function regFilePhase1({ data }: IExeComp) {
+function regFilePhase1({ data }: IExeComp<ICompDataRegFile>) {
     let ctrl = data.inCtrlPort.value;
     let inData = data.inDataPort.value;
 
@@ -135,10 +135,11 @@ function regFilePhase1({ data }: IExeComp) {
     data.writeEnabled = !!inEnabled;
     data.writeReg = inBits;
     data.writeData = inData;
+    data.inDataPort.ioEnabled = !!inEnabled && inBits !== 0;
 }
 
 // phase2 latches
-function regFilePhase2Latch({ data }: IExeComp) {
+function regFilePhase2Latch({ data }: IExeComp<ICompDataRegFile>) {
     if (data.writeEnabled && data.writeReg !== 0) {
         data.file[data.writeReg] = data.writeData;
     }

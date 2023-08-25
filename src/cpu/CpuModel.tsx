@@ -84,6 +84,7 @@ export interface IExePort {
     width: number;
     type: PortDir;
     ioEnabled: boolean; // for tristate (true otherwise). For inputs, false means the input is ignored (e.g. an inactive mux input). The latter is useful for rendering
+    dataUsed: boolean; // for rendering, and involves back-propagation (but typically follows ioEnabled)
     value: number;
 }
 

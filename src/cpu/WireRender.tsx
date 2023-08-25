@@ -68,10 +68,10 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         let outputNodeIds: number[] = [];
 
         for (let binding of nodeIdToPortBinding.values()) {
-            if (hasFlag(binding.port.type, PortDir.In) && binding.exePort.ioEnabled) {
+            if (hasFlag(binding.port.type, PortDir.In) && binding.exePort.dataUsed) {
                 inputNodeIds.push(binding.nodeId);
             }
-            if (hasFlag(binding.port.type, PortDir.Out) && binding.exePort.ioEnabled) {
+            if (hasFlag(binding.port.type, PortDir.Out) && binding.exePort.dataUsed) {
                 outputNodeIds.push(binding.nodeId);
             }
         }

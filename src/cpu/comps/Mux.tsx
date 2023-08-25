@@ -1,5 +1,4 @@
 import { Vec3 } from "@/src/utils/vector";
-import { exec } from "child_process";
 import { PortDir, IExePort, IComp } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef, ExeCompBuilder } from "./CompBuilder";
 import { ensureSigned32Bit } from "./RiscvInsDecode";
@@ -25,7 +24,7 @@ export interface ICompDataConst {
 export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let w = 2;
-    let h = 8;
+    let h = 6;
     let mux2: ICompDef<ICompDataMux> = {
         defId: 'mux2',
         name: "Mux",
@@ -34,9 +33,9 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'sel', name: 'S', pos: new Vec3(1, 1), type: PortDir.In, width: 1 },
 
             { id: 'a', name: '0', pos: new Vec3(0, 2), type: PortDir.In, width: 32 },
-            { id: 'b', name: '1', pos: new Vec3(0, 6), type: PortDir.In, width: 32 },
+            { id: 'b', name: '1', pos: new Vec3(0, 4), type: PortDir.In, width: 32 },
 
-            { id: 'out', name: 'Z', pos: new Vec3(w, 4), type: PortDir.Out, width: 32 },
+            { id: 'out', name: 'Z', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
         ],
         build: (comp: IComp) => {
             let builder = new ExeCompBuilder<ICompDataMux>(comp);
@@ -59,18 +58,45 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         renderAll: true,
         render: ({ comp, ctx, cvs, exeComp }) => {
             ctx.beginPath();
-            // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
+            // basic structure is a trapezoid, narrower on the right
+            // slope passes through (1, 1) i.e. the select button, but doesn't need to be 45deg
+            let slope = 0.9;
             let x = comp.pos.x;
             let y = comp.pos.y;
             let w = comp.size.x;
             let h = comp.size.y;
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + w, y + w);
-            ctx.lineTo(x + w, y + h - w);
-            ctx.lineTo(x, y + h);
+
+            let yTl = y + 1 - slope * comp.size.x / 2;
+            let yTr = y + 1 + slope * comp.size.x / 2;
+
+            let yBl = y + h - 1 + slope * comp.size.x / 2;
+            let yBr = y + h - 1 - slope * comp.size.x / 2;
+
+            ctx.moveTo(x, yTl);
+            ctx.lineTo(x + w, yTr);
+            ctx.lineTo(x + w, yBr);
+            ctx.lineTo(x, yBl);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
+
+
+            let srcPos = comp.ports[exeComp?.data.inSelPort.value ? 2 : 1].pos;
+            let destPos = comp.ports[3].pos;
+            let xMid = comp.size.x / 2;
+
+            let dashScale = Math.min(cvs.scale, 0.03);
+            ctx.beginPath();
+            ctx.moveTo(x + srcPos.x, y + srcPos.y);
+            ctx.lineTo(x + xMid, y + srcPos.y);
+            ctx.lineTo(x + xMid, y + destPos.y);
+            ctx.lineTo(x + destPos.x, y + destPos.y);
+            // ctx.setLineDash([10 * dashScale, 10 * dashScale]);
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2 * cvs.scale;
+            ctx.stroke();
+            ctx.setLineDash([]);
+
         },
     };
 

@@ -95,6 +95,7 @@ export class ExeCompBuilder<T> {
                 portIdx: i,
                 netIdx: -1,
                 ioEnabled: true,
+                dataUsed: true,
                 type: node.type ?? PortDir.In,
                 value: 0,
                 width: node.width ?? 1,
