@@ -1,85 +1,98 @@
 
-blinky:     file format elf32-littleriscv
-
+blinky.elf:	file format elf32-littleriscv
 
 Disassembly of section .text:
 
 00000000 <_start>:
-int main();
-// static void sleep();
+;     asm(
+       0: 13 01 00 0e  	li	sp, 224
+       4: ef 00 80 04  	jal	0x4c <$d.9+0x4c>
+       8: 13 05 c0 02  	li	a0, 44
+       c: 73 00 00 00  	ecall	
 
-__attribute__((naked)) void _start() {
-    // set stack pointer to 0xe0
-    asm(
-   0:	0e000113          	li	sp,224
-   4:	010000ef          	jal	ra,14 <main>
-   8:	02c00513          	li	a0,44
-   c:	00000073          	ecall
-        "li sp, 0xe0\n\t"
-        "jal main\n\t"
-        "li a0, 44\n\t"
-        "ecall\n\t"
-    );
-}
-  10:	00000013          	nop
+00000010 <sleep>:
+; void sleep() {
+      10: 13 01 01 ff  	addi	sp, sp, -16
+;     asm("nop");
+      14: 23 26 11 00  	sw	ra, 12(sp)
+      18: 23 24 81 00  	sw	s0, 8(sp)
+      1c: 13 04 01 01  	addi	s0, sp, 16
+      20: 13 00 00 00  	nop
+;     asm("nop");
+      24: 13 00 00 00  	nop
+;     asm("nop");
+      28: 13 00 00 00  	nop
+;     iter_counter += 1;
+      2c: b7 05 00 00  	lui	a1, 0
+      30: 03 a5 05 0f  	lw	a0, 240(a1)
+      34: 13 05 15 00  	addi	a0, a0, 1
+      38: 23 a8 a5 0e  	sw	a0, 240(a1)
+; }
+      3c: 83 20 c1 00  	lw	ra, 12(sp)
+      40: 03 24 81 00  	lw	s0, 8(sp)
+      44: 13 01 01 01  	addi	sp, sp, 16
+      48: 67 80 00 00  	ret
 
-00000014 <main>:
-//     for(i = 0; i < 10; i++) {
-//         asm("nop");
-//     }
-// }
+0000004c <main>:
+; int main() {
+      4c: 13 01 01 ff  	addi	sp, sp, -16
+      50: 23 26 11 00  	sw	ra, 12(sp)
+      54: 23 24 81 00  	sw	s0, 8(sp)
+      58: 13 04 01 01  	addi	s0, sp, 16
+      5c: 13 05 00 00  	li	a0, 0
+      60: 23 2a a4 fe  	sw	a0, -12(s0)
+;     for (int j = 0; j < ITER_COUNT; j++) {
+      64: 23 28 a4 fe  	sw	a0, -16(s0)
+      68: 6f 00 40 00  	j	0x6c <$d.9+0x6c>
+      6c: 83 25 04 ff  	lw	a1, -16(s0)
+      70: 13 05 10 00  	li	a0, 1
+      74: 63 54 b5 00  	bge	a0, a1, 0x7c <$d.9+0x7c>
+      78: 6f 00 c0 03  	j	0xb4 <$d.9+0xb4>
+      7c: 6f 00 40 00  	j	0x80 <$d.9+0x80>
+      80: 37 15 10 10  	lui	a0, 65793
+      84: 13 05 05 01  	addi	a0, a0, 16
+;         *GPIO_VAL = BLINK_MODE_0;
+      88: 23 20 a0 08  	sw	a0, 128(zero)
+;         sleep();
+      8c: ef f0 5f f8  	jal	0x10 <$d.9+0x10>
+      90: 37 05 01 01  	lui	a0, 4112
+      94: 13 05 15 10  	addi	a0, a0, 257
+;         *GPIO_VAL = BLINK_MODE_1;
+      98: 23 20 a0 08  	sw	a0, 128(zero)
+;         sleep();
+      9c: ef f0 5f f7  	jal	0x10 <$d.9+0x10>
+;     }
+      a0: 6f 00 40 00  	j	0xa4 <$d.9+0xa4>
+;     for (int j = 0; j < ITER_COUNT; j++) {
+      a4: 03 25 04 ff  	lw	a0, -16(s0)
+      a8: 13 05 15 00  	addi	a0, a0, 1
+      ac: 23 28 a4 fe  	sw	a0, -16(s0)
+      b0: 6f f0 df fb  	j	0x6c <$d.9+0x6c>
+;     *GPIO_VAL = iter_counter;
+      b4: 37 05 00 00  	lui	a0, 0
+      b8: 03 25 05 0f  	lw	a0, 240(a0)
+      bc: 23 20 a0 08  	sw	a0, 128(zero)
+      c0: 13 05 00 00  	li	a0, 0
+;     return 0;
+      c4: 83 20 c1 00  	lw	ra, 12(sp)
+      c8: 03 24 81 00  	lw	s0, 8(sp)
+      cc: 13 01 01 01  	addi	sp, sp, 16
+      d0: 67 80 00 00  	ret
 
-int main() {
-  14:	fe010113          	addi	sp,sp,-32
-  18:	00812e23          	sw	s0,28(sp)
-  1c:	02010413          	addi	s0,sp,32
+Disassembly of section .rodata:
 
-00000020 <.LBB2>:
-    //  void (*sleep_ptr)() = &sleep;
+000000e0 <GPIO_VAL>:
+      e0: 80 00        	<unknown>
+      e2: 00 00        	<unknown>
 
-    for (int j = 0; j < 2; j++) {
-  20:	fe042623          	sw	zero,-20(s0)
-  24:	0480006f          	j	6c <.L3>
+000000e4 <ITER_COUNT>:
+      e4: 02 00        	<unknown>
+      e6: 00 00        	<unknown>
 
-00000028 <.L4>:
-        *GPIO_VAL = 0x10101010;
-  28:	08000793          	li	a5,128
-  2c:	10101737          	lui	a4,0x10101
-  30:	01070713          	addi	a4,a4,16 # 10101010 <.LFE1+0x10100f84>
-  34:	00e7a023          	sw	a4,0(a5)
-        asm("nop");
-  38:	00000013          	nop
-        asm("nop");
-  3c:	00000013          	nop
-        asm("nop");
-  40:	00000013          	nop
-        *GPIO_VAL = 0x01010101;
-  44:	08000793          	li	a5,128
-  48:	01010737          	lui	a4,0x1010
-  4c:	10170713          	addi	a4,a4,257 # 1010101 <.LFE1+0x1010075>
-  50:	00e7a023          	sw	a4,0(a5)
-        asm("nop");
-  54:	00000013          	nop
-        asm("nop");
-  58:	00000013          	nop
-        asm("nop");
-  5c:	00000013          	nop
-    for (int j = 0; j < 2; j++) {
-  60:	fec42783          	lw	a5,-20(s0)
-  64:	00178793          	addi	a5,a5,1
-  68:	fef42623          	sw	a5,-20(s0)
+000000e8 <BLINK_MODE_0>:
+      e8: 10 10        	<unknown>
+      ea: 10 10        	<unknown>
 
-0000006c <.L3>:
-  6c:	fec42703          	lw	a4,-20(s0)
-  70:	00100793          	li	a5,1
-  74:	fae7dae3          	bge	a5,a4,28 <.L4>
-
-00000078 <.LBE2>:
-    }
-    return 0;
-  78:	00000793          	li	a5,0
-}
-  7c:	00078513          	mv	a0,a5
-  80:	01c12403          	lw	s0,28(sp)
-  84:	02010113          	addi	sp,sp,32
-  88:	00008067          	ret
+000000ec <BLINK_MODE_1>:
+      ec: 01 01        	<unknown>
+      ee: 01 01        	<unknown>

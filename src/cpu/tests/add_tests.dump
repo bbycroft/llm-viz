@@ -1,5 +1,5 @@
 
-add_tests:	file format elf32-littleriscv
+add_tests.elf:	file format elf32-littleriscv
 
 Disassembly of section .text_store0:
 
