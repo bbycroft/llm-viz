@@ -24,7 +24,10 @@ export const CompExampleView: React.FC = () => {
         let basePath = (process.env.BASE_URL ?? '') + '/riscv/examples/';
 
         async function run() {
-            let resp = await fetch(basePath + 'add_tests');
+            // let fileName = 'add_tests';
+            let fileName = 'blinky';
+
+            let resp = await fetch(basePath + fileName);
 
             if (resp.ok) {
                 let elfFile = new Uint8Array(await resp.arrayBuffer());
@@ -34,7 +37,7 @@ export const CompExampleView: React.FC = () => {
 
                 let examples = sections.map(section => {
                     // name is '.text_add0', and we want 'add0'
-                    let name = section.name.slice(6);
+                    let name = section.name.slice(6) || section.name;
                     return {
                         name,
                         elfSection: section,
@@ -94,7 +97,7 @@ export const CompExampleView: React.FC = () => {
                 totalCount += 1;
                 let completed = false;
 
-                for (let i = 0; i < 200; i++) {
+                for (let i = 0; i < 400; i++) {
                     if (exeModel.runArgs.halt) {
                         let regs = getRegsComp();
                         let resRegValue = regs?.data.file[10] ?? 0;

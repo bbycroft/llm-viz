@@ -9,42 +9,47 @@ Disassembly of section .text_store0:
        8: 93 80 80 67  	addi	ra, ra, 1656
        c: 23 a6 11 00  	sw	ra, 12(gp)
       10: 03 a1 c1 00  	lw	sp, 12(gp)
-      14: 63 94 20 06  	bne	ra, sp, 0x7c <fail_store0>
+      14: 63 9e 20 06  	bne	ra, sp, 0x90 <fail_store0>
       18: 93 85 15 00  	addi	a1, a1, 1
       1c: 93 01 00 01  	li	gp, 16
       20: b7 10 00 00  	lui	ra, 1
       24: 93 80 80 4e  	addi	ra, ra, 1256
       28: 23 90 11 00  	sh	ra, 0(gp)
       2c: 03 91 01 00  	lh	sp, 0(gp)
-      30: 63 96 20 04  	bne	ra, sp, 0x7c <fail_store0>
+      30: 63 90 20 06  	bne	ra, sp, 0x90 <fail_store0>
       34: 93 85 15 00  	addi	a1, a1, 1
       38: 93 00 60 f1  	li	ra, -234
       3c: 23 91 11 00  	sh	ra, 2(gp)
       40: 03 91 21 00  	lh	sp, 2(gp)
-      44: 63 9c 20 02  	bne	ra, sp, 0x7c <fail_store0>
-      48: 93 85 15 00  	addi	a1, a1, 1
-      4c: 93 00 10 ff  	li	ra, -15
-      50: a3 81 11 00  	sb	ra, 3(gp)
-      54: 03 81 31 00  	lb	sp, 3(gp)
-      58: 63 92 20 02  	bne	ra, sp, 0x7c <fail_store0>
+      44: 03 d2 21 00  	lhu	tp, 2(gp)
+      48: b7 02 01 00  	lui	t0, 16
+      4c: 93 82 62 f1  	addi	t0, t0, -234
+      50: 63 90 20 04  	bne	ra, sp, 0x90 <fail_store0>
+      54: 93 85 15 00  	addi	a1, a1, 1
+      58: 63 1c 52 02  	bne	tp, t0, 0x90 <fail_store0>
       5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 93 00 90 ff  	li	ra, -7
-      64: a3 82 11 00  	sb	ra, 5(gp)
-      68: 03 c1 51 00  	lbu	sp, 5(gp)
-      6c: 13 02 90 0f  	li	tp, 249
-      70: 63 16 41 00  	bne	sp, tp, 0x7c <fail_store0>
-      74: 93 85 15 00  	addi	a1, a1, 1
-      78: 6f 00 00 01  	j	0x88 <success_store0>
+      60: 93 00 10 ff  	li	ra, -15
+      64: 23 83 11 00  	sb	ra, 6(gp)
+      68: 03 81 61 00  	lb	sp, 6(gp)
+      6c: 63 92 20 02  	bne	ra, sp, 0x90 <fail_store0>
+      70: 93 85 15 00  	addi	a1, a1, 1
+      74: 93 00 90 ff  	li	ra, -7
+      78: a3 83 11 00  	sb	ra, 7(gp)
+      7c: 03 c1 71 00  	lbu	sp, 7(gp)
+      80: 13 02 90 0f  	li	tp, 249
+      84: 63 16 41 00  	bne	sp, tp, 0x90 <fail_store0>
+      88: 93 85 15 00  	addi	a1, a1, 1
+      8c: 6f 00 00 01  	j	0x9c <success_store0>
 
-0000007c <fail_store0>:
-      7c: 13 05 f0 38  	li	a0, 911
-      80: 73 00 00 00  	ecall	
-      84: 00 00        	<unknown>
-      86: 00 00        	<unknown>
+00000090 <fail_store0>:
+      90: 13 05 f0 38  	li	a0, 911
+      94: 73 00 00 00  	ecall	
+      98: 00 00        	<unknown>
+      9a: 00 00        	<unknown>
 
-00000088 <success_store0>:
-      88: 13 05 c0 02  	li	a0, 44
-      8c: 73 00 00 00  	ecall	
+0000009c <success_store0>:
+      9c: 13 05 c0 02  	li	a0, 44
+      a0: 73 00 00 00  	ecall	
 
 Disassembly of section .text_addi0:
 

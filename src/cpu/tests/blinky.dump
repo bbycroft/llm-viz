@@ -1,0 +1,85 @@
+
+blinky:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <_start>:
+int main();
+// static void sleep();
+
+__attribute__((naked)) void _start() {
+    // set stack pointer to 0xe0
+    asm(
+   0:	0e000113          	li	sp,224
+   4:	010000ef          	jal	ra,14 <main>
+   8:	02c00513          	li	a0,44
+   c:	00000073          	ecall
+        "li sp, 0xe0\n\t"
+        "jal main\n\t"
+        "li a0, 44\n\t"
+        "ecall\n\t"
+    );
+}
+  10:	00000013          	nop
+
+00000014 <main>:
+//     for(i = 0; i < 10; i++) {
+//         asm("nop");
+//     }
+// }
+
+int main() {
+  14:	fe010113          	addi	sp,sp,-32
+  18:	00812e23          	sw	s0,28(sp)
+  1c:	02010413          	addi	s0,sp,32
+
+00000020 <.LBB2>:
+    //  void (*sleep_ptr)() = &sleep;
+
+    for (int j = 0; j < 2; j++) {
+  20:	fe042623          	sw	zero,-20(s0)
+  24:	0480006f          	j	6c <.L3>
+
+00000028 <.L4>:
+        *GPIO_VAL = 0x10101010;
+  28:	08000793          	li	a5,128
+  2c:	10101737          	lui	a4,0x10101
+  30:	01070713          	addi	a4,a4,16 # 10101010 <.LFE1+0x10100f84>
+  34:	00e7a023          	sw	a4,0(a5)
+        asm("nop");
+  38:	00000013          	nop
+        asm("nop");
+  3c:	00000013          	nop
+        asm("nop");
+  40:	00000013          	nop
+        *GPIO_VAL = 0x01010101;
+  44:	08000793          	li	a5,128
+  48:	01010737          	lui	a4,0x1010
+  4c:	10170713          	addi	a4,a4,257 # 1010101 <.LFE1+0x1010075>
+  50:	00e7a023          	sw	a4,0(a5)
+        asm("nop");
+  54:	00000013          	nop
+        asm("nop");
+  58:	00000013          	nop
+        asm("nop");
+  5c:	00000013          	nop
+    for (int j = 0; j < 2; j++) {
+  60:	fec42783          	lw	a5,-20(s0)
+  64:	00178793          	addi	a5,a5,1
+  68:	fef42623          	sw	a5,-20(s0)
+
+0000006c <.L3>:
+  6c:	fec42703          	lw	a4,-20(s0)
+  70:	00100793          	li	a5,1
+  74:	fae7dae3          	bge	a5,a4,28 <.L4>
+
+00000078 <.LBE2>:
+    }
+    return 0;
+  78:	00000793          	li	a5,0
+}
+  7c:	00078513          	mv	a0,a5
+  80:	01c12403          	lw	s0,28(sp)
+  84:	02010113          	addi	sp,sp,32
+  88:	00008067          	ret

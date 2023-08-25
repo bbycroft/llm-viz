@@ -5,7 +5,6 @@ import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
 import clsx from 'clsx';
-import { Funct3LoadStore } from '../RiscvIsa';
 
 export interface IRomExeData {
     addr: IExePort;
@@ -98,7 +97,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
 
             // rows of 8 bytes, each byte represented by 2 hex digits
             // left to right, top to bottom (ala hex editor)
-            return exeComp ? renderData(exeComp.data.rom, exeComp.data.addr.value, -4, comp, cvs) : null;
+            return exeComp ? renderData(comp, cvs, exeComp.data.rom, { addr: exeComp.data.addr.value, numBytes: 4, value: 0 }, null) : null;
 
         },
         copyStatefulData: (src, dest) => {
@@ -199,17 +198,33 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
         },
 
         renderDom: ({ comp, exeComp, styles, cvs }) => {
-            let isRead = exeComp && (exeComp.data.ctrl.value & 0b11) === 0b01;
-            let isWrite = exeComp && (exeComp.data.ctrl.value & 0b11) === 0b11;
-            let addr = exeComp ? exeComp.data.addr.value : 0;
-            return exeComp ? renderData(exeComp.data.ram, isRead ? addr : -4, isWrite ? addr : -4, comp, cvs) : null;
+            if (!exeComp) {
+                return null;
+            }
+            let data = exeComp.data;
+            let ctrl = data.ctrl;
+            let isRead = (ctrl.value & 0b11) === 0b11;
+            let isWrite = (ctrl.value & 0b11) === 0b01;
+            let writeType = (ctrl.value >> 2) & 0b11;
+            let addr = data.addr.value;
+            let value = data.data.value;
+            let numBytes = writeType === BusMemCtrlType.Byte ? 1 : writeType === BusMemCtrlType.Half ? 2 : 4;
+            return renderData(comp, cvs, exeComp.data.ram,
+                isRead ? { addr, numBytes, value } : null,
+                isWrite ? { addr, numBytes, value } : null);
         },
     };
 
     return [rom, ram];
 }
 
-function renderData(bytes: Uint8Array, readAddr: number, writeAddr: number, comp: IComp, cvs: ICanvasState) {
+interface IReadWriteInfo {
+    addr: number;
+    numBytes: number;
+    value: number; // only used for writes
+}
+
+function renderData(comp: IComp, cvs: ICanvasState, bytes: Uint8Array, read: IReadWriteInfo | null, write: IReadWriteInfo | null) {
     let bytesPerCol = 16;
 
     interface IRow {
@@ -242,10 +257,21 @@ function renderData(bytes: Uint8Array, readAddr: number, writeAddr: number, comp
                     <div className={s.memRowAddr}>{row.addr.toString(16).padStart(2, '0')}</div>
                     <div className={clsx(s.memRowBytes, row.allZeros && s.allZeros)}>
                         {[...row.bytes].map((b, j) => {
-                            let isRead = row.addr + j >= readAddr && row.addr + j < readAddr + 4;
-                            let isWrite = row.addr + j >= writeAddr && row.addr + j < writeAddr + 4;
+                            let isRead = read && (row.addr + j >= read.addr && row.addr + j < read.addr + read.numBytes);
+                            let isWrite = write && (row.addr + j >= write.addr && row.addr + j < write.addr + write.numBytes);
 
-                            return <div key={j} className={clsx(s.memRowByte, isRead && s.byteRead, isWrite && s.byteWrite)}>{b.toString(16).padStart(2, '0')}</div>;
+                            let topVal: number | null = null;
+                            let contents: React.ReactNode = b.toString(16).padStart(2, '0');
+                            if (write && isWrite) {
+                                let byteOffset = row.addr + j - write.addr;
+                                topVal = (write.value >> (byteOffset * 8)) & 0xff;
+                                contents = <>
+                                    <div>{topVal.toString(16).padStart(2, '0')}</div>
+                                    <div>{contents}</div>
+                                </>;
+                            }
+
+                            return <div key={j} className={clsx(s.memRowByte, isRead && s.byteRead, isWrite && s.byteWrite)}>{contents}</div>;
                         })}
                     </div>
                 </div>;

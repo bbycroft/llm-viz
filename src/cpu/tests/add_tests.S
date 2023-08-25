@@ -20,18 +20,22 @@ SECTION2()
     li x1, -234
     sh x1, 0x2(x3)
     lh x2, 0x2(x3)
+    lhu x4, 0x2(x3)
+    li x5, 0xff16
     bne x1, x2, FAIL
+    addi a1, a1, 1;
+    bne x4, x5, FAIL
     addi a1, a1, 1;
 
     li x1, -15
-    sb x1, 0x3(x3)
-    lb x2, 0x3(x3)
+    sb x1, 0x6(x3)
+    lb x2, 0x6(x3)
     bne x1, x2, FAIL
     addi a1, a1, 1;
 
     li x1, -7
-    sb x1, 0x5(x3)
-    lbu x2, 0x5(x3)
+    sb x1, 0x7(x3)
+    lbu x2, 0x7(x3)
     li x4, 0xf9
     bne x2, x4, FAIL
     addi a1, a1, 1;

@@ -39,6 +39,8 @@
     display: flex;
     flex-direction: row;
     padding-right: 15px;
+    pointer-events: auto;
+    height: 26px;
 }
 
 .memRowAddr {
@@ -46,6 +48,7 @@
     color: #707070;
     text-align: right;
     margin-right: 5px;
+    user-select: none;
 }
 
 .memRowBytes {
@@ -70,5 +73,13 @@
 
     &.byteWrite {
         background-color: #e7f15a;
+        font-size: 80%;
+        line-height: 13px;
+        display: flex;
+        flex-direction: column;
+
+        & > div:first-child {
+            opacity: 0.5;
+        }
     }
 }

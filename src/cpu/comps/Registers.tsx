@@ -31,7 +31,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     let reg32: ICompDef<ICompDataRegFile> = {
         defId: 'reg32Riscv',
         name: "Registers",
-        size: new Vec3(w, 30),
+        size: new Vec3(w, 66),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortDir.In, width: 3 * 6 },
             { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
