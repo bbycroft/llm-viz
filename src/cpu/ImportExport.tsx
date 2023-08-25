@@ -222,7 +222,7 @@ export function importData(str: string): IImportResult {
 
     }
 
-    let outStr = exportData({ comps, wires, nextWireId: 0, nextCompId: 0 });
+    let outStr = exportData({ comps, wires, nextWireId: 0, nextCompId: 0, selected: [] });
 
     if (outStr !== str) {
         makeIssue("Exported data does not match imported data", 0);
