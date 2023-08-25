@@ -1,6 +1,6 @@
 import { Vec3 } from "@/src/utils/vector";
 import { IExePort, IComp, IExeComp, PortDir, ICompRenderArgs, IExeRunArgs } from "../CpuModel";
-import { OpCode, Funct3Op, Funct3OpImm, Funct3Branch } from "../RiscvIsa";
+import { OpCode, Funct3Op, Funct3OpImm, Funct3Branch, Funct3LoadStore } from "../RiscvIsa";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import * as d3Color from 'd3-color';
 import { riscvRegNames } from "./Registers";
@@ -17,7 +17,7 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
         ports: [
             { id: 'ins', name: 'Ins', pos: new Vec3(0, 1), type: PortDir.In | PortDir.Data, width: 32 },
 
-            { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(w, 1), type: PortDir.Out | PortDir.Ctrl, width: 4 },
+            { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(w, 1), type: PortDir.Out | PortDir.Ctrl, width: 5 },
             { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(w, 2), type: PortDir.Out | PortDir.Addr, width: 32 },
             { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(w, 6), type: PortDir.OutTri | PortDir.Data, width: 32 },
 
@@ -94,6 +94,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     data.lhsMuxCtrl.value = 1; // inverted
     data.pcBranchCtrl.value = 0;
     data.aluCtrl.value = 0;
+    data.loadStoreCtrl.value = 0;
 
     if (ins === 0) {
         // console.log('ILLEGAL INSTRUCTION: 0x0');
@@ -102,6 +103,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
         return;
     }
 
+    // 0: read LHS, 1: read RHS, 2: write
     function setRegCtrl(enable: boolean, addr: number, offset: number) {
         let a = (enable ? 1 : 0) | (addr & 0b11111) << 1;
         let val = data.regCtrl.value;
@@ -115,6 +117,13 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
                   funct3 << 1 |
                   (isSpecial ? 1 : 0) << 0;
         data.aluCtrl.value = val;
+    }
+
+    function setLoadStoreCtrl(enable: boolean, isLoad: boolean, funct3: number) {
+        let val = (enable ? 1 : 0) << 0 |
+                  (isLoad ? 1 : 0) << 1 |
+                  funct3 << 2;
+        data.loadStoreCtrl.value = val;
     }
 
     // console.log('opcode: ' + opCode.toString(16), ins.toString(2).padStart(32, '0'), OpCode[opCode], Funct3Op[funct3]);
@@ -192,7 +201,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
         data.pcBranchCtrl.value = 0; // PC + offset => PC
 
     } else if (opCode === OpCode.LOAD) {
-        // let offset = signExtend12Bit(ins >>> 20);
+        let offset = signExtend12Bit(ins >>> 20);
         // let base = cpu.x[rs1] >>> 0;
         // let addr = base + offset;
         // let value = 0;
@@ -206,19 +215,18 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
         // }
 
         // @TODO: implement LOAD signals
-        setRegCtrl(true, 0, 0);
+        setLoadStoreCtrl(true, true, funct3);
+        data.addrOffset.value = offset;
+        setRegCtrl(true, rs1, 0);
         setRegCtrl(true, 0, 1);
-        setRegCtrl(true, 0, 2);
-        setAluCtrl(true, false, Funct3Op.ADD, false);
+        setRegCtrl(true, rd, 2);
+        setAluCtrl(false, false, Funct3Op.ADD, false);
 
     } else if (opCode === OpCode.STORE) {
-        // let offsetRaw = (((ins >>>  7) & 0x1F)     ) | // 5 bytes
-        //                 (((ins >>> 25) & 0x7F) << 5);  // 7 bytes
+        let offsetRaw = (((ins >>>  7) & 0x1F)     ) | // 5 bytes
+                        (((ins >>> 25) & 0x7F) << 5);  // 7 bytes
 
-        // let offset = signExtend12Bit(offsetRaw);
-        // let base = cpu.x[rs1] >>> 0;
-        // let addr = base + offset;
-        // let value = cpu.x[rs2];
+        let offset = signExtend12Bit(offsetRaw);
 
         // switch (funct3) {
         //     case Funct3LoadStore.SB: mem.writeByte(addr, value); break;
@@ -227,11 +235,12 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
         //     default: break;
         // }
 
-        // @TODO: implement STORE signals
-        setRegCtrl(true, 0, 0);
-        setRegCtrl(true, 0, 1);
+        setLoadStoreCtrl(true, false, funct3 & 0b11);
+        data.addrOffset.value = offset;
+        setRegCtrl(true, rs1, 0);
+        setRegCtrl(true, rs2, 1);
         setRegCtrl(true, 0, 2);
-        setAluCtrl(true, false, Funct3Op.ADD, false);
+        setAluCtrl(false, false, Funct3Op.ADD, false);
 
     } else if (opCode === OpCode.SYSTEM) {
         runArgs.halt = true;
@@ -613,6 +622,43 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
             { color: infoColor, text: ' + ' },
             ...buildBitsMessage([20, 12], [0], immColor),
         ], line4Height);
+
+    } else if (opCode === OpCode.LOAD) {
+        drawBitsAndText(15, 5, rs1Color, rs1.toString(), 'rs1');
+        drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
+        let funct3Str = Funct3LoadStore[funct3].replace('S', 'L');
+        drawBitsAndText(12, 3, func3Color, funct3Str, 'funct3');
+        drawBitsAndText(20, 12, immColor, data.addrOffset.value.toString(), 'imm');
+
+        drawOpAndMessage('LOAD', funct3Str, `load from memory (reg + offset)`);
+
+        drawMessage([
+            { color: infoColor, text: 'load from ' },
+            { color: rs1Color, text: regFormatted(rs1) },
+            { color: infoColor, text: ' + ' },
+            ...buildBitsMessage([20, 12], [0], immColor),
+        ], line3Height);
+
+        drawMessage([
+            { color: infoColor, text: 'into ' },
+            { color: rdColor, text: regFormatted(rd) },
+        ], line4Height);
+
+    } else if (opCode === OpCode.STORE) {
+        drawBitsAndText(15, 5, rs1Color, rs1.toString(), 'rs1');
+        drawBitsAndText(20, 5, rs2Color, rs2.toString(), 'rs2');
+        drawBitsAndText(20, 12, immColor, data.addrOffset.value.toString(), 'imm');
+
+        drawOpAndMessage('STORE', Funct3LoadStore[funct3], `store to memory (reg + offset)`);
+
+        drawMessage([
+            { color: infoColor, text: 'store ' },
+            { color: rs2Color, text: regFormatted(rs2) },
+            { color: infoColor, text: ' into ' },
+            { color: rs1Color, text: regFormatted(rs1) },
+            { color: infoColor, text: ' + ' },
+            ...buildBitsMessage([20, 12], [0], immColor),
+        ], line3Height);
 
     } else if (opCode === OpCode.SYSTEM) {
 

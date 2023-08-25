@@ -1,6 +1,6 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
-import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef } from "./CpuModel";
+import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir } from "./CpuModel";
 
 export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout, existingSystem: IExeSystem | null): IExeSystem {
 
@@ -46,7 +46,8 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
                 if (node.id === ref.compNodeId) {
                     if (hasFlag(node.type, PortDir.In)) {
                         inputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx, exePort: null!, valid: false });
-                    } else {
+                    }
+                    if (hasFlag(node.type, PortDir.Out)) {
                         outputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx, exePort: null!, valid: false });
                     }
                     break;
@@ -366,6 +367,8 @@ export function netToString(net: IExeNet, comps: IExeComp[]) {
 
 export function runNet(comps: IExeComp[], net: IExeNet) {
 
+    // let isIoNet = net.inputs.some(a => net.outputs.some(b => a.exePort === b.exePort));
+
     if (net.tristate) {
         // need to ensure exactly 1 output is enabled
         let enabledCount = 0;
@@ -379,9 +382,9 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         }
         net.enabledCount = enabledCount;
         net.value = enabledCount === 1 ? enabledPortValue : 0;
-        // if (enabledCount > 1) {
-        //     console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs');
-        // }
+        if (enabledCount > 1) {
+            console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs');
+        }
     } else {
         // has exactly 1 input
         if (net.outputs.length !== 1) {
@@ -391,6 +394,10 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
             net.value = port.value;
         }
     }
+
+    // if (isIoNet) {
+    //     console.log('reading from io net', netToString(net, comps), 'with value', net.value.toString(16), net.value);
+    // }
 
     for (let portRef of net.inputs) {
         portRef.exePort.value = net.value;
@@ -420,6 +427,8 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
         }
     }
 
+    // return;
+
     for (let i = exeSystem.executionSteps.length - 1; i >= 0; i--) {
         let step = exeSystem.executionSteps[i];
         if (step.compIdx !== -1) {
@@ -434,8 +443,18 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
                     break;
                 }
             }
+            for (let portIdx of phase.readPortIdxs) { // special case for multi-directional ports
+                let port = comp.ports[portIdx];
+                if ((port.type & PortDir.InOutTri) === PortDir.InOutTri && port.ioDir === IoDir.Input) {
+                    allOutputsUnused = false;
+                    break;
+                }
+            }
 
             if (allOutputsUnused) {
+                // let writePorts = phase.writePortIdxs.map(i => comp.comp.ports[i].id);
+                // let readPorts = phase.readPortIdxs.map(i => comp.comp.ports[i].id);
+                // console.log('marking ports as unused', comp.comp.defId, step.phaseIdx, writePorts, ' => ', readPorts);
                 for (let portIdx of phase.readPortIdxs) {
                     let port = comp.ports[portIdx];
                     port.dataUsed = false;

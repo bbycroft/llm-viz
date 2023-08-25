@@ -1,5 +1,45 @@
 #include "helpers.h"
 
+#define SECNAME store0
+SECTION2()
+    li x3, 0x20
+
+    LI_LARGE(x1, 0x12345678)
+    sw x1, 0xc(x3)
+    lw x2, 0xc(x3)
+    bne x1, x2, FAIL
+    addi a1, a1, 1;
+
+    li x3, 0x10
+    li x1, 0x14e8
+    sh x1, 0x0(x3)
+    lh x2, 0x0(x3)
+    bne x1, x2, FAIL
+    addi a1, a1, 1;
+
+    li x1, -234
+    sh x1, 0x2(x3)
+    lh x2, 0x2(x3)
+    bne x1, x2, FAIL
+    addi a1, a1, 1;
+
+    li x1, -15
+    sb x1, 0x3(x3)
+    lb x2, 0x3(x3)
+    bne x1, x2, FAIL
+    addi a1, a1, 1;
+
+    li x1, -7
+    sb x1, 0x5(x3)
+    lbu x2, 0x5(x3)
+    li x4, 0xf9
+    bne x2, x4, FAIL
+    addi a1, a1, 1;
+
+    j SUCCESS
+END_SECTION2()
+#undef SECNAME
+
 #define SECNAME addi0
 SECTION2()
     li x1, 10

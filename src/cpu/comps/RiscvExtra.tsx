@@ -1,6 +1,8 @@
 import { Vec3 } from "@/src/utils/vector";
 import { IExeComp, IExePort, PortDir } from "../CpuModel";
+import { Funct3LoadStore } from "../RiscvIsa";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { ensureUnsigned32Bit, signExtend16Bit, signExtend8Bit } from "./RiscvInsDecode";
 
 export interface ICompDataLoadStore {
     ctrl: IExePort;
@@ -8,6 +10,10 @@ export interface ICompDataLoadStore {
     addrBase: IExePort;
     dataIn: IExePort;
     dataOut: IExePort;
+
+    busCtrl: IExePort;
+    busAddr: IExePort;
+    busData: IExePort;
 }
 
 export interface ICompDataInsFetch {
@@ -26,11 +32,15 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         name: "Load/Store",
         size: new Vec3(lsW, lsH),
         ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: PortDir.In, width: 4 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: PortDir.In, width: 5 },
             { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: PortDir.In, width: 12 },
             { id: 'addrBase', name: 'Addr Base', pos: new Vec3(5, lsH), type: PortDir.In, width: 32 },
             { id: 'dataIn', name: 'Data In', pos: new Vec3(12, lsH), type: PortDir.In, width: 32 },
             { id: 'dataOut', name: 'Data Out', pos: new Vec3(lsW, 6), type: PortDir.OutTri, width: 32 },
+
+            { id: 'busCtrl', name: 'Bus Ctrl', pos: new Vec3(4, 0), type: PortDir.Out | PortDir.Ctrl, width: 4 },
+            { id: 'busAddr', name: 'Bus Addr', pos: new Vec3(8, 0), type: PortDir.Out | PortDir.Addr, width: 32 },
+            { id: 'busData', name: 'Bus Data', pos: new Vec3(12, 0), type: PortDir.In | PortDir.Out | PortDir.Tristate, width: 32 },
         ],
         build: (comp) => {
             let builder = new ExeCompBuilder<ICompDataLoadStore>(comp);
@@ -40,17 +50,70 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                 addrBase: builder.getPort('addrBase'),
                 dataIn: builder.getPort('dataIn'),
                 dataOut: builder.getPort('dataOut'),
+                busCtrl: builder.getPort('busCtrl'),
+                busAddr: builder.getPort('busAddr'),
+                busData: builder.getPort('busData'),
             });
 
-            builder.addPhase(({ data: { ctrl, addrOffset, addrBase, dataIn, dataOut } }) => {
-                if (ctrl.value === 0b0000) {
-                    addrOffset.ioEnabled = false;
-                    addrBase.ioEnabled = false;
-                    dataIn.ioEnabled = false;
-                    dataOut.ioEnabled = false;
+            builder.addPhase(({ data: { ctrl, addrOffset, addrBase, dataIn, busCtrl, busAddr, busData } }) => {
+                let ctrlVal = ctrl.value;
+                let enabled  = (ctrlVal & 0b00001) !== 0;
+                let loadFlag = (ctrlVal & 0b00010) !== 0;
+                let funct3   = (ctrlVal & 0b11100) >> 2;
+
+                let isLoad = loadFlag && enabled;
+                let isStore = !loadFlag && enabled;
+
+                busData.ioEnabled = false;
+                busData.ioDir = isLoad ? 0 : 1;
+                busData.value = 0;
+                dataIn.ioEnabled = false;
+                addrBase.ioEnabled = enabled;
+                addrOffset.ioEnabled = enabled;
+                busAddr.ioEnabled = enabled;
+                busCtrl.ioEnabled = enabled;
+
+                if (enabled) {
+                    let addr = addrBase.value + addrOffset.value;
+                    busAddr.value = addr;
+                    busCtrl.value = funct3 << 2 | (isLoad ? 0b11 : 0b01);
+                    if (isStore) {
+                        // handle unsigned store
+                        let mask = funct3 === Funct3LoadStore.SB ? 0xff : funct3 === Funct3LoadStore.SH ? 0xffff : 0xffffffff;
+                        busData.value = dataIn.value & mask;
+                        busData.ioEnabled = true;
+                        dataIn.ioEnabled = true;
+                        // console.log(`writing value ${dataIn.value} to addr ${addr.toString(16)} on busData`);
+                    }
+                } else {
+                    busCtrl.value = 0;
+                    busData.ioEnabled = false;
                 }
 
-            }, [data.ctrl, data.addrOffset, data.addrBase, data.dataIn], [data.dataOut]);
+            }, [data.ctrl, data.addrOffset, data.addrBase, data.dataIn], [data.busCtrl, data.busAddr, data.busData]);
+
+            builder.addPhase(({ data: { ctrl, busData, dataOut } }) => {
+                let ctrlVal = ctrl.value;
+                let enabled  = (ctrlVal & 0b00001) !== 0;
+                let loadFlag = (ctrlVal & 0b00010) !== 0;
+                let funct3   = (ctrlVal & 0b11100) >> 2;
+
+                let isLoad = loadFlag && enabled;
+
+                dataOut.ioEnabled = isLoad;
+
+                if (isLoad) {
+                    if (funct3 === Funct3LoadStore.LB) {
+                        dataOut.value = signExtend8Bit(busData.value);
+                    } else if (funct3 === Funct3LoadStore.LH) {
+                        dataOut.value = signExtend16Bit(busData.value);
+                    } else {
+                        dataOut.value = busData.value;
+                    }
+                    busData.ioEnabled = true;
+                }
+
+            }, [data.ctrl, data.busData], [data.dataOut]);
 
             return builder.build();
         },

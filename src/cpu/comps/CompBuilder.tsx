@@ -1,6 +1,6 @@
 import { isNil, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
-import { PortDir, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs } from "../CpuModel";
+import { PortDir, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -20,7 +20,7 @@ export interface ICompDef<T, A = any> {
     build?: (comp: IComp) => IExeComp<T>;
     build2?: (builder: ExeCompBuilder<T>) => IExeComp<T>;
     render?: (args: ICompRenderArgs<T, A>) => void;
-    renderDom?: (args: ICompRenderArgs<T, A>) => JSX.Element;
+    renderDom?: (args: ICompRenderArgs<T, A>) => React.ReactNode;
     renderAll?: boolean;
     copyStatefulData?: (src: T, dest: T) => void; // should copy things like memory & registers (not ports)
     reset?: (exeComp: IExeComp<T>, resetOpts: IResetOptions) => void;
@@ -95,6 +95,7 @@ export class ExeCompBuilder<T> {
                 portIdx: i,
                 netIdx: -1,
                 ioEnabled: true,
+                ioDir: IoDir.None,
                 dataUsed: true,
                 type: node.type ?? PortDir.In,
                 value: 0,

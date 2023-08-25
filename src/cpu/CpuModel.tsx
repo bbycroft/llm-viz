@@ -84,8 +84,15 @@ export interface IExePort {
     width: number;
     type: PortDir;
     ioEnabled: boolean; // for tristate (true otherwise). For inputs, false means the input is ignored (e.g. an inactive mux input). The latter is useful for rendering
+    ioDir: IoDir; // for rendering. Only needed to be set when is a bidirectional port
     dataUsed: boolean; // for rendering, and involves back-propagation (but typically follows ioEnabled)
     value: number;
+}
+
+export enum IoDir {
+    None, // check flag in PortDir
+    Input,
+    Output,
 }
 
 export interface IExeNet {
@@ -232,6 +239,7 @@ export enum PortDir {
     Ctrl = 1 << 5,
 
     OutTri = Out | Tristate,
+    InOutTri = In | Out | Tristate,
 }
 
 export enum CompType {

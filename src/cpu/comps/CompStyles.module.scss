@@ -52,6 +52,10 @@
     flex: 1 1 auto;
     display: flex;
     flex-direction: row;
+
+    &.allZeros {
+        color: #555555;
+    }
 }
 
 .memRowByte {
@@ -60,8 +64,11 @@
     text-align: center;
     border-radius: 2px;
 
-    &.active {
-        background-color: #0c61e2;
-        color: white;
+    &.byteRead {
+        background-color: #6da2f1;
+    }
+
+    &.byteWrite {
+        background-color: #e7f15a;
     }
 }

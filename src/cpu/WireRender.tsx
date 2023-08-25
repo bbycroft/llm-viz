@@ -1,6 +1,6 @@
 import { hasFlag, isNil } from "../utils/data";
 import { Vec3 } from "../utils/vector";
-import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortDir, IWireGraphNode } from "./CpuModel";
+import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortDir, IWireGraphNode, IoDir } from "./CpuModel";
 import { iterWireGraphSegments } from "./Wire";
 
 export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem) {
@@ -22,6 +22,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     let flowSegs = new Set<string>(); // the direction of flow is given by id0 -> id1 in "id0:id1"
     let flowNodes = new Set<number>();
     let segKey = (id0: number, id1: number) => `${id0}:${id1}`;
+    let inputNodeCount = 0;
 
     if (exeNet) {
         isNonZero = exeNet.value !== 0;
@@ -68,10 +69,10 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         let outputNodeIds: number[] = [];
 
         for (let binding of nodeIdToPortBinding.values()) {
-            if (hasFlag(binding.port.type, PortDir.In) && binding.exePort.dataUsed) {
+            if (hasFlag(binding.port.type, PortDir.In) && binding.exePort.ioDir !== IoDir.Output && binding.exePort.dataUsed) {
                 inputNodeIds.push(binding.nodeId);
             }
-            if (hasFlag(binding.port.type, PortDir.Out) && binding.exePort.dataUsed) {
+            if (hasFlag(binding.port.type, PortDir.Out) && binding.exePort.ioDir !== IoDir.Input && binding.exePort.dataUsed) {
                 outputNodeIds.push(binding.nodeId);
             }
         }
@@ -115,6 +116,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
                 }
             }
         }
+        inputNodeCount = outputNodeIds.length;
     }
 
     let width = isCtrl ? 1 : 3;
@@ -129,6 +131,20 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
     function isSegHover(node0: IWireGraphNode, node1: IWireGraphNode) {
         return isHover && hoverRef?.wireNode0Id === node0.id && hoverRef?.wireNode1Id === node1.id;
+    }
+
+    if (inputNodeCount > 1) {
+        ctx.save();
+        iterWireGraphSegments(wire, (node0, node1) => {
+            ctx.beginPath();
+            ctx.strokeStyle = '#f00';
+            ctx.lineWidth = (width + 5) * cvs.scale;
+            // ctx.filter = 'blur(4px)';
+            ctx.moveTo(node0.pos.x, node0.pos.y);
+            ctx.lineTo(node1.pos.x, node1.pos.y);
+            ctx.stroke();
+        });
+        ctx.restore();
     }
 
     if (isSelected) {
