@@ -6,6 +6,7 @@ import { ensureSigned32Bit, ensureUnsigned32Bit, funct3BranchIcon, funct3OpIcon 
 import s from './CompStyles.module.scss';
 import clsx from "clsx";
 import { Funct3Op } from "../RiscvIsa";
+import { createCanvasDivStyle } from "./RenderHelpers";
 
 interface ICompDataAlu {
     inCtrlPort: IExePort;
@@ -102,17 +103,6 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     return [alu];
 }
 
-export function createCanvasDivStyle(cvs: ICanvasState, comp: IComp): CSSProperties {
-
-    let mtxStr = `matrix(${cvs.mtx.toTransformParams().join(',')})`;
-    let scale = 15;
-
-    return {
-        width: comp.size.x * scale,
-        height: comp.size.y * scale,
-        transform: `${mtxStr} translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`,
-    };
-}
 
 /*
 RISC-V ALU ops from funct3 (& funct7):
@@ -194,7 +184,7 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
             case 0b110: res = lhs | rhs; break; // or
             case 0b111: res = lhs & rhs; break; // and
         }
-        outPort.value = res;
+        outPort.value = ensureSigned32Bit(res);
     }
 
     // console.log('alu: res=' + outPort.value);

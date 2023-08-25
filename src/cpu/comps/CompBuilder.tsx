@@ -10,16 +10,17 @@ export interface IResetOptions {
     hardReset: boolean; // reset everything including ROMs (that would usually be expected to be persistent over device restarts)
 }
 
-export interface ICompDef<T> {
+export interface ICompDef<T, A = any> {
     defId: string;
     name: string;
     size: Vec3;
     ports: ICompPort[];
 
+    createArgs?: (args: ICompBuilderArgs) => A;
     build?: (comp: IComp) => IExeComp<T>;
     build2?: (builder: ExeCompBuilder<T>) => IExeComp<T>;
-    render?: (args: ICompRenderArgs<T>) => void;
-    renderDom?: (args: ICompRenderArgs<T>) => JSX.Element;
+    render?: (args: ICompRenderArgs<T, A>) => void;
+    renderDom?: (args: ICompRenderArgs<T, A>) => JSX.Element;
     renderAll?: boolean;
     copyStatefulData?: (src: T, dest: T) => void; // should copy things like memory & registers (not ports)
     reset?: (exeComp: IExeComp<T>, resetOpts: IResetOptions) => void;

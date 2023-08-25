@@ -191,7 +191,7 @@ function renderPc({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataSingl
 
 
 // x0-x31 32bit registers, each with names
-function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataRegFile>) {
+function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataRegFile, {}>) {
     let padX = 1.2;
     let padY = 1.0;
     let lineHeight = styles.lineHeight; // (comp.size.y - padY * 2) / 32;

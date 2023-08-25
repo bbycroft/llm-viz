@@ -641,7 +641,9 @@ export const CpuCanvas: React.FC<{
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
             />
-            {compDivs}
+            <div className={s.compDomElements}>
+                {compDivs}
+            </div>
             <div className={s.toolsLeftTop}>
                 <CpuEditorToolbar />
                 <CompLibraryView />

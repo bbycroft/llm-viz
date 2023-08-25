@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useEditorContext } from "./Editor";
 import s from "./CompExampleView.module.scss";
 import { IElfTextSection, listElfTextSections, readElfHeader } from "./ElfParser";
-import { ICompDataRom } from "./comps/SimpleMemory";
+import { IRomExeData } from "./comps/SimpleMemory";
 import { IExeComp } from "./CpuModel";
 import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
 import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from "./CpuExecution";
@@ -186,7 +186,7 @@ export const CompExampleView: React.FC = () => {
         return findCompByDefId('reg32Riscv') as IExeComp<ICompDataRegFile> | undefined;
     }
     function getRomComp() {
-        return findCompByDefId('rom0') as IExeComp<ICompDataRom> | undefined;
+        return findCompByDefId('rom0') as IExeComp<IRomExeData> | undefined;
     }
 
     function onResetClicked() {

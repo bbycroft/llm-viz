@@ -186,10 +186,10 @@ export interface ISegment {
     comp1Ref?: IElRef;
 }
 
-export interface ICompRenderArgs<T> {
+export interface ICompRenderArgs<T, A = any> {
     cvs: ICanvasState;
     ctx: CanvasRenderingContext2D;
-    comp: IComp;
+    comp: IComp<A>;
     exeComp: IExeComp<T> | null;
     styles: IRenderStyles;
 }
@@ -202,13 +202,14 @@ export interface IRenderStyles {
     fillColor: string;
 }
 
-export interface IComp {
+export interface IComp<A = any> {
     id: string;
     defId: string;
     name: string;
     pos: Vec3;
     size: Vec3;
     ports: ICompPort[];
+    args?: A;
 }
 
 export interface ICompPort {
