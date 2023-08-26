@@ -16,9 +16,9 @@ export interface ICompDef<T, A = any> {
     size: Vec3;
     ports: ICompPort[];
 
-    createArgs?: (args: ICompBuilderArgs) => A;
+    initConfig?: (args: ICompBuilderArgs) => A;
     build?: (comp: IComp) => IExeComp<T>;
-    build2?: (builder: ExeCompBuilder<T>) => IExeComp<T>;
+    build2?: (builder: ExeCompBuilder<T, A>) => IExeComp<T>;
     render?: (args: ICompRenderArgs<T, A>) => void;
     renderDom?: (args: ICompRenderArgs<T, A>) => React.ReactNode;
     renderAll?: boolean;
@@ -46,6 +46,7 @@ export class CompLibrary {
             ports: compDef.ports,
             pos: new Vec3(0, 0),
             size: compDef.size,
+            args: compDef.initConfig ? compDef.initConfig({}) : null,
         };
 
         return comp;
@@ -79,7 +80,7 @@ export class CompLibrary {
     }
 }
 
-export class ExeCompBuilder<T> {
+export class ExeCompBuilder<T, A=any> {
     ports: IExePort[] = [];
     portNameToIdx = new Map<string, number>();
     phases: IExePhase[] = [];
@@ -88,7 +89,7 @@ export class ExeCompBuilder<T> {
     data: T | null = null;
 
     constructor(
-        public comp: IComp,
+        public comp: IComp<A>,
     ) {
         this.ports = comp.ports.map<IExePort>((node, i) => {
             return {

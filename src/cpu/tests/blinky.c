@@ -1,5 +1,5 @@
 
-volatile unsigned int * const GPIO_VAL = (unsigned int *)0x80;
+volatile unsigned int * const GPIO_VAL = (unsigned int *)0x10080;
 
 const int ITER_COUNT = 2;
 const int BLINK_MODE_0 = 0x10101010;
@@ -13,7 +13,7 @@ int main();
 __attribute__((naked)) void _start() {
     // set stack pointer to 0xe0
     asm(
-        "li sp, 0xe0\n"
+        "li sp, 0x100e0\n"
         "jal main\n"
         "li a0, 44\n"
         "ecall\n"

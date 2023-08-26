@@ -1,5 +1,5 @@
 import { Vec3 } from "@/src/utils/vector";
-import { PortDir, IExeComp, IExePort, ICompRenderArgs } from "../CpuModel";
+import { PortDir, IExeComp, IExePort, ICompRenderArgs, IoDir } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder"
 import { registerOpts, regValToStr } from "./RenderHelpers";
 
@@ -119,6 +119,8 @@ function regFilePhase0({ data }: IExeComp<ICompDataRegFile>) {
     outBPort.ioEnabled = !!outBEnabled;
     outAPort.value = outAEnabled ? file[outBitsA] : 0;
     outBPort.value = outBEnabled ? file[outBitsB] : 0;
+    outAPort.ioDir = IoDir.Out;
+    outBPort.ioDir = IoDir.Out;
 
     data.readAReg = outAEnabled ? outBitsA : -1;
     data.readBReg = outBEnabled ? outBitsB : -1;

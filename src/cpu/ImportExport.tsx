@@ -155,6 +155,7 @@ export function importData(str: string): IImportResult {
                         size: new Vec3(0, 0),
                         defId: type,
                         ports: [],
+                        args: {} as any,
                     });
                 } else {
                     makeIssue("Invalid component line: unknown part", lineIdx);
@@ -249,6 +250,7 @@ export interface ILSComp {
     defId: string;
     x: number;
     y: number;
+    args?: any;
 }
 
 export interface ILSGraphWireNode {
@@ -308,6 +310,7 @@ export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibra
             pos: new Vec3(c.x, c.y),
             size: compDef.size,
             ports: compDef.ports,
+            args: c.args ?? null,
         };
     }).filter(isNotNil);
 
@@ -337,6 +340,7 @@ export function wiresToLsState(layout: ICpuLayout): ILSState {
             defId: c.defId,
             x: c.pos.x,
             y: c.pos.y,
+            args: c.args,
         })),
     };
 }

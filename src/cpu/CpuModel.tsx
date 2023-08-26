@@ -91,8 +91,8 @@ export interface IExePort {
 
 export enum IoDir {
     None, // check flag in PortDir
-    Input,
-    Output,
+    In,
+    Out,
 }
 
 export interface IExeNet {
@@ -198,7 +198,7 @@ export interface ICompRenderArgs<T, A = any> {
     cvs: ICanvasState;
     ctx: CanvasRenderingContext2D;
     comp: IComp<A>;
-    exeComp: IExeComp<T> | null;
+    exeComp: IExeComp<T>;
     styles: IRenderStyles;
 }
 
@@ -217,7 +217,7 @@ export interface IComp<A = any> {
     pos: Vec3;
     size: Vec3;
     ports: ICompPort[];
-    args?: A;
+    args: A;
 }
 
 export interface ICompPort {

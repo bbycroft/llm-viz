@@ -1,6 +1,6 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
-import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir } from "./CpuModel";
+import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir, IExePort } from "./CpuModel";
 
 export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout, existingSystem: IExeSystem | null): IExeSystem {
 
@@ -19,7 +19,7 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
             connectedNetIds.add(wire.id);
         }
     }
-    let connectedComps = displayModel.comps.filter(c => connectedCompIds.has(c.id));
+    let connectedComps = displayModel.comps; //.filter(c => connectedCompIds.has(c.id));
     let connectedWires = displayModel.wires.filter(w => connectedNetIds.has(w.id));
 
     let compIdToIdx = new Map<string, number>();
@@ -151,26 +151,48 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
         return compIdx + phaseIdx * numComps;
     };
 
-    let netToNodeId = (netIdx: number) => {
-        return comps.length + netIdx;
+    let netToNodeId = (netIdx: number, phaseIdx: number) => {
+        return comps.length + netIdx + phaseIdx * numComps;
     };
 
     let nodeIdToCompPhaseIdx = (nodeId: number) => {
-        if (nodeId >= comps.length && nodeId < numComps) {
+        let compIdx = nodeId % numComps;
+        if (compIdx >= comps.length) {
             return null; // net
         }
 
         return {
-            compIdx: nodeId % numComps,
+            compIdx: compIdx,
             phaseIdx: Math.floor(nodeId / numComps),
         };
     };
 
     let nodeIdToNetIdx = (nodeId: number) => {
-        if (nodeId < comps.length || nodeId >= numComps) {
+        let compIdx = nodeId % numComps;
+        if (compIdx < comps.length) {
             return null; // comp
         }
-        return nodeId - comps.length;
+        return {
+            netIdx: compIdx - comps.length,
+            phaseIdx: Math.floor(nodeId / numComps),
+        };
+    }
+
+    // usually have 1 phase per net, but can have more if a net is bidirectional (a port has both in and out)
+    let netNumPhases = new Map<number, number>();
+
+    // calc num phases for each net
+    for (let netIdx = 0; netIdx < nets.length; netIdx++) {
+        let net = nets[netIdx];
+        let numPhases = 1;
+        for (let input of net.inputs) {
+            let comp = comps[input.compIdx];
+            let port = comp.ports[input.portIdx];
+            if ((port.type & PortDir.InOutTri) === PortDir.InOutTri) {
+                numPhases = 2;
+            }
+        }
+        netNumPhases.set(netIdx, numPhases);
     }
 
     let topoNodeOrder: number[] = [];
@@ -194,33 +216,63 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                 nodeEdges.push(nextNodeId);
             }
             numExeNodes += 1;
-            for (let portIdx of phase.writePortIdxs) {
+            for (let portIdx of phase.writePortIdxs) { // write means the component is writing to the port (i.e. an output) [read0, read1] => [write0, write1]
                 let port = comp.ports[portIdx];
                 let net = nets[port.netIdx];
                 if (!net) {
                     continue;
                 }
-                let netNodeId = netToNodeId(port.netIdx);
+                let netPhaseCount = netNumPhases.get(port.netIdx)!;
+                let netPhaseId = 0;
+                if (netPhaseCount > 1 && hasFlag(port.type, PortDir.InOutTri)) {
+                    netPhaseId = calculatePhaseId(port, comp, pIdx);
+                }
+                let netNodeId = netToNodeId(port.netIdx, netPhaseId);
                 nodeEdges.push(netNodeId);
             }
         }
     }
 
+    function calculatePhaseId(port: IExePort, comp: IExeComp, phaseIdx: number): number {
+        for (let prevPhaseIdx = 0; prevPhaseIdx <= phaseIdx; prevPhaseIdx++) {
+            let prevPhase = comp.phases[prevPhaseIdx];
+            if (prevPhase.readPortIdxs.includes(port.portIdx)) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     for (let nId = 0; nId < nets.length; nId++) {
         let net = nets[nId];
-        let netNodeId = netToNodeId(nId);
-        inDegree.set(netNodeId, 0);
-        let nodeEdges = getOrAddToMap(edges, netNodeId, () => []);
+        let numPhases = netNumPhases.get(nId)!;
 
-        for (let input of net.inputs) {
-            let destComp = comps[input.compIdx];
-            let destPhaseIdx = destComp.phases.findIndex(p => p.readPortIdxs.includes(input.portIdx));
-            if (destPhaseIdx >= 0) {
-                let outputNodeId = compPhaseToNodeId(input.compIdx, destPhaseIdx);
+        for (let nPId = 0; nPId < numPhases; nPId++) {
+
+            let netNodeId = netToNodeId(nId, nPId);
+            inDegree.set(netNodeId, 0);
+            let nodeEdges = getOrAddToMap(edges, netNodeId, () => []);
+
+            for (let input of net.inputs) {
+
+                let destComp = comps[input.compIdx];
+                let readPhaseIdx = destComp.phases.findIndex(p => p.readPortIdxs.includes(input.portIdx));
+                let writePortIdx = destComp.phases.findIndex(p => p.writePortIdxs.includes(input.portIdx));
+                if (readPhaseIdx < 0) {
+                    continue;
+                }
+
+                if (numPhases > 0 && writePortIdx >= 0) {
+                    let includeInPhase = (nPId > 0) !== (writePortIdx >= readPhaseIdx);
+                    if (!includeInPhase) {
+                        continue;
+                    }
+                }
+
+                let outputNodeId = compPhaseToNodeId(input.compIdx, readPhaseIdx);
                 nodeEdges.push(outputNodeId);
             }
         }
-
     }
 
     for (let [, destIds] of edges) {
@@ -265,18 +317,48 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
     // console.log('inDegree:', new Map(inDegree));
     // console.log('edges:', edges);
 
+    function nodeIdToStr(nodeId: number) {
+        let compPhase = nodeIdToCompPhaseIdx(nodeId);
+        if (compPhase) {
+            let { compIdx, phaseIdx } = compPhase;
+            let comp = comps[compIdx];
+            let name = comp.comp.id;
+            let defId = comp.comp.defId;
+            return `C:${name}(${defId})/${phaseIdx}`;
+        }
+
+        let netPhase = nodeIdToNetIdx(nodeId);
+        if (netPhase) {
+            let { netIdx, phaseIdx } = netPhase;
+            let net = nets[netIdx];
+            return `N:${net.wire.id}/${phaseIdx}`;
+        }
+    }
+
+    // console.log('----- edges:');
+    // for (let [srcNodeId, destNodeIds] of edges) {
+    //     let srcStr = nodeIdToStr(srcNodeId);
+    //     let destStrs = destNodeIds.map(nodeIdToStr);
+    //     console.log(`${srcStr}: ${destStrs.join(', ')}`);
+    // }
+    // console.log('-----');
+
     for (let nodeId of topoNodeOrder) {
         let compPhase = nodeIdToCompPhaseIdx(nodeId);
         if (compPhase) {
-            // console.log('found comp', nodeId, 'compPhase', compPhase, 'comp', comps[compPhase.compIdx].comp.name, `(${compPhase.phaseIdx+1}/${comps[compPhase.compIdx].phases.length})`);
             let { compIdx, phaseIdx } = compPhase;
-            if (phaseIdx !== numPhasesRun[compIdx]) {
-                console.log('detected an incorrectly ordered phase; execution order may be incorrect');
-            }
+            // if (phaseIdx !== numPhasesRun[compIdx]) {
+            //     console.log('detected an incorrectly ordered phase; execution order may be incorrect');
+            // }
             numPhasesRun[compIdx] = phaseIdx + 1;
 
             let comp = comps[compIdx];
             let phase = comp.phases[phaseIdx];
+
+            // if (!phase.isLatch) {
+            //     console.log('found comp', comp.comp.id, 'compPhase', compPhase, 'comp', comps[compPhase.compIdx].comp.name, `(${compPhase.phaseIdx+1}/${comps[compPhase.compIdx].phases.length})`);
+            // }
+
             let step: IExeStep = {
                 compIdx,
                 phaseIdx,
@@ -288,12 +370,13 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                 executionSteps.push(step);
             }
         } else {
-            let netIdx = nodeIdToNetIdx(nodeId)!;
-            // console.log('found net', nodeId, netToString(nets[netIdx], comps));
+            let { netIdx, phaseIdx } = nodeIdToNetIdx(nodeId)!;
+            let net = nets[netIdx];
+            // console.log('found net', net.wire.id, 'with phase', phaseIdx, netToString(nets[netIdx], comps));
 
             let step: IExeStep = {
                 compIdx: -1,
-                phaseIdx: -1,
+                phaseIdx,
                 netIdx,
             };
             executionSteps.push(step);
@@ -319,6 +402,14 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
 export function stepExecutionCombinatorial(exeModel: IExeSystem, disableBackProp = false) {
     let exeSteps = exeModel.executionSteps;
     exeModel.runArgs.halt = false;
+
+    for (let comp of exeModel.comps) {
+        for (let port of comp.ports) {
+            if (hasFlag(port.type, PortDir.Tristate)) {
+                port.ioEnabled = false;
+            }
+        }
+    }
 
     for (let i = 0; i < exeSteps.length; i++) {
         let step = exeSteps[i];
@@ -362,7 +453,7 @@ export function netToString(net: IExeNet, comps: IExeComp[]) {
         return `${comp.comp.id}.${portId}${tristateStr}`;
     };
 
-    return `(${net.outputs.map(a => portStr(a)).join(', ')}) -> (${net.inputs.map(a => portStr(a)).join(', ')})`;
+    return `(${net.outputs.map(a => portStr(a)).join(', ')}) --> (${net.inputs.map(a => portStr(a)).join(', ')})`;
 }
 
 export function runNet(comps: IExeComp[], net: IExeNet) {
@@ -375,7 +466,7 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         let enabledPortValue = 0;
         for (let portRef of net.outputs) {
             let port = portRef.exePort;
-            if (portRef.valid && port.ioEnabled) {
+            if (portRef.valid && port.ioEnabled && (!hasFlag(port.type, PortDir.InOutTri) || port.ioDir === IoDir.Out)) {
                 enabledCount++;
                 enabledPortValue = port.value;
             }
@@ -383,7 +474,16 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         net.enabledCount = enabledCount;
         net.value = enabledCount === 1 ? enabledPortValue : 0;
         if (enabledCount > 1) {
-            console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs');
+            console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs:');
+            for (let portRef of net.outputs) {
+                let port = portRef.exePort;
+                let comp = comps[portRef.compIdx];
+                if (portRef.valid && port.ioEnabled && port.ioDir === IoDir.Out) {
+                    let portA = comp.comp.ports[portRef.portIdx];
+                    console.log(`  - port: ${portA.id}/${portA.name} on comp ${comp.comp.id}/${comp.comp.defId}`);
+                }
+            }
+
         }
     } else {
         // has exactly 1 input
@@ -445,7 +545,7 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
             }
             for (let portIdx of phase.readPortIdxs) { // special case for multi-directional ports
                 let port = comp.ports[portIdx];
-                if ((port.type & PortDir.InOutTri) === PortDir.InOutTri && port.ioDir === IoDir.Input) {
+                if (hasFlag(port.type, PortDir.InOutTri) && port.ioDir === IoDir.In) {
                     allOutputsUnused = false;
                     break;
                 }

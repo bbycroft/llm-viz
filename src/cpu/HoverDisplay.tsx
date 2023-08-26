@@ -4,7 +4,7 @@ import { Popup, PopupPos } from "../utils/Portal";
 import { Vec3 } from "../utils/vector";
 import { ensureSigned32Bit, ensureUnsigned32Bit, signExtend32Bit } from "./comps/RiscvInsDecode";
 import { lookupPortInfo } from "./CpuExecution";
-import { PortDir, RefType } from "./CpuModel";
+import { IoDir, PortDir, RefType } from "./CpuModel";
 import { useEditorContext } from "./Editor";
 import s from "./HoverDisplay.module.scss";
 
@@ -78,10 +78,10 @@ export const HoverDisplay: React.FC<{
                     let type = portExe.type;
                     let typeStr = '';
                     if (hasFlag(type, PortDir.In)) {
-                        typeStr = 'in';
+                        typeStr += 'in';
                     }
                     if (hasFlag(type, PortDir.Out)) {
-                        typeStr = 'out';
+                        typeStr += 'out';
                     }
                     if (hasFlag(type, PortDir.Ctrl)) {
                         typeStr += ' ctrl';
@@ -95,8 +95,15 @@ export const HoverDisplay: React.FC<{
                     if (hasFlag(type, PortDir.Addr)) {
                         typeStr += ' addr';
                     }
+
+                    let isInOut = hasFlag(type, PortDir.In) && hasFlag(type, PortDir.Out);
+                    let dirStr = '';
+                    if (isInOut) {
+                        dirStr = ', dir=' + IoDir[portExe.ioDir];
+                    }
+
                     portElNode = <>
-                        <span>&nbsp; Port {port.name} ({typeStr}) io:{portExe.ioEnabled ? '1' : '0'}, du:{portExe.dataUsed ? '1' : '0'}</span>
+                        <span>&nbsp; Port {port.name} ({typeStr}) io:{portExe.ioEnabled ? '1' : '0'}, du:{portExe.dataUsed ? '1' : '0'}{dirStr}</span>
                     </>;
                     portIdStr = <span className={s.portId}>/{port.id}</span>;
                 }

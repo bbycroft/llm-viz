@@ -1,6 +1,27 @@
 import { createContext, useContext } from 'react';
 import { assignImm, StateSetter } from '../utils/data';
-import { ICpuLayout, IEditorState, IExeSystem } from './CpuModel';
+import { IComp, ICpuLayout, IEditorState, IExeSystem } from './CpuModel';
+
+export function editCompConfig<A>(end: boolean, comp: IComp<A>, updateConfig: (config: A) => A) {
+    return editLayout(end, (layout) => {
+
+        let comp2 = layout.comps.find(a => a.id === comp.id) as IComp<A> | null;
+        if (!comp2) {
+            return layout;
+        }
+
+        let config2 = updateConfig(comp2.args);
+        if (config2 === comp2.args) {
+            return layout;
+        }
+
+        console.log('updating comp config to', config2);
+        comp2 = assignImm(comp2, { args: config2 });
+        layout = assignImm(layout, { comps: layout.comps.map(a => a.id === comp.id ? comp2! : a) });
+        return layout;
+
+    });
+}
 
 export function editLayout(end: boolean, updateLayout: (element: ICpuLayout) => ICpuLayout) {
     return (state: IEditorState) => {

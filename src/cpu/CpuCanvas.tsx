@@ -75,6 +75,7 @@ export const CpuCanvas: React.FC<{
 }> = ({ cpuState }) => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
     let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
+    let [canvasWrapEl, setCanvasWrapEl] = useState<HTMLDivElement | null>(null);
     let [editorState, setEditorState] = useState<IEditorState>(() => {
 
         let compLibrary = buildCompLibrary();
@@ -126,17 +127,22 @@ export const CpuCanvas: React.FC<{
             let ctx = el.getContext("2d")!;
             setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1, tileCanvases: new Map(), showTransparentComps: false, mtx: AffineMat2d.identity() });
 
-            function wheelHandler(ev: WheelEvent) {
-                handleWheelFuncRef.current(ev);
-            }
-            el.addEventListener("wheel", wheelHandler, { passive: false });
-            return () => {
-                el.removeEventListener("wheel", wheelHandler);
-            };
         } else {
             setCvsState(null);
         }
-    }, [handleWheelFuncRef]);
+    }, []);
+
+    useEffect(() => {
+        if (canvasWrapEl) {
+            function wheelHandler(ev: WheelEvent) {
+                handleWheelFuncRef.current(ev);
+            }
+            canvasWrapEl.addEventListener("wheel", wheelHandler, { passive: false });
+            return () => {
+                canvasWrapEl!.removeEventListener("wheel", wheelHandler);
+            };
+        }
+    }, [canvasWrapEl, handleWheelFuncRef]);
 
     useEffect(() => {
         let newState = wiresToLsState(editorState.layout);
@@ -633,13 +639,15 @@ export const CpuCanvas: React.FC<{
     });
 
     return <EditorContext.Provider value={ctx}>
-        <div className={s.canvasWrap}>
+        <div className={s.canvasWrap}
+            ref={setCanvasWrapEl}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+        >
             <canvas className={s.canvas} ref={setCanvasEl}
                 style={{ cursor: cursor }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
             />
             <div className={s.compDomElements}>
                 {compDivs}

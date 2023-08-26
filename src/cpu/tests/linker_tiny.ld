@@ -8,7 +8,7 @@ ENTRY(_start)
 MEMORY
 {
   FLASH (rx) : ORIGIN = 0x00, LENGTH = 1024
-  RAM (rw) : ORIGIN = 0xe0, LENGTH = 1024
+  RAM (rw) : ORIGIN = 0x10000, LENGTH = 1024
 }
 
 SECTIONS
@@ -21,6 +21,8 @@ SECTIONS
     *(.text)
     *(.text.startup)
   } > FLASH
+
+. = ORIGIN(RAM);
 
   .rodata : {
     *(.rodata)

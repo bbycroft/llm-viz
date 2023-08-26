@@ -1,5 +1,5 @@
 import { Vec3 } from "@/src/utils/vector";
-import { IExeComp, IExePort, PortDir } from "../CpuModel";
+import { IExeComp, IExePort, IoDir, PortDir } from "../CpuModel";
 import { Funct3LoadStore } from "../RiscvIsa";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { ensureUnsigned32Bit, signExtend16Bit, signExtend8Bit } from "./RiscvInsDecode";
@@ -80,8 +80,10 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                     if (isStore) {
                         // handle unsigned store
                         let mask = funct3 === Funct3LoadStore.SB ? 0xff : funct3 === Funct3LoadStore.SH ? 0xffff : 0xffffffff;
+                        console.log('[L/S] writing value', dataIn.value, 'to addr', addr.toString(16), 'on busData');
                         busData.value = dataIn.value & mask;
                         busData.ioEnabled = true;
+                        busData.ioDir = IoDir.Out;
                         dataIn.ioEnabled = true;
                         // console.log(`writing value ${dataIn.value} to addr ${addr.toString(16)} on busData`);
                     }

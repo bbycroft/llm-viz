@@ -3,6 +3,7 @@ import { ICanvasState, IComp } from "../CpuModel";
 import { ensureSigned32Bit, ensureUnsigned32Bit } from "./RiscvInsDecode";
 import s from './CompStyles.module.scss';
 import clsx from "clsx";
+import { useEditorContext } from "../Editor";
 
 export function regValToStr(val: number) {
     let valU32 = ensureUnsigned32Bit(val);

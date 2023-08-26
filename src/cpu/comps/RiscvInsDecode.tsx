@@ -1,5 +1,5 @@
 import { Vec3 } from "@/src/utils/vector";
-import { IExePort, IComp, IExeComp, PortDir, ICompRenderArgs, IExeRunArgs } from "../CpuModel";
+import { IExePort, IComp, IExeComp, PortDir, ICompRenderArgs, IExeRunArgs, IoDir } from "../CpuModel";
 import { OpCode, Funct3Op, Funct3OpImm, Funct3Branch, Funct3LoadStore } from "../RiscvIsa";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import * as d3Color from 'd3-color';
@@ -301,6 +301,9 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     if (data.lhsMuxCtrl.value) {
         data.regCtrl.value |= 0b1;
         // setRegCtrl(true, 0, 0); // 0 => LHS (to ensure we don't leave a floating value on the bus)
+    }
+    if (data.rhsImm.ioEnabled) {
+        data.rhsImm.ioDir = IoDir.Out;
     }
     // cpu.pc += pcOffset; // jump to location, or just move on to next instruction
     // cpu.x[0] = 0; // ensure x0 is always 0

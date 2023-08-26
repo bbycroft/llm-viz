@@ -130,22 +130,28 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
 
             builder.addPhase(function ramSendPhase({ data: { ctrl, addr, data, ram32View } }) {
                 let isRead = (ctrl.value & 0b11) === 0b11; // read from ram
+                let isWrite = (ctrl.value & 0b11) === 0b01; // write to ram
                 let readType = (ctrl.value >> 2) & 0b11;
+
+                data.ioDir = isRead ? IoDir.Out : IoDir.In;
+                data.ioEnabled = isRead || isWrite;
 
                 // misaligned reads are not supported
                 if (isRead) {
-                    data.ioDir = isRead ? IoDir.Input : IoDir.Output;
                     data.ioEnabled = true;
                     let wordVal = ram32View[addr.value >> 2];
                     let bitOffset = (addr.value & 0b11) * 8;
                     data.value = readType === BusMemCtrlType.Byte ? (wordVal >> bitOffset) & 0xff   :
                                  readType === BusMemCtrlType.Half ? (wordVal >> bitOffset) & 0xffff : wordVal;
+                } else if (isWrite) {
+                    data.ioEnabled = true;
                 } else {
                     data.ioEnabled = false;
                 }
 
-            }, [data.ctrl, data.addr], [data.data]);
+            }, [data.ctrl, data.addr, data.data], [data.data]);
 
+            /*
             builder.addPhase(function ramWritePhase({ data: { ctrl, data: dataPort, ram32View, addr } }) {
                 let isWrite = (ctrl.value & 0b11) === 0b01; // write to ram
                 let writeType = (ctrl.value >> 2) & 0b11;
@@ -164,7 +170,8 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
                     // console.log(`reading data from data-port with value ${dataPort.value.toString(16)}`);
                     // console.log('mask:', mask.toString(16), 'bitOffset:', bitOffset, 'existing:', existing.toString(16), 'data:', dataPort.value.toString(16), 'wordVal:', wordVal.toString(16));
                 }
-            }, [data.ctrl, data.addr, data.data], []);
+            }, [], [data.data]);
+            */
 
             builder.addLatchedPhase(function ramWritePhase({ data }) {
                 let { ctrl, addr, data: dataPort, ram32View } = data;

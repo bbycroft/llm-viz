@@ -6,6 +6,7 @@ import { createRiscvExtraComps } from "./RiscvExtra";
 import { createMuxComps } from "./Mux";
 import { createSimpleMemoryComps } from "./SimpleMemory";
 import { createBinaryGateComps } from "./BinaryGates";
+import { createAddressingComps } from "./Addressing";
 
 export function buildCompLibrary() {
     let compLibrary = new CompLibrary();
@@ -20,6 +21,7 @@ export function buildCompLibrary() {
         ...createMuxComps(args),
         ...createSimpleMemoryComps(args),
         ...createBinaryGateComps(args),
+        ...createAddressingComps(args),
     ];
 
     for (let comp of comps) {

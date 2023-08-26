@@ -5,94 +5,99 @@ Disassembly of section .text:
 
 00000000 <_start>:
 ;     asm(
-       0: 13 01 00 0e  	li	sp, 224
-       4: ef 00 80 04  	jal	0x4c <$d.9+0x4c>
-       8: 13 05 c0 02  	li	a0, 44
-       c: 73 00 00 00  	ecall	
+       0: 37 01 01 00  	lui	sp, 16
+       4: 13 01 01 0e  	addi	sp, sp, 224
+       8: ef 00 80 04  	jal	0x50 <$d.9+0x50>
+       c: 13 05 c0 02  	li	a0, 44
+      10: 73 00 00 00  	ecall	
 
-00000010 <sleep>:
+00000014 <sleep>:
 ; void sleep() {
-      10: 13 01 01 ff  	addi	sp, sp, -16
+      14: 13 01 01 ff  	addi	sp, sp, -16
 ;     asm("nop");
-      14: 23 26 11 00  	sw	ra, 12(sp)
-      18: 23 24 81 00  	sw	s0, 8(sp)
-      1c: 13 04 01 01  	addi	s0, sp, 16
-      20: 13 00 00 00  	nop
-;     asm("nop");
+      18: 23 26 11 00  	sw	ra, 12(sp)
+      1c: 23 24 81 00  	sw	s0, 8(sp)
+      20: 13 04 01 01  	addi	s0, sp, 16
       24: 13 00 00 00  	nop
 ;     asm("nop");
       28: 13 00 00 00  	nop
+;     asm("nop");
+      2c: 13 00 00 00  	nop
 ;     iter_counter += 1;
-      2c: b7 05 00 00  	lui	a1, 0
-      30: 03 a5 05 0f  	lw	a0, 240(a1)
-      34: 13 05 15 00  	addi	a0, a0, 1
-      38: 23 a8 a5 0e  	sw	a0, 240(a1)
+      30: b7 05 01 00  	lui	a1, 16
+      34: 03 a5 05 01  	lw	a0, 16(a1)
+      38: 13 05 15 00  	addi	a0, a0, 1
+      3c: 23 a8 a5 00  	sw	a0, 16(a1)
 ; }
-      3c: 83 20 c1 00  	lw	ra, 12(sp)
-      40: 03 24 81 00  	lw	s0, 8(sp)
-      44: 13 01 01 01  	addi	sp, sp, 16
-      48: 67 80 00 00  	ret
+      40: 83 20 c1 00  	lw	ra, 12(sp)
+      44: 03 24 81 00  	lw	s0, 8(sp)
+      48: 13 01 01 01  	addi	sp, sp, 16
+      4c: 67 80 00 00  	ret
 
-0000004c <main>:
+00000050 <main>:
 ; int main() {
-      4c: 13 01 01 ff  	addi	sp, sp, -16
-      50: 23 26 11 00  	sw	ra, 12(sp)
-      54: 23 24 81 00  	sw	s0, 8(sp)
-      58: 13 04 01 01  	addi	s0, sp, 16
-      5c: 13 05 00 00  	li	a0, 0
-      60: 23 2a a4 fe  	sw	a0, -12(s0)
+      50: 13 01 01 fe  	addi	sp, sp, -32
+      54: 23 2e 11 00  	sw	ra, 28(sp)
+      58: 23 2c 81 00  	sw	s0, 24(sp)
+      5c: 13 04 01 02  	addi	s0, sp, 32
+      60: 13 05 00 00  	li	a0, 0
+      64: 23 2a a4 fe  	sw	a0, -12(s0)
 ;     for (int j = 0; j < ITER_COUNT; j++) {
-      64: 23 28 a4 fe  	sw	a0, -16(s0)
-      68: 6f 00 40 00  	j	0x6c <$d.9+0x6c>
-      6c: 83 25 04 ff  	lw	a1, -16(s0)
-      70: 13 05 10 00  	li	a0, 1
-      74: 63 54 b5 00  	bge	a0, a1, 0x7c <$d.9+0x7c>
-      78: 6f 00 c0 03  	j	0xb4 <$d.9+0xb4>
-      7c: 6f 00 40 00  	j	0x80 <$d.9+0x80>
-      80: 37 15 10 10  	lui	a0, 65793
-      84: 13 05 05 01  	addi	a0, a0, 16
+      68: 23 28 a4 fe  	sw	a0, -16(s0)
+      6c: 6f 00 40 00  	j	0x70 <$d.9+0x70>
+      70: 83 25 04 ff  	lw	a1, -16(s0)
+      74: 13 05 10 00  	li	a0, 1
+      78: 63 54 b5 00  	bge	a0, a1, 0x80 <$d.9+0x80>
+      7c: 6f 00 80 04  	j	0xc4 <$d.9+0xc4>
+      80: 6f 00 40 00  	j	0x84 <$d.9+0x84>
+      84: 37 15 10 10  	lui	a0, 65793
+      88: 13 05 05 01  	addi	a0, a0, 16
+      8c: b7 05 01 00  	lui	a1, 16
 ;         *GPIO_VAL = BLINK_MODE_0;
-      88: 23 20 a0 08  	sw	a0, 128(zero)
+      90: 23 26 b4 fe  	sw	a1, -20(s0)
+      94: 23 a0 a5 08  	sw	a0, 128(a1)
 ;         sleep();
-      8c: ef f0 5f f8  	jal	0x10 <$d.9+0x10>
-      90: 37 05 01 01  	lui	a0, 4112
-      94: 13 05 15 10  	addi	a0, a0, 257
+      98: ef f0 df f7  	jal	0x14 <$d.9+0x14>
+      9c: 83 25 c4 fe  	lw	a1, -20(s0)
+      a0: 37 05 01 01  	lui	a0, 4112
+      a4: 13 05 15 10  	addi	a0, a0, 257
 ;         *GPIO_VAL = BLINK_MODE_1;
-      98: 23 20 a0 08  	sw	a0, 128(zero)
+      a8: 23 a0 a5 08  	sw	a0, 128(a1)
 ;         sleep();
-      9c: ef f0 5f f7  	jal	0x10 <$d.9+0x10>
+      ac: ef f0 9f f6  	jal	0x14 <$d.9+0x14>
 ;     }
-      a0: 6f 00 40 00  	j	0xa4 <$d.9+0xa4>
+      b0: 6f 00 40 00  	j	0xb4 <$d.9+0xb4>
 ;     for (int j = 0; j < ITER_COUNT; j++) {
-      a4: 03 25 04 ff  	lw	a0, -16(s0)
-      a8: 13 05 15 00  	addi	a0, a0, 1
-      ac: 23 28 a4 fe  	sw	a0, -16(s0)
-      b0: 6f f0 df fb  	j	0x6c <$d.9+0x6c>
+      b4: 03 25 04 ff  	lw	a0, -16(s0)
+      b8: 13 05 15 00  	addi	a0, a0, 1
+      bc: 23 28 a4 fe  	sw	a0, -16(s0)
+      c0: 6f f0 1f fb  	j	0x70 <$d.9+0x70>
 ;     *GPIO_VAL = iter_counter;
-      b4: 37 05 00 00  	lui	a0, 0
-      b8: 03 25 05 0f  	lw	a0, 240(a0)
-      bc: 23 20 a0 08  	sw	a0, 128(zero)
-      c0: 13 05 00 00  	li	a0, 0
+      c4: 37 05 01 00  	lui	a0, 16
+      c8: 03 25 05 01  	lw	a0, 16(a0)
+      cc: b7 05 01 00  	lui	a1, 16
+      d0: 23 a0 a5 08  	sw	a0, 128(a1)
+      d4: 13 05 00 00  	li	a0, 0
 ;     return 0;
-      c4: 83 20 c1 00  	lw	ra, 12(sp)
-      c8: 03 24 81 00  	lw	s0, 8(sp)
-      cc: 13 01 01 01  	addi	sp, sp, 16
-      d0: 67 80 00 00  	ret
+      d8: 83 20 c1 01  	lw	ra, 28(sp)
+      dc: 03 24 81 01  	lw	s0, 24(sp)
+      e0: 13 01 01 02  	addi	sp, sp, 32
+      e4: 67 80 00 00  	ret
 
 Disassembly of section .rodata:
 
-000000e0 <GPIO_VAL>:
-      e0: 80 00        	<unknown>
-      e2: 00 00        	<unknown>
+00010000 <GPIO_VAL>:
+   10000: 80 00        	<unknown>
+   10002: 01 00        	<unknown>
 
-000000e4 <ITER_COUNT>:
-      e4: 02 00        	<unknown>
-      e6: 00 00        	<unknown>
+00010004 <ITER_COUNT>:
+   10004: 02 00        	<unknown>
+   10006: 00 00        	<unknown>
 
-000000e8 <BLINK_MODE_0>:
-      e8: 10 10        	<unknown>
-      ea: 10 10        	<unknown>
+00010008 <BLINK_MODE_0>:
+   10008: 10 10        	<unknown>
+   1000a: 10 10        	<unknown>
 
-000000ec <BLINK_MODE_1>:
-      ec: 01 01        	<unknown>
-      ee: 01 01        	<unknown>
+0001000c <BLINK_MODE_1>:
+   1000c: 01 01        	<unknown>
+   1000e: 01 01        	<unknown>
