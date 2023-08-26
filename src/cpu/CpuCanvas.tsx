@@ -18,6 +18,8 @@ import { CompExampleView } from "./CompExampleView";
 import { HoverDisplay } from "./HoverDisplay";
 import { KeyboardOrder, useGlobalKeyboard } from "../utils/keyboard";
 import { renderWire } from "./WireRender";
+import { SchematicLibrary } from "./schematics/SchematicLibrary";
+import { SchematicLibraryView } from "./schematics/SchematicLIibraryView";
 
 interface ICpuState {
     system: any;
@@ -79,12 +81,16 @@ export const CpuCanvas: React.FC<{
     let [editorState, setEditorState] = useState<IEditorState>(() => {
 
         let compLibrary = buildCompLibrary();
+        let schematicLibrary = new SchematicLibrary();
+        schematicLibrary.populateSchematicLibrary(compLibrary);
 
         return {
             layout: wiresFromLsState(constructCpuLayout(), lsState, compLibrary),
             layoutTemp: null,
             mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
-            compLibrary: compLibrary,
+            compLibrary,
+            schematicLibrary,
+            activeSchematicId: null,
             redoStack: [],
             undoStack: [],
             hovered: null,
@@ -107,17 +113,20 @@ export const CpuCanvas: React.FC<{
 
     useResizeChangeHandler(cvsState?.canvas, redraw);
 
-    let prevExeModel = useRef<IExeSystem | null>(null);
+    let prevExeModel = useRef<{ system: IExeSystem, id: string | null } | null>(null);
 
     let exeModel = useMemo(() => {
-        let model = createExecutionModel(editorState.compLibrary, editorState.layout, prevExeModel.current);
+        let prev = prevExeModel.current;
+        let sameId = prev && prev.id === editorState.activeSchematicId;
+
+        let model = createExecutionModel(editorState.compLibrary, editorState.layout, prev && sameId ? prev.system : null);
 
         stepExecutionCombinatorial(model);
 
         return model;
-    }, [editorState.layout, editorState.compLibrary]);
+    }, [editorState.activeSchematicId, editorState.layout, editorState.compLibrary]);
 
-    prevExeModel.current = exeModel;
+    prevExeModel.current = { system: exeModel, id: editorState.activeSchematicId };
 
     let handleWheelFuncRef = useFunctionRef(handleWheel);
 
@@ -656,6 +665,7 @@ export const CpuCanvas: React.FC<{
                 <CpuEditorToolbar />
                 <CompLibraryView />
                 <CompExampleView />
+                <SchematicLibraryView />
                 <HoverDisplay canvasEl={cvsState?.canvas ?? null} />
             </div>
         </div>

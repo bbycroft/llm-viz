@@ -273,6 +273,16 @@ export function hydrateFromLS(ls: Partial<ILSState> | undefined): ILSState {
     };
 }
 
+export function createInitialCpuLayout(): ICpuLayout {
+    return {
+        comps: [],
+        wires: [],
+        nextCompId: 0,
+        nextWireId: 0,
+        selected: [],
+    };
+}
+
 export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibrary: CompLibrary): ICpuLayout {
 
     let newWires: IWireGraph[] = ls.wires.map(w => ({

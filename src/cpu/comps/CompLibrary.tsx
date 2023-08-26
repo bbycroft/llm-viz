@@ -7,6 +7,7 @@ import { createMuxComps } from "./Mux";
 import { createSimpleMemoryComps } from "./SimpleMemory";
 import { createBinaryGateComps } from "./BinaryGates";
 import { createAddressingComps } from "./Addressing";
+import { createInputOutputComps } from "./InputOutput";
 
 export function buildCompLibrary() {
     let compLibrary = new CompLibrary();
@@ -22,6 +23,7 @@ export function buildCompLibrary() {
         ...createSimpleMemoryComps(args),
         ...createBinaryGateComps(args),
         ...createAddressingComps(args),
+        ...createInputOutputComps(args),
     ];
 
     for (let comp of comps) {

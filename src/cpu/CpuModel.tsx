@@ -2,6 +2,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { StateSetter } from "../utils/data";
 import { Vec3 } from "../utils/vector";
 import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
+import { SchematicLibrary } from "./schematics/SchematicLibrary";
 
 export interface IFullSystem {
     layout: ICpuLayout;
@@ -117,10 +118,12 @@ export interface IExePortRef {
 export interface IEditorState {
     mtx: AffineMat2d;
 
+    activeSchematicId: string | null;
     layout: ICpuLayout;
     layoutTemp: ICpuLayout | null;
 
     compLibrary: CompLibrary;
+    schematicLibrary: SchematicLibrary;
 
     undoStack: ICpuLayout[];
     redoStack: ICpuLayout[];

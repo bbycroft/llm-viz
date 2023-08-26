@@ -2,7 +2,7 @@ import React from "react";
 import { editLayout, useEditorContext } from "./Editor";
 import s from "./CompLibraryView.module.scss";
 import { ICompDef } from "./comps/CompBuilder";
-import { applySetter, assignImm } from "../utils/data";
+import { assignImm } from "../utils/data";
 import { useGlobalDrag } from "../utils/pointer";
 
 export const CompLibraryView: React.FC = () => {

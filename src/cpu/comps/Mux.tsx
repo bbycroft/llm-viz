@@ -16,10 +16,6 @@ interface ICompDataAdder {
     outPort: IExePort;
 }
 
-export interface ICompDataConst {
-    value: number;
-    outPort: IExePort;
-}
 
 export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
@@ -127,34 +123,6 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         },
     };
 
-    let const32: ICompDef<ICompDataConst> = {
-        defId: 'const32',
-        name: "Const32",
-        size: new Vec3(2, 2),
-        ports: [
-            { id: 'out', name: '', pos: new Vec3(2, 1), type: PortDir.Out, width: 32 },
-        ],
-        build: (comp: IComp) => {
-            let builder = new ExeCompBuilder<ICompDataConst>(comp);
-            let data = builder.addData({
-                value: 4,
-                outPort: builder.getPort('out'),
-            });
 
-            builder.addPhase(({ data }) => {
-                data.outPort.value = data.value;
-            }, [], [data.outPort]);
-
-            return builder.build();
-        },
-        render: ({ comp, ctx, cvs, exeComp, styles }) => {
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.font = `${styles.fontSize}px monospace`;
-            ctx.fillStyle = 'black';
-            ctx.fillText('' + ensureSigned32Bit(exeComp?.data.value ?? 0), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y * 0.6);
-        },
-    };
-
-    return [mux2, adder, const32];
+    return [mux2, adder];
 }
