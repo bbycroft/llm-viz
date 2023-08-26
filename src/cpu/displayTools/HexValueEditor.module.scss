@@ -1,0 +1,55 @@
+@import '@/styles/variables.scss';
+
+.hexValueEditor {
+    width: 100%;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    font-size: 24px;
+}
+
+.prefix {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+    width: 28px;
+    line-height: 24px;
+    pointer-events: auto;
+
+    svg {
+        font-size: 15px;
+        align-self: center;
+        color: #707070;
+    }
+}
+
+.input {
+    flex: 1 0 0;
+    width: 100%;
+    border: none;
+    background: none;
+    font-size: inherit;
+    color: inherit;
+    padding: 0;
+    border-radius: 4px;
+    pointer-events: auto;
+    background-color: #fff3;
+
+    &:hover {
+        background-color: #fff3;
+    }
+
+    &.minimal:not(:hover):not(:focus) {
+        background-color: transparent;
+    }
+
+    &:focus {
+        background-color: #ffff;
+        outline: none;
+    }
+
+    &.invalid {
+        color: $color-red;
+    }
+}
+

@@ -129,6 +129,7 @@ export interface IEditorState {
     redoStack: ICpuLayout[];
 
     hovered: IHitTest | null;
+    maskHover: string | null;
     addLine: boolean
 
     dragCreateComp?: IDragCreateComp;

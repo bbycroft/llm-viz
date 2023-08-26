@@ -56,6 +56,10 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             });
 
             builder.addPhase(({ data: { ctrl, addrOffset, addrBase, dataIn, busCtrl, busAddr, busData } }) => {
+                // when working with a bus, we always:
+                // a) have everything write to the bus that it needs to
+                // b) have everything read from the bus that it needs to
+
                 let ctrlVal = ctrl.value;
                 let enabled  = (ctrlVal & 0b00001) !== 0;
                 let loadFlag = (ctrlVal & 0b00010) !== 0;
@@ -85,7 +89,10 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                         busData.ioEnabled = true;
                         busData.ioDir = IoDir.Out;
                         dataIn.ioEnabled = true;
+                        dataIn.ioDir = IoDir.In;
                         // console.log(`writing value ${dataIn.value} to addr ${addr.toString(16)} on busData`);
+                    } else {
+                        busData.ioDir = IoDir.In;
                     }
                 } else {
                     busCtrl.value = 0;

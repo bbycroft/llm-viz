@@ -39,7 +39,7 @@ export class KeyboardManager {
         };
 
         for (let handler of handlersSorted) {
-            if (handler.receiveKeyUp && ev.type === "keyup") {
+            if (ev.type === "keyup" && !handler.receiveKeyUp) {
                 continue;
             }
             handler.handler(ev);
@@ -52,26 +52,27 @@ export class KeyboardManager {
 
 export const KeyboardManagerContext = createContext<KeyboardManager>(new KeyboardManager());
 
-export function useGlobalKeyboard(order: KeyboardOrder, handler: (ev: KeyboardEvent) => void) {
+export function useGlobalKeyboard(order: KeyboardOrder, handler: (ev: KeyboardEvent) => void, opts?: IKeyHandlerOptions) {
     let manager = useContext(KeyboardManagerContext);
     let handlerRef = useFunctionRef(handler);
+    let receiveKeyUp = opts?.receiveKeyUp ?? false;
 
     useEffect(() => {
         let h = (ev: KeyboardEvent) => handlerRef.current(ev);
-        let unregister = manager.registerHandler(order, h);
+        let unregister = manager.registerHandler(order, h, { receiveKeyUp });
         return () => unregister();
-    }, [order, handlerRef, manager]);
+    }, [order, handlerRef, manager, receiveKeyUp]);
 }
 
 export function useCreateGlobalKeyboardDocumentListener() {
     let manager = useContext(KeyboardManagerContext);
 
     useEffect(() => {
-        document.addEventListener("keydown", manager.handleKey);
-        document.addEventListener("keyup", manager.handleKey);
+        window.addEventListener("keydown", manager.handleKey);
+        window.addEventListener("keyup", manager.handleKey);
         return () => {
-            document.removeEventListener("keydown", manager.handleKey);
-            document.removeEventListener("keyup", manager.handleKey);
+            window.removeEventListener("keydown", manager.handleKey);
+            window.removeEventListener("keyup", manager.handleKey);
         };
     }, [manager]);
 }

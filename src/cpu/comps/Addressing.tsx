@@ -6,6 +6,7 @@ import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
 import { editCompConfig, useEditorContext } from '../Editor';
 import { assignImm } from '@/src/utils/data';
+import { HexValueEditor, HexValueInputType } from '../displayTools/HexValueEditor';
 
 interface ICompAddressMapper {
     busCtrl: IExePort;
@@ -55,6 +56,23 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                 addrMask: builder.comp.args!.addrMask,
             });
 
+            // addresser phases:
+            // read from busCtrl, busAddr
+            // write to localCtrl, localAddr
+            // we're not reading/writing the data lines at this point!
+
+            // read from localData
+            // write to busData
+            // read from busData
+            // write to localData
+
+
+            // hmm, can't make it so we do all writes first, then all reads first, if our addresser straddles 2 buses
+            // since at least one of them has to be re-orded based on read vs write
+
+            // since the choice of read/write decides which bus needs to be evaluated first
+            // so need at least 2 phases on each bus for this to work
+
             // read from bus: ctrl, addr, data & wrte to local
             builder.addPhase(({ data: { busCtrl, busAddr, busData, localCtrl, localAddr, localData, addrOffset } }) => {
                 let ctrl = busCtrl.value;
@@ -72,7 +90,9 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                 // localData.ioDir = isWrite ? IoDir.Output : IoDir.Input;
                 localAddr.value = 0;
                 // busData.ioEnabled = false;
+                localData.ioEnabled = isEnabled;
                 localData.ioDir = IoDir.None;
+                busData.ioEnabled = isEnabled;
                 // console.log('setting busData.ioDir to', IoDir[busData.ioDir]);
 
                 if (isMatch && isEnabled) {
@@ -92,12 +112,13 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             builder.addPhase(({ data: { localCtrl, localData, busData } }) => {
                 busData.ioDir = IoDir.In;
                 let ctrl = localCtrl.value;
+                let isEnabled = (ctrl & 0b1) === 0b1; // enabled
                 let isRead = (ctrl & 0b11) === 0b11; // read
                 if (isRead) {
                     busData.value = localData.value;
                     busData.ioDir = isRead ? IoDir.Out : IoDir.In;
                 }
-                busData.ioEnabled = isRead; // isRead;
+                busData.ioEnabled = isEnabled; // isRead;
             }, [data.localData, data.busCtrl], [data.busData]);
 
             return builder.build();
@@ -147,20 +168,19 @@ export const Addressing: React.FC<{
 
     let { setEditorState } = useEditorContext();
 
-    function editAddrOffset(ev: React.ChangeEvent<HTMLInputElement>, end: boolean) {
-        let addrOffset = parseInt(ev.target.value);
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { addrOffset })));
+    function editAddrOffset(end: boolean, value: number) {
+        setEditorState(editCompConfig(end, comp, a => assignImm(a, { addrOffset: value })));
     }
 
-    function editAddrMask(ev: React.ChangeEvent<HTMLInputElement>, end: boolean) {
-        let addrMask = parseInt(ev.target.value);
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { addrMask })));
+    function editAddrMask(end: boolean, value: number) {
+        setEditorState(editCompConfig(end, comp, a => assignImm(a, { addrMask: value })));
     }
 
-    return <CompRectBase comp={comp} cvs={cvs}>
-        <div style={{ height: '90px' }} />
-        <input type={'number'} value={comp.args.addrOffset} className={s.addrInput} onChange={ev => editAddrOffset(ev, false)} onBlur={ev => editAddrOffset(ev, true)} />
-        <input type={'number'} value={comp.args.addrMask} className={s.addrInput} onChange={ev => editAddrMask(ev, false)} onBlur={ev => editAddrMask(ev, true)} />
+    return <CompRectBase comp={comp} cvs={cvs} className={s.compAddressing}>
+        <HexValueEditor value={comp.args.addrOffset} update={editAddrOffset} inputType={HexValueInputType.Hex} fixedInputType minimalBackground padBits={32} />
+        <HexValueEditor value={comp.args.addrMask} update={editAddrMask} inputType={HexValueInputType.Hex} fixedInputType minimalBackground padBits={32} />
+        {/* <input type={'number'} value={comp.args.addrOffset} className={s.addrInput} onChange={ev => editAddrOffset(ev, false)} onBlur={ev => editAddrOffset(ev, true)} />
+        <input type={'number'} value={comp.args.addrMask} className={s.addrInput} onChange={ev => editAddrMask(ev, false)} onBlur={ev => editAddrMask(ev, true)} /> */}
     </CompRectBase>;
 
 };

@@ -94,6 +94,7 @@ export const CpuCanvas: React.FC<{
             redoStack: [],
             undoStack: [],
             hovered: null,
+            maskHover: null,
             addLine: false,
         };
     });
@@ -211,7 +212,7 @@ export const CpuCanvas: React.FC<{
                 return newLayout;
             }));
         }
-    });
+    }, { receiveKeyUp: true });
 
     let [dragStart, setDragStart] = useCombinedMouseTouchDrag(cvsState?.canvas ?? null, ev => {
         return {
@@ -659,14 +660,17 @@ export const CpuCanvas: React.FC<{
                 style={{ cursor: cursor }}
             />
             <div className={s.compDomElements}>
-                {compDivs}
+                <div className={s.compDomElementsInner} style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
+                    {compDivs}
+                </div>
+                {showTransparentComponents && <div className={s.compDomEventMask} />}
             </div>
             <div className={s.toolsLeftTop}>
                 <CpuEditorToolbar />
                 <CompLibraryView />
                 <CompExampleView />
                 <SchematicLibraryView />
-                <HoverDisplay canvasEl={cvsState?.canvas ?? null} />
+                {!dragStart && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
             </div>
         </div>
     </EditorContext.Provider>;

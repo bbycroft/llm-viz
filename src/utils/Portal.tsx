@@ -86,7 +86,13 @@ export const Popup: React.FC<{
     }
 
     return <Portal>
-        {closeBackdrop ? <div className={s.popupBackdrop} onClick={handleClick}>{el}</div> : el}
+        {closeBackdrop ? <div
+            className={s.popupBackdrop}
+            onClick={handleClick}
+            onMouseMove={ev => ev.stopPropagation()}
+            onMouseUp={ev => ev.stopPropagation()}
+            onMouseDown={ev => ev.stopPropagation()}
+        >{el}</div> : el}
     </Portal>;
 };
 

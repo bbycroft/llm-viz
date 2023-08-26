@@ -313,6 +313,11 @@ export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibra
             return null;
         }
 
+        let cfg = compDef.initConfig?.({}) ?? null;
+        if (cfg && c.args) {
+            cfg = assignImm(cfg, c.args);
+        }
+
         return {
             defId: c.defId,
             id: c.id,
@@ -320,7 +325,7 @@ export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibra
             pos: new Vec3(c.x, c.y),
             size: compDef.size,
             ports: compDef.ports,
-            args: c.args ?? null,
+            args: cfg,
         };
     }).filter(isNotNil);
 

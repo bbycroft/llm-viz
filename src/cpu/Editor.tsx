@@ -15,7 +15,6 @@ export function editCompConfig<A>(end: boolean, comp: IComp<A>, updateConfig: (c
             return layout;
         }
 
-        console.log('updating comp config to', config2);
         comp2 = assignImm(comp2, { args: config2 });
         layout = assignImm(layout, { comps: layout.comps.map(a => a.id === comp.id ? comp2! : a) });
         return layout;

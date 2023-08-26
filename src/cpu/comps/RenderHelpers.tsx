@@ -4,6 +4,8 @@ import { ensureSigned32Bit, ensureUnsigned32Bit } from "./RiscvInsDecode";
 import s from './CompStyles.module.scss';
 import clsx from "clsx";
 import { useEditorContext } from "../Editor";
+import { assert } from "console";
+import { assignImm } from "@/src/utils/data";
 
 export function regValToStr(val: number) {
     let valU32 = ensureUnsigned32Bit(val);
@@ -21,22 +23,42 @@ export const registerOpts = {
 export const CompRectBase: React.FC<{
     cvs: ICanvasState,
     comp: IComp,
+    hideHover?: boolean,
+    className?: string,
     children?: React.ReactNode,
-}> = memo(function CompRectBase({ cvs, comp, children }) {
+}> = memo(function CompRectBase({ cvs, comp, className, children, hideHover }) {
+    let { setEditorState } = useEditorContext();
 
-    return <div className={clsx(s.rectComp, s.baseComp)} style={createCanvasDivStyle(cvs, comp)}>
+    function handleHover(isHover: boolean) {
+        if (!hideHover) {
+            return;
+        }
+        setEditorState(a => {
+            return assignImm(a, {
+                maskHover: isHover ? comp.id : (a.maskHover === comp.id ? null : a.maskHover),
+            });
+        });
+    }
+
+    return <div
+        className={clsx(s.baseComp, className)} style={createCanvasDivStyle(cvs, comp)}
+        onMouseEnter={() => handleHover(true)}
+        onMouseLeave={() => handleHover(false)}
+        onMouseDown={ev => ev.stopPropagation()}
+    >
+
         {children}
     </div>;
 });
 
 export function createCanvasDivStyle(cvs: ICanvasState, comp: IComp): CSSProperties {
 
-    let mtxStr = `matrix(${cvs.mtx.toTransformParams().join(',')})`;
+    // let mtxStr = `matrix(${cvs.mtx.toTransformParams().join(',')})`;
     let scale = 15;
 
     return {
         width: comp.size.x * scale,
         height: comp.size.y * scale,
-        transform: `${mtxStr} translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`,
+        transform: `translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`,
     };
 }

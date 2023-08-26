@@ -87,4 +87,57 @@
 .addrInput {
     pointer-events: auto;
     width: 90px;
+
+}
+
+.inputNumber {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 4px;
+
+    .configMenuTopRight {
+        align-self: flex-start;
+    }
+
+    &_configMenu {
+        width: 400px;
+    }
+}
+
+.compPopup {
+    font-size: 24px;
+    background-color: #888;
+    box-shadow: 0 0 6px 0 rgba(0, 0, 0, 0.3);
+    padding: 10px 0;
+}
+
+.configMenuBtn {
+    pointer-events: auto;
+    cursor: pointer;
+    color: #707070;
+    font-size: 12px;
+    &:hover {
+        color: #000000;
+    }
+}
+
+.menuRow {
+    display: flex;
+    flex-direction: column;
+    margin: 5px 10px;
+    .title {
+        font-size: 15px;
+    }
+
+    .content {
+
+    }
+}
+
+.compAddressing {
+    display: flex;
+    flex-direction: column;
+    padding: 5px 4px;
+    justify-content: flex-end;
 }

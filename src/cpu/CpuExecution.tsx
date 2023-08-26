@@ -543,9 +543,9 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
                     break;
                 }
             }
-            for (let portIdx of phase.readPortIdxs) { // special case for multi-directional ports
+            for (let portIdx of [...phase.readPortIdxs, ...phase.writePortIdxs]) { // special case for multi-directional ports
                 let port = comp.ports[portIdx];
-                if (hasFlag(port.type, PortDir.InOutTri) && port.ioDir === IoDir.In) {
+                if (hasFlag(port.type, PortDir.InOutTri) && port.ioDir !== IoDir.None) {
                     allOutputsUnused = false;
                     break;
                 }
