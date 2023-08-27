@@ -1,4 +1,5 @@
 import { AffineMat2d } from "@/src/utils/AffineMat2d";
+import { iterLocalStorageEntries } from "@/src/utils/localstorage";
 import { CompLibrary } from "../comps/CompBuilder";
 import { ICpuLayout } from "../CpuModel";
 import { createInitialCpuLayout, ILSState, wiresFromLsState, wiresToLsState } from "../ImportExport";
@@ -70,24 +71,22 @@ export class SchematicLibrary {
 
     private readFromLocalStorage(compLibrary: CompLibrary) {
         let customSchematics = this.customSchematics;
-        for (let i = 0; i < localStorage.length; i++) {
+        iterLocalStorageEntries((key, schematicStr) => {
             let schematic: ILSSchematic | undefined;
-            let key = localStorage.key(i)!;
             if (!key.startsWith('schematic-')) {
-                continue;
+                return;
             }
-            let schematicStr = localStorage.getItem(key)!;
 
             try {
                 schematic = JSON.parse(schematicStr!) as ILSSchematic;
 
             } catch (e) {
                 console.error(`Error parsing schematic ${key}: ${e}`);
-                continue;
+                return;
             }
 
             if (!schematic) {
-                continue;
+                return;
             }
 
             customSchematics.set(schematic.id, {
@@ -95,9 +94,9 @@ export class SchematicLibrary {
                 name: schematic.name,
                 model: wiresFromLsState(createInitialCpuLayout(), schematic.model, compLibrary),
                 hasEdits: false,
-                schematicStr: schematicStr,
+                schematicStr: schematicStr!,
             });
-        }
+        });
     }
 
     public addCustomSchematic(name: string) {
@@ -126,7 +125,7 @@ export class SchematicLibrary {
             };
             localStorage.setItem(this.schematicLocalStorageKey(schematic.id), JSON.stringify(lsSchematic));
         } else if (this.builtinSchematics.get(id)) {
-            console.error(`Can't update builtin schematic ${id}`);
+            console.log(`Can't update builtin schematic ${id}`);
         } else {
             console.error(`Schematic ${id} not found`);
         }

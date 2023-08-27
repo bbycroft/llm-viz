@@ -1,6 +1,21 @@
 import { useEffect, useState } from "react";
 import { StateSetter } from "./data";
 
+export function iterLocalStorageEntries(cb: (key: string, value: string | null) => void) {
+    let ls = typeof window !== 'undefined' ? window.localStorage : undefined;
+    if (!ls) {
+        return;
+    }
+
+    for (let i = 0; i < ls.length; i++) {
+        let key = ls.key(i);
+        if (key) {
+            let value = ls.getItem(key);
+            cb(key, value);
+        }
+    }
+}
+
 export function readFromLocalStorage<T>(key: string): T | undefined {
     let ls = typeof window !== 'undefined' ? window.localStorage : undefined;
     let value = ls?.getItem(key);

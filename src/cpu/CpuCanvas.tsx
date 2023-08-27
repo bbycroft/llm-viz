@@ -82,7 +82,6 @@ export const CpuCanvas: React.FC<{
 
         let compLibrary = buildCompLibrary();
         let schematicLibrary = new SchematicLibrary();
-        schematicLibrary.populateSchematicLibrary(compLibrary);
 
         return {
             layout: wiresFromLsState(constructCpuLayout(), lsState, compLibrary),
@@ -101,16 +100,20 @@ export const CpuCanvas: React.FC<{
     let [ctrlDown, setCtrlDown] = useState(false);
     let [, redraw] = useReducer((x) => x + 1, 0);
 
+    let [isClient, setIsClient] = useState(false);
+
     useEffect(() => {
         setCtrlDown(false);
         let compLibrary = buildCompLibrary();
+        editorState.schematicLibrary.populateSchematicLibrary(compLibrary);
         setEditorState(a => assignImm(a, {
             compLibrary,
             layout: assignImm(a.layout, {
                 comps: compLibrary.updateAllCompsFromDefs(a.layout.comps),
             }),
         }));
-    }, []);
+        setIsClient(true);
+    }, [editorState.schematicLibrary]);
 
     useResizeChangeHandler(cvsState?.canvas, redraw);
 
@@ -122,10 +125,12 @@ export const CpuCanvas: React.FC<{
 
         let model = createExecutionModel(editorState.compLibrary, editorState.layout, prev && sameId ? prev.system : null);
 
-        stepExecutionCombinatorial(model);
+        if (isClient) {
+            stepExecutionCombinatorial(model);
+        }
 
         return model;
-    }, [editorState.activeSchematicId, editorState.layout, editorState.compLibrary]);
+    }, [editorState.activeSchematicId, editorState.layout, editorState.compLibrary, isClient]);
 
     prevExeModel.current = { system: exeModel, id: editorState.activeSchematicId };
 

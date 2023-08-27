@@ -640,6 +640,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
             { color: rs1Color, text: regFormatted(rs1) },
             { color: infoColor, text: ' + ' },
             ...buildBitsMessage([20, 12], [0], immColor),
+            { color: immColor, text: ` (${ensureSigned32Bit(data.addrOffset.value)})` },
         ], line3Height);
 
         drawMessage([
@@ -648,20 +649,45 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
         ], line4Height);
 
     } else if (opCode === OpCode.STORE) {
+        let bitPattern = [7, 5,  25, 7];
+        let bitColorOffsets = [0, 1];
+
         drawBitsAndText(15, 5, rs1Color, rs1.toString(), 'rs1');
         drawBitsAndText(20, 5, rs2Color, rs2.toString(), 'rs2');
-        drawBitsAndText(20, 12, immColor, data.addrOffset.value.toString(), 'imm');
+        drawBitsAndText(12, 3, func3Color, Funct3LoadStore[funct3], 'funct3')
+        drawMultiBits(bitPattern, bitColorOffsets, immColor, 'i');
 
         drawOpAndMessage('STORE', Funct3LoadStore[funct3], `store to memory (reg + offset)`);
 
         drawMessage([
             { color: infoColor, text: 'store ' },
             { color: rs2Color, text: regFormatted(rs2) },
-            { color: infoColor, text: ' into ' },
+        ], line3Height);
+
+        drawMessage([
+            { color: infoColor, text: 'at address ' },
             { color: rs1Color, text: regFormatted(rs1) },
             { color: infoColor, text: ' + ' },
-            ...buildBitsMessage([20, 12], [0], immColor),
+            ...buildBitsMessage(bitPattern, bitColorOffsets, immColor),
+            { color: immColor, text: ` (${ensureSigned32Bit(data.addrOffset.value)})` },
+        ], line4Height);
+
+    } else if (opCode === OpCode.LUI) {
+        let val = data.rhsImm.value;
+        drawBitsAndText(12, 20, immColor, data.rhsImm.value.toString(), 'imm');
+        drawOpAndMessage('LUI', '', `load immediate as upper 20 bits into register`);
+        drawMessage([
+            { color: infoColor, text: 'load ' },
+            { color: '#000', text: '0x' },
+            { color: immColor, text: val.toString(16).padStart(8, '0').substring(0, 5) },
+            { color: '#000', text: '0'.repeat(3) },
+            { color: immColor, text: ` (${val.toString()})` },
         ], line3Height);
+
+        drawMessage([
+            { color: infoColor, text: 'into ' },
+            { color: rdColor, text: regFormatted(rd) },
+        ], line4Height);
 
     } else if (opCode === OpCode.SYSTEM) {
 

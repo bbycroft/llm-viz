@@ -7,6 +7,8 @@ import { IExeComp } from "./CpuModel";
 import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
 import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from "./CpuExecution";
 import { ensureSigned32Bit } from "./comps/RiscvInsDecode";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faRotate } from "@fortawesome/free-solid-svg-icons";
 
 interface IExampleEntry {
     name: string;
@@ -201,7 +203,9 @@ export const CompExampleView: React.FC = () => {
 
     return <div className={s.exampleView}>
         <div className={s.header}>Examples
-            <div style={{ position: 'absolute', right: '0', top: '0' }} onClick={() => setReloadCntr(a => a + 1)}>reload</div>
+            <div className={s.reloadBtn} onClick={() => setReloadCntr(a => a + 1)}>
+                <FontAwesomeIcon icon={faRotate} />
+            </div>
         </div>
 
         <div className={s.body}>

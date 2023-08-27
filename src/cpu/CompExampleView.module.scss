@@ -48,3 +48,13 @@
         opacity: 0.5;
     }
 }
+
+.reloadBtn {
+    @extend .btn;
+    position: absolute;
+    font-size: 80%;
+    color: #777;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+}

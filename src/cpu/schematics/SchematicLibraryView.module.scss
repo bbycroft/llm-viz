@@ -19,8 +19,13 @@
 }
 
 .entry {
-    cursor: pointer;
     padding: 0 10px;
+    display: flex;
+}
+
+.name {
+    flex: 1 0 0;
+    cursor: pointer;
 
     &:hover {
         background-color: lighten($color-highlight, 25%);
@@ -46,5 +51,23 @@
     &:disabled {
         cursor: default;
         opacity: 0.5;
+    }
+}
+
+.btnIcon {
+    @extend .btn;
+    font-size: 80%;
+    color: #777;
+}
+
+.input {
+    width: 100%;
+    flex: 1 0 0;
+    border-radius: 4px;
+
+    &:focus {
+        background-color: #eee;
+        outline: none;
+        border: none;
     }
 }
