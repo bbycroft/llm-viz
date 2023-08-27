@@ -42,9 +42,9 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             builder.addPhase(aluPhase0, [data.inCtrlPort, data.inAPort, data.inBPort], [data.outPort, data.branchPort]);
             return builder.build();
         },
-        renderDom: ({ comp, ctx, cvs, exeComp, styles }) => {
+        renderDom: ({ comp, exeComp }) => {
             if (!exeComp) {
-                return <div className={clsx(s.baseComp, s.rectComp)} style={{ ...createCanvasDivStyle(cvs, comp) }}>
+                return <div className={clsx(s.baseComp, s.rectComp)} style={{ ...createCanvasDivStyle(comp) }}>
                     <div>ALU <span style={{ fontFamily: 'monospace' }}>{(0).toString(2).padStart(5, '0')}</span></div>
                 </div>;
             }
@@ -77,7 +77,7 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             let takeBranch = exeComp.data.branchPort.value;
 
             // also show the OP (branch or otherwise), and show the result, as well as the branch result
-            return <div className={clsx(s.baseComp, s.rectComp)} style={{ ...createCanvasDivStyle(cvs, comp), display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            return <div className={clsx(s.baseComp, s.rectComp)} style={{ ...createCanvasDivStyle(comp), display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div>ALU <span style={{ fontFamily: 'monospace' }}>{exeComp?.data.inCtrlPort.value.toString(2).padStart(5, '0')}</span></div>
                 {!isEnabled && <div>{'[disabled]'}</div>}
                 {isEnabled && <>

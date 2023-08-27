@@ -27,7 +27,7 @@ export const CompExampleView: React.FC = () => {
 
         async function run() {
             // let fileName = 'add_tests.elf';
-            let fileName = 'blinky.elf';
+            let fileName = 'blinky2.elf';
 
             let resp = await fetch(basePath + fileName);
 

@@ -1,9 +1,9 @@
 
-volatile unsigned int * const GPIO_VAL = (unsigned int *)0x10080;
+volatile unsigned int * const GPIO_VAL = (unsigned int *)0x40020000;
 
 const int ITER_COUNT = 2;
-const int BLINK_MODE_0 = 0x10101010;
-const int BLINK_MODE_1 = 0x01010101;
+const int BLINK_MODE_0 = 0x000000cc;
+const int BLINK_MODE_1 = 0x00000055;
 
 int iter_counter = 0;
 

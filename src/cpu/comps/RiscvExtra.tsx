@@ -84,7 +84,7 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                     if (isStore) {
                         // handle unsigned store
                         let mask = funct3 === Funct3LoadStore.SB ? 0xff : funct3 === Funct3LoadStore.SH ? 0xffff : 0xffffffff;
-                        console.log('[L/S] writing value', dataIn.value, 'to addr', addr.toString(16), 'on busData');
+                        // console.log('[L/S] writing value', dataIn.value, 'to addr', addr.toString(16), 'on busData');
                         busData.value = dataIn.value & mask;
                         busData.ioEnabled = true;
                         busData.ioDir = IoDir.Out;

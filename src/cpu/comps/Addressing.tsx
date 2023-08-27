@@ -91,7 +91,7 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                 localAddr.value = 0;
                 // busData.ioEnabled = false;
                 localData.ioEnabled = isEnabled;
-                localData.ioDir = IoDir.None;
+                localData.ioDir = isWrite ? IoDir.Out : IoDir.In;
                 busData.ioEnabled = isEnabled;
                 // console.log('setting busData.ioDir to', IoDir[busData.ioDir]);
 
@@ -99,7 +99,6 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                     localCtrl.value = ctrl;
                     localAddr.value = addrLowerBits;
                     if (isWrite) {
-                        console.log('[ADDR] isWrite, sending value', busData.value, 'from bus to local');
                         localData.value = busData.value;
                         localData.ioEnabled = true;
                         localData.ioDir = IoDir.Out;
@@ -176,7 +175,7 @@ export const Addressing: React.FC<{
         setEditorState(editCompConfig(end, comp, a => assignImm(a, { addrMask: value })));
     }
 
-    return <CompRectBase comp={comp} cvs={cvs} className={s.compAddressing}>
+    return <CompRectBase comp={comp} className={s.compAddressing} hideHover>
         <HexValueEditor value={comp.args.addrOffset} update={editAddrOffset} inputType={HexValueInputType.Hex} fixedInputType minimalBackground padBits={32} />
         <HexValueEditor value={comp.args.addrMask} update={editAddrMask} inputType={HexValueInputType.Hex} fixedInputType minimalBackground padBits={32} />
         {/* <input type={'number'} value={comp.args.addrOffset} className={s.addrInput} onChange={ev => editAddrOffset(ev, false)} onBlur={ev => editAddrOffset(ev, true)} />

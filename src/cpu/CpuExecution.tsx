@@ -575,6 +575,11 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
             if (allOutputsUnused) {
                 for (let portRef of net.outputs) {
                     portRef.exePort.dataUsed = false;
+                    let exeComp = exeSystem.comps[portRef.compIdx];
+                    let port = exeComp.comp.ports[portRef.portIdx];
+                    if (port.id === 'outB') {
+                        console.log('marking out port as unused', exeComp.comp.defId + '/' + port.id, 'since all net.inputs are unused:', net.inputs, net);
+                    }
                 }
             }
         }

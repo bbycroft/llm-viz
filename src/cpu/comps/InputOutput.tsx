@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import { Vec3 } from "@/src/utils/vector";
 import { ICanvasState, IComp, IExeComp, IExePort, PortDir } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
@@ -95,9 +95,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             // ctx.fillText('' + ensureSigned32Bit(exeComp?.data.value ?? 0), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y * 0.5);
         },
 
-        renderDom: ({ comp, cvs, exeComp, styles }) => {
-
-            return <InputEditor comp={comp} exeComp={exeComp} styles={styles} cvs={cvs} />;
+        renderDom: ({ comp, exeComp, styles }) => {
+            return <InputEditor comp={comp} exeComp={exeComp} styles={styles} />;
         },
     };
 
@@ -106,9 +105,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
 
 export const InputEditor: React.FC<{
     comp: IComp<IInputConfig>,
-    cvs: ICanvasState,
     exeComp: IExeComp<ICompDataInput>, styles: any,
-}> = ({ comp, exeComp, cvs, styles }) => {
+}> = memo(function InputEditor({ comp, exeComp, styles }) {
     let { setEditorState } = useEditorContext();
 
     function editValue(end: boolean, value: number, valueMode: HexValueInputType) {
@@ -119,7 +117,7 @@ export const InputEditor: React.FC<{
         setEditorState(editCompConfig(end, comp, a => assignImm(a, { bitWidth: value })));
     }
 
-    return <CompRectBase comp={comp} cvs={cvs} className={s.inputNumber} hideHover={true}>
+    return <CompRectBase comp={comp} className={s.inputNumber} hideHover={true}>
         <HexValueEditor inputType={comp.args.valueMode} value={comp.args.value} update={editValue} minimalBackground />
         <ConfigMenu btnClassName={s.configMenuTopRight}>
             <MenuRow title={"Value"}>
@@ -130,7 +128,7 @@ export const InputEditor: React.FC<{
              </MenuRow>
         </ConfigMenu>
     </CompRectBase>;
-}
+});
 
 
 export const MenuRow: React.FC<{

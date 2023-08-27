@@ -41,7 +41,8 @@ export function exportData(layout: ICpuLayout) {
 
     for (let i = 0; i < layout.comps.length; i++) {
         let comp = layout.comps[i];
-        str += `C ${comp.id} ${comp.defId} p:${comp.pos.x},${comp.pos.y}\n`;
+        let configStr = comp.args ? " c:" + JSON.stringify(comp.args) : "";
+        str += `C ${comp.id} ${comp.defId} p:${comp.pos.x},${comp.pos.y}${configStr}\n`;
     }
     for (let i = 0; i < layout.wires.length; i++) {
         let wire = layout.wires[i];
@@ -103,7 +104,7 @@ export function importData(str: string): IImportResult {
 
     function parseLine(a: string): ILinePart[] {
         let res: ILinePart[] = [];
-        let re = /\s*(?:([\w]+):)?(\[[^\]]+\]|[^\[\]: ]+)/g;
+        let re = /\s*(?:([\w]+):)?(\[[^\]]+\]|\{.*\}|[^\[\]: ]+)/g;
         let match: RegExpExecArray | null;
         while (!!(match = re.exec(a))) {
             let value = match[2].trim();
@@ -134,6 +135,17 @@ export function importData(str: string): IImportResult {
             }
             let id = parts[1].text;
             let type = parts[2].text;
+
+            let comp: IComp = {
+                id,
+                name: id,
+                pos: new Vec3(0, 0),
+                size: new Vec3(0, 0),
+                defId: type,
+                ports: [],
+                args: null,
+            };
+
             for (let j = 3; j < parts.length; j++) {
                 let part = parts[j];
                 if (part.label === 'p') {
@@ -148,20 +160,16 @@ export function importData(str: string): IImportResult {
                         makeIssue("Invalid component line: p: must have 2 numbers", lineIdx);
                         continue;
                     }
-                    comps.push({
-                        id,
-                        name: id,
-                        pos: new Vec3(x, y),
-                        size: new Vec3(0, 0),
-                        defId: type,
-                        ports: [],
-                        args: {} as any,
-                    });
+                    comp.pos = new Vec3(x, y);
+                } else if (part.label === 'c') {
+                    comp.args = JSON.parse(part.value);
                 } else {
-                    makeIssue("Invalid component line: unknown part", lineIdx);
+                    makeIssue(`Invalid component line: unknown part [${part.label}] [${part.value}]`, lineIdx);
                     continue;
                 }
             }
+
+            comps.push(comp);
 
         } else if (parts[0].text === 'W') {
             if (parts.length < 3) {

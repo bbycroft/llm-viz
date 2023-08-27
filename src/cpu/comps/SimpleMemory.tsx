@@ -92,12 +92,12 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
                 }
             }
         },
-        renderDom: ({ comp, exeComp, styles, cvs }) => {
+        renderDom: ({ comp, exeComp, styles }) => {
             let args = comp.args;
 
             // rows of 8 bytes, each byte represented by 2 hex digits
             // left to right, top to bottom (ala hex editor)
-            return exeComp ? renderData(comp, cvs, exeComp.data.rom, { addr: exeComp.data.addr.value, numBytes: 4, value: 0 }, null) : null;
+            return exeComp ? renderData(comp, exeComp.data.rom, { addr: exeComp.data.addr.value, numBytes: 4, value: 0 }, null) : null;
 
         },
         copyStatefulData: (src, dest) => {
@@ -204,7 +204,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             exeComp.data.ram.fill(0);
         },
 
-        renderDom: ({ comp, exeComp, styles, cvs }) => {
+        renderDom: ({ comp, exeComp, styles }) => {
             if (!exeComp) {
                 return null;
             }
@@ -216,7 +216,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             let addr = data.addr.value;
             let value = data.data.value;
             let numBytes = writeType === BusMemCtrlType.Byte ? 1 : writeType === BusMemCtrlType.Half ? 2 : 4;
-            return renderData(comp, cvs, exeComp.data.ram,
+            return renderData(comp, exeComp.data.ram,
                 isRead ? { addr, numBytes, value } : null,
                 isWrite ? { addr, numBytes, value } : null);
         },
@@ -231,7 +231,7 @@ interface IReadWriteInfo {
     value: number; // only used for writes
 }
 
-function renderData(comp: IComp, cvs: ICanvasState, bytes: Uint8Array, read: IReadWriteInfo | null, write: IReadWriteInfo | null) {
+function renderData(comp: IComp, bytes: Uint8Array, read: IReadWriteInfo | null, write: IReadWriteInfo | null) {
     let bytesPerCol = 16;
 
     interface IRow {
@@ -257,7 +257,7 @@ function renderData(comp: IComp, cvs: ICanvasState, bytes: Uint8Array, read: IRe
         });
     }
 
-    return <CompRectBase comp={comp} cvs={cvs}>
+    return <CompRectBase comp={comp}>
         <div className={s.memTable}>
             {rows.map((row, i) => {
                 return <div key={i} className={s.memRow}>

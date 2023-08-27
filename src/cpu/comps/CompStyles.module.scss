@@ -130,9 +130,8 @@
         font-size: 15px;
     }
 
-    .content {
-
-    }
+    // .content {
+    // }
 }
 
 .compAddressing {
@@ -140,4 +139,39 @@
     flex-direction: column;
     padding: 5px 4px;
     justify-content: flex-end;
+}
+
+.compLedOutputSimple {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 10px;
+    font-family: monospace;
+    font-size: 24px;
+
+    .ledOutput {
+        pointer-events: auto;
+        margin-top: 30px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        margin: 20px 0 0;
+    }
+
+    .ledOutputBit {
+        width: 30px;
+        height: 30px;
+        border-radius: 15px;
+        background-color: #707070;
+        margin: 0 8px;
+
+        &.enabled {
+            $onColor: #e7f15a;
+            $onColorRed: #f15a5a;
+            background-color: $onColorRed;
+            box-shadow: 0 0 10px 0 $onColorRed;
+        }
+    }
+
 }

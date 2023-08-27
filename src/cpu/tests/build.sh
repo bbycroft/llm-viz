@@ -18,3 +18,8 @@ clang-18 --target=riscv32 -march=rv32i -nostdlib -T linker_tiny.ld -O0 -fno-inli
 llvm-objdump -S blinky.elf -j .text -j .rodata -j data > blinky.dump
 # riscv64-unknown-elf-objdump -S blinky > blinky.dump
 cp blinky.elf $TARGET_DIR
+
+clang-18 --target=riscv32 -march=rv32i -nostdlib -O0 -fno-inline -T linker_tiny.ld -g blinky2.S -o blinky2.elf
+llvm-objdump -S blinky2.elf -j .text -j .rodata -j data > blinky2.dump
+# riscv64-unknown-elf-objdump -S blinky > blinky.dump
+cp blinky2.elf $TARGET_DIR

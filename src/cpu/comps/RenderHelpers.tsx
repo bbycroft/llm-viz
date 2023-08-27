@@ -21,12 +21,11 @@ export const registerOpts = {
 
 
 export const CompRectBase: React.FC<{
-    cvs: ICanvasState,
     comp: IComp,
     hideHover?: boolean,
     className?: string,
     children?: React.ReactNode,
-}> = memo(function CompRectBase({ cvs, comp, className, children, hideHover }) {
+}> = memo(function CompRectBase({ comp, className, children, hideHover }) {
     let { setEditorState } = useEditorContext();
 
     function handleHover(isHover: boolean) {
@@ -41,7 +40,7 @@ export const CompRectBase: React.FC<{
     }
 
     return <div
-        className={clsx(s.baseComp, className)} style={createCanvasDivStyle(cvs, comp)}
+        className={clsx(s.baseComp, className)} style={createCanvasDivStyle(comp)}
         onMouseEnter={() => handleHover(true)}
         onMouseLeave={() => handleHover(false)}
         onMouseDown={ev => ev.stopPropagation()}
@@ -51,9 +50,8 @@ export const CompRectBase: React.FC<{
     </div>;
 });
 
-export function createCanvasDivStyle(cvs: ICanvasState, comp: IComp): CSSProperties {
+export function createCanvasDivStyle(comp: IComp): CSSProperties {
 
-    // let mtxStr = `matrix(${cvs.mtx.toTransformParams().join(',')})`;
     let scale = 15;
 
     return {
