@@ -25,8 +25,8 @@ Disassembly of section .text:
 ; addi s2, s2, -1
       20: 13 09 f9 ff  	addi	s2, s2, -1
 ; bne s2, zero, loop
-      24: e3 1a 09 fe  	bnez	s2, 0x18 <$d.4+0x18>
+      24: e3 1a 09 fe  	bnez	s2, 0x18 <loop>
 ; li a0, 44
       28: 13 05 c0 02  	li	a0, 44
 ; ecall
-      2c: 73 00 00 00  	ecall	
+      2c: 73 00 00 00  	ecall

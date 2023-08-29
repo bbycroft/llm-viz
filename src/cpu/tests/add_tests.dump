@@ -4,777 +4,779 @@ add_tests.elf:	file format elf32-littleriscv
 Disassembly of section .text_store0:
 
 00000000 <_start_store0>:
-       0: 93 01 00 02  	li	gp, 32
-       4: b7 50 34 12  	lui	ra, 74565
-       8: 93 80 80 67  	addi	ra, ra, 1656
-       c: 23 a6 11 00  	sw	ra, 12(gp)
-      10: 03 a1 c1 00  	lw	sp, 12(gp)
-      14: 63 9e 20 06  	bne	ra, sp, 0x90 <fail_store0>
-      18: 93 85 15 00  	addi	a1, a1, 1
-      1c: 93 01 00 01  	li	gp, 16
-      20: b7 10 00 00  	lui	ra, 1
-      24: 93 80 80 4e  	addi	ra, ra, 1256
-      28: 23 90 11 00  	sh	ra, 0(gp)
-      2c: 03 91 01 00  	lh	sp, 0(gp)
-      30: 63 90 20 06  	bne	ra, sp, 0x90 <fail_store0>
-      34: 93 85 15 00  	addi	a1, a1, 1
-      38: 93 00 60 f1  	li	ra, -234
-      3c: 23 91 11 00  	sh	ra, 2(gp)
-      40: 03 91 21 00  	lh	sp, 2(gp)
-      44: 03 d2 21 00  	lhu	tp, 2(gp)
-      48: b7 02 01 00  	lui	t0, 16
-      4c: 93 82 62 f1  	addi	t0, t0, -234
-      50: 63 90 20 04  	bne	ra, sp, 0x90 <fail_store0>
-      54: 93 85 15 00  	addi	a1, a1, 1
-      58: 63 1c 52 02  	bne	tp, t0, 0x90 <fail_store0>
+       0: b7 01 01 00  	lui	gp, 16
+       4: 93 81 41 02  	addi	gp, gp, 36
+       8: b7 50 34 12  	lui	ra, 74565
+       c: 93 80 80 67  	addi	ra, ra, 1656
+      10: 23 a6 11 00  	sw	ra, 12(gp)
+      14: 03 a1 c1 00  	lw	sp, 12(gp)
+      18: 63 90 20 08  	bne	ra, sp, 0x98 <fail_store0>
+      1c: 93 85 15 00  	addi	a1, a1, 1
+      20: b7 01 01 00  	lui	gp, 16
+      24: 93 81 61 02  	addi	gp, gp, 38
+      28: b7 10 00 00  	lui	ra, 1
+      2c: 93 80 80 4e  	addi	ra, ra, 1256
+      30: 23 90 11 00  	sh	ra, 0(gp)
+      34: 03 91 01 00  	lh	sp, 0(gp)
+      38: 63 90 20 06  	bne	ra, sp, 0x98 <fail_store0>
+      3c: 93 85 15 00  	addi	a1, a1, 1
+      40: 93 00 60 f1  	li	ra, -234
+      44: 23 91 11 00  	sh	ra, 2(gp)
+      48: 03 91 21 00  	lh	sp, 2(gp)
+      4c: 03 d2 21 00  	lhu	tp, 2(gp)
+      50: b7 02 01 00  	lui	t0, 16
+      54: 93 82 62 f1  	addi	t0, t0, -234
+      58: 63 90 20 04  	bne	ra, sp, 0x98 <fail_store0>
       5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 93 00 10 ff  	li	ra, -15
-      64: 23 83 11 00  	sb	ra, 6(gp)
-      68: 03 81 61 00  	lb	sp, 6(gp)
-      6c: 63 92 20 02  	bne	ra, sp, 0x90 <fail_store0>
-      70: 93 85 15 00  	addi	a1, a1, 1
-      74: 93 00 90 ff  	li	ra, -7
-      78: a3 83 11 00  	sb	ra, 7(gp)
-      7c: 03 c1 71 00  	lbu	sp, 7(gp)
-      80: 13 02 90 0f  	li	tp, 249
-      84: 63 16 41 00  	bne	sp, tp, 0x90 <fail_store0>
-      88: 93 85 15 00  	addi	a1, a1, 1
-      8c: 6f 00 00 01  	j	0x9c <success_store0>
+      60: 63 1c 52 02  	bne	tp, t0, 0x98 <fail_store0>
+      64: 93 85 15 00  	addi	a1, a1, 1
+      68: 93 00 10 ff  	li	ra, -15
+      6c: 23 83 11 00  	sb	ra, 6(gp)
+      70: 03 81 61 00  	lb	sp, 6(gp)
+      74: 63 92 20 02  	bne	ra, sp, 0x98 <fail_store0>
+      78: 93 85 15 00  	addi	a1, a1, 1
+      7c: 93 00 90 ff  	li	ra, -7
+      80: a3 83 11 00  	sb	ra, 7(gp)
+      84: 03 c1 71 00  	lbu	sp, 7(gp)
+      88: 13 02 90 0f  	li	tp, 249
+      8c: 63 16 41 00  	bne	sp, tp, 0x98 <fail_store0>
+      90: 93 85 15 00  	addi	a1, a1, 1
+      94: 6f 00 00 01  	j	0xa4 <success_store0>
 
-00000090 <fail_store0>:
-      90: 13 05 f0 38  	li	a0, 911
-      94: 73 00 00 00  	ecall	
-      98: 00 00        	<unknown>
-      9a: 00 00        	<unknown>
+00000098 <fail_store0>:
+      98: 13 05 f0 38  	li	a0, 911
+      9c: 73 00 00 00  	ecall
+      a0: 00 00        	<unknown>
+      a2: 00 00        	<unknown>
 
-0000009c <success_store0>:
-      9c: 13 05 c0 02  	li	a0, 44
-      a0: 73 00 00 00  	ecall	
+000000a4 <success_store0>:
+      a4: 13 05 c0 02  	li	a0, 44
+      a8: 73 00 00 00  	ecall
 
 Disassembly of section .text_addi0:
 
-00000000 <_start_addi0>:
-       0: 93 00 a0 00  	li	ra, 10
-       4: 93 80 40 01  	addi	ra, ra, 20
-       8: 13 02 e0 01  	li	tp, 30
-       c: 63 88 40 00  	beq	ra, tp, 0x1c <success_addi0>
+000000ac <_start_addi0>:
+      ac: 93 00 a0 00  	li	ra, 10
+      b0: 93 80 40 01  	addi	ra, ra, 20
+      b4: 13 02 e0 01  	li	tp, 30
+      b8: 63 88 40 00  	beq	ra, tp, 0xc8 <success_addi0>
 
-00000010 <fail_addi0>:
-      10: 13 05 f0 38  	li	a0, 911
-      14: 73 00 00 00  	ecall	
-      18: 00 00        	<unknown>
-      1a: 00 00        	<unknown>
+000000bc <fail_addi0>:
+      bc: 13 05 f0 38  	li	a0, 911
+      c0: 73 00 00 00  	ecall
+      c4: 00 00        	<unknown>
+      c6: 00 00        	<unknown>
 
-0000001c <success_addi0>:
-      1c: 13 05 c0 02  	li	a0, 44
-      20: 73 00 00 00  	ecall	
+000000c8 <success_addi0>:
+      c8: 13 05 c0 02  	li	a0, 44
+      cc: 73 00 00 00  	ecall
 
 Disassembly of section .text_addi1:
 
-00000000 <_start_addi1>:
-       0: 93 00 a0 00  	li	ra, 10
-       4: 93 80 40 01  	addi	ra, ra, 20
-       8: 13 02 e0 01  	li	tp, 30
-       c: 63 88 40 00  	beq	ra, tp, 0x1c <success_addi1>
+000000d0 <_start_addi1>:
+      d0: 93 00 a0 00  	li	ra, 10
+      d4: 93 80 40 01  	addi	ra, ra, 20
+      d8: 13 02 e0 01  	li	tp, 30
+      dc: 63 88 40 00  	beq	ra, tp, 0xec <success_addi1>
 
-00000010 <fail_addi1>:
-      10: 13 05 f0 38  	li	a0, 911
-      14: 73 00 00 00  	ecall	
-      18: 00 00        	<unknown>
-      1a: 00 00        	<unknown>
+000000e0 <fail_addi1>:
+      e0: 13 05 f0 38  	li	a0, 911
+      e4: 73 00 00 00  	ecall
+      e8: 00 00        	<unknown>
+      ea: 00 00        	<unknown>
 
-0000001c <success_addi1>:
-      1c: 13 05 c0 02  	li	a0, 44
-      20: 73 00 00 00  	ecall	
+000000ec <success_addi1>:
+      ec: 13 05 c0 02  	li	a0, 44
+      f0: 73 00 00 00  	ecall
 
 Disassembly of section .text_bne0:
 
-00000000 <_start_bne0>:
-       0: 93 00 a0 00  	li	ra, 10
-       4: 63 9c 10 00  	bne	ra, ra, 0x1c <fail_bne0>
-       8: 13 01 40 01  	li	sp, 20
-       c: 63 94 20 00  	bne	ra, sp, 0x14 <bn0_step>
-      10: 93 01 e0 01  	li	gp, 30
+000000f4 <_start_bne0>:
+      f4: 93 00 a0 00  	li	ra, 10
+      f8: 63 9c 10 00  	bne	ra, ra, 0x110 <fail_bne0>
+      fc: 13 01 40 01  	li	sp, 20
+     100: 63 94 20 00  	bne	ra, sp, 0x108 <bn0_step>
+     104: 93 01 e0 01  	li	gp, 30
 
-00000014 <bn0_step>:
-      14: 13 02 e0 01  	li	tp, 30
-      18: 63 98 41 00  	bne	gp, tp, 0x28 <success_bne0>
+00000108 <bn0_step>:
+     108: 13 02 e0 01  	li	tp, 30
+     10c: 63 98 41 00  	bne	gp, tp, 0x11c <success_bne0>
 
-0000001c <fail_bne0>:
-      1c: 13 05 f0 38  	li	a0, 911
-      20: 73 00 00 00  	ecall	
-      24: 00 00        	<unknown>
-      26: 00 00        	<unknown>
+00000110 <fail_bne0>:
+     110: 13 05 f0 38  	li	a0, 911
+     114: 73 00 00 00  	ecall
+     118: 00 00        	<unknown>
+     11a: 00 00        	<unknown>
 
-00000028 <success_bne0>:
-      28: 13 05 c0 02  	li	a0, 44
-      2c: 73 00 00 00  	ecall	
+0000011c <success_bne0>:
+     11c: 13 05 c0 02  	li	a0, 44
+     120: 73 00 00 00  	ecall
 
 Disassembly of section .text_must_fail0:
 
-00000000 <_start_must_fail0>:
-       0: 93 00 60 01  	li	ra, 22
+00000124 <_start_must_fail0>:
+     124: 93 00 60 01  	li	ra, 22
 
-00000004 <fail_must_fail0>:
-       4: 13 05 f0 38  	li	a0, 911
-       8: 73 00 00 00  	ecall	
-       c: 00 00        	<unknown>
-       e: 00 00        	<unknown>
+00000128 <fail_must_fail0>:
+     128: 13 05 f0 38  	li	a0, 911
+     12c: 73 00 00 00  	ecall
+     130: 00 00        	<unknown>
+     132: 00 00        	<unknown>
 
-00000010 <success_must_fail0>:
-      10: 13 05 c0 02  	li	a0, 44
-      14: 73 00 00 00  	ecall	
+00000134 <success_must_fail0>:
+     134: 13 05 c0 02  	li	a0, 44
+     138: 73 00 00 00  	ecall
 
 Disassembly of section .text_jump0:
 
-00000000 <_start_jump0>:
-       0: 93 01 a0 00  	li	gp, 10
-       4: ef 00 80 00  	jal	0xc <jump0_step>
-       8: 13 02 20 02  	li	tp, 34
+0000013c <_start_jump0>:
+     13c: 93 01 a0 00  	li	gp, 10
+     140: ef 00 80 00  	jal	0x148 <jump0_step>
+     144: 13 02 20 02  	li	tp, 34
 
-0000000c <jump0_step>:
-       c: 93 01 20 02  	li	gp, 34
-      10: 13 01 80 00  	li	sp, 8
-      14: 63 94 20 00  	bne	ra, sp, 0x1c <fail_jump0>
-      18: 63 98 41 00  	bne	gp, tp, 0x28 <success_jump0>
+00000148 <jump0_step>:
+     148: 93 01 20 02  	li	gp, 34
+     14c: 13 01 80 00  	li	sp, 8
+     150: 63 94 20 00  	bne	ra, sp, 0x158 <fail_jump0>
+     154: 63 98 41 00  	bne	gp, tp, 0x164 <success_jump0>
 
-0000001c <fail_jump0>:
-      1c: 13 05 f0 38  	li	a0, 911
-      20: 73 00 00 00  	ecall	
-      24: 00 00        	<unknown>
-      26: 00 00        	<unknown>
+00000158 <fail_jump0>:
+     158: 13 05 f0 38  	li	a0, 911
+     15c: 73 00 00 00  	ecall
+     160: 00 00        	<unknown>
+     162: 00 00        	<unknown>
 
-00000028 <success_jump0>:
-      28: 13 05 c0 02  	li	a0, 44
-      2c: 73 00 00 00  	ecall	
+00000164 <success_jump0>:
+     164: 13 05 c0 02  	li	a0, 44
+     168: 73 00 00 00  	ecall
 
 Disassembly of section .text_add_suite:
 
-00000000 <_start_add_suite>:
-       0: 13 01 a0 00  	li	sp, 10
-       4: 93 01 40 01  	li	gp, 20
-       8: 33 02 31 00  	add	tp, sp, gp
-       c: 93 02 e0 01  	li	t0, 30
-      10: 63 10 52 0c  	bne	tp, t0, 0xd0 <fail_add_suite>
-      14: 93 85 15 00  	addi	a1, a1, 1
-      18: 13 01 a0 00  	li	sp, 10
-      1c: 93 01 c0 fe  	li	gp, -20
-      20: 33 02 31 00  	add	tp, sp, gp
-      24: 93 02 60 ff  	li	t0, -10
-      28: 63 14 52 0a  	bne	tp, t0, 0xd0 <fail_add_suite>
-      2c: 93 85 15 00  	addi	a1, a1, 1
-      30: 13 01 60 ff  	li	sp, -10
-      34: 93 01 40 01  	li	gp, 20
-      38: 33 02 31 00  	add	tp, sp, gp
-      3c: 93 02 a0 00  	li	t0, 10
-      40: 63 18 52 08  	bne	tp, t0, 0xd0 <fail_add_suite>
-      44: 93 85 15 00  	addi	a1, a1, 1
-      48: 13 01 60 ff  	li	sp, -10
-      4c: 93 01 c0 fe  	li	gp, -20
-      50: 33 02 31 00  	add	tp, sp, gp
-      54: 93 02 20 fe  	li	t0, -30
-      58: 63 1c 52 06  	bne	tp, t0, 0xd0 <fail_add_suite>
-      5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 37 01 00 80  	lui	sp, 524288
-      64: 13 01 21 ff  	addi	sp, sp, -14
-      68: b7 01 00 00  	lui	gp, 0
-      6c: 93 81 41 01  	addi	gp, gp, 20
-      70: 33 02 31 00  	add	tp, sp, gp
-      74: b7 02 00 80  	lui	t0, 524288
-      78: 93 82 62 00  	addi	t0, t0, 6
-      7c: 63 1a 52 04  	bne	tp, t0, 0xd0 <fail_add_suite>
-      80: 93 85 15 00  	addi	a1, a1, 1
-      84: 37 01 00 80  	lui	sp, 524288
-      88: 13 01 c1 00  	addi	sp, sp, 12
-      8c: b7 01 00 00  	lui	gp, 0
-      90: 93 81 21 fe  	addi	gp, gp, -30
-      94: 33 02 31 00  	add	tp, sp, gp
-      98: b7 02 00 80  	lui	t0, 524288
-      9c: 93 82 e2 fe  	addi	t0, t0, -18
-      a0: 63 18 52 02  	bne	tp, t0, 0xd0 <fail_add_suite>
-      a4: 93 85 15 00  	addi	a1, a1, 1
-      a8: 37 01 00 80  	lui	sp, 524288
-      ac: 13 01 21 ff  	addi	sp, sp, -14
-      b0: b7 01 00 80  	lui	gp, 524288
-      b4: 93 81 e1 00  	addi	gp, gp, 14
-      b8: 33 02 31 00  	add	tp, sp, gp
-      bc: b7 02 00 00  	lui	t0, 0
-      c0: 93 82 02 00  	mv	t0, t0
-      c4: 63 16 52 00  	bne	tp, t0, 0xd0 <fail_add_suite>
-      c8: 93 85 15 00  	addi	a1, a1, 1
-      cc: 6f 00 00 01  	j	0xdc <success_add_suite>
+0000016c <_start_add_suite>:
+     16c: 13 01 a0 00  	li	sp, 10
+     170: 93 01 40 01  	li	gp, 20
+     174: 33 02 31 00  	add	tp, sp, gp
+     178: 93 02 e0 01  	li	t0, 30
+     17c: 63 10 52 0c  	bne	tp, t0, 0x23c <fail_add_suite>
+     180: 93 85 15 00  	addi	a1, a1, 1
+     184: 13 01 a0 00  	li	sp, 10
+     188: 93 01 c0 fe  	li	gp, -20
+     18c: 33 02 31 00  	add	tp, sp, gp
+     190: 93 02 60 ff  	li	t0, -10
+     194: 63 14 52 0a  	bne	tp, t0, 0x23c <fail_add_suite>
+     198: 93 85 15 00  	addi	a1, a1, 1
+     19c: 13 01 60 ff  	li	sp, -10
+     1a0: 93 01 40 01  	li	gp, 20
+     1a4: 33 02 31 00  	add	tp, sp, gp
+     1a8: 93 02 a0 00  	li	t0, 10
+     1ac: 63 18 52 08  	bne	tp, t0, 0x23c <fail_add_suite>
+     1b0: 93 85 15 00  	addi	a1, a1, 1
+     1b4: 13 01 60 ff  	li	sp, -10
+     1b8: 93 01 c0 fe  	li	gp, -20
+     1bc: 33 02 31 00  	add	tp, sp, gp
+     1c0: 93 02 20 fe  	li	t0, -30
+     1c4: 63 1c 52 06  	bne	tp, t0, 0x23c <fail_add_suite>
+     1c8: 93 85 15 00  	addi	a1, a1, 1
+     1cc: 37 01 00 80  	lui	sp, 524288
+     1d0: 13 01 21 ff  	addi	sp, sp, -14
+     1d4: b7 01 00 00  	lui	gp, 0
+     1d8: 93 81 41 01  	addi	gp, gp, 20
+     1dc: 33 02 31 00  	add	tp, sp, gp
+     1e0: b7 02 00 80  	lui	t0, 524288
+     1e4: 93 82 62 00  	addi	t0, t0, 6
+     1e8: 63 1a 52 04  	bne	tp, t0, 0x23c <fail_add_suite>
+     1ec: 93 85 15 00  	addi	a1, a1, 1
+     1f0: 37 01 00 80  	lui	sp, 524288
+     1f4: 13 01 c1 00  	addi	sp, sp, 12
+     1f8: b7 01 00 00  	lui	gp, 0
+     1fc: 93 81 21 fe  	addi	gp, gp, -30
+     200: 33 02 31 00  	add	tp, sp, gp
+     204: b7 02 00 80  	lui	t0, 524288
+     208: 93 82 e2 fe  	addi	t0, t0, -18
+     20c: 63 18 52 02  	bne	tp, t0, 0x23c <fail_add_suite>
+     210: 93 85 15 00  	addi	a1, a1, 1
+     214: 37 01 00 80  	lui	sp, 524288
+     218: 13 01 21 ff  	addi	sp, sp, -14
+     21c: b7 01 00 80  	lui	gp, 524288
+     220: 93 81 e1 00  	addi	gp, gp, 14
+     224: 33 02 31 00  	add	tp, sp, gp
+     228: b7 02 00 00  	lui	t0, 0
+     22c: 93 82 02 00  	mv	t0, t0
+     230: 63 16 52 00  	bne	tp, t0, 0x23c <fail_add_suite>
+     234: 93 85 15 00  	addi	a1, a1, 1
+     238: 6f 00 00 01  	j	0x248 <success_add_suite>
 
-000000d0 <fail_add_suite>:
-      d0: 13 05 f0 38  	li	a0, 911
-      d4: 73 00 00 00  	ecall	
-      d8: 00 00        	<unknown>
-      da: 00 00        	<unknown>
+0000023c <fail_add_suite>:
+     23c: 13 05 f0 38  	li	a0, 911
+     240: 73 00 00 00  	ecall
+     244: 00 00        	<unknown>
+     246: 00 00        	<unknown>
 
-000000dc <success_add_suite>:
-      dc: 13 05 c0 02  	li	a0, 44
-      e0: 73 00 00 00  	ecall	
+00000248 <success_add_suite>:
+     248: 13 05 c0 02  	li	a0, 44
+     24c: 73 00 00 00  	ecall
 
 Disassembly of section .text_sub_suite:
 
-00000000 <_start_sub_suite>:
-       0: 13 01 40 01  	li	sp, 20
-       4: 93 01 a0 00  	li	gp, 10
-       8: 33 02 31 40  	sub	tp, sp, gp
-       c: 93 02 a0 00  	li	t0, 10
-      10: 63 10 52 0c  	bne	tp, t0, 0xd0 <fail_sub_suite>
-      14: 93 85 15 00  	addi	a1, a1, 1
-      18: 13 01 c0 fe  	li	sp, -20
-      1c: 93 01 a0 00  	li	gp, 10
-      20: 33 02 31 40  	sub	tp, sp, gp
-      24: 93 02 20 fe  	li	t0, -30
-      28: 63 14 52 0a  	bne	tp, t0, 0xd0 <fail_sub_suite>
-      2c: 93 85 15 00  	addi	a1, a1, 1
-      30: 13 01 a0 00  	li	sp, 10
-      34: 93 01 60 ff  	li	gp, -10
-      38: 33 02 31 40  	sub	tp, sp, gp
-      3c: 93 02 40 01  	li	t0, 20
-      40: 63 18 52 08  	bne	tp, t0, 0xd0 <fail_sub_suite>
-      44: 93 85 15 00  	addi	a1, a1, 1
-      48: 13 01 c0 fe  	li	sp, -20
-      4c: 93 01 60 ff  	li	gp, -10
-      50: 33 02 31 40  	sub	tp, sp, gp
-      54: 93 02 60 ff  	li	t0, -10
-      58: 63 1c 52 06  	bne	tp, t0, 0xd0 <fail_sub_suite>
-      5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 37 01 00 80  	lui	sp, 524288
-      64: 13 01 21 ff  	addi	sp, sp, -14
-      68: b7 01 00 00  	lui	gp, 0
-      6c: 93 81 41 01  	addi	gp, gp, 20
-      70: 33 02 31 40  	sub	tp, sp, gp
-      74: b7 02 00 80  	lui	t0, 524288
-      78: 93 82 e2 fd  	addi	t0, t0, -34
-      7c: 63 1a 52 04  	bne	tp, t0, 0xd0 <fail_sub_suite>
-      80: 93 85 15 00  	addi	a1, a1, 1
-      84: 37 01 00 80  	lui	sp, 524288
-      88: 13 01 c1 00  	addi	sp, sp, 12
-      8c: b7 01 00 00  	lui	gp, 0
-      90: 93 81 21 fe  	addi	gp, gp, -30
-      94: 33 02 31 40  	sub	tp, sp, gp
-      98: b7 02 00 80  	lui	t0, 524288
-      9c: 93 82 a2 02  	addi	t0, t0, 42
-      a0: 63 18 52 02  	bne	tp, t0, 0xd0 <fail_sub_suite>
-      a4: 93 85 15 00  	addi	a1, a1, 1
-      a8: 37 01 00 80  	lui	sp, 524288
-      ac: 13 01 21 ff  	addi	sp, sp, -14
-      b0: b7 01 00 80  	lui	gp, 524288
-      b4: 93 81 21 ff  	addi	gp, gp, -14
-      b8: 33 02 31 40  	sub	tp, sp, gp
-      bc: b7 02 00 00  	lui	t0, 0
-      c0: 93 82 02 00  	mv	t0, t0
-      c4: 63 16 52 00  	bne	tp, t0, 0xd0 <fail_sub_suite>
-      c8: 93 85 15 00  	addi	a1, a1, 1
-      cc: 6f 00 00 01  	j	0xdc <success_sub_suite>
+00000250 <_start_sub_suite>:
+     250: 13 01 40 01  	li	sp, 20
+     254: 93 01 a0 00  	li	gp, 10
+     258: 33 02 31 40  	sub	tp, sp, gp
+     25c: 93 02 a0 00  	li	t0, 10
+     260: 63 10 52 0c  	bne	tp, t0, 0x320 <fail_sub_suite>
+     264: 93 85 15 00  	addi	a1, a1, 1
+     268: 13 01 c0 fe  	li	sp, -20
+     26c: 93 01 a0 00  	li	gp, 10
+     270: 33 02 31 40  	sub	tp, sp, gp
+     274: 93 02 20 fe  	li	t0, -30
+     278: 63 14 52 0a  	bne	tp, t0, 0x320 <fail_sub_suite>
+     27c: 93 85 15 00  	addi	a1, a1, 1
+     280: 13 01 a0 00  	li	sp, 10
+     284: 93 01 60 ff  	li	gp, -10
+     288: 33 02 31 40  	sub	tp, sp, gp
+     28c: 93 02 40 01  	li	t0, 20
+     290: 63 18 52 08  	bne	tp, t0, 0x320 <fail_sub_suite>
+     294: 93 85 15 00  	addi	a1, a1, 1
+     298: 13 01 c0 fe  	li	sp, -20
+     29c: 93 01 60 ff  	li	gp, -10
+     2a0: 33 02 31 40  	sub	tp, sp, gp
+     2a4: 93 02 60 ff  	li	t0, -10
+     2a8: 63 1c 52 06  	bne	tp, t0, 0x320 <fail_sub_suite>
+     2ac: 93 85 15 00  	addi	a1, a1, 1
+     2b0: 37 01 00 80  	lui	sp, 524288
+     2b4: 13 01 21 ff  	addi	sp, sp, -14
+     2b8: b7 01 00 00  	lui	gp, 0
+     2bc: 93 81 41 01  	addi	gp, gp, 20
+     2c0: 33 02 31 40  	sub	tp, sp, gp
+     2c4: b7 02 00 80  	lui	t0, 524288
+     2c8: 93 82 e2 fd  	addi	t0, t0, -34
+     2cc: 63 1a 52 04  	bne	tp, t0, 0x320 <fail_sub_suite>
+     2d0: 93 85 15 00  	addi	a1, a1, 1
+     2d4: 37 01 00 80  	lui	sp, 524288
+     2d8: 13 01 c1 00  	addi	sp, sp, 12
+     2dc: b7 01 00 00  	lui	gp, 0
+     2e0: 93 81 21 fe  	addi	gp, gp, -30
+     2e4: 33 02 31 40  	sub	tp, sp, gp
+     2e8: b7 02 00 80  	lui	t0, 524288
+     2ec: 93 82 a2 02  	addi	t0, t0, 42
+     2f0: 63 18 52 02  	bne	tp, t0, 0x320 <fail_sub_suite>
+     2f4: 93 85 15 00  	addi	a1, a1, 1
+     2f8: 37 01 00 80  	lui	sp, 524288
+     2fc: 13 01 21 ff  	addi	sp, sp, -14
+     300: b7 01 00 80  	lui	gp, 524288
+     304: 93 81 21 ff  	addi	gp, gp, -14
+     308: 33 02 31 40  	sub	tp, sp, gp
+     30c: b7 02 00 00  	lui	t0, 0
+     310: 93 82 02 00  	mv	t0, t0
+     314: 63 16 52 00  	bne	tp, t0, 0x320 <fail_sub_suite>
+     318: 93 85 15 00  	addi	a1, a1, 1
+     31c: 6f 00 00 01  	j	0x32c <success_sub_suite>
 
-000000d0 <fail_sub_suite>:
-      d0: 13 05 f0 38  	li	a0, 911
-      d4: 73 00 00 00  	ecall	
-      d8: 00 00        	<unknown>
-      da: 00 00        	<unknown>
+00000320 <fail_sub_suite>:
+     320: 13 05 f0 38  	li	a0, 911
+     324: 73 00 00 00  	ecall
+     328: 00 00        	<unknown>
+     32a: 00 00        	<unknown>
 
-000000dc <success_sub_suite>:
-      dc: 13 05 c0 02  	li	a0, 44
-      e0: 73 00 00 00  	ecall	
+0000032c <success_sub_suite>:
+     32c: 13 05 c0 02  	li	a0, 44
+     330: 73 00 00 00  	ecall
 
 Disassembly of section .text_slt_suite:
 
-00000000 <_start_slt_suite>:
-       0: 13 01 50 00  	li	sp, 5
-       4: 93 01 a0 00  	li	gp, 10
-       8: 33 22 31 00  	slt	tp, sp, gp
-       c: 93 02 10 00  	li	t0, 1
-      10: 63 1e 52 08  	bne	tp, t0, 0xac <fail_slt_suite>
-      14: 93 85 15 00  	addi	a1, a1, 1
-      18: 13 01 a0 00  	li	sp, 10
-      1c: 93 01 50 00  	li	gp, 5
-      20: 33 22 31 00  	slt	tp, sp, gp
-      24: 93 02 00 00  	li	t0, 0
-      28: 63 12 52 08  	bne	tp, t0, 0xac <fail_slt_suite>
-      2c: 93 85 15 00  	addi	a1, a1, 1
-      30: 13 01 50 00  	li	sp, 5
-      34: 93 01 50 00  	li	gp, 5
-      38: 33 22 31 00  	slt	tp, sp, gp
-      3c: 93 02 00 00  	li	t0, 0
-      40: 63 16 52 06  	bne	tp, t0, 0xac <fail_slt_suite>
-      44: 93 85 15 00  	addi	a1, a1, 1
-      48: 13 01 b0 ff  	li	sp, -5
-      4c: 93 01 50 00  	li	gp, 5
-      50: 33 22 31 00  	slt	tp, sp, gp
-      54: 93 02 10 00  	li	t0, 1
-      58: 63 1a 52 04  	bne	tp, t0, 0xac <fail_slt_suite>
-      5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 13 01 50 00  	li	sp, 5
-      64: 93 01 b0 ff  	li	gp, -5
-      68: 33 22 31 00  	slt	tp, sp, gp
-      6c: 93 02 00 00  	li	t0, 0
-      70: 63 1e 52 02  	bne	tp, t0, 0xac <fail_slt_suite>
-      74: 93 85 15 00  	addi	a1, a1, 1
-      78: 13 01 b0 ff  	li	sp, -5
-      7c: 93 01 60 ff  	li	gp, -10
-      80: 33 22 31 00  	slt	tp, sp, gp
-      84: 93 02 00 00  	li	t0, 0
-      88: 63 12 52 02  	bne	tp, t0, 0xac <fail_slt_suite>
-      8c: 93 85 15 00  	addi	a1, a1, 1
-      90: 13 01 60 ff  	li	sp, -10
-      94: 93 01 b0 ff  	li	gp, -5
-      98: 33 22 31 00  	slt	tp, sp, gp
-      9c: 93 02 10 00  	li	t0, 1
-      a0: 63 16 52 00  	bne	tp, t0, 0xac <fail_slt_suite>
-      a4: 93 85 15 00  	addi	a1, a1, 1
-      a8: 6f 00 00 01  	j	0xb8 <success_slt_suite>
+00000334 <_start_slt_suite>:
+     334: 13 01 50 00  	li	sp, 5
+     338: 93 01 a0 00  	li	gp, 10
+     33c: 33 22 31 00  	slt	tp, sp, gp
+     340: 93 02 10 00  	li	t0, 1
+     344: 63 1e 52 08  	bne	tp, t0, 0x3e0 <fail_slt_suite>
+     348: 93 85 15 00  	addi	a1, a1, 1
+     34c: 13 01 a0 00  	li	sp, 10
+     350: 93 01 50 00  	li	gp, 5
+     354: 33 22 31 00  	slt	tp, sp, gp
+     358: 93 02 00 00  	li	t0, 0
+     35c: 63 12 52 08  	bne	tp, t0, 0x3e0 <fail_slt_suite>
+     360: 93 85 15 00  	addi	a1, a1, 1
+     364: 13 01 50 00  	li	sp, 5
+     368: 93 01 50 00  	li	gp, 5
+     36c: 33 22 31 00  	slt	tp, sp, gp
+     370: 93 02 00 00  	li	t0, 0
+     374: 63 16 52 06  	bne	tp, t0, 0x3e0 <fail_slt_suite>
+     378: 93 85 15 00  	addi	a1, a1, 1
+     37c: 13 01 b0 ff  	li	sp, -5
+     380: 93 01 50 00  	li	gp, 5
+     384: 33 22 31 00  	slt	tp, sp, gp
+     388: 93 02 10 00  	li	t0, 1
+     38c: 63 1a 52 04  	bne	tp, t0, 0x3e0 <fail_slt_suite>
+     390: 93 85 15 00  	addi	a1, a1, 1
+     394: 13 01 50 00  	li	sp, 5
+     398: 93 01 b0 ff  	li	gp, -5
+     39c: 33 22 31 00  	slt	tp, sp, gp
+     3a0: 93 02 00 00  	li	t0, 0
+     3a4: 63 1e 52 02  	bne	tp, t0, 0x3e0 <fail_slt_suite>
+     3a8: 93 85 15 00  	addi	a1, a1, 1
+     3ac: 13 01 b0 ff  	li	sp, -5
+     3b0: 93 01 60 ff  	li	gp, -10
+     3b4: 33 22 31 00  	slt	tp, sp, gp
+     3b8: 93 02 00 00  	li	t0, 0
+     3bc: 63 12 52 02  	bne	tp, t0, 0x3e0 <fail_slt_suite>
+     3c0: 93 85 15 00  	addi	a1, a1, 1
+     3c4: 13 01 60 ff  	li	sp, -10
+     3c8: 93 01 b0 ff  	li	gp, -5
+     3cc: 33 22 31 00  	slt	tp, sp, gp
+     3d0: 93 02 10 00  	li	t0, 1
+     3d4: 63 16 52 00  	bne	tp, t0, 0x3e0 <fail_slt_suite>
+     3d8: 93 85 15 00  	addi	a1, a1, 1
+     3dc: 6f 00 00 01  	j	0x3ec <success_slt_suite>
 
-000000ac <fail_slt_suite>:
-      ac: 13 05 f0 38  	li	a0, 911
-      b0: 73 00 00 00  	ecall	
-      b4: 00 00        	<unknown>
-      b6: 00 00        	<unknown>
+000003e0 <fail_slt_suite>:
+     3e0: 13 05 f0 38  	li	a0, 911
+     3e4: 73 00 00 00  	ecall
+     3e8: 00 00        	<unknown>
+     3ea: 00 00        	<unknown>
 
-000000b8 <success_slt_suite>:
-      b8: 13 05 c0 02  	li	a0, 44
-      bc: 73 00 00 00  	ecall	
+000003ec <success_slt_suite>:
+     3ec: 13 05 c0 02  	li	a0, 44
+     3f0: 73 00 00 00  	ecall
 
 Disassembly of section .text_sltu_suite:
 
-00000000 <_start_sltu_suite>:
-       0: 13 01 50 00  	li	sp, 5
-       4: 93 01 a0 00  	li	gp, 10
-       8: 33 32 31 00  	sltu	tp, sp, gp
-       c: 93 02 10 00  	li	t0, 1
-      10: 63 1e 52 08  	bne	tp, t0, 0xac <fail_sltu_suite>
-      14: 93 85 15 00  	addi	a1, a1, 1
-      18: 13 01 a0 00  	li	sp, 10
-      1c: 93 01 50 00  	li	gp, 5
-      20: 33 32 31 00  	sltu	tp, sp, gp
-      24: 93 02 00 00  	li	t0, 0
-      28: 63 12 52 08  	bne	tp, t0, 0xac <fail_sltu_suite>
-      2c: 93 85 15 00  	addi	a1, a1, 1
-      30: 13 01 50 00  	li	sp, 5
-      34: 93 01 50 00  	li	gp, 5
-      38: 33 32 31 00  	sltu	tp, sp, gp
-      3c: 93 02 00 00  	li	t0, 0
-      40: 63 16 52 06  	bne	tp, t0, 0xac <fail_sltu_suite>
-      44: 93 85 15 00  	addi	a1, a1, 1
-      48: 13 01 b0 ff  	li	sp, -5
-      4c: 93 01 50 00  	li	gp, 5
-      50: 33 32 31 00  	sltu	tp, sp, gp
-      54: 93 02 00 00  	li	t0, 0
-      58: 63 1a 52 04  	bne	tp, t0, 0xac <fail_sltu_suite>
-      5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 13 01 50 00  	li	sp, 5
-      64: 93 01 b0 ff  	li	gp, -5
-      68: 33 32 31 00  	sltu	tp, sp, gp
-      6c: 93 02 10 00  	li	t0, 1
-      70: 63 1e 52 02  	bne	tp, t0, 0xac <fail_sltu_suite>
-      74: 93 85 15 00  	addi	a1, a1, 1
-      78: 13 01 b0 ff  	li	sp, -5
-      7c: 93 01 60 ff  	li	gp, -10
-      80: 33 32 31 00  	sltu	tp, sp, gp
-      84: 93 02 00 00  	li	t0, 0
-      88: 63 12 52 02  	bne	tp, t0, 0xac <fail_sltu_suite>
-      8c: 93 85 15 00  	addi	a1, a1, 1
-      90: 13 01 60 ff  	li	sp, -10
-      94: 93 01 b0 ff  	li	gp, -5
-      98: 33 32 31 00  	sltu	tp, sp, gp
-      9c: 93 02 10 00  	li	t0, 1
-      a0: 63 16 52 00  	bne	tp, t0, 0xac <fail_sltu_suite>
-      a4: 93 85 15 00  	addi	a1, a1, 1
-      a8: 6f 00 00 01  	j	0xb8 <success_sltu_suite>
+000003f4 <_start_sltu_suite>:
+     3f4: 13 01 50 00  	li	sp, 5
+     3f8: 93 01 a0 00  	li	gp, 10
+     3fc: 33 32 31 00  	sltu	tp, sp, gp
+     400: 93 02 10 00  	li	t0, 1
+     404: 63 1e 52 08  	bne	tp, t0, 0x4a0 <fail_sltu_suite>
+     408: 93 85 15 00  	addi	a1, a1, 1
+     40c: 13 01 a0 00  	li	sp, 10
+     410: 93 01 50 00  	li	gp, 5
+     414: 33 32 31 00  	sltu	tp, sp, gp
+     418: 93 02 00 00  	li	t0, 0
+     41c: 63 12 52 08  	bne	tp, t0, 0x4a0 <fail_sltu_suite>
+     420: 93 85 15 00  	addi	a1, a1, 1
+     424: 13 01 50 00  	li	sp, 5
+     428: 93 01 50 00  	li	gp, 5
+     42c: 33 32 31 00  	sltu	tp, sp, gp
+     430: 93 02 00 00  	li	t0, 0
+     434: 63 16 52 06  	bne	tp, t0, 0x4a0 <fail_sltu_suite>
+     438: 93 85 15 00  	addi	a1, a1, 1
+     43c: 13 01 b0 ff  	li	sp, -5
+     440: 93 01 50 00  	li	gp, 5
+     444: 33 32 31 00  	sltu	tp, sp, gp
+     448: 93 02 00 00  	li	t0, 0
+     44c: 63 1a 52 04  	bne	tp, t0, 0x4a0 <fail_sltu_suite>
+     450: 93 85 15 00  	addi	a1, a1, 1
+     454: 13 01 50 00  	li	sp, 5
+     458: 93 01 b0 ff  	li	gp, -5
+     45c: 33 32 31 00  	sltu	tp, sp, gp
+     460: 93 02 10 00  	li	t0, 1
+     464: 63 1e 52 02  	bne	tp, t0, 0x4a0 <fail_sltu_suite>
+     468: 93 85 15 00  	addi	a1, a1, 1
+     46c: 13 01 b0 ff  	li	sp, -5
+     470: 93 01 60 ff  	li	gp, -10
+     474: 33 32 31 00  	sltu	tp, sp, gp
+     478: 93 02 00 00  	li	t0, 0
+     47c: 63 12 52 02  	bne	tp, t0, 0x4a0 <fail_sltu_suite>
+     480: 93 85 15 00  	addi	a1, a1, 1
+     484: 13 01 60 ff  	li	sp, -10
+     488: 93 01 b0 ff  	li	gp, -5
+     48c: 33 32 31 00  	sltu	tp, sp, gp
+     490: 93 02 10 00  	li	t0, 1
+     494: 63 16 52 00  	bne	tp, t0, 0x4a0 <fail_sltu_suite>
+     498: 93 85 15 00  	addi	a1, a1, 1
+     49c: 6f 00 00 01  	j	0x4ac <success_sltu_suite>
 
-000000ac <fail_sltu_suite>:
-      ac: 13 05 f0 38  	li	a0, 911
-      b0: 73 00 00 00  	ecall	
-      b4: 00 00        	<unknown>
-      b6: 00 00        	<unknown>
+000004a0 <fail_sltu_suite>:
+     4a0: 13 05 f0 38  	li	a0, 911
+     4a4: 73 00 00 00  	ecall
+     4a8: 00 00        	<unknown>
+     4aa: 00 00        	<unknown>
 
-000000b8 <success_sltu_suite>:
-      b8: 13 05 c0 02  	li	a0, 44
-      bc: 73 00 00 00  	ecall	
+000004ac <success_sltu_suite>:
+     4ac: 13 05 c0 02  	li	a0, 44
+     4b0: 73 00 00 00  	ecall
 
 Disassembly of section .text_srl_suite:
 
-00000000 <_start_srl_suite>:
-       0: 13 01 d0 02  	li	sp, 45
-       4: 93 01 00 00  	li	gp, 0
-       8: 33 52 31 00  	srl	tp, sp, gp
-       c: 93 02 d0 02  	li	t0, 45
-      10: 63 1c 52 12  	bne	tp, t0, 0x148 <fail_srl_suite>
-      14: 93 85 15 00  	addi	a1, a1, 1
-      18: 13 01 d0 02  	li	sp, 45
-      1c: 93 01 10 00  	li	gp, 1
-      20: 33 52 31 00  	srl	tp, sp, gp
-      24: 93 02 60 01  	li	t0, 22
-      28: 63 10 52 12  	bne	tp, t0, 0x148 <fail_srl_suite>
-      2c: 93 85 15 00  	addi	a1, a1, 1
-      30: 13 01 d0 02  	li	sp, 45
-      34: 93 01 20 00  	li	gp, 2
-      38: 33 52 31 00  	srl	tp, sp, gp
-      3c: 93 02 b0 00  	li	t0, 11
-      40: 63 14 52 10  	bne	tp, t0, 0x148 <fail_srl_suite>
-      44: 93 85 15 00  	addi	a1, a1, 1
-      48: 13 01 d0 02  	li	sp, 45
-      4c: 93 01 50 00  	li	gp, 5
-      50: 33 52 31 00  	srl	tp, sp, gp
-      54: 93 02 10 00  	li	t0, 1
-      58: 63 18 52 0e  	bne	tp, t0, 0x148 <fail_srl_suite>
-      5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 13 01 d0 02  	li	sp, 45
-      64: 93 01 60 00  	li	gp, 6
-      68: 33 52 31 00  	srl	tp, sp, gp
-      6c: 93 02 00 00  	li	t0, 0
-      70: 63 1c 52 0c  	bne	tp, t0, 0x148 <fail_srl_suite>
-      74: 93 85 15 00  	addi	a1, a1, 1
-      78: 13 01 d0 02  	li	sp, 45
-      7c: 93 01 20 08  	li	gp, 130
-      80: 33 52 31 00  	srl	tp, sp, gp
-      84: 93 02 b0 00  	li	t0, 11
-      88: 63 10 52 0c  	bne	tp, t0, 0x148 <fail_srl_suite>
-      8c: 93 85 15 00  	addi	a1, a1, 1
-      90: 13 01 30 fd  	li	sp, -45
-      94: 93 01 00 00  	li	gp, 0
-      98: 33 52 31 00  	srl	tp, sp, gp
-      9c: 93 02 30 fd  	li	t0, -45
-      a0: 63 14 52 0a  	bne	tp, t0, 0x148 <fail_srl_suite>
-      a4: 93 85 15 00  	addi	a1, a1, 1
-      a8: 13 01 30 fd  	li	sp, -45
-      ac: 93 01 f0 01  	li	gp, 31
-      b0: 33 52 31 00  	srl	tp, sp, gp
-      b4: 93 02 10 00  	li	t0, 1
-      b8: 63 18 52 08  	bne	tp, t0, 0x148 <fail_srl_suite>
-      bc: 93 85 15 00  	addi	a1, a1, 1
-      c0: 13 01 30 fd  	li	sp, -45
-      c4: 93 01 00 02  	li	gp, 32
-      c8: 33 52 31 00  	srl	tp, sp, gp
-      cc: 93 02 30 fd  	li	t0, -45
-      d0: 63 1c 52 06  	bne	tp, t0, 0x148 <fail_srl_suite>
-      d4: 93 85 15 00  	addi	a1, a1, 1
-      d8: 37 01 00 00  	lui	sp, 0
-      dc: 13 01 31 fd  	addi	sp, sp, -45
-      e0: b7 01 00 00  	lui	gp, 0
-      e4: 93 81 11 00  	addi	gp, gp, 1
-      e8: 33 52 31 00  	srl	tp, sp, gp
-      ec: b7 02 00 80  	lui	t0, 524288
-      f0: 93 82 92 fe  	addi	t0, t0, -23
-      f4: 63 1a 52 04  	bne	tp, t0, 0x148 <fail_srl_suite>
-      f8: 93 85 15 00  	addi	a1, a1, 1
-      fc: 37 01 00 00  	lui	sp, 0
-     100: 13 01 21 f8  	addi	sp, sp, -126
-     104: b7 01 00 00  	lui	gp, 0
-     108: 93 81 31 00  	addi	gp, gp, 3
-     10c: 33 52 31 00  	srl	tp, sp, gp
-     110: b7 02 00 20  	lui	t0, 131072
-     114: 93 82 02 ff  	addi	t0, t0, -16
-     118: 63 18 52 02  	bne	tp, t0, 0x148 <fail_srl_suite>
-     11c: 93 85 15 00  	addi	a1, a1, 1
-     120: 37 01 00 00  	lui	sp, 0
-     124: 13 01 21 f8  	addi	sp, sp, -126
-     128: b7 01 00 00  	lui	gp, 0
-     12c: 93 81 31 02  	addi	gp, gp, 35
-     130: 33 52 31 00  	srl	tp, sp, gp
-     134: b7 02 00 20  	lui	t0, 131072
-     138: 93 82 02 ff  	addi	t0, t0, -16
-     13c: 63 16 52 00  	bne	tp, t0, 0x148 <fail_srl_suite>
-     140: 93 85 15 00  	addi	a1, a1, 1
-     144: 6f 00 00 01  	j	0x154 <success_srl_suite>
+000004b4 <_start_srl_suite>:
+     4b4: 13 01 d0 02  	li	sp, 45
+     4b8: 93 01 00 00  	li	gp, 0
+     4bc: 33 52 31 00  	srl	tp, sp, gp
+     4c0: 93 02 d0 02  	li	t0, 45
+     4c4: 63 1c 52 12  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     4c8: 93 85 15 00  	addi	a1, a1, 1
+     4cc: 13 01 d0 02  	li	sp, 45
+     4d0: 93 01 10 00  	li	gp, 1
+     4d4: 33 52 31 00  	srl	tp, sp, gp
+     4d8: 93 02 60 01  	li	t0, 22
+     4dc: 63 10 52 12  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     4e0: 93 85 15 00  	addi	a1, a1, 1
+     4e4: 13 01 d0 02  	li	sp, 45
+     4e8: 93 01 20 00  	li	gp, 2
+     4ec: 33 52 31 00  	srl	tp, sp, gp
+     4f0: 93 02 b0 00  	li	t0, 11
+     4f4: 63 14 52 10  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     4f8: 93 85 15 00  	addi	a1, a1, 1
+     4fc: 13 01 d0 02  	li	sp, 45
+     500: 93 01 50 00  	li	gp, 5
+     504: 33 52 31 00  	srl	tp, sp, gp
+     508: 93 02 10 00  	li	t0, 1
+     50c: 63 18 52 0e  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     510: 93 85 15 00  	addi	a1, a1, 1
+     514: 13 01 d0 02  	li	sp, 45
+     518: 93 01 60 00  	li	gp, 6
+     51c: 33 52 31 00  	srl	tp, sp, gp
+     520: 93 02 00 00  	li	t0, 0
+     524: 63 1c 52 0c  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     528: 93 85 15 00  	addi	a1, a1, 1
+     52c: 13 01 d0 02  	li	sp, 45
+     530: 93 01 20 08  	li	gp, 130
+     534: 33 52 31 00  	srl	tp, sp, gp
+     538: 93 02 b0 00  	li	t0, 11
+     53c: 63 10 52 0c  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     540: 93 85 15 00  	addi	a1, a1, 1
+     544: 13 01 30 fd  	li	sp, -45
+     548: 93 01 00 00  	li	gp, 0
+     54c: 33 52 31 00  	srl	tp, sp, gp
+     550: 93 02 30 fd  	li	t0, -45
+     554: 63 14 52 0a  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     558: 93 85 15 00  	addi	a1, a1, 1
+     55c: 13 01 30 fd  	li	sp, -45
+     560: 93 01 f0 01  	li	gp, 31
+     564: 33 52 31 00  	srl	tp, sp, gp
+     568: 93 02 10 00  	li	t0, 1
+     56c: 63 18 52 08  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     570: 93 85 15 00  	addi	a1, a1, 1
+     574: 13 01 30 fd  	li	sp, -45
+     578: 93 01 00 02  	li	gp, 32
+     57c: 33 52 31 00  	srl	tp, sp, gp
+     580: 93 02 30 fd  	li	t0, -45
+     584: 63 1c 52 06  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     588: 93 85 15 00  	addi	a1, a1, 1
+     58c: 37 01 00 00  	lui	sp, 0
+     590: 13 01 31 fd  	addi	sp, sp, -45
+     594: b7 01 00 00  	lui	gp, 0
+     598: 93 81 11 00  	addi	gp, gp, 1
+     59c: 33 52 31 00  	srl	tp, sp, gp
+     5a0: b7 02 00 80  	lui	t0, 524288
+     5a4: 93 82 92 fe  	addi	t0, t0, -23
+     5a8: 63 1a 52 04  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     5ac: 93 85 15 00  	addi	a1, a1, 1
+     5b0: 37 01 00 00  	lui	sp, 0
+     5b4: 13 01 21 f8  	addi	sp, sp, -126
+     5b8: b7 01 00 00  	lui	gp, 0
+     5bc: 93 81 31 00  	addi	gp, gp, 3
+     5c0: 33 52 31 00  	srl	tp, sp, gp
+     5c4: b7 02 00 20  	lui	t0, 131072
+     5c8: 93 82 02 ff  	addi	t0, t0, -16
+     5cc: 63 18 52 02  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     5d0: 93 85 15 00  	addi	a1, a1, 1
+     5d4: 37 01 00 00  	lui	sp, 0
+     5d8: 13 01 21 f8  	addi	sp, sp, -126
+     5dc: b7 01 00 00  	lui	gp, 0
+     5e0: 93 81 31 02  	addi	gp, gp, 35
+     5e4: 33 52 31 00  	srl	tp, sp, gp
+     5e8: b7 02 00 20  	lui	t0, 131072
+     5ec: 93 82 02 ff  	addi	t0, t0, -16
+     5f0: 63 16 52 00  	bne	tp, t0, 0x5fc <fail_srl_suite>
+     5f4: 93 85 15 00  	addi	a1, a1, 1
+     5f8: 6f 00 00 01  	j	0x608 <success_srl_suite>
 
-00000148 <fail_srl_suite>:
-     148: 13 05 f0 38  	li	a0, 911
-     14c: 73 00 00 00  	ecall	
-     150: 00 00        	<unknown>
-     152: 00 00        	<unknown>
+000005fc <fail_srl_suite>:
+     5fc: 13 05 f0 38  	li	a0, 911
+     600: 73 00 00 00  	ecall
+     604: 00 00        	<unknown>
+     606: 00 00        	<unknown>
 
-00000154 <success_srl_suite>:
-     154: 13 05 c0 02  	li	a0, 44
-     158: 73 00 00 00  	ecall	
+00000608 <success_srl_suite>:
+     608: 13 05 c0 02  	li	a0, 44
+     60c: 73 00 00 00  	ecall
 
 Disassembly of section .text_sra_suite:
 
-00000000 <_start_sra_suite>:
-       0: 13 01 d0 02  	li	sp, 45
-       4: 93 01 00 00  	li	gp, 0
-       8: 33 52 31 40  	sra	tp, sp, gp
-       c: 93 02 d0 02  	li	t0, 45
-      10: 63 16 52 0c  	bne	tp, t0, 0xdc <fail_sra_suite>
-      14: 93 85 15 00  	addi	a1, a1, 1
-      18: 13 01 d0 02  	li	sp, 45
-      1c: 93 01 10 00  	li	gp, 1
-      20: 33 52 31 40  	sra	tp, sp, gp
-      24: 93 02 60 01  	li	t0, 22
-      28: 63 1a 52 0a  	bne	tp, t0, 0xdc <fail_sra_suite>
-      2c: 93 85 15 00  	addi	a1, a1, 1
-      30: 13 01 d0 02  	li	sp, 45
-      34: 93 01 20 00  	li	gp, 2
-      38: 33 52 31 40  	sra	tp, sp, gp
-      3c: 93 02 b0 00  	li	t0, 11
-      40: 63 1e 52 08  	bne	tp, t0, 0xdc <fail_sra_suite>
-      44: 93 85 15 00  	addi	a1, a1, 1
-      48: 13 01 30 fd  	li	sp, -45
-      4c: 93 01 00 00  	li	gp, 0
-      50: 33 52 31 40  	sra	tp, sp, gp
-      54: 93 02 30 fd  	li	t0, -45
-      58: 63 12 52 08  	bne	tp, t0, 0xdc <fail_sra_suite>
-      5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 13 01 30 fd  	li	sp, -45
-      64: 93 01 10 00  	li	gp, 1
-      68: 33 52 31 40  	sra	tp, sp, gp
-      6c: 93 02 90 fe  	li	t0, -23
-      70: 63 16 52 06  	bne	tp, t0, 0xdc <fail_sra_suite>
-      74: 93 85 15 00  	addi	a1, a1, 1
-      78: 13 01 20 f8  	li	sp, -126
-      7c: 93 01 30 00  	li	gp, 3
-      80: 33 52 31 40  	sra	tp, sp, gp
-      84: 93 02 00 ff  	li	t0, -16
-      88: 63 1a 52 04  	bne	tp, t0, 0xdc <fail_sra_suite>
-      8c: 93 85 15 00  	addi	a1, a1, 1
-      90: 13 01 20 f8  	li	sp, -126
-      94: 93 01 70 00  	li	gp, 7
-      98: 33 52 31 40  	sra	tp, sp, gp
-      9c: 93 02 f0 ff  	li	t0, -1
-      a0: 63 1e 52 02  	bne	tp, t0, 0xdc <fail_sra_suite>
-      a4: 93 85 15 00  	addi	a1, a1, 1
-      a8: 13 01 20 f8  	li	sp, -126
-      ac: 93 01 80 00  	li	gp, 8
-      b0: 33 52 31 40  	sra	tp, sp, gp
-      b4: 93 02 f0 ff  	li	t0, -1
-      b8: 63 12 52 02  	bne	tp, t0, 0xdc <fail_sra_suite>
-      bc: 93 85 15 00  	addi	a1, a1, 1
-      c0: 13 01 20 f8  	li	sp, -126
-      c4: 93 01 30 10  	li	gp, 259
-      c8: 33 52 31 40  	sra	tp, sp, gp
-      cc: 93 02 00 ff  	li	t0, -16
-      d0: 63 16 52 00  	bne	tp, t0, 0xdc <fail_sra_suite>
-      d4: 93 85 15 00  	addi	a1, a1, 1
-      d8: 6f 00 00 01  	j	0xe8 <success_sra_suite>
+00000610 <_start_sra_suite>:
+     610: 13 01 d0 02  	li	sp, 45
+     614: 93 01 00 00  	li	gp, 0
+     618: 33 52 31 40  	sra	tp, sp, gp
+     61c: 93 02 d0 02  	li	t0, 45
+     620: 63 16 52 0c  	bne	tp, t0, 0x6ec <fail_sra_suite>
+     624: 93 85 15 00  	addi	a1, a1, 1
+     628: 13 01 d0 02  	li	sp, 45
+     62c: 93 01 10 00  	li	gp, 1
+     630: 33 52 31 40  	sra	tp, sp, gp
+     634: 93 02 60 01  	li	t0, 22
+     638: 63 1a 52 0a  	bne	tp, t0, 0x6ec <fail_sra_suite>
+     63c: 93 85 15 00  	addi	a1, a1, 1
+     640: 13 01 d0 02  	li	sp, 45
+     644: 93 01 20 00  	li	gp, 2
+     648: 33 52 31 40  	sra	tp, sp, gp
+     64c: 93 02 b0 00  	li	t0, 11
+     650: 63 1e 52 08  	bne	tp, t0, 0x6ec <fail_sra_suite>
+     654: 93 85 15 00  	addi	a1, a1, 1
+     658: 13 01 30 fd  	li	sp, -45
+     65c: 93 01 00 00  	li	gp, 0
+     660: 33 52 31 40  	sra	tp, sp, gp
+     664: 93 02 30 fd  	li	t0, -45
+     668: 63 12 52 08  	bne	tp, t0, 0x6ec <fail_sra_suite>
+     66c: 93 85 15 00  	addi	a1, a1, 1
+     670: 13 01 30 fd  	li	sp, -45
+     674: 93 01 10 00  	li	gp, 1
+     678: 33 52 31 40  	sra	tp, sp, gp
+     67c: 93 02 90 fe  	li	t0, -23
+     680: 63 16 52 06  	bne	tp, t0, 0x6ec <fail_sra_suite>
+     684: 93 85 15 00  	addi	a1, a1, 1
+     688: 13 01 20 f8  	li	sp, -126
+     68c: 93 01 30 00  	li	gp, 3
+     690: 33 52 31 40  	sra	tp, sp, gp
+     694: 93 02 00 ff  	li	t0, -16
+     698: 63 1a 52 04  	bne	tp, t0, 0x6ec <fail_sra_suite>
+     69c: 93 85 15 00  	addi	a1, a1, 1
+     6a0: 13 01 20 f8  	li	sp, -126
+     6a4: 93 01 70 00  	li	gp, 7
+     6a8: 33 52 31 40  	sra	tp, sp, gp
+     6ac: 93 02 f0 ff  	li	t0, -1
+     6b0: 63 1e 52 02  	bne	tp, t0, 0x6ec <fail_sra_suite>
+     6b4: 93 85 15 00  	addi	a1, a1, 1
+     6b8: 13 01 20 f8  	li	sp, -126
+     6bc: 93 01 80 00  	li	gp, 8
+     6c0: 33 52 31 40  	sra	tp, sp, gp
+     6c4: 93 02 f0 ff  	li	t0, -1
+     6c8: 63 12 52 02  	bne	tp, t0, 0x6ec <fail_sra_suite>
+     6cc: 93 85 15 00  	addi	a1, a1, 1
+     6d0: 13 01 20 f8  	li	sp, -126
+     6d4: 93 01 30 10  	li	gp, 259
+     6d8: 33 52 31 40  	sra	tp, sp, gp
+     6dc: 93 02 00 ff  	li	t0, -16
+     6e0: 63 16 52 00  	bne	tp, t0, 0x6ec <fail_sra_suite>
+     6e4: 93 85 15 00  	addi	a1, a1, 1
+     6e8: 6f 00 00 01  	j	0x6f8 <success_sra_suite>
 
-000000dc <fail_sra_suite>:
-      dc: 13 05 f0 38  	li	a0, 911
-      e0: 73 00 00 00  	ecall	
-      e4: 00 00        	<unknown>
-      e6: 00 00        	<unknown>
+000006ec <fail_sra_suite>:
+     6ec: 13 05 f0 38  	li	a0, 911
+     6f0: 73 00 00 00  	ecall
+     6f4: 00 00        	<unknown>
+     6f6: 00 00        	<unknown>
 
-000000e8 <success_sra_suite>:
-      e8: 13 05 c0 02  	li	a0, 44
-      ec: 73 00 00 00  	ecall	
+000006f8 <success_sra_suite>:
+     6f8: 13 05 c0 02  	li	a0, 44
+     6fc: 73 00 00 00  	ecall
 
 Disassembly of section .text_and_suite:
 
-00000000 <_start_and_suite>:
-       0: 13 01 a0 0a  	li	sp, 170
-       4: 93 01 c0 0c  	li	gp, 204
-       8: 33 72 31 00  	and	tp, sp, gp
-       c: 93 02 80 08  	li	t0, 136
-      10: 63 1c 52 06  	bne	tp, t0, 0x88 <fail_and_suite>
-      14: 93 85 15 00  	addi	a1, a1, 1
-      18: 37 01 00 00  	lui	sp, 0
-      1c: 13 01 f1 ff  	addi	sp, sp, -1
-      20: b7 01 00 00  	lui	gp, 0
-      24: 93 81 01 00  	mv	gp, gp
-      28: 33 72 31 00  	and	tp, sp, gp
-      2c: b7 02 00 00  	lui	t0, 0
-      30: 93 82 02 00  	mv	t0, t0
-      34: 63 1a 52 04  	bne	tp, t0, 0x88 <fail_and_suite>
-      38: 93 85 15 00  	addi	a1, a1, 1
-      3c: 37 01 00 00  	lui	sp, 0
-      40: 13 01 f1 ff  	addi	sp, sp, -1
-      44: b7 01 00 00  	lui	gp, 0
-      48: 93 81 f1 ff  	addi	gp, gp, -1
-      4c: 33 72 31 00  	and	tp, sp, gp
-      50: b7 02 00 00  	lui	t0, 0
-      54: 93 82 f2 ff  	addi	t0, t0, -1
-      58: 63 18 52 02  	bne	tp, t0, 0x88 <fail_and_suite>
-      5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 37 51 34 12  	lui	sp, 74565
-      64: 13 01 81 67  	addi	sp, sp, 1656
-      68: b7 41 65 87  	lui	gp, 554580
-      6c: 93 81 11 32  	addi	gp, gp, 801
-      70: 33 72 31 00  	and	tp, sp, gp
-      74: b7 42 24 02  	lui	t0, 8772
-      78: 93 82 02 22  	addi	t0, t0, 544
-      7c: 63 16 52 00  	bne	tp, t0, 0x88 <fail_and_suite>
-      80: 93 85 15 00  	addi	a1, a1, 1
-      84: 6f 00 00 01  	j	0x94 <success_and_suite>
+00000700 <_start_and_suite>:
+     700: 13 01 a0 0a  	li	sp, 170
+     704: 93 01 c0 0c  	li	gp, 204
+     708: 33 72 31 00  	and	tp, sp, gp
+     70c: 93 02 80 08  	li	t0, 136
+     710: 63 1c 52 06  	bne	tp, t0, 0x788 <fail_and_suite>
+     714: 93 85 15 00  	addi	a1, a1, 1
+     718: 37 01 00 00  	lui	sp, 0
+     71c: 13 01 f1 ff  	addi	sp, sp, -1
+     720: b7 01 00 00  	lui	gp, 0
+     724: 93 81 01 00  	mv	gp, gp
+     728: 33 72 31 00  	and	tp, sp, gp
+     72c: b7 02 00 00  	lui	t0, 0
+     730: 93 82 02 00  	mv	t0, t0
+     734: 63 1a 52 04  	bne	tp, t0, 0x788 <fail_and_suite>
+     738: 93 85 15 00  	addi	a1, a1, 1
+     73c: 37 01 00 00  	lui	sp, 0
+     740: 13 01 f1 ff  	addi	sp, sp, -1
+     744: b7 01 00 00  	lui	gp, 0
+     748: 93 81 f1 ff  	addi	gp, gp, -1
+     74c: 33 72 31 00  	and	tp, sp, gp
+     750: b7 02 00 00  	lui	t0, 0
+     754: 93 82 f2 ff  	addi	t0, t0, -1
+     758: 63 18 52 02  	bne	tp, t0, 0x788 <fail_and_suite>
+     75c: 93 85 15 00  	addi	a1, a1, 1
+     760: 37 51 34 12  	lui	sp, 74565
+     764: 13 01 81 67  	addi	sp, sp, 1656
+     768: b7 41 65 87  	lui	gp, 554580
+     76c: 93 81 11 32  	addi	gp, gp, 801
+     770: 33 72 31 00  	and	tp, sp, gp
+     774: b7 42 24 02  	lui	t0, 8772
+     778: 93 82 02 22  	addi	t0, t0, 544
+     77c: 63 16 52 00  	bne	tp, t0, 0x788 <fail_and_suite>
+     780: 93 85 15 00  	addi	a1, a1, 1
+     784: 6f 00 00 01  	j	0x794 <success_and_suite>
 
-00000088 <fail_and_suite>:
-      88: 13 05 f0 38  	li	a0, 911
-      8c: 73 00 00 00  	ecall	
-      90: 00 00        	<unknown>
-      92: 00 00        	<unknown>
+00000788 <fail_and_suite>:
+     788: 13 05 f0 38  	li	a0, 911
+     78c: 73 00 00 00  	ecall
+     790: 00 00        	<unknown>
+     792: 00 00        	<unknown>
 
-00000094 <success_and_suite>:
-      94: 13 05 c0 02  	li	a0, 44
-      98: 73 00 00 00  	ecall	
+00000794 <success_and_suite>:
+     794: 13 05 c0 02  	li	a0, 44
+     798: 73 00 00 00  	ecall
 
 Disassembly of section .text_or_suite:
 
-00000000 <_start_or_suite>:
-       0: 13 01 a0 0a  	li	sp, 170
-       4: 93 01 c0 0c  	li	gp, 204
-       8: 33 62 31 00  	or	tp, sp, gp
-       c: 93 02 e0 0e  	li	t0, 238
-      10: 63 16 52 06  	bne	tp, t0, 0x7c <fail_or_suite>
-      14: 93 85 15 00  	addi	a1, a1, 1
-      18: 37 01 00 00  	lui	sp, 0
-      1c: 13 01 f1 ff  	addi	sp, sp, -1
-      20: b7 01 00 00  	lui	gp, 0
-      24: 93 81 01 00  	mv	gp, gp
-      28: 33 62 31 00  	or	tp, sp, gp
-      2c: b7 02 00 00  	lui	t0, 0
-      30: 93 82 f2 ff  	addi	t0, t0, -1
-      34: 63 14 52 04  	bne	tp, t0, 0x7c <fail_or_suite>
-      38: 93 85 15 00  	addi	a1, a1, 1
-      3c: 13 01 00 00  	li	sp, 0
-      40: 93 01 00 00  	li	gp, 0
-      44: 33 62 31 00  	or	tp, sp, gp
-      48: 93 02 00 00  	li	t0, 0
-      4c: 63 18 52 02  	bne	tp, t0, 0x7c <fail_or_suite>
-      50: 93 85 15 00  	addi	a1, a1, 1
-      54: 37 51 34 12  	lui	sp, 74565
-      58: 13 01 81 67  	addi	sp, sp, 1656
-      5c: b7 41 65 87  	lui	gp, 554580
-      60: 93 81 11 32  	addi	gp, gp, 801
-      64: 33 62 31 00  	or	tp, sp, gp
-      68: b7 52 75 97  	lui	t0, 620373
-      6c: 93 82 92 77  	addi	t0, t0, 1913
-      70: 63 16 52 00  	bne	tp, t0, 0x7c <fail_or_suite>
-      74: 93 85 15 00  	addi	a1, a1, 1
-      78: 6f 00 00 01  	j	0x88 <success_or_suite>
+0000079c <_start_or_suite>:
+     79c: 13 01 a0 0a  	li	sp, 170
+     7a0: 93 01 c0 0c  	li	gp, 204
+     7a4: 33 62 31 00  	or	tp, sp, gp
+     7a8: 93 02 e0 0e  	li	t0, 238
+     7ac: 63 16 52 06  	bne	tp, t0, 0x818 <fail_or_suite>
+     7b0: 93 85 15 00  	addi	a1, a1, 1
+     7b4: 37 01 00 00  	lui	sp, 0
+     7b8: 13 01 f1 ff  	addi	sp, sp, -1
+     7bc: b7 01 00 00  	lui	gp, 0
+     7c0: 93 81 01 00  	mv	gp, gp
+     7c4: 33 62 31 00  	or	tp, sp, gp
+     7c8: b7 02 00 00  	lui	t0, 0
+     7cc: 93 82 f2 ff  	addi	t0, t0, -1
+     7d0: 63 14 52 04  	bne	tp, t0, 0x818 <fail_or_suite>
+     7d4: 93 85 15 00  	addi	a1, a1, 1
+     7d8: 13 01 00 00  	li	sp, 0
+     7dc: 93 01 00 00  	li	gp, 0
+     7e0: 33 62 31 00  	or	tp, sp, gp
+     7e4: 93 02 00 00  	li	t0, 0
+     7e8: 63 18 52 02  	bne	tp, t0, 0x818 <fail_or_suite>
+     7ec: 93 85 15 00  	addi	a1, a1, 1
+     7f0: 37 51 34 12  	lui	sp, 74565
+     7f4: 13 01 81 67  	addi	sp, sp, 1656
+     7f8: b7 41 65 87  	lui	gp, 554580
+     7fc: 93 81 11 32  	addi	gp, gp, 801
+     800: 33 62 31 00  	or	tp, sp, gp
+     804: b7 52 75 97  	lui	t0, 620373
+     808: 93 82 92 77  	addi	t0, t0, 1913
+     80c: 63 16 52 00  	bne	tp, t0, 0x818 <fail_or_suite>
+     810: 93 85 15 00  	addi	a1, a1, 1
+     814: 6f 00 00 01  	j	0x824 <success_or_suite>
 
-0000007c <fail_or_suite>:
-      7c: 13 05 f0 38  	li	a0, 911
-      80: 73 00 00 00  	ecall	
-      84: 00 00        	<unknown>
-      86: 00 00        	<unknown>
+00000818 <fail_or_suite>:
+     818: 13 05 f0 38  	li	a0, 911
+     81c: 73 00 00 00  	ecall
+     820: 00 00        	<unknown>
+     822: 00 00        	<unknown>
 
-00000088 <success_or_suite>:
-      88: 13 05 c0 02  	li	a0, 44
-      8c: 73 00 00 00  	ecall	
+00000824 <success_or_suite>:
+     824: 13 05 c0 02  	li	a0, 44
+     828: 73 00 00 00  	ecall
 
 Disassembly of section .text_xor_suite:
 
-00000000 <_start_xor_suite>:
-       0: 13 01 a0 0a  	li	sp, 170
-       4: 93 01 c0 0c  	li	gp, 204
-       8: 33 42 31 00  	xor	tp, sp, gp
-       c: 93 02 60 06  	li	t0, 102
-      10: 63 1c 52 06  	bne	tp, t0, 0x88 <fail_xor_suite>
-      14: 93 85 15 00  	addi	a1, a1, 1
-      18: 37 01 00 00  	lui	sp, 0
-      1c: 13 01 f1 ff  	addi	sp, sp, -1
-      20: b7 01 00 00  	lui	gp, 0
-      24: 93 81 f1 ff  	addi	gp, gp, -1
-      28: 33 42 31 00  	xor	tp, sp, gp
-      2c: b7 02 00 00  	lui	t0, 0
-      30: 93 82 02 00  	mv	t0, t0
-      34: 63 1a 52 04  	bne	tp, t0, 0x88 <fail_xor_suite>
-      38: 93 85 15 00  	addi	a1, a1, 1
-      3c: 37 01 00 00  	lui	sp, 0
-      40: 13 01 f1 ff  	addi	sp, sp, -1
-      44: b7 01 00 00  	lui	gp, 0
-      48: 93 81 01 00  	mv	gp, gp
-      4c: 33 42 31 00  	xor	tp, sp, gp
-      50: b7 02 00 00  	lui	t0, 0
-      54: 93 82 f2 ff  	addi	t0, t0, -1
-      58: 63 18 52 02  	bne	tp, t0, 0x88 <fail_xor_suite>
-      5c: 93 85 15 00  	addi	a1, a1, 1
-      60: 37 51 34 12  	lui	sp, 74565
-      64: 13 01 81 67  	addi	sp, sp, 1656
-      68: b7 41 65 87  	lui	gp, 554580
-      6c: 93 81 11 32  	addi	gp, gp, 801
-      70: 33 42 31 00  	xor	tp, sp, gp
-      74: b7 12 51 95  	lui	t0, 611601
-      78: 93 82 92 55  	addi	t0, t0, 1369
-      7c: 63 16 52 00  	bne	tp, t0, 0x88 <fail_xor_suite>
-      80: 93 85 15 00  	addi	a1, a1, 1
-      84: 6f 00 00 01  	j	0x94 <success_xor_suite>
+0000082c <_start_xor_suite>:
+     82c: 13 01 a0 0a  	li	sp, 170
+     830: 93 01 c0 0c  	li	gp, 204
+     834: 33 42 31 00  	xor	tp, sp, gp
+     838: 93 02 60 06  	li	t0, 102
+     83c: 63 1c 52 06  	bne	tp, t0, 0x8b4 <fail_xor_suite>
+     840: 93 85 15 00  	addi	a1, a1, 1
+     844: 37 01 00 00  	lui	sp, 0
+     848: 13 01 f1 ff  	addi	sp, sp, -1
+     84c: b7 01 00 00  	lui	gp, 0
+     850: 93 81 f1 ff  	addi	gp, gp, -1
+     854: 33 42 31 00  	xor	tp, sp, gp
+     858: b7 02 00 00  	lui	t0, 0
+     85c: 93 82 02 00  	mv	t0, t0
+     860: 63 1a 52 04  	bne	tp, t0, 0x8b4 <fail_xor_suite>
+     864: 93 85 15 00  	addi	a1, a1, 1
+     868: 37 01 00 00  	lui	sp, 0
+     86c: 13 01 f1 ff  	addi	sp, sp, -1
+     870: b7 01 00 00  	lui	gp, 0
+     874: 93 81 01 00  	mv	gp, gp
+     878: 33 42 31 00  	xor	tp, sp, gp
+     87c: b7 02 00 00  	lui	t0, 0
+     880: 93 82 f2 ff  	addi	t0, t0, -1
+     884: 63 18 52 02  	bne	tp, t0, 0x8b4 <fail_xor_suite>
+     888: 93 85 15 00  	addi	a1, a1, 1
+     88c: 37 51 34 12  	lui	sp, 74565
+     890: 13 01 81 67  	addi	sp, sp, 1656
+     894: b7 41 65 87  	lui	gp, 554580
+     898: 93 81 11 32  	addi	gp, gp, 801
+     89c: 33 42 31 00  	xor	tp, sp, gp
+     8a0: b7 12 51 95  	lui	t0, 611601
+     8a4: 93 82 92 55  	addi	t0, t0, 1369
+     8a8: 63 16 52 00  	bne	tp, t0, 0x8b4 <fail_xor_suite>
+     8ac: 93 85 15 00  	addi	a1, a1, 1
+     8b0: 6f 00 00 01  	j	0x8c0 <success_xor_suite>
 
-00000088 <fail_xor_suite>:
-      88: 13 05 f0 38  	li	a0, 911
-      8c: 73 00 00 00  	ecall	
-      90: 00 00        	<unknown>
-      92: 00 00        	<unknown>
+000008b4 <fail_xor_suite>:
+     8b4: 13 05 f0 38  	li	a0, 911
+     8b8: 73 00 00 00  	ecall
+     8bc: 00 00        	<unknown>
+     8be: 00 00        	<unknown>
 
-00000094 <success_xor_suite>:
-      94: 13 05 c0 02  	li	a0, 44
-      98: 73 00 00 00  	ecall	
+000008c0 <success_xor_suite>:
+     8c0: 13 05 c0 02  	li	a0, 44
+     8c4: 73 00 00 00  	ecall
 
 Disassembly of section .text_auipc_suite:
 
-00000000 <_start_auipc_suite>:
-       0: 13 01 90 1a  	li	sp, 425
-       4: 97 51 34 12  	auipc	gp, 74565
-       8: 93 81 81 67  	addi	gp, gp, 1656
-       c: 37 52 34 12  	lui	tp, 74565
-      10: 13 02 c2 67  	addi	tp, tp, 1660
-      14: 63 94 41 02  	bne	gp, tp, 0x3c <fail_auipc_suite>
-      18: 93 85 15 00  	addi	a1, a1, 1
-      1c: 93 01 00 00  	li	gp, 0
-      20: 13 02 00 00  	li	tp, 0
-      24: 17 01 00 00  	auipc	sp, 0
-      28: ef 00 40 00  	jal	0x2c <auipc_step>
+000008c8 <_start_auipc_suite>:
+     8c8: 13 01 90 1a  	li	sp, 425
+     8cc: 97 51 34 12  	auipc	gp, 74565
+     8d0: 93 81 81 67  	addi	gp, gp, 1656
+     8d4: 37 52 34 12  	lui	tp, 74565
+     8d8: 13 02 c2 67  	addi	tp, tp, 1660
+     8dc: 63 94 41 02  	bne	gp, tp, 0x904 <fail_auipc_suite>
+     8e0: 93 85 15 00  	addi	a1, a1, 1
+     8e4: 93 01 00 00  	li	gp, 0
+     8e8: 13 02 00 00  	li	tp, 0
+     8ec: 17 01 00 00  	auipc	sp, 0
+     8f0: ef 00 40 00  	jal	0x8f4 <auipc_step>
 
-0000002c <auipc_step>:
-      2c: 93 80 80 ff  	addi	ra, ra, -8
-      30: 63 96 20 00  	bne	ra, sp, 0x3c <fail_auipc_suite>
-      34: 93 85 15 00  	addi	a1, a1, 1
-      38: 6f 00 00 01  	j	0x48 <success_auipc_suite>
+000008f4 <auipc_step>:
+     8f4: 93 80 80 ff  	addi	ra, ra, -8
+     8f8: 63 96 20 00  	bne	ra, sp, 0x904 <fail_auipc_suite>
+     8fc: 93 85 15 00  	addi	a1, a1, 1
+     900: 6f 00 00 01  	j	0x910 <success_auipc_suite>
 
-0000003c <fail_auipc_suite>:
-      3c: 13 05 f0 38  	li	a0, 911
-      40: 73 00 00 00  	ecall	
-      44: 00 00        	<unknown>
-      46: 00 00        	<unknown>
+00000904 <fail_auipc_suite>:
+     904: 13 05 f0 38  	li	a0, 911
+     908: 73 00 00 00  	ecall
+     90c: 00 00        	<unknown>
+     90e: 00 00        	<unknown>
 
-00000048 <success_auipc_suite>:
-      48: 13 05 c0 02  	li	a0, 44
-      4c: 73 00 00 00  	ecall	
+00000910 <success_auipc_suite>:
+     910: 13 05 c0 02  	li	a0, 44
+     914: 73 00 00 00  	ecall
 
 Disassembly of section .text_jal_suite:
 
-00000000 <_start_jal_suite>:
-       0: 13 01 90 1a  	li	sp, 425
-       4: ef 00 00 01  	jal	0x14 <jal_step0>
+00000918 <_start_jal_suite>:
+     918: 13 01 90 1a  	li	sp, 425
+     91c: ef 00 00 01  	jal	0x92c <jal_step0>
 
-00000008 <jal_step1>:
-       8: 93 01 b0 04  	li	gp, 75
-       c: 97 02 00 00  	auipc	t0, 0
-      10: ef 00 00 01  	jal	0x20 <jal_step2>
+00000920 <jal_step1>:
+     920: 93 01 b0 04  	li	gp, 75
+     924: 97 02 00 00  	auipc	t0, 0
+     928: ef 00 00 01  	jal	0x938 <jal_step2>
 
-00000014 <jal_step0>:
-      14: 93 01 10 01  	li	gp, 17
-      18: 13 02 b0 04  	li	tp, 75
-      1c: ef f0 df fe  	jal	0x8 <jal_step1>
+0000092c <jal_step0>:
+     92c: 93 01 10 01  	li	gp, 17
+     930: 13 02 b0 04  	li	tp, 75
+     934: ef f0 df fe  	jal	0x920 <jal_step1>
 
-00000020 <jal_step2>:
-      20: 93 82 82 00  	addi	t0, t0, 8
-      24: 63 9e 50 02  	bne	ra, t0, 0x60 <fail_jal_suite>
-      28: 93 85 15 00  	addi	a1, a1, 1
-      2c: 13 01 f0 00  	li	sp, 15
-      30: ef 00 40 01  	jal	0x44 <jal_f1>
-      34: 13 01 41 00  	addi	sp, sp, 4
-      38: ef 00 c0 00  	jal	0x44 <jal_f1>
-      3c: 13 01 41 00  	addi	sp, sp, 4
-      40: 6f 00 00 01  	j	0x50 <jal_end1>
+00000938 <jal_step2>:
+     938: 93 82 82 00  	addi	t0, t0, 8
+     93c: 63 9e 50 02  	bne	ra, t0, 0x978 <fail_jal_suite>
+     940: 93 85 15 00  	addi	a1, a1, 1
+     944: 13 01 f0 00  	li	sp, 15
+     948: ef 00 40 01  	jal	0x95c <jal_f1>
+     94c: 13 01 41 00  	addi	sp, sp, 4
+     950: ef 00 c0 00  	jal	0x95c <jal_f1>
+     954: 13 01 41 00  	addi	sp, sp, 4
+     958: 6f 00 00 01  	j	0x968 <jal_end1>
 
-00000044 <jal_f1>:
-      44: 13 01 71 00  	addi	sp, sp, 7
-      48: 67 80 00 00  	ret
-      4c: 6f 00 40 01  	j	0x60 <fail_jal_suite>
+0000095c <jal_f1>:
+     95c: 13 01 71 00  	addi	sp, sp, 7
+     960: 67 80 00 00  	ret
+     964: 6f 00 40 01  	j	0x978 <fail_jal_suite>
 
-00000050 <jal_end1>:
-      50: 13 02 50 02  	li	tp, 37
-      54: 63 16 41 00  	bne	sp, tp, 0x60 <fail_jal_suite>
-      58: 93 85 15 00  	addi	a1, a1, 1
-      5c: 6f 00 00 01  	j	0x6c <success_jal_suite>
+00000968 <jal_end1>:
+     968: 13 02 50 02  	li	tp, 37
+     96c: 63 16 41 00  	bne	sp, tp, 0x978 <fail_jal_suite>
+     970: 93 85 15 00  	addi	a1, a1, 1
+     974: 6f 00 00 01  	j	0x984 <success_jal_suite>
 
-00000060 <fail_jal_suite>:
-      60: 13 05 f0 38  	li	a0, 911
-      64: 73 00 00 00  	ecall	
-      68: 00 00        	<unknown>
-      6a: 00 00        	<unknown>
+00000978 <fail_jal_suite>:
+     978: 13 05 f0 38  	li	a0, 911
+     97c: 73 00 00 00  	ecall
+     980: 00 00        	<unknown>
+     982: 00 00        	<unknown>
 
-0000006c <success_jal_suite>:
-      6c: 13 05 c0 02  	li	a0, 44
-      70: 73 00 00 00  	ecall	
+00000984 <success_jal_suite>:
+     984: 13 05 c0 02  	li	a0, 44
+     988: 73 00 00 00  	ecall

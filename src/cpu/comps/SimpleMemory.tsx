@@ -256,6 +256,7 @@ function renderData(comp: IComp, bytes: Uint8Array, read: IReadWriteInfo | null,
             allZeros: allZeros,
         });
     }
+    // return null;
 
     return <CompRectBase comp={comp}>
         <div className={s.memTable}>

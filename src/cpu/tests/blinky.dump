@@ -7,9 +7,9 @@ Disassembly of section .text:
 ;     asm(
        0: 37 01 01 00  	lui	sp, 16
        4: 13 01 01 0e  	addi	sp, sp, 224
-       8: ef 00 80 04  	jal	0x50 <$d.9+0x50>
+       8: ef 00 80 04  	jal	0x50 <main>
        c: 13 05 c0 02  	li	a0, 44
-      10: 73 00 00 00  	ecall	
+      10: 73 00 00 00  	ecall
 
 00000014 <sleep>:
 ; void sleep() {
@@ -44,32 +44,32 @@ Disassembly of section .text:
       64: 23 2a a4 fe  	sw	a0, -12(s0)
 ;     for (int j = 0; j < ITER_COUNT; j++) {
       68: 23 28 a4 fe  	sw	a0, -16(s0)
-      6c: 6f 00 40 00  	j	0x70 <$d.9+0x70>
+      6c: 6f 00 40 00  	j	0x70 <main+0x20>
       70: 83 25 04 ff  	lw	a1, -16(s0)
       74: 13 05 10 00  	li	a0, 1
-      78: 63 54 b5 00  	bge	a0, a1, 0x80 <$d.9+0x80>
-      7c: 6f 00 00 04  	j	0xbc <$d.9+0xbc>
-      80: 6f 00 40 00  	j	0x84 <$d.9+0x84>
+      78: 63 54 b5 00  	bge	a0, a1, 0x80 <main+0x30>
+      7c: 6f 00 00 04  	j	0xbc <main+0x6c>
+      80: 6f 00 40 00  	j	0x84 <main+0x34>
       84: b7 05 02 40  	lui	a1, 262176
       88: 23 26 b4 fe  	sw	a1, -20(s0)
       8c: 13 05 c0 0c  	li	a0, 204
 ;         *GPIO_VAL = BLINK_MODE_0;
       90: 23 a0 a5 00  	sw	a0, 0(a1)
 ;         sleep();
-      94: ef f0 1f f8  	jal	0x14 <$d.9+0x14>
+      94: ef f0 1f f8  	jal	0x14 <sleep>
       98: 83 25 c4 fe  	lw	a1, -20(s0)
       9c: 13 05 50 05  	li	a0, 85
 ;         *GPIO_VAL = BLINK_MODE_1;
       a0: 23 a0 a5 00  	sw	a0, 0(a1)
 ;         sleep();
-      a4: ef f0 1f f7  	jal	0x14 <$d.9+0x14>
+      a4: ef f0 1f f7  	jal	0x14 <sleep>
 ;     }
-      a8: 6f 00 40 00  	j	0xac <$d.9+0xac>
+      a8: 6f 00 40 00  	j	0xac <main+0x5c>
 ;     for (int j = 0; j < ITER_COUNT; j++) {
       ac: 03 25 04 ff  	lw	a0, -16(s0)
       b0: 13 05 15 00  	addi	a0, a0, 1
       b4: 23 28 a4 fe  	sw	a0, -16(s0)
-      b8: 6f f0 9f fb  	j	0x70 <$d.9+0x70>
+      b8: 6f f0 9f fb  	j	0x70 <main+0x20>
 ;     *GPIO_VAL = iter_counter;
       bc: 37 05 01 00  	lui	a0, 16
       c0: 03 25 05 01  	lw	a0, 16(a0)

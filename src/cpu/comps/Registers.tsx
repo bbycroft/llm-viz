@@ -35,8 +35,8 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortDir.In, width: 3 * 6 },
             { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
-            { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortDir.OutTri, width: 32 },
-            { id: 'outB', name: 'B', pos: new Vec3(w, 6), type: PortDir.OutTri, width: 32 },
+            { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
+            { id: 'outB', name: 'B', pos: new Vec3(w, 6), type: PortDir.Out, width: 32 },
         ],
         build2: (builder) => {
             let data = builder.addData({
@@ -119,8 +119,6 @@ function regFilePhase0({ data }: IExeComp<ICompDataRegFile>) {
     outBPort.ioEnabled = !!outBEnabled;
     outAPort.value = outAEnabled ? file[outBitsA] : 0;
     outBPort.value = outBEnabled ? file[outBitsB] : 0;
-    outAPort.ioDir = IoDir.Out;
-    outBPort.ioDir = IoDir.Out;
 
     data.readAReg = outAEnabled ? outBitsA : -1;
     data.readBReg = outBEnabled ? outBitsB : -1;

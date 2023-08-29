@@ -1,8 +1,10 @@
 #include "helpers.h"
 
+
 #define SECNAME store0
 SECTION2()
-    li x3, 0x20
+._start:
+    li x3, 0x00010024
 
     LI_LARGE(x1, 0x12345678)
     sw x1, 0xc(x3)
@@ -10,7 +12,7 @@ SECTION2()
     bne x1, x2, FAIL
     addi a1, a1, 1;
 
-    li x3, 0x10
+    li x3, 0x00010026
     li x1, 0x14e8
     sh x1, 0x0(x3)
     lh x2, 0x0(x3)
@@ -213,7 +215,7 @@ END_SECTION2()
 SECTION2()
     li x2, 425
     .equ A, 0x12345678
-    auipc x3, %hi(A)
+    auipc x3, %pcrel_hi(A)
     addi x3, x3, %lo(A)
     LI_LARGE(x4, A + 4)
     bne x3, x4, FAIL

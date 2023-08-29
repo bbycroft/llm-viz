@@ -23,44 +23,38 @@ export const HoverDisplay: React.FC<{
             let netIdx = exeModel.lookup.wireIdToNetIdx.get(hovered.ref.id);
             let net = exeModel.nets[netIdx ?? -1];
             if (net) {
-                if (net.width === 1) {
-                    content = <div>
-                        <div className={s.hexVal}>{net.value.toString()}</div>
+                let bitWidth = net.width;
+                let bitVals = [];
+                if (net.width === 32) {
+                    bitWidth = 8;
+                    for (let i = 3; i >= 0; i--) {
+                        bitVals.push(net.value >>> (i * bitWidth) & 0xff);
+                    }
+                } else {
+                    bitVals.push(net.value);
+                }
+
+                let topLine: React.ReactNode;
+                if (hasFlag(net.type, PortDir.Ctrl)) {
+                    topLine = <div>
+                        <span className={s.numVal}>0x{net.value.toString(16).padStart(net.width >>> 2, '0')}</span>
+                        <span className={s.bitWidth}>{' '} {net.width} bits</span>
                     </div>;
                 } else {
-                    let bitWidth = net.width;
-                    let bitVals = [];
-                    if (net.width === 32) {
-                        bitWidth = 8;
-                        for (let i = 3; i >= 0; i--) {
-                            bitVals.push(net.value >>> (i * bitWidth) & 0xff);
-                        }
-                    } else {
-                        bitVals.push(net.value);
-                    }
-
-                    let topLine: React.ReactNode;
-                    if (hasFlag(net.type, PortDir.Ctrl)) {
-                        topLine = <div>
-                            <span className={s.numVal}>0x{net.value.toString(16).padStart(net.width >>> 2, '0')}</span>
-                            <span className={s.bitWidth}>{' '} {net.width} bits</span>
-                        </div>;
-                    } else {
-                        topLine = <div>
-                            <span className={s.numVal}>{ensureSigned32Bit(net.value).toString().padStart(2, '0')}</span>
-                            &nbsp;
-                            <span className={s.hexVal}>0x{ensureUnsigned32Bit(net.value).toString(16).padStart(net.width >>> 2, '0')}</span>
-                        </div>;
-                    }
-
-                    content = <div>
-                        {topLine}
-                        {bitVals.map((val, i) => {
-                            return <div key={i} className={s.bitVal}>{val.toString(2).padStart(bitWidth, '0')}</div>;
-                        })}
-                        <div className={s.compId}>{net.wire.id}</div>
+                    topLine = <div>
+                        <span className={s.numVal}>{ensureSigned32Bit(net.value).toString().padStart(2, '0')}</span>
+                        &nbsp;
+                        <span className={s.hexVal}>0x{ensureUnsigned32Bit(net.value).toString(16).padStart(net.width >>> 2, '0')}</span>
                     </div>;
                 }
+
+                content = <div>
+                    {topLine}
+                    {bitVals.map((val, i) => {
+                        return <div key={i} className={s.bitVal}>{val.toString(2).padStart(bitWidth, '0')}</div>;
+                    })}
+                    <div className={s.compId}>{net.wire.id}</div>
+                </div>;
             } else {
                 content = <div>net {hovered.ref.id} {"=>"} {netIdx} not found</div>;
             }
@@ -103,7 +97,7 @@ export const HoverDisplay: React.FC<{
                     }
 
                     portElNode = <>
-                        <span>&nbsp; Port {port.name} ({typeStr}) io:{portExe.ioEnabled ? '1' : '0'}, du:{portExe.dataUsed ? '1' : '0'}{dirStr}</span>
+                        <span>&nbsp; Port {port.name} ({typeStr}) io:{portExe.ioEnabled ? '1' : '0'}, du:{portExe.dataUsed ? '1' : '0'}{dirStr} V:0x{portExe.value.toString(16)}</span>
                     </>;
                     portIdStr = <span className={s.portId}>/{port.id}</span>;
                 }

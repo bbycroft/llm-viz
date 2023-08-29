@@ -16,6 +16,11 @@
     text-align: center;
 }
 
+.body {
+    overflow-y: auto;
+    max-height: 200px;
+}
+
 .entry {
     cursor: move;
     padding: 0 10px;

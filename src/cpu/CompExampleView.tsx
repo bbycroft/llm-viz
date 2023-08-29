@@ -26,8 +26,8 @@ export const CompExampleView: React.FC = () => {
         let basePath = (process.env.BASE_URL ?? '') + '/riscv/examples/';
 
         async function run() {
-            // let fileName = 'add_tests.elf';
-            let fileName = 'blinky2.elf';
+            let fileName = 'add_tests.elf';
+            // let fileName = 'blinky2.elf';
 
             let resp = await fetch(basePath + fileName);
 
