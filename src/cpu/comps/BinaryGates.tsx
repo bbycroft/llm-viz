@@ -22,8 +22,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             { id: 'b', name: 'B', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
             { id: 'o', name: 'O', pos: new Vec3(w, 2), type: PortDir.Out, width: 32 },
         ],
-        build: (comp: IComp) => {
-            let builder = new ExeCompBuilder<ICompDataBinaryGate>(comp);
+        build: (builder) => {
             let data = builder.addData({
                 inAPort: builder.getPort('a'),
                 inBPort: builder.getPort('b'),

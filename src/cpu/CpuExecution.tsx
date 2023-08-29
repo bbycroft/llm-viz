@@ -473,18 +473,19 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         }
         net.enabledCount = enabledCount;
         net.value = enabledCount === 1 ? enabledPortValue : 0;
+        /*
         if (enabledCount > 1) {
-            console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs:');
+            // console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs:');
             for (let portRef of net.outputs) {
                 let port = portRef.exePort;
-                let comp = comps[portRef.compIdx];
-                if (portRef.valid && port.ioEnabled && port.ioDir === IoDir.Out) {
-                    let portA = comp.comp.ports[portRef.portIdx];
-                    console.log(`  - port: ${portA.id}/${portA.name} on comp ${comp.comp.id}/${comp.comp.defId}`);
-                }
+                // let comp = comps[portRef.compIdx];
+                // if (portRef.valid && port.ioEnabled && port.ioDir === IoDir.Out) {
+                    // let portA = comp.comp.ports[portRef.portIdx];
+                    // console.log(`  - port: ${portA.id}/${portA.name} on comp ${comp.comp.id}/${comp.comp.defId}`);
+                // }
             }
-
         }
+        */
     } else {
         // has exactly 1 input
         if (net.outputs.length !== 1) {

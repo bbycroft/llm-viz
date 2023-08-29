@@ -17,8 +17,9 @@ export interface ICompDef<T, A = any> {
     ports: ICompPort[];
 
     initConfig?: (args: ICompBuilderArgs) => A;
-    build?: (comp: IComp) => IExeComp<T>;
-    build2?: (builder: ExeCompBuilder<T, A>) => IExeComp<T>;
+    applyConfig?: (comp: IComp, args: A) => void;
+
+    build?: (builder: ExeCompBuilder<T, A>) => IExeComp<T>;
     render?: (args: ICompRenderArgs<T, A>) => void;
     renderDom?: (args: ICompRenderArgs<T, A>) => React.ReactNode;
     renderAll?: boolean;
@@ -48,6 +49,7 @@ export class CompLibrary {
             size: compDef.size,
             args: compDef.initConfig ? compDef.initConfig({}) : null,
         };
+        compDef.applyConfig?.(comp, comp.args);
 
         return comp;
     }
@@ -60,6 +62,7 @@ export class CompLibrary {
         comp.name = compDef.name;
         comp.ports = compDef.ports;
         comp.size = compDef.size;
+        compDef.applyConfig?.(comp, comp.args);
     }
 
     updateAllCompsFromDefs(comps: IComp[]) {
@@ -71,12 +74,11 @@ export class CompLibrary {
 
     build(comp: IComp): IExeComp<any> {
         let compDef = this.comps.get(comp.defId);
-        if (compDef?.build2) {
+        if (compDef?.build) {
             let builder = new ExeCompBuilder<any>(comp);
-            return compDef.build2(builder);
+            return compDef.build(builder);
         }
-        let buildFn = compDef?.build ?? buildDefault;
-        return buildFn(comp);
+        return buildDefault(comp);
     }
 }
 

@@ -30,8 +30,7 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'branch', name: 'Branch', pos: new Vec3(4, 12), type: PortDir.Out | PortDir.Ctrl, width: 1 },
             { id: 'result', name: 'Result', pos: new Vec3(8, 12), type: PortDir.OutTri, width: 32 },
         ],
-        build: (comp: IComp) => {
-            let builder = new ExeCompBuilder<ICompDataAlu>(comp);
+        build: (builder) => {
             let data = builder.addData({
                 inCtrlPort: builder.getPort('ctrl'),
                 inAPort: builder.getPort('lhs'),

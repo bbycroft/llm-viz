@@ -44,7 +44,7 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             { id: 'localData', name: 'Local Data', pos: new Vec3(w, 6), type: PortDir.In | PortDir.Out | PortDir.Tristate, width: 32 },
         ],
         initConfig: () => ({ addrOffset: 0x1_0000, addrMask: 0xffff }),
-        build2: (builder) => {
+        build: (builder) => {
             let data = builder.addData({
                 busCtrl: builder.getPort('busCtrl'),
                 busData: builder.getPort('busData'),

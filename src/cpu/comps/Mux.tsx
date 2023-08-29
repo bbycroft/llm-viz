@@ -33,8 +33,7 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
             { id: 'out', name: 'Z', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
         ],
-        build: (comp: IComp) => {
-            let builder = new ExeCompBuilder<ICompDataMux>(comp);
+        build: (builder) => {
             let data = builder.addData({
                 inSelPort: builder.getPort('sel'),
                 inAPort: builder.getPort('a'),
@@ -107,8 +106,7 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
             { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
         ],
-        build: (comp: IComp) => {
-            let builder = new ExeCompBuilder<ICompDataAdder>(comp);
+        build: (builder) => {
             let data = builder.addData({
                 inAPort: builder.getPort('a'),
                 inBPort: builder.getPort('b'),

@@ -85,7 +85,7 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         reset: (comp) => {
             comp.data.value = 0;
         },
-        build2: (builder) => {
+        build: (builder) => {
             let data = builder.addData({
                 busCtrl: builder.getPort('busCtrl'),
                 busData: builder.getPort('busData'),

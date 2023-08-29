@@ -31,7 +31,29 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
             { id: 'lhsSel', name: 'LHS Sel', pos: new Vec3(15, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
             { id: 'aluCtrl', name: 'ALU', pos: new Vec3(18, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
         ],
-        build: buildInsDecoder,
+        build: (builder) => {
+            let data = builder.addData({
+                ins: builder.getPort('ins'),
+
+                addrOffset: builder.getPort('addrOffset'),
+                rhsImm: builder.getPort('rhsImm'),
+                regCtrl: builder.getPort('regCtrl'),
+                loadStoreCtrl: builder.getPort('loadStoreCtrl'),
+                aluCtrl: builder.getPort('aluCtrl'),
+                // pcOutTristateCtrl: builder.getPort('pcOutTristateCtrl'),
+                pcRegMuxCtrl: builder.getPort('pcRegMuxCtrl'),
+
+                pcAddImm: builder.getPort('pcAddImm'),
+                lhsSel: builder.getPort('lhsSel'),
+                rhsSel: builder.getPort('rhsSel'),
+
+                pcBranchCtrl: builder.getPort('pcBranchCtrl'),
+            });
+
+            builder.addPhase(insDecoderPhase0, [data.ins], [data.addrOffset, data.rhsImm, data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.lhsSel, data.rhsSel, data.pcAddImm]);
+
+            return builder.build(data);
+        },
         render: renderInsDecoder,
     };
 
@@ -53,29 +75,6 @@ export interface ICompDataInsDecoder {
     lhsSel: IExePort; // 1-bit value, selects between PC & Reg A for LHS
     rhsSel: IExePort; // 1-bit value, selects between Reg B & Imm for RHS
     pcBranchCtrl: IExePort; // 1-bit value, selects between PC + 4 and PC + imm
-}
-
-export function buildInsDecoder(comp: IComp) {
-    let builder = new ExeCompBuilder<ICompDataInsDecoder>(comp);
-    let data = builder.addData({
-        ins: builder.getPort('ins'),
-
-        addrOffset: builder.getPort('addrOffset'),
-        rhsImm: builder.getPort('rhsImm'),
-        regCtrl: builder.getPort('regCtrl'),
-        loadStoreCtrl: builder.getPort('loadStoreCtrl'),
-        aluCtrl: builder.getPort('aluCtrl'),
-        // pcOutTristateCtrl: builder.getPort('pcOutTristateCtrl'),
-        pcRegMuxCtrl: builder.getPort('pcRegMuxCtrl'),
-
-        pcAddImm: builder.getPort('pcAddImm'),
-        lhsSel: builder.getPort('lhsSel'),
-        rhsSel: builder.getPort('rhsSel'),
-
-        pcBranchCtrl: builder.getPort('pcBranchCtrl'),
-    });
-    builder.addPhase(insDecoderPhase0, [data.ins], [data.addrOffset, data.rhsImm, data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.lhsSel, data.rhsSel, data.pcAddImm]);
-    return builder.build(data);
 }
 
 function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExeRunArgs) {

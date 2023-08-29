@@ -38,7 +38,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
             { id: 'outB', name: 'B', pos: new Vec3(w, 6), type: PortDir.Out, width: 32 },
         ],
-        build2: (builder) => {
+        build: (builder) => {
             let data = builder.addData({
                 inCtrlPort: builder.getPort('ctrl'),
                 inDataPort: builder.getPort('in'),
@@ -75,7 +75,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'in', name: 'I', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
             { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
         ],
-        build2: (builder) => {
+        build: (builder) => {
             let data = builder.addData({
                 inPort: builder.getPort('in'),
                 outPort: builder.getPort('out'),
@@ -254,7 +254,7 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
 
             let writeStr = regValToStr(exeComp.data.writeData);
             let writeTextWidth = ctx.measureText(writeStr).width;
-            let xNewRight = xRight - writeTextWidth - padX * 3;
+            let xNewRight = xRight - textWidth - padX * 3;
 
             drawReadCircle(xNewRight - writeTextWidth - 0.2, xNewRight + 0.2, "#ee39");
 

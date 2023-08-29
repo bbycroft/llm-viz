@@ -38,7 +38,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
         ports: [
             { id: 'x', name: 'x', pos: new Vec3(0, 2), type: PortDir.In, width: 32 },
         ],
-        build2: (builder) => {
+        build: (builder) => {
             let data = builder.addData({
                 inPort: builder.getPort('x'),
             });
@@ -75,7 +75,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             { id: 'out', name: '', pos: new Vec3(constW, h/2), type: PortDir.Out, width: 32 },
         ],
         initConfig: () => ({ value: 4, valueMode: HexValueInputType.Hex, bitWidth: 32 }),
-        build2: (builder) => {
+        build: (builder) => {
             let data = builder.addData({
                 value: builder.comp.args.value,
                 outPort: builder.getPort('out'),

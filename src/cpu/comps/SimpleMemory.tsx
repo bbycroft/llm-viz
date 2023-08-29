@@ -49,8 +49,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             { id: 'addr', name: 'Addr', pos: new Vec3(romW, 2), type: PortDir.In, width: 32 },
             { id: 'data', name: 'Data', pos: new Vec3(romW, 1), type: PortDir.Out, width: 32 },
         ],
-        build: (comp: IComp) => {
-            let builder = new ExeCompBuilder<IRomExeData>(comp);
+        build: (builder) => {
             let rom = new Uint8Array(1024);
             let data = builder.addData({
                 addr: builder.getPort('addr'),
@@ -118,7 +117,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             { id: 'data', name: 'Data', pos: new Vec3(0, 6), type: PortDir.Out | PortDir.In | PortDir.Tristate, width: 32 },
         ],
 
-        build2: (builder) => {
+        build: (builder) => {
             let ramUint8 = new Uint8Array(1024);
             let data = builder.addData({
                 ctrl: builder.getPort('ctrl'),

@@ -42,8 +42,7 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             { id: 'busAddr', name: 'Bus Addr', pos: new Vec3(8, 0), type: PortDir.Out | PortDir.Addr, width: 32 },
             { id: 'busData', name: 'Bus Data', pos: new Vec3(12, 0), type: PortDir.In | PortDir.Out | PortDir.Tristate, width: 32 },
         ],
-        build: (comp) => {
-            let builder = new ExeCompBuilder<ICompDataLoadStore>(comp);
+        build: (builder) => {
             let data = builder.addData({
                 ctrl: builder.getPort('ctrl'),
                 addrOffset: builder.getPort('addrOffset'),
@@ -138,8 +137,7 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             { id: 'addr', name: 'Addr', pos: new Vec3(0, 1), type: PortDir.Out, width: 32 },
             { id: 'data', name: 'Data', pos: new Vec3(0, 2), type: PortDir.In, width: 32 },
         ],
-        build: (comp) => {
-            let builder = new ExeCompBuilder<ICompDataInsFetch>(comp);
+        build: (builder) => {
             let data = builder.addData({
                 pc: builder.getPort('pc'),
                 ins: builder.getPort('ins'),
