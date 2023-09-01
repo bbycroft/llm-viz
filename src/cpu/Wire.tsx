@@ -81,10 +81,10 @@ export function dragNodes(wire: IWireGraph, nodeIdxs: number[], delta: Vec3) {
             } else {
                 // need to disjoint the first node
                 if (!isPinnedNode(node1Idx)) {
-                    let newNode = assignImm(node1, { id: newNodes.length, pos: snapToGrid(node1.pos.add(colinearDelta)), edges: [node0Idx, node1Idx] });
-                    node1.edges = node1.edges.filter(e => e !== node0.id);
-                    node1.edges.push(newNode.id);
-                    node0.edges = node0.edges.filter(e => e !== node1.id);
+                    let newNode: IWireGraphNode = { id: newNodes.length, pos: snapToGrid(node1.pos.add(colinearDelta)), edges: [] };
+                    wireUnlinkNodes(node0, node1);
+                    wireLinkNodes(node0, newNode);
+                    wireLinkNodes(newNode, node1);
                     newNodes.push(newNode);
                 }
             }
@@ -153,7 +153,7 @@ export function dragSegment(wire: IWireGraph, node0Idx: number, node1Idx: number
             let node1 = wire.nodes[nodeIdx1];
             let dir = node1.pos.sub(node0.pos).normalize();
             let dotProd = dir.dot(segDir);
-            if (dotProd > 1 - EPSILON || dotProd < -1 + EPSILON) {
+            if (Math.abs(dotProd) > 1 - EPSILON) {
                 nodeStack.push(nodeIdx1);
             }
         }
@@ -176,7 +176,6 @@ export function applyWires(layout: ICpuLayout, wires: IWireGraph[], editIdx: num
         wire.id = '' + nextWireId++;
     }
 
-
     let allWires = [...editedWires, ...newWires];
 
     checkWires(editedWires, 'applyWires (post-fixWires edited)');
@@ -191,6 +190,7 @@ export function applyWires(layout: ICpuLayout, wires: IWireGraph[], editIdx: num
 export function checkWires(wires: IWireGraph[], name: string) {
     for (let wire of wires) {
         if (wire.nodes.some(n => n.edges.some(e => isNil(e) || isNil(wire.nodes[e])))) {
+            console.log('wire:', wire);
             throw new Error(`CHECK [${name}]: Wire ${wire.id} has dangling edges`);
         }
 
@@ -258,6 +258,8 @@ export function fixWires(layout: ICpuLayout, wires: IWireGraph[], editIdx: numbe
     // find all wires that are touching the edit wire
     let wireIdxsToMerge = new Set<number>();
 
+    checkWires(wires, 'fixWires (pre-merge)');
+
     for (let i = 0; i < wires.length; i++) {
         if (i === editIdx) {
             continue;
@@ -301,6 +303,7 @@ export function fixWires(layout: ICpuLayout, wires: IWireGraph[], editIdx: numbe
         editIdx -= idxsBelowNewIdx;
     }
 
+    checkWires(wires, 'fixWires (pre-fixWire)');
     wires[editIdx] = fixWire(wires[editIdx]);
 
     let editWireGraph = wires[editIdx];
@@ -375,6 +378,10 @@ export function repackGraphIds(wire: IWireGraph): IWireGraph {
     let idMap = new Map<number, number>();
     let newNodes: IWireGraphNode[] = [];
     for (let node of wire.nodes) {
+        if (node.edges.length === 0) {
+            continue;
+        }
+
         let newId = idCntr++;
         idMap.set(node.id, newId);
         newNodes.push(assignImm(node, { id: newId }));
@@ -437,23 +444,6 @@ export function wireToGraph(wire: IWire): IWireGraph {
     };
 }
 
-function findNodesForSegment(wire: IWireGraph, { p0, p1 }: ISegment): [number, number] {
-    for (let node0 of wire.nodes) {
-        if (p0.dist(node0.pos) > EPSILON) {
-            continue;
-        }
-
-        for (let edgeId of node0.edges) {
-            let node1 = wire.nodes[edgeId];
-            if (p1.dist(node1.pos) < EPSILON) {
-                return [node0.id, node1.id];
-            }
-        }
-    }
-
-    throw new Error(`Couldn't find node and edge for ${p0} -> ${p1}`);
-}
-
 export function graphToWire(graph: IWireGraph): IWire {
 
     let segments: ISegment[] = [];
@@ -477,12 +467,15 @@ export const EPSILON = 0.001;
 
 export function fixWire(wireGraph: IWireGraph) {
 
+    checkWires([wireGraph], 'fixWire (pre-segment split)');
+
     let wire = graphToWire(wireGraph);
     let segs = wire.segments.map(a => ({ ...a }));
 
     let segIdsToRemove = new Set<number>();
 
-    for (let seg0 of segs) {
+    for (let seg0Idx = 0; seg0Idx < wire.segments.length; seg0Idx++) {
+        let seg0 = segs[seg0Idx];
 
         for (let seg1Idx = 0; seg1Idx < wire.segments.length; seg1Idx++) {
             let seg1 = segs[seg1Idx];
@@ -491,7 +484,14 @@ export function fixWire(wireGraph: IWireGraph) {
                 continue;
             }
 
-            if (segAttachedTo(seg0, seg1.p0)) {
+            if ((seg0.p0.dist(seg1.p0) < EPSILON && seg0.p1.dist(seg1.p1) < EPSILON) ||
+                (seg0.p0.dist(seg1.p1) < EPSILON && seg0.p1.dist(seg1.p0) < EPSILON)) {
+                // seg0 and seg1 are the same => remove seg1
+                if (seg1Idx > seg0Idx) {
+                    segIdsToRemove.add(seg1Idx);
+                }
+                continue;
+            } else if (segAttachedTo(seg0, seg1.p0)) {
                 if (segAttachedTo(seg0, seg1.p1)) {
                     // seg1 is inside seg0 => remove seg1
                     segIdsToRemove.add(seg1Idx);
@@ -513,20 +513,61 @@ export function fixWire(wireGraph: IWireGraph) {
 
     let graph = wireToGraph(wire);
 
-    iterWireGraphSegments(graph, (node0, node1) => {
-
+    iterWireGraphSegments(graph, (segNode0, segNode1) => {
         for (let node of graph.nodes) {
-            if (node === node0 || node === node1) {
+            if (node === segNode0 || node === segNode1) {
                 continue;
             }
 
-            if (segAttachedTo({ p0: node0.pos, p1: node1.pos }, node.pos)) {
+            if (segAttachedTo({ p0: segNode0.pos, p1: segNode1.pos }, node.pos)) {
+                // node is on the segment => segment needs to be split
+                // i.e. edge between segNode0 and segNode1 needs to be removed, and new edges added
+                wireUnlinkNodes(segNode0, segNode1);
+                wireLinkNodes(segNode0, node);
+                wireLinkNodes(node, segNode1);
             }
         }
-
     });
 
+    let nodesRemoved = false;
+    for (let node of graph.nodes) {
+        // check directions out of each node
+        // if two edges are colinear, merge them
+        if (node.edges.length !== 2) {
+            continue;
+        }
+        let node0 = graph.nodes[node.edges[0]];
+        let node1 = graph.nodes[node.edges[1]];
+        let dir0 = node0.pos.sub(node.pos).normalize();
+        let dir1 = node1.pos.sub(node.pos).normalize();
+        if (dir0.dot(dir1) < -1 + EPSILON) {
+            // colinear
+            wireUnlinkNodes(node0, node);
+            wireUnlinkNodes(node1, node);
+            wireLinkNodes(node0, node1);
+            nodesRemoved = true;
+        }
+    }
+
+    if (nodesRemoved) {
+        graph = repackGraphIds(graph);
+    }
+
     return graph;
+}
+
+export function wireLinkNodes(node0: IWireGraphNode, node1: IWireGraphNode) {
+    if (!node0.edges.includes(node1.id)) {
+        node0.edges.push(node1.id);
+    }
+    if (!node1.edges.includes(node0.id)) {
+        node1.edges.push(node0.id);
+    }
+}
+
+export function wireUnlinkNodes(node0: IWireGraphNode, node1: IWireGraphNode) {
+    node0.edges = node0.edges.filter(e => e !== node1.id);
+    node1.edges = node1.edges.filter(e => e !== node0.id);
 }
 
 export function filterImm<T>(arr: T[], pred: (t: T) => boolean) {

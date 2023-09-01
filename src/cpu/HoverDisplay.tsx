@@ -19,7 +19,7 @@ export const HoverDisplay: React.FC<{
     if (hovered) {
         let content: React.ReactNode = null;
 
-        if (hovered.ref.type === RefType.Wire) {
+        if (hovered.ref.type === RefType.Wire || hovered.ref.type === RefType.WireNode) {
             let netIdx = exeModel.lookup.wireIdToNetIdx.get(hovered.ref.id);
             let net = exeModel.nets[netIdx ?? -1];
             if (net) {

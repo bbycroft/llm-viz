@@ -94,6 +94,7 @@ export const CpuCanvas: React.FC<{
             undoStack: [],
             hovered: null,
             maskHover: null,
+            selectRegion: null,
             addLine: false,
         };
     });
@@ -225,7 +226,7 @@ export const CpuCanvas: React.FC<{
     </EditorContext.Provider>;
 };
 
-function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLayout, exeSystem: IExeSystem) {
+function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLayout, exeSystem: IExeSystem) {
     let ctx = cvs.ctx;
 
     let tl = editorState.mtx.mulVec3Inv(new Vec3(0, 0));
@@ -263,14 +264,15 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
     }
     drawGridAtScale(1);
 
-    for (let wire of cpuOpts.wires) {
+
+    for (let wire of layout.wires) {
         let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(wire.id) ?? -1];
         renderWire(cvs, editorState, wire, exeNet, exeSystem);
     }
 
     ctx.save();
     ctx.globalAlpha = cvs.showTransparentComps ? 0.5 : 1.0;
-    for (let comp of cpuOpts.comps) {
+    for (let comp of layout.comps) {
         let exeComp = exeSystem.comps[exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1];
         let compDef = editorState.compLibrary.comps.get(comp.defId);
 
@@ -320,6 +322,40 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, cpuOpts: ICpuLa
             renderNode(cvs, editorState, comp, node);
         }
     }
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    let selectedCompSet = new Set(editorState.layout.selected.filter(a => a.type === RefType.Comp).map(a => a.id));
+    for (let comp of layout.comps.filter(c => selectedCompSet.has(c.id))) {
+        ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+    }
+    ctx.strokeStyle = "#77f";
+    ctx.lineWidth = 2 * cvs.scale;
+    ctx.filter = "blur(1px)";
+    ctx.stroke();
+    ctx.restore();
+
+    renderSelectRegion(cvs, editorState);
+}
+
+function renderSelectRegion(cvs: ICanvasState, editorState: IEditorState) {
+
+    if (!editorState.selectRegion) {
+        return;
+    }
+
+    let region = editorState.selectRegion;
+    let ctx = cvs.ctx;
+    let p0 = region.min; // editorState.mtx.mulVec3Inv(region.min);
+    let p1 = region.max; // editorState.mtx.mulVec3Inv(region.max);
+
+    ctx.save();
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 1 * cvs.scale;
+    ctx.beginPath();
+    ctx.rect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y);
+    ctx.stroke();
     ctx.restore();
 }
 

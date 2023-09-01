@@ -1,6 +1,6 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { StateSetter } from "../utils/data";
-import { Vec3 } from "../utils/vector";
+import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
 import { SchematicLibrary } from "./schematics/SchematicLibrary";
 
@@ -128,6 +128,7 @@ export interface IEditorState {
     undoStack: ICpuLayout[];
     redoStack: ICpuLayout[];
 
+    selectRegion: BoundingBox3d | null;
     hovered: IHitTest | null;
     maskHover: string | null;
     addLine: boolean
@@ -169,6 +170,7 @@ export interface IElRef {
 export enum RefType {
     Comp,
     Wire,
+    WireNode,
     CompNode,
 }
 

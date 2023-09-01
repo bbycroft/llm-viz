@@ -252,6 +252,13 @@ export class BoundingBox3d {
             p.y >= this.min.y && p.y <= this.max.y &&
             p.z >= this.min.z && p.z <= this.max.z;
     }
+
+    intersects(b: BoundingBox3d) {
+        return !this.empty && !b.empty &&
+            this.max.x >= b.min.x && this.min.x <= b.max.x &&
+            this.max.y >= b.min.y && this.min.y <= b.max.y &&
+            this.max.z >= b.min.z && this.min.z <= b.max.z;
+    }
 }
 
 // static functions that operate on Float32Arrays (or Float64Arrays)
