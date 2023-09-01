@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Vec3 } from "@/src/utils/vector";
 import { IExePort, PortDir, IComp, ICanvasState, IoDir } from "../CpuModel";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
@@ -231,7 +231,31 @@ interface IReadWriteInfo {
 }
 
 function renderData(comp: IComp, bytes: Uint8Array, read: IReadWriteInfo | null, write: IReadWriteInfo | null) {
+
+    return <CompRectBase comp={comp}>
+        <MemoryContents
+            bytes={bytes}
+            readAddr={read ? read.addr : null}
+            readNumBytes={read ? read.numBytes : null}
+            writeAddr={write ? write.addr : null}
+            writeNumBytes={write ? write.numBytes : 0}
+            writeValue={write ? write.value : null}
+        />
+    </CompRectBase>;
+}
+
+export const MemoryContents: React.FC<{
+    bytes: Uint8Array,
+    readAddr: number | null,
+    readNumBytes: number | null,
+    writeAddr: number | null,
+    writeNumBytes: number,
+    writeValue: number | null,
+}> = memo(function MemoryContents({ bytes, readAddr, readNumBytes, writeAddr, writeNumBytes, writeValue }) {
     let bytesPerCol = 16;
+
+    let read: IReadWriteInfo | null = readAddr && readNumBytes ? { addr: 0, numBytes: readNumBytes, value: 0 } : null;
+    let write: IReadWriteInfo | null = writeAddr && writeNumBytes ? { addr: writeAddr, numBytes: writeNumBytes, value: writeValue || 0 } : null;
 
     interface IRow {
         addr: number;
@@ -255,34 +279,31 @@ function renderData(comp: IComp, bytes: Uint8Array, read: IReadWriteInfo | null,
             allZeros: allZeros,
         });
     }
-    // return null;
 
-    return <CompRectBase comp={comp}>
-        <div className={s.memTable}>
-            {rows.map((row, i) => {
-                return <div key={i} className={s.memRow}>
-                    <div className={s.memRowAddr}>{row.addr.toString(16).padStart(2, '0')}</div>
-                    <div className={clsx(s.memRowBytes, row.allZeros && s.allZeros)}>
-                        {[...row.bytes].map((b, j) => {
-                            let isRead = read && (row.addr + j >= read.addr && row.addr + j < read.addr + read.numBytes);
-                            let isWrite = write && (row.addr + j >= write.addr && row.addr + j < write.addr + write.numBytes);
+    return <div className={s.memTable}>
+        {rows.map((row, i) => {
+            return <div key={i} className={s.memRow}>
+                <div className={s.memRowAddr}>{row.addr.toString(16).padStart(2, '0')}</div>
+                <div className={clsx(s.memRowBytes, row.allZeros && s.allZeros)}>
+                    {[...row.bytes].map((b, j) => {
+                        let isRead = read && (row.addr + j >= read.addr && row.addr + j < read.addr + read.numBytes);
+                        let isWrite = write && (row.addr + j >= write.addr && row.addr + j < write.addr + write.numBytes);
 
-                            let topVal: number | null = null;
-                            let contents: React.ReactNode = b.toString(16).padStart(2, '0');
-                            if (write && isWrite) {
-                                let byteOffset = row.addr + j - write.addr;
-                                topVal = (write.value >> (byteOffset * 8)) & 0xff;
-                                contents = <>
-                                    <div>{topVal.toString(16).padStart(2, '0')}</div>
-                                    <div>{contents}</div>
-                                </>;
-                            }
+                        let topVal: number | null = null;
+                        let contents: React.ReactNode = b.toString(16).padStart(2, '0');
+                        if (write && isWrite) {
+                            let byteOffset = row.addr + j - write.addr;
+                            topVal = (write.value >> (byteOffset * 8)) & 0xff;
+                            contents = <>
+                                <div>{topVal.toString(16).padStart(2, '0')}</div>
+                                <div>{contents}</div>
+                            </>;
+                        }
 
-                            return <div key={j} className={clsx(s.memRowByte, isRead && s.byteRead, isWrite && s.byteWrite)}>{contents}</div>;
-                        })}
-                    </div>
-                </div>;
-            })}
-        </div>
-    </CompRectBase>;
-}
+                        return <div key={j} className={clsx(s.memRowByte, isRead && s.byteRead, isWrite && s.byteWrite)}>{contents}</div>;
+                    })}
+                </div>
+            </div>;
+        })}
+    </div>;
+});
