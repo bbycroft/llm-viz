@@ -2,33 +2,6 @@ import { assignImm, getOrAddToMap, isNil } from "../utils/data";
 import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
 import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayout, IElRef, RefType } from "./CpuModel";
 
-export function moveWiresWithComp(layout: ICpuLayout, compIdx: number, delta: Vec3): IWireGraph[] {
-    let comp = layout.comps[compIdx];
-
-    let newWires: IWireGraph[] = [];
-    for (let wire of layout.wires) {
-        wire = copyWireGraph(wire);
-        let nodeIdsToMove: number[] = [];
-        for (let node of wire.nodes) {
-            if (node.ref?.type === RefType.CompNode && node.ref.id === comp.id) {
-                nodeIdsToMove.push(node.id);
-            }
-        }
-
-        if (nodeIdsToMove.length > 0) {
-            let map = new Map<number, Vec3>();
-            for (let nodeId of nodeIdsToMove) {
-                map.set(nodeId, delta);
-            }
-            wire = dragNodes(wire, map);
-        }
-
-        newWires.push(wire);
-    }
-
-    return newWires;
-}
-
 export function moveSelectedComponents(layout: ICpuLayout, delta: Vec3): ICpuLayout {
     if (delta.dist(Vec3.zero) < EPSILON) {
         return layout;
@@ -62,13 +35,6 @@ export function moveSelectedComponents(layout: ICpuLayout, delta: Vec3): ICpuLay
     for (let ref of layout.selected) {
         if (ref.type === RefType.Comp) {
             compsToMove.add(ref.id);
-
-        } else if (ref.type === RefType.WireSeg) {
-            // Map wire segments onto wire nodes (unless they're attached to a non-selected comp's port)
-            let wire = wireLookup.get(ref.id)!;
-
-            let ref0 = wire.nodes[ref.wireNode0Id!].ref;
-            let ref1 = wire.nodes[ref.wireNode1Id!].ref;
         }
     }
 

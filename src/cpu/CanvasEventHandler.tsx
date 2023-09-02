@@ -6,7 +6,7 @@ import { useCombinedMouseTouchDrag } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
 import { ICanvasState, ICpuLayout, IEditorState, IElRef, IHitTest, ISegment, IWireGraph, RefType } from './CpuModel';
 import { editLayout, useEditorContext } from './Editor';
-import { moveWiresWithComp, fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString } from './Wire';
+import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString } from './Wire';
 import s from './CpuCanvas.module.scss';
 import { multiSortStableAsc } from '../utils/array';
 
@@ -153,22 +153,6 @@ export const CanvasEventHandler: React.FC<{
     });
 
     let showTransparentComponents = dragStart?.data.ctrlDown || ctrlDown;
-
-    function handleComponentDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
-
-        setEditorState(editLayout(end, layout => {
-            let editCompIdx = layout.comps.findIndex(c => c.id === ref.id)!;
-            let editComp = layout.comps[editCompIdx];
-            let deltaPos = newModelPos.sub(origModelPos);
-            let newPos = snapToGrid(editComp.pos.add(deltaPos));
-            let actualDelta = newPos.sub(editComp.pos);
-
-            return assignImm(layout, {
-                comps: layout.comps.map(c => c.id === ref.id ? assignImm(c, { pos: newPos }) : c),
-                wires: moveWiresWithComp(layout, editCompIdx, actualDelta),
-            });
-        }));
-    }
 
     function handleSelectionDrag(end: boolean, origModelPos: Vec3, newModelPos: Vec3) {
 

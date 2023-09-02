@@ -9,6 +9,7 @@ import { createBinaryGateComps } from "./BinaryGates";
 import { createAddressingComps } from "./Addressing";
 import { createInputOutputComps } from "./InputOutput";
 import { createLedOutputComps } from "./peripheral/LedOutputSimple";
+import { createRegFileCtrlComps } from "./riscv/RegisterControl";
 
 export function buildCompLibrary() {
     let compLibrary = new CompLibrary();
@@ -26,6 +27,7 @@ export function buildCompLibrary() {
         ...createAddressingComps(args),
         ...createInputOutputComps(args),
         ...createLedOutputComps(args),
+        ...createRegFileCtrlComps(args),
     ];
 
     for (let comp of comps) {

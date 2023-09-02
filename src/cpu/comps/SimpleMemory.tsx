@@ -5,6 +5,7 @@ import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
 import clsx from 'clsx';
+import { isNotNil } from '@/src/utils/data';
 
 export interface IRomExeData {
     addr: IExePort;
@@ -254,8 +255,8 @@ export const MemoryContents: React.FC<{
 }> = memo(function MemoryContents({ bytes, readAddr, readNumBytes, writeAddr, writeNumBytes, writeValue }) {
     let bytesPerCol = 16;
 
-    let read: IReadWriteInfo | null = readAddr && readNumBytes ? { addr: 0, numBytes: readNumBytes, value: 0 } : null;
-    let write: IReadWriteInfo | null = writeAddr && writeNumBytes ? { addr: writeAddr, numBytes: writeNumBytes, value: writeValue || 0 } : null;
+    let read: IReadWriteInfo | null = isNotNil(readAddr) && readNumBytes ? { addr: readAddr, numBytes: readNumBytes, value: 0 } : null;
+    let write: IReadWriteInfo | null = isNotNil(writeAddr) && writeNumBytes ? { addr: writeAddr, numBytes: writeNumBytes, value: writeValue || 0 } : null;
 
     interface IRow {
         addr: number;

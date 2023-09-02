@@ -154,6 +154,10 @@ export const riscvRegNames = [
     't3', 't4', 't5', 't6'
 ];
 
+export const riscvInColor = '#ee39';
+export const riscvOutAColor = '#3f39';
+export const riscvOutBColor = '#33f9';
+
 // 32bit pc
 function renderPc({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataSingleReg>) {
     let padX = 1.2;
@@ -241,10 +245,10 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
         let xMid = (xLeft + xRight) / 2;
 
         if (isARead) {
-            drawReadCircle(xLeft, isBRead ? xMid : xRight, "#3f39");
+            drawReadCircle(xLeft, isBRead ? xMid : xRight, riscvOutAColor);
         }
         if (isBRead) {
-            drawReadCircle(isARead ? xMid : xLeft, xRight, "#33f9");
+            drawReadCircle(isARead ? xMid : xLeft, xRight, riscvOutBColor);
         }
 
         ctx.fillStyle = (i > 0 && regValue === 0) ? '#0007' : "#000";
@@ -256,7 +260,7 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
             let writeTextWidth = ctx.measureText(writeStr).width;
             let xNewRight = xRight - textWidth - padX * 3;
 
-            drawReadCircle(xNewRight - writeTextWidth - 0.2, xNewRight + 0.2, "#ee39");
+            drawReadCircle(xNewRight - writeTextWidth - 0.2, xNewRight + 0.2, riscvInColor);
 
             ctx.textAlign = 'end';
             ctx.fillStyle = "#883f";

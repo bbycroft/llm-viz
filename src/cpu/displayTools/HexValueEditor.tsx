@@ -11,6 +11,7 @@ export enum HexValueInputType {
 }
 
 export const HexValueEditor: React.FC<{
+    className?: string,
     value: number,
     inputType: HexValueInputType,
     fixedInputType?: boolean,
@@ -18,7 +19,7 @@ export const HexValueEditor: React.FC<{
     minimalBackground?: boolean,
     padBits?: number,
     update: (end: boolean, val: number, inputType: HexValueInputType) => void,
-}> = ({ value, inputType, hidePrefix, fixedInputType, minimalBackground, padBits, update }) => {
+}> = ({ className, value, inputType, hidePrefix, fixedInputType, minimalBackground, padBits, update }) => {
 
     let [text, setText] = React.useState(formatValue(value, inputType, padBits));
     let textPrefix = inputType === HexValueInputType.Hex ? '0x' : inputType === HexValueInputType.Bin ? '0b' : '';
@@ -70,7 +71,7 @@ export const HexValueEditor: React.FC<{
     let textValid = isValid(text);
 
     // &nbsp; but in js text: '\u00A0'
-    return <div className={s.hexValueEditor}>
+    return <div className={clsx(s.hexValueEditor, className)}>
         {!hidePrefix && <button className={s.prefix} onClick={handleInputModeChange}>
             {!fixedInputType && <FontAwesomeIcon icon={faAngleUp} />}
             {textPrefix || '\u00A0'}

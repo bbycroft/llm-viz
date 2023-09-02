@@ -3,7 +3,7 @@ import { iterLocalStorageEntries } from "@/src/utils/localstorage";
 import { CompLibrary } from "../comps/CompBuilder";
 import { ICpuLayout } from "../CpuModel";
 import { createInitialCpuLayout, ILSState, wiresFromLsState, wiresToLsState } from "../ImportExport";
-import { riscvBasicSchematic } from "./RiscvBasic";
+import { regFileDemo, riscvBasicSchematic } from "./RiscvBasic";
 
 export interface ILocalSchematic {
     id: string;
@@ -20,7 +20,8 @@ export class SchematicLibrary {
     customSchematics = new Map<string, ISchematicDef>();
 
     localSchematics: ILocalSchematic[] = [
-        riscvBasicSchematic
+        riscvBasicSchematic,
+        regFileDemo,
     ];
 
     constructor() {
@@ -125,7 +126,7 @@ export class SchematicLibrary {
             };
             localStorage.setItem(this.schematicLocalStorageKey(schematic.id), JSON.stringify(lsSchematic));
         } else if (this.builtinSchematics.get(id)) {
-            console.log(`Can't update builtin schematic ${id}`);
+            // console.log(`Can't update builtin schematic ${id}`);
         } else {
             console.error(`Schematic ${id} not found`);
         }

@@ -44,6 +44,7 @@ export const CompRectBase: React.FC<{
         onMouseEnter={() => handleHover(true)}
         onMouseLeave={() => handleHover(false)}
         onMouseDown={ev => ev.stopPropagation()}
+        onContextMenu={ev => ev.stopPropagation()}
     >
 
         {children}
