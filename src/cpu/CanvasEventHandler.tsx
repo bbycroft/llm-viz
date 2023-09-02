@@ -6,7 +6,7 @@ import { useCombinedMouseTouchDrag } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
 import { ICanvasState, ICpuLayout, IEditorState, IElRef, IHitTest, ISegment, IWireGraph, RefType } from './CpuModel';
 import { editLayout, useEditorContext } from './Editor';
-import { moveWiresWithComp, fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment } from './Wire';
+import { moveWiresWithComp, fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString } from './Wire';
 import s from './CpuCanvas.module.scss';
 import { multiSortStableAsc } from '../utils/array';
 
@@ -27,13 +27,18 @@ export const CanvasEventHandler: React.FC<{
         if (ev.key === "Delete") {
             setEditorState(editLayout(true, layout => {
 
-                function matchesRef(ref: IElRef, id: string, type: RefType) {
-                    return ref.id === id && ref.type === type;
+                let refStrs = new Set(layout.selected.map(s => refToString(s)));
+                function selectionHasRef(id: string, type: RefType) {
+                    return refStrs.has(refToString({ id, type }));
                 }
 
                 let newLayout = assignImm(layout, {
-                    comps: layout.comps.filter(c => !layout.selected.some(s => matchesRef(s, c.id, RefType.Comp))),
-                    wires: layout.wires.filter(w => !layout.selected.some(s => matchesRef(s, w.id, RefType.Wire))),
+                    comps: layout.comps.filter(c => !selectionHasRef(c.id, RefType.Comp)),
+                    wires: layout.wires
+                        .map(w => {
+                            let newNodes = w.nodes.map(n => assignImm(n, { ref: n.ref && !refStrs.has(refToString(n.ref)) ? n.ref : undefined }));
+                            return assignImm(w, { nodes: newNodes });
+                        }),
                     selected: [],
                 });
                 return newLayout;
@@ -71,15 +76,35 @@ export const CanvasEventHandler: React.FC<{
             let startPos = ds.data.modelPos;
             let bb = new BoundingBox3d(startPos, endPos);
 
-            let newSelected = editorState!.layout.comps.filter(c => {
+            let compRefs = editorState!.layout.comps.filter(c => {
                 let bb2 = new BoundingBox3d(c.pos, c.pos.add(c.size));
                 return bb.intersects(bb2);
             }).map(c => ({ type: RefType.Comp, id: c.id }));
 
+            let wireRefs = editorState!.layout.wires.flatMap(w => {
+                let nodeRefs: IElRef[] = [];
+                for (let node of w.nodes) {
+                    if (bb.contains(node.pos)) {
+                        nodeRefs.push({ type: RefType.WireNode, id: w.id, wireNode0Id: node.id });
+                    }
+                }
+
+                let segRefs: IElRef[] = [];
+                iterWireGraphSegments(w, (node0, node1) => {
+                    let bb2 = new BoundingBox3d(node0.pos, node1.pos);
+                    if (bb.intersects(bb2)) {
+                        segRefs.push({ type: RefType.WireSeg, id: w.id, wireNode0Id: node0.id, wireNode1Id: node1.id });
+                    }
+                });
+
+                return [...nodeRefs, ...segRefs];
+            });
+
+
             setEditorState(a => assignImm(a, {
                 selectRegion: end ? null : bb,
                 layout: assignImm(a.layout, {
-                    selected: newSelected,
+                    selected: [...compRefs, ...wireRefs],
                 }),
             }));
 
@@ -92,11 +117,12 @@ export const CanvasEventHandler: React.FC<{
             if (hoveredRef.type === RefType.Comp) {
                 let isSelected = editorState!.layout.selected.find(a => a.type === RefType.Comp && a.id === hoveredRef.id);
                 if (isSelected) {
-                    handleComponentDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
+                    // handleComponentDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
+                    handleSelectionDrag(end, ds.data.modelPos, evToModel(ev));
                 }
             } else if (hoveredRef.type === RefType.CompNode) {
                 handleWireCreateDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
-            } else if (hoveredRef.type === RefType.Wire) {
+            } else if (hoveredRef.type === RefType.WireSeg) {
                 handleWireDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
             } else if (hoveredRef.type === RefType.WireNode) {
                 handleWireExtendDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
@@ -141,6 +167,15 @@ export const CanvasEventHandler: React.FC<{
                 comps: layout.comps.map(c => c.id === ref.id ? assignImm(c, { pos: newPos }) : c),
                 wires: moveWiresWithComp(layout, editCompIdx, actualDelta),
             });
+        }));
+    }
+
+    function handleSelectionDrag(end: boolean, origModelPos: Vec3, newModelPos: Vec3) {
+
+        setEditorState(editLayout(end, layout => {
+            let deltaPos = newModelPos.sub(origModelPos);
+            let snappedDelta = snapToGrid(deltaPos);
+            return moveSelectedComponents(layout, snappedDelta);
         }));
     }
 
@@ -392,7 +427,7 @@ export const CanvasEventHandler: React.FC<{
                     let screenDist = isectPt.dist(mousePtScreen);
                     if (screenDist < 10) {
                         refsUnderCursor.push({
-                            ref: { type: RefType.Wire, id: wire.id, wireNode0Id: node0.id, wireNode1Id: node1.id },
+                            ref: { type: RefType.WireSeg, id: wire.id, wireNode0Id: node0.id, wireNode1Id: node1.id },
                             distPx: screenDist,
                             modelPt: screenToModel(isectPt),
                         });
@@ -410,7 +445,7 @@ export const CanvasEventHandler: React.FC<{
                 return 0;
             } else if (a.ref.type === RefType.CompNode) {
                 return 1;
-            } else if (a.ref.type === RefType.Wire) {
+            } else if (a.ref.type === RefType.WireSeg) {
                 return 2;
             }
         }, a => a.distPx]);
@@ -475,7 +510,7 @@ export const CanvasEventHandler: React.FC<{
         let hoveredRef = editorState.hovered.ref;
         if (hoveredRef.type === RefType.CompNode) {
             cursor = 'crosshair';
-        } else if (hoveredRef.type === RefType.Wire) {
+        } else if (hoveredRef.type === RefType.WireSeg) {
             let wire = editorState.layout.wires.find(w => w.id === hoveredRef.id);
             if (wire) {
                 let node0 = wire.nodes[hoveredRef.wireNode0Id!];

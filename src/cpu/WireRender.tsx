@@ -122,15 +122,43 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     let width = isCtrl ? 1 : 3;
 
     let hoverRef = editorState.hovered?.ref;
-    let isHover = hoverRef?.type === RefType.Wire && hoverRef.id === wire.id;
+    let isHover = (hoverRef?.type === RefType.WireSeg || hoverRef?.type === RefType.WireNode) && hoverRef.id === wire.id;
 
-    let isSelected = editorState.layout.selected.some(a => a.type === RefType.Wire && a.id === wire.id);
+    let isSelected = false;
+    let selectedNodes = new Set<number>();
+    let selectedSegs = new Set<string>();
+
+    for (let sel of editorState.layout.selected) {
+        if (!(sel.type === RefType.WireNode || sel.type === RefType.WireSeg) || sel.id !== wire.id) {
+            continue;
+        }
+        isSelected = true;
+
+        if (sel.type === RefType.WireNode) {
+            selectedNodes.add(sel.wireNode0Id!);
+        }
+        if (sel.type === RefType.WireSeg) {
+            selectedSegs.add(segKey(sel.wireNode0Id!, sel.wireNode1Id!));
+        }
+    }
 
     ctx.lineCap = "square";
     ctx.lineJoin = "round";
 
     function isSegHover(node0: IWireGraphNode, node1: IWireGraphNode) {
-        return isHover && hoverRef?.wireNode0Id === node0.id && hoverRef?.wireNode1Id === node1.id;
+        return isHover && hoverRef!.type === RefType.WireSeg && hoverRef!.wireNode0Id === node0.id && hoverRef!.wireNode1Id === node1.id;
+    }
+
+    function isNodeHover(node: IWireGraphNode) {
+        return isHover && hoverRef!.type === RefType.WireNode && hoverRef!.wireNode0Id === node.id;
+    }
+
+    function isNodeSelected(node: IWireGraphNode) {
+        return isSelected && selectedNodes.has(node.id);
+    }
+
+    function isSegSelected(node0: IWireGraphNode, node1: IWireGraphNode) {
+        return isSelected && selectedSegs.has(segKey(node0.id, node1.id));
     }
 
     if (inputNodeCount > 1) {
@@ -149,13 +177,27 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
     if (isSelected) {
         ctx.save();
+
         ctx.beginPath();
         iterWireGraphSegments(wire, (node0, node1) => {
-            ctx.moveTo(node0.pos.x, node0.pos.y);
-            ctx.lineTo(node1.pos.x, node1.pos.y);
+            if (isSegSelected(node0, node1)) {
+                ctx.moveTo(node0.pos.x, node0.pos.y);
+                ctx.lineTo(node1.pos.x, node1.pos.y);
+            }
         });
         ctx.strokeStyle = '#00f';
         ctx.lineWidth = (width + 3) * cvs.scale;
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (let node of wire.nodes) {
+            if (isNodeSelected(node)) {
+                ctx.moveTo(node.pos.x, node.pos.y);
+                ctx.arc(node.pos.x, node.pos.y, 3 * cvs.scale, 0, 2 * Math.PI);
+            }
+        }
+        ctx.strokeStyle = '#00f';
+        ctx.lineWidth = (width) * cvs.scale;
         ctx.stroke();
         ctx.restore();
     }
@@ -238,6 +280,17 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
             let isFlow = flowNodes.has(node.id);
             ctx.fillStyle = isFlow ? flowColor : noFlowColor;
             ctx.fill();
+        }
+
+        if (isSelected) {
+            ctx.fillStyle = '#666';
+            ctx.font = `${18 * cvs.scale}px monospace`;
+            ctx.textBaseline = 'bottom';
+            ctx.textAlign = 'left';
+            for (let node of wire.nodes) {
+                ctx.fillText(node.id.toString(), node.pos.x + 0.1, node.pos.y - 0.1);
+            }
+
         }
     }
 

@@ -169,7 +169,7 @@ export interface IElRef {
 
 export enum RefType {
     Comp,
-    Wire,
+    WireSeg,
     WireNode,
     CompNode,
 }

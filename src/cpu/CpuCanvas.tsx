@@ -367,7 +367,7 @@ function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart
 
     let hover = dragStart.data.hovered;
 
-    if (hover.ref.type === RefType.Wire && !isNil(hover.ref.wireNode0Id) && isNil(hover.ref.wireNode1Id)) {
+    if (hover.ref.type === RefType.WireSeg && !isNil(hover.ref.wireNode0Id) && isNil(hover.ref.wireNode1Id)) {
         let wireNodeId = hover.ref.wireNode0Id;
         let node = editorState.layout.wires.find(w => w.id === hover.ref.id)?.nodes[wireNodeId!];
 
