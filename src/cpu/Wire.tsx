@@ -16,7 +16,11 @@ export function moveWiresWithComp(layout: ICpuLayout, compIdx: number, delta: Ve
         }
 
         if (nodeIdsToMove.length > 0) {
-            wire = dragNodes(wire, nodeIdsToMove, delta);
+            let map = new Map<number, Vec3>();
+            for (let nodeId of nodeIdsToMove) {
+                map.set(nodeId, delta);
+            }
+            wire = dragNodes(wire, map);
         }
 
         newWires.push(wire);
@@ -41,7 +45,7 @@ export function moveSelectedComponents(layout: ICpuLayout, delta: Vec3): ICpuLay
 
     let selection = new Set(layout.selected.map(refToString));
     let compsToMove = new Set<string>();
-    let wiresAndNodesToMove = new Map<string, number[]>();
+    let wiresAndNodesToMove = new Map<string, Map<number, Vec3>>();
 
     // Create a map of all the comp ports
     for (let comp of layout.comps) {
@@ -65,33 +69,44 @@ export function moveSelectedComponents(layout: ICpuLayout, delta: Vec3): ICpuLay
 
             let ref0 = wire.nodes[ref.wireNode0Id!].ref;
             let ref1 = wire.nodes[ref.wireNode1Id!].ref;
-
-            if (!ref0 || compPorts.has(refToString(ref0))) {
-                selection.add(refToString({ type: RefType.WireNode, id: ref.id, wireNode0Id: ref.wireNode0Id! }));
-            }
-            if (!ref1 || compPorts.has(refToString(ref1))) {
-                selection.add(refToString({ type: RefType.WireNode, id: ref.id, wireNode0Id: ref.wireNode1Id! }));
-            }
         }
     }
 
     // figure out what nodes to move on each wire (by direct selection, or by being attached to a selected comp's port)
     for (let wire of layout.wires) {
-        let nodeIdsToMove: number[] = [];
+        let nodeIdsToMove = new Map<number, Vec3>();
+
         for (let node of wire.nodes) {
             let nodeRefStr = refToString({ type: RefType.WireNode, id: wire.id, wireNode0Id: node.id });
             if (selection.has(nodeRefStr)) {
-                nodeIdsToMove.push(node.id);
+                nodeIdsToMove.set(node.id, delta);
                 continue;
             }
 
             if (node.ref) {
                 let refStr = refToString(node.ref);
                 if (compPorts.has(refStr)) {
-                    nodeIdsToMove.push(node.id);
+                    nodeIdsToMove.set(node.id, delta);
                 }
             }
         }
+
+        for (let ref of layout.selected) {
+            if (ref.type === RefType.WireSeg && ref.id === wire.id) {
+                let node0 = wire.nodes[ref.wireNode0Id!];
+                let node1 = wire.nodes[ref.wireNode1Id!];
+                let segDir = node1.pos.sub(node0.pos).normalize();
+                let segDirPerp = new Vec3(-segDir.y, segDir.x, 0);
+                let perpDelta = projectOntoVector(delta, segDirPerp);
+                if (!nodeIdsToMove.has(node0.id)) {
+                    nodeIdsToMove.set(node0.id, perpDelta);
+                }
+                if (!nodeIdsToMove.has(node1.id)) {
+                    nodeIdsToMove.set(node1.id, perpDelta);
+                }
+            }
+        }
+
         wiresAndNodesToMove.set(wire.id, nodeIdsToMove);
     }
 
@@ -105,7 +120,7 @@ export function moveSelectedComponents(layout: ICpuLayout, delta: Vec3): ICpuLay
         wires: layout.wires.map(wire => {
             let nodeIdsToMove = wiresAndNodesToMove.get(wire.id);
             if (nodeIdsToMove) {
-                wire = dragNodes(wire, nodeIdsToMove, delta);
+                wire = dragNodes(wire, nodeIdsToMove);
             }
             return wire;
         }),
@@ -141,7 +156,7 @@ export function parseRefStr(str: string): IElRef {
     }
 }
 
-export function dragNodes(wire: IWireGraph, nodeIdxs: number[], delta: Vec3) {
+export function dragNodes(wire: IWireGraph, nodesToMove: Map<number, Vec3>) {
     // kinda complicated, but assume we're dragging a component (or 3) with wires attached to their nodes
 
     // we do something similar to segment dragging, where we try to extend down co-linear segments
@@ -154,31 +169,27 @@ export function dragNodes(wire: IWireGraph, nodeIdxs: number[], delta: Vec3) {
     // then increase that height for subsequent segments
     wire = copyWireGraph(wire);
 
-    let nodesToMove = new Map<number, Vec3>();
-
-    for (let node0Idx of nodeIdxs) {
-        nodesToMove.set(node0Idx, delta);
-    }
-
-    let initialNodes = new Set(nodeIdxs);
+    let initialNodes = new Set(nodesToMove.keys());
 
     function isPinnedNode(nodeIdx: number) {
         let node = wire.nodes[nodeIdx];
         return node.ref?.type === RefType.CompNode && !initialNodes.has(nodeIdx);
     }
 
-    checkWires([wire], 'dragNodes (pre)');
-
-    // let newNodes = [...wire.nodes];
-
-    for (let node0Idx of nodeIdxs) {
+    for (let [node0Idx, delta] of nodesToMove) {
+        if (delta.len() < EPSILON) {
+            continue;
+        }
         let node0 = wire.nodes[node0Idx];
         for (let node1Idx of [...node0.edges]) {
             // looking at each offshoot (node1) of a moving node (node0)
             let node1 = wire.nodes[node1Idx];
             let dir = node1.pos.sub(node0.pos).normalize();
             let dirPerp = new Vec3(-dir.y, dir.x, 0);
-            let colinearDelta = projectOntoVector(delta, dirPerp);
+            if (dirPerp.len() < EPSILON) {
+                continue;
+            }
+            let perpDelta = projectOntoVector(delta, dirPerp);
             let maybeMoves = new Map<number, Vec3>();
 
             // find all nodes colinear with this segment
@@ -191,10 +202,10 @@ export function dragNodes(wire: IWireGraph, nodeIdxs: number[], delta: Vec3) {
                 }
 
                 if (!moveAmt) {
-                    maybeMoves.set(node.id, colinearDelta);
-                } else if (Math.abs(moveAmt.dot(colinearDelta)) < EPSILON) {
+                    maybeMoves.set(node.id, perpDelta);
+                } else if (Math.abs(moveAmt.dot(perpDelta)) < EPSILON) {
                     // probably should subtract the dot-prod component from colinearDelta prior to adding, but this is good enough
-                    maybeMoves.set(node.id, moveAmt.add(colinearDelta));
+                    maybeMoves.set(node.id, moveAmt.add(perpDelta));
                 }
             });
 
@@ -206,7 +217,7 @@ export function dragNodes(wire: IWireGraph, nodeIdxs: number[], delta: Vec3) {
             } else {
                 // need to disjoint the first node
                 if (!isPinnedNode(node1Idx)) {
-                    let newNode: IWireGraphNode = { id: wire.nodes.length, pos: snapToGrid(node1.pos.add(colinearDelta)), edges: [] };
+                    let newNode: IWireGraphNode = { id: wire.nodes.length, pos: snapToGrid(node1.pos.add(perpDelta)), edges: [] };
                     wireUnlinkNodes(node0, node1);
                     wireLinkNodes(node0, newNode);
                     wireLinkNodes(newNode, node1);
