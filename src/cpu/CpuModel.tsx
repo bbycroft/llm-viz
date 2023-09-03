@@ -132,6 +132,7 @@ export interface IEditorState {
     hovered: IHitTest | null;
     maskHover: string | null;
     addLine: boolean
+    showExeOrder: boolean;
 
     dragCreateComp?: IDragCreateComp;
 }

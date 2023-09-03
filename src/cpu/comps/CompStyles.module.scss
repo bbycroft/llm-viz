@@ -180,6 +180,20 @@
     justify-content: flex-start;
 }
 
+.compBinGate {
+    background-color: rgba(red, 0.3);
+    border-radius: 4px;
+    &:hover {
+        background-color: rgba(red, 0.5);
+    }
+    cursor: pointer;
+    pointer-events: auto;
+    width: 20px;
+    height: 20px;
+    margin: auto;
+    // align-self: flex-end;
+}
+
 .regSelect {
     pointer-events: auto;
     display: flex;

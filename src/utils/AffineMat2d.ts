@@ -14,12 +14,12 @@ export class AffineMat2d {
 
     mul(rhs: AffineMat2d) {
         return new AffineMat2d(
-            this.a * rhs.a + this.b * rhs.c,
-            this.a * rhs.b + this.b * rhs.d,
-            this.c * rhs.a + this.d * rhs.c,
-            this.c * rhs.b + this.d * rhs.d,
-            this.e * rhs.a + this.f * rhs.c + rhs.e,
-            this.e * rhs.b + this.f * rhs.d + rhs.f,
+            this.a * rhs.a + this.c * rhs.b,
+            this.b * rhs.a + this.d * rhs.b,
+            this.a * rhs.c + this.c * rhs.d,
+            this.b * rhs.c + this.d * rhs.d,
+            this.a * rhs.e + this.c * rhs.f + this.e,
+            this.b * rhs.e + this.d * rhs.f + this.f,
         );
     }
 
@@ -37,8 +37,8 @@ export class AffineMat2d {
 
     mulVec3(v: Vec3) {
         return new Vec3(
-            this.a * v.x + this.b * v.y + this.e,
-            this.c * v.x + this.d * v.y + this.f,
+            this.a * v.x + this.c * v.y + this.e,
+            this.b * v.x + this.d * v.y + this.f,
             v.z,
         );
     }

@@ -1,12 +1,12 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { AffineMat2d } from '../utils/AffineMat2d';
-import { assignImm, assignImmFull, clamp, isNil, useFunctionRef } from '../utils/data';
-import { KeyboardOrder, useGlobalKeyboard } from '../utils/keyboard';
+import { assignImm, assignImmFull, clamp, getOrAddToMap, isNil, useFunctionRef } from '../utils/data';
+import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
 import { useCombinedMouseTouchDrag } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
 import { ICanvasState, ICpuLayout, IEditorState, IElRef, IHitTest, ISegment, IWireGraph, RefType } from './CpuModel';
 import { editLayout, useEditorContext } from './Editor';
-import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString } from './Wire';
+import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString, wireUnlinkNodes, repackGraphIds } from './Wire';
 import s from './CpuCanvas.module.scss';
 import { multiSortStableAsc } from '../utils/array';
 
@@ -24,6 +24,9 @@ export const CanvasEventHandler: React.FC<{
         if (ev.key === "Control") {
             setCtrlDown(ev.type === "keydown");
         }
+        if (isKeyWithModifiers(ev, "o", Modifiers.None) && ev.type === "keydown") {
+            setEditorState(a => assignImm(a, { showExeOrder: !a.showExeOrder }));
+        }
         if (ev.key === "Delete") {
             setEditorState(editLayout(true, layout => {
 
@@ -32,10 +35,34 @@ export const CanvasEventHandler: React.FC<{
                     return refStrs.has(refToString({ id, type }));
                 }
 
+                let selectionPerWire = new Map<string, IElRef[]>();
+                for (let ref of layout.selected) {
+                    if (ref.type === RefType.WireNode || ref.type === RefType.WireSeg) {
+                        getOrAddToMap(selectionPerWire, ref.id, () => []).push(ref);
+                    }
+                }
+
                 let newLayout = assignImm(layout, {
                     comps: layout.comps.filter(c => !selectionHasRef(c.id, RefType.Comp)),
                     wires: layout.wires
                         .map(w => {
+                            const refs = selectionPerWire.get(w.id);
+                            if (refs) {
+                                w = copyWireGraph(w);
+                                for (let ref of refs) {
+                                    if (ref.type === RefType.WireNode) {
+                                        let node = w.nodes[ref.wireNode0Id!];
+                                        for (let e of node.edges) {
+                                            wireUnlinkNodes(node, w.nodes[e]);
+                                        }
+                                    } else if (ref.type === RefType.WireSeg) {
+                                        let node0 = w.nodes[ref.wireNode0Id!];
+                                        let node1 = w.nodes[ref.wireNode1Id!];
+                                        wireUnlinkNodes(node0, node1);
+                                    }
+                                }
+                                return repackGraphIds(w);
+                            }
                             let newNodes = w.nodes.map(n => assignImm(n, { ref: n.ref && !refStrs.has(refToString(n.ref)) ? n.ref : undefined }));
                             return assignImm(w, { nodes: newNodes });
                         }),
@@ -109,7 +136,7 @@ export const CanvasEventHandler: React.FC<{
             }));
 
         } else if (!ds.data.hovered) {
-            let newMtx = ds.data.mtx.mul(AffineMat2d.translateVec(delta));
+            let newMtx = AffineMat2d.translateVec(delta).mul(ds.data.mtx);
             setEditorState(a => assignImm(a, { mtx: newMtx }));
         } else {
             let hoveredRef = ds.data.hovered.ref;
@@ -333,10 +360,10 @@ export const CanvasEventHandler: React.FC<{
 
         let modelPt = evToModel(ev);
         let newMtx = AffineMat2d.multiply(
-            AffineMat2d.translateVec(modelPt.mul(-1)),
+            editorState.mtx,
+            AffineMat2d.translateVec(modelPt),
             AffineMat2d.scale1(newScale),
-            AffineMat2d.translateVec(modelPt.mul(1)),
-            editorState.mtx);
+            AffineMat2d.translateVec(modelPt.mul(-1)));
 
         setEditorState(a => assignImm(a, { mtx: newMtx }));
         ev.stopPropagation();

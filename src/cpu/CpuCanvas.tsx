@@ -94,6 +94,7 @@ export const CpuCanvas: React.FC<{
             maskHover: null,
             selectRegion: null,
             addLine: false,
+            showExeOrder: false,
         };
     });
     let [, redraw] = useReducer((x) => x + 1, 0);
@@ -262,16 +263,22 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLay
     }
     drawGridAtScale(1);
 
-
     for (let wire of layout.wires) {
         let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(wire.id) ?? -1];
         renderWire(cvs, editorState, wire, exeNet, exeSystem);
     }
 
+    let compIdxToExeOrder = new Map<number, number[]>();
+    let idx = 0;
+    for (let step of exeSystem.executionSteps) {
+        getOrAddToMap(compIdxToExeOrder, step.compIdx, () => []).push(idx++);
+    }
+
     ctx.save();
     ctx.globalAlpha = cvs.showTransparentComps ? 0.5 : 1.0;
     for (let comp of layout.comps) {
-        let exeComp = exeSystem.comps[exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1];
+        let exeCompIdx = exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1;
+        let exeComp = exeSystem.comps[exeCompIdx];
         let compDef = editorState.compLibrary.comps.get(comp.defId);
 
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === comp.id;
@@ -318,6 +325,25 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLay
 
         for (let node of comp.ports) {
             renderNode(cvs, editorState, comp, node);
+        }
+
+        if (editorState.showExeOrder) {
+            let orders = compIdxToExeOrder.get(exeCompIdx) ?? [];
+            let text = orders.join(', ');
+            ctx.save();
+            ctx.fillStyle = "#a3a";
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 3 * cvs.scale;
+            ctx.font = `${30 * cvs.scale}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = "middle";
+            let px = comp.pos.x + (comp.size.x) / 2;
+            let py = comp.pos.y + (comp.size.y) / 2;
+            // ctx.filter = "blur(1px)";
+            ctx.strokeText(text, px, py);
+            // ctx.filter = "none";
+            ctx.fillText(text, px, py);
+            ctx.restore();
         }
     }
     ctx.restore();

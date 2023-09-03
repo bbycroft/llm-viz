@@ -100,8 +100,9 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
     if (ins === 0) {
         // console.log('ILLEGAL INSTRUCTION: 0x0');
-        runArgs.halt = true;
+        // runArgs.halt = true;
         // data.willHalt = true;
+        // NOP
         return;
     }
 
@@ -290,6 +291,8 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
             }
         }
         */
+    } else if (ins === 0) {
+        // NOP
     } else {
         runArgs.halt = true;
         /*

@@ -14,7 +14,7 @@ export interface ICompDef<T, A = any> {
     defId: string;
     name: string;
     size: Vec3;
-    ports: ICompPort[];
+    ports: ICompPort[] | ((args: A) => ICompPort[]);
 
     initConfig?: (args: ICompBuilderArgs) => A;
     applyConfig?: (comp: IComp, args: A) => void;
@@ -40,14 +40,17 @@ export class CompLibrary {
         if (!compDef) {
             return null;
         }
+
+        let args = compDef.initConfig ? compDef.initConfig({}) : null;
+
         let comp: IComp = {
             id: '',
             defId: compDef.defId,
             name: compDef.name,
-            ports: compDef.ports,
+            ports: compDef.ports instanceof Function ? compDef.ports(args) : compDef.ports,
             pos: new Vec3(0, 0),
             size: compDef.size,
-            args: compDef.initConfig ? compDef.initConfig({}) : null,
+            args,
         };
         compDef.applyConfig?.(comp, comp.args);
 
@@ -60,7 +63,7 @@ export class CompLibrary {
             return;
         }
         comp.name = compDef.name;
-        comp.ports = compDef.ports;
+        comp.ports = compDef.ports instanceof Function ? compDef.ports(comp.args) : compDef.ports;
         comp.size = compDef.size;
         compDef.applyConfig?.(comp, comp.args);
     }

@@ -1,27 +1,67 @@
+import React from "react";
+import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { Vec3 } from "@/src/utils/vector";
-import { IComp, IExePort, PortDir } from "../CpuModel";
-import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IComp, IExeComp, IExePort, PortDir } from "../CpuModel";
+import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { editCompConfig, useEditorContext } from "../Editor";
+import { CompRectBase } from "./RenderHelpers";
+import { assignImm } from "@/src/utils/data";
+import s from "./CompStyles.module.scss";
 
-interface ICompDataBinaryGate {
+interface IBinGateConfig {
+    rotate: number; // 0, 1, 2, 3
+}
+
+interface IBinGateData {
     inAPort: IExePort;
     inBPort: IExePort;
     outPort: IExePort;
 }
 
+interface INotGateData {
+    inPort: IExePort;
+    outPort: IExePort;
+}
+
+
+export function rotateAffineInt(r: number) {
+    switch (r) {
+        case 0: return new AffineMat2d(1, 0, 0, 1, 0, 0);
+        case 1: return new AffineMat2d(0, 1, -1, 0, 0, 0);
+        case 2: return new AffineMat2d(-1, 0, 0, -1, 0, 0);
+        case 3: return new AffineMat2d(0, -1, 1, 0, 0, 0);
+        default: return new AffineMat2d();
+    }
+}
+
+export function rotateAboutAffineInt(r: number, center: Vec3) {
+    return AffineMat2d.multiply(
+        AffineMat2d.translateVec(center),          // 3) translate back
+        rotateAffineInt(r),                        // 2) rotate
+        AffineMat2d.translateVec(center.mul(-1))); // 1) translate to origin
+}
 
 export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let w = 3;
     let h = 4;
-    let orGate: ICompDef<ICompDataBinaryGate> = {
+    let rotateCenter = new Vec3(1, 2);
+    let orGate: ICompDef<IBinGateData, IBinGateConfig> = {
         defId: 'or',
         name: "Or",
         size: new Vec3(w, h),
         ports: [
-            { id: 'a', name: 'A', pos: new Vec3(0, 1), type: PortDir.In, width: 32 },
-            { id: 'b', name: 'B', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
-            { id: 'o', name: 'O', pos: new Vec3(w, 2), type: PortDir.Out, width: 32 },
+            { id: 'a', name: 'A', pos: new Vec3(0, 1), type: PortDir.In, width: 1 },
+            { id: 'b', name: 'B', pos: new Vec3(0, 3), type: PortDir.In, width: 1 },
+            { id: 'o', name: 'O', pos: new Vec3(w, 2), type: PortDir.Out, width: 1 },
         ],
+        initConfig: () => ({ rotate: 0 }),
+        applyConfig(comp, args) {
+            let mat = rotateAboutAffineInt(args.rotate, rotateCenter);
+            comp.ports = comp.ports.map(p => {
+                return { ...p, pos: mat.mulVec3(p.pos) }
+            });
+        },
         build: (builder) => {
             let data = builder.addData({
                 inAPort: builder.getPort('a'),
@@ -37,6 +77,11 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
         renderAll: true,
         render: ({ comp, ctx, cvs, exeComp }) => {
+            ctx.save();
+
+            let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
+            ctx.transform(...mtx.toTransformParams());
+
             ctx.beginPath();
             // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
             let dx = 0.2;
@@ -52,17 +97,75 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
             ctx.arcTo(rightX - 1, y + h, x    , y + h, frontRad);
             ctx.lineTo(x, y + h);
-            // ctx.arcTo(x + w, y + h, x    , y + h, w / 2);
-
             ctx.arcTo(x + 0.7, y + h / 2, x, y, h * 0.8);
 
-            // ctx.lineTo(x, y + h);
-            // ctx.lineTo(x + w, y + h / 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        },
+        renderDom: ({ comp, exeComp, ctx }) => {
+
+            return <CompRectBase comp={comp} hideHover>
+                <BinGate comp={comp} exeComp={exeComp} />
+            </CompRectBase>;
+        },
+    };
+
+    let notW = 3;
+    let notH = 4;
+    let notGate: ICompDef<INotGateData> = {
+        defId: 'not',
+        name: "NOT",
+        size: new Vec3(notW, notH),
+        ports: [
+            { id: 'i', name: 'I', pos: new Vec3(0, notH/2), type: PortDir.In, width: 1 },
+            { id: 'o', name: 'O', pos: new Vec3(notW, notH/2), type: PortDir.Out, width: 1 },
+        ],
+        build: (builder) => {
+            let data = builder.addData({
+                inPort: builder.getPort('i'),
+                outPort: builder.getPort('o'),
+            });
+
+            builder.addPhase(({ data: { inPort, outPort } }) => {
+                outPort.value = !inPort.value ? 1 : 0;
+            }, [data.inPort], [data.outPort]);
+
+            return builder.build();
+        },
+        renderAll: true,
+        render: ({ comp, ctx, cvs, exeComp }) => {
+            ctx.beginPath();
+            // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
+            // let dx = 0.2;
+            let x = comp.pos.x;
+            let y = comp.pos.y + 0.5;
+            let rightX = x + comp.size.x;
+            let w = comp.size.x;
+            let h = comp.size.y - 1.0;
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + w, y + h / 2);
+            ctx.lineTo(x, y + h);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
         },
     };
 
-    return [orGate];
+    return [orGate, notGate];
 }
+
+export const BinGate: React.FC<{
+    comp: IComp<IBinGateConfig>,
+    exeComp: IExeComp<IBinGateData>,
+}> = ({ comp }) => {
+    let { setEditorState } = useEditorContext();
+
+    function handleRotate() {
+        let newRotate = (comp.args.rotate + 1) % 4;
+        setEditorState(editCompConfig(true, comp, a => assignImm(a, { rotate: newRotate })));
+    }
+
+    return <div className={s.compBinGate} onClick={handleRotate}></div>;
+};
