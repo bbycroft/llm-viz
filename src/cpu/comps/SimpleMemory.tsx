@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Vec3 } from "@/src/utils/vector";
-import { IExePort, PortDir, IComp, ICanvasState, IoDir } from "../CpuModel";
+import { IExePort, PortType, IComp, ICanvasState, IoDir } from "../CpuModel";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
@@ -47,8 +47,8 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
         name: "ROM",
         size: new Vec3(romW, romH),
         ports: [
-            { id: 'addr', name: 'Addr', pos: new Vec3(romW, 2), type: PortDir.In, width: 32 },
-            { id: 'data', name: 'Data', pos: new Vec3(romW, 1), type: PortDir.Out, width: 32 },
+            { id: 'addr', name: 'Addr', pos: new Vec3(romW, 2), type: PortType.In, width: 32 },
+            { id: 'data', name: 'Data', pos: new Vec3(romW, 1), type: PortType.Out, width: 32 },
         ],
         build: (builder) => {
             let rom = new Uint8Array(1024);
@@ -113,9 +113,9 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
         name: "RAM",
         size: new Vec3(ramW, ramH),
         ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 2), type: PortDir.In, width: 5 },
-            { id: 'addr', name: 'Addr', pos: new Vec3(0, 4), type: PortDir.In, width: 32 },
-            { id: 'data', name: 'Data', pos: new Vec3(0, 6), type: PortDir.Out | PortDir.In | PortDir.Tristate, width: 32 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 2), type: PortType.In, width: 5 },
+            { id: 'addr', name: 'Addr', pos: new Vec3(0, 4), type: PortType.In, width: 32 },
+            { id: 'data', name: 'Data', pos: new Vec3(0, 6), type: PortType.Out | PortType.In | PortType.Tristate, width: 32 },
         ],
 
         build: (builder) => {

@@ -1,6 +1,6 @@
 import React, { memo, useState } from 'react';
 import { Vec3 } from "@/src/utils/vector";
-import { ICanvasState, IComp, IExeComp, IExePort, PortDir } from "../CpuModel";
+import { ICanvasState, IComp, IExeComp, IExePort, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from '../Editor';
 import { assignImm } from '@/src/utils/data';
@@ -36,7 +36,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
         name: "Output",
         size: new Vec3(w, h),
         ports: [
-            { id: 'x', name: 'x', pos: new Vec3(0, 2), type: PortDir.In, width: 32 },
+            { id: 'x', name: 'x', pos: new Vec3(0, 2), type: PortType.In, width: 32 },
         ],
         build: (builder) => {
             let data = builder.addData({
@@ -72,7 +72,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
         name: "Const32",
         size: new Vec3(constW, h),
         ports: [
-            { id: 'out', name: '', pos: new Vec3(constW, h/2), type: PortDir.Out, width: 32 },
+            { id: 'out', name: '', pos: new Vec3(constW, h/2), type: PortType.Out, width: 32 },
         ],
         initConfig: () => ({ value: 4, valueMode: HexValueInputType.Hex, bitWidth: 32 }),
         build: (builder) => {

@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Vec3 } from "@/src/utils/vector";
-import { IComp, IExeComp, IExePort, IoDir, PortDir } from "../../CpuModel";
+import { IComp, IExeComp, IExePort, IoDir, PortType } from "../../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "../CompBuilder";
 import { CompRectBase } from "../RenderHelpers";
 import s from '../CompStyles.module.scss';
@@ -74,9 +74,9 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         name: "LED Output",
         size: new Vec3(w, h),
         ports: [
-            { id: 'busCtrl', name: 'C', pos: new Vec3(0, 2), type: PortDir.In | PortDir.Ctrl, width: 4 },
-            { id: 'busAddr', name: 'A', pos: new Vec3(0, 4), type: PortDir.In | PortDir.Addr, width: 32 },
-            { id: 'busData', name: 'D', pos: new Vec3(0, 6), type: PortDir.In | PortDir.Out | PortDir.Tristate, width: 32 },
+            { id: 'busCtrl', name: 'C', pos: new Vec3(0, 2), type: PortType.In | PortType.Ctrl, width: 4 },
+            { id: 'busAddr', name: 'A', pos: new Vec3(0, 4), type: PortType.In | PortType.Addr, width: 32 },
+            { id: 'busData', name: 'D', pos: new Vec3(0, 6), type: PortType.In | PortType.Out | PortType.Tristate, width: 32 },
         ],
         // initConfig: () => ({ addrOffset: 0x1_0000, addrMask: 0xffff }),
         copyStatefulData: (src, dest) => {

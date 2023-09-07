@@ -3,8 +3,8 @@ import { hasFlag } from "../utils/data";
 import { Popup, PopupPos } from "../utils/Portal";
 import { Vec3 } from "../utils/vector";
 import { ensureSigned32Bit, ensureUnsigned32Bit, signExtend32Bit } from "./comps/RiscvInsDecode";
-import { lookupPortInfo } from "./CpuExecution";
-import { IoDir, PortDir, RefType } from "./CpuModel";
+import { lookupPortInfo, netToString } from "./CpuExecution";
+import { IoDir, PortType, RefType } from "./CpuModel";
 import { useEditorContext } from "./Editor";
 import s from "./HoverDisplay.module.scss";
 
@@ -35,7 +35,7 @@ export const HoverDisplay: React.FC<{
                 }
 
                 let topLine: React.ReactNode;
-                if (hasFlag(net.type, PortDir.Ctrl)) {
+                if (hasFlag(net.type, PortType.Ctrl)) {
                     topLine = <div>
                         <span className={s.numVal}>0x{net.value.toString(16).padStart(net.width >>> 2, '0')}</span>
                         <span className={s.bitWidth}>{' '} {net.width} bits</span>
@@ -53,6 +53,7 @@ export const HoverDisplay: React.FC<{
                     {bitVals.map((val, i) => {
                         return <div key={i} className={s.bitVal}>{val.toString(2).padStart(bitWidth, '0')}</div>;
                     })}
+                    <div className={s.compId}>{netToString(net, exeModel.comps)}</div>
                     <div className={s.compId}>{net.wire.id}</div>
                 </div>;
             } else {
@@ -71,26 +72,26 @@ export const HoverDisplay: React.FC<{
                     let { portExe, port } = portInfo;
                     let type = portExe.type;
                     let typeStr = '';
-                    if (hasFlag(type, PortDir.In)) {
+                    if (hasFlag(type, PortType.In)) {
                         typeStr += 'in';
                     }
-                    if (hasFlag(type, PortDir.Out)) {
+                    if (hasFlag(type, PortType.Out)) {
                         typeStr += 'out';
                     }
-                    if (hasFlag(type, PortDir.Ctrl)) {
+                    if (hasFlag(type, PortType.Ctrl)) {
                         typeStr += ' ctrl';
                     }
-                    if (hasFlag(type, PortDir.Data)) {
+                    if (hasFlag(type, PortType.Data)) {
                         typeStr += ' data';
                     }
-                    if (hasFlag(type, PortDir.Tristate)) {
+                    if (hasFlag(type, PortType.Tristate)) {
                         typeStr += ' tristate';
                     }
-                    if (hasFlag(type, PortDir.Addr)) {
+                    if (hasFlag(type, PortType.Addr)) {
                         typeStr += ' addr';
                     }
 
-                    let isInOut = hasFlag(type, PortDir.In) && hasFlag(type, PortDir.Out);
+                    let isInOut = hasFlag(type, PortType.In) && hasFlag(type, PortType.Out);
                     let dirStr = '';
                     if (isInOut) {
                         dirStr = ', dir=' + IoDir[portExe.ioDir];

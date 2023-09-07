@@ -5,7 +5,7 @@ import s from '../CompStyles.module.scss';
 import riscvS from './Riscv.module.scss';
 
 import { assignImm } from '@/src/utils/data';
-import { ICanvasState, IComp, IExeComp, IExePort, PortDir } from '../../CpuModel';
+import { ICanvasState, IComp, IExeComp, IExePort, PortType } from '../../CpuModel';
 import { HexValueEditor, HexValueInputType } from '../../displayTools/HexValueEditor';
 import { useEditorContext, editCompConfig } from '../../Editor';
 import { ICompBuilderArgs, ICompDef } from '../CompBuilder';
@@ -36,7 +36,7 @@ export function createRegFileCtrlComps(_args: ICompBuilderArgs): ICompDef<any>[]
         name: "Reg File Input",
         size: new Vec3(w, h),
         ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(w/2, h), type: PortDir.Out | PortDir.Ctrl, width: 3 * 6 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(w/2, h), type: PortType.Out | PortType.Ctrl, width: 3 * 6 },
         ],
         initConfig: () => ({ inEnable: false, inReg: 0, outAEnable: false, outAReg: 0, outBEnable: false, outBReg: 0 }),
         build: (builder) => {

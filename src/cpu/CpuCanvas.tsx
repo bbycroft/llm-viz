@@ -6,7 +6,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart } from "../utils/pointer";
 import { assignImm, getOrAddToMap, isNil, isNotNil } from "../utils/data";
 import { EditorContext, IEditorContext } from "./Editor";
-import { RefType, IComp, PortDir, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IExeSystem, ICompRenderArgs } from "./CpuModel";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IExeSystem, ICompRenderArgs } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CpuEditorToolbar } from "./EditorControls";
@@ -95,6 +95,7 @@ export const CpuCanvas: React.FC<{
             selectRegion: null,
             addLine: false,
             showExeOrder: false,
+            transparentComps: false,
         };
     });
     let [, redraw] = useReducer((x) => x + 1, 0);
@@ -137,7 +138,7 @@ export const CpuCanvas: React.FC<{
 
         if (el) {
             let ctx = el.getContext("2d")!;
-            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1, tileCanvases: new Map(), showTransparentComps: false, mtx: AffineMat2d.identity() });
+            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1, tileCanvases: new Map(), mtx: AffineMat2d.identity() });
 
         } else {
             setCvsState(null);
@@ -168,7 +169,6 @@ export const CpuCanvas: React.FC<{
         cvsState.size.x = w;
         cvsState.size.y = h;
         cvsState.scale = 1.0 / editorState.mtx.a;
-        cvsState.showTransparentComps = false;// @TODO bump to editorState? showTransparentComponents;
         cvsState.mtx = editorState.mtx;
 
         ctx.save();
@@ -275,7 +275,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLay
     }
 
     ctx.save();
-    ctx.globalAlpha = cvs.showTransparentComps ? 0.5 : 1.0;
+    ctx.globalAlpha = editorState.transparentComps ? 0.5 : 1.0;
     for (let comp of layout.comps) {
         let exeCompIdx = exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1;
         let exeComp = exeSystem.comps[exeCompIdx];
@@ -283,7 +283,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLay
 
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === comp.id;
 
-        let isValidExe = exeComp?.valid ?? false;
+        let isValidExe = !!exeComp;
         ctx.fillStyle = isValidExe ? "#8a8" : "#aaa";
         ctx.strokeStyle = isHover ? "#a00" : "#000";
         ctx.lineWidth = 1 * cvs.scale;
@@ -439,8 +439,8 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
     let hoverRef = editorState.hovered?.ref;
     let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === node.id;
     let type = node.type ?? 0;
-    let isInput = (type & PortDir.In) !== 0;
-    let isTristate = (type & PortDir.Tristate) !== 0;
+    let isInput = (type & PortType.In) !== 0;
+    let isTristate = (type & PortType.Tristate) !== 0;
     let ctx = cvs.ctx;
     let x = comp.pos.x + node.pos.x;
     let y = comp.pos.y + node.pos.y;

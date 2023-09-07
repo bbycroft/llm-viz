@@ -1,6 +1,6 @@
 import { hasFlag, isNil } from "../utils/data";
 import { Vec3 } from "../utils/vector";
-import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortDir, IWireGraphNode, IoDir } from "./CpuModel";
+import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortType, IWireGraphNode, IoDir } from "./CpuModel";
 import { iterWireGraphSegments } from "./Wire";
 
 export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem) {
@@ -50,13 +50,13 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
                 let portBinding = portBindings.get(key(node.ref.id, node.ref.compNodeId!));
                 if (portBinding) {
                     let port = portBinding.port;
-                    if (hasFlag(port.type, PortDir.Ctrl)) {
+                    if (hasFlag(port.type, PortType.Ctrl)) {
                         isCtrl = true;
                     }
-                    if (hasFlag(port.type, PortDir.Data)) {
+                    if (hasFlag(port.type, PortType.Data)) {
                         isData = true;
                     }
-                    if (hasFlag(port.type, PortDir.Addr)) {
+                    if (hasFlag(port.type, PortType.Addr)) {
                         isAddr = true;
                     }
                     nodeIdToPortBinding.set(node.id, portBinding);
@@ -69,10 +69,10 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         let outputNodeIds: number[] = [];
 
         for (let binding of nodeIdToPortBinding.values()) {
-            if (hasFlag(binding.port.type, PortDir.In) && binding.exePort.ioDir !== IoDir.Out && binding.exePort.dataUsed) {
+            if (hasFlag(binding.port.type, PortType.In) && binding.exePort.ioDir !== IoDir.Out && binding.exePort.dataUsed) {
                 inputNodeIds.push(binding.nodeId);
             }
-            if (hasFlag(binding.port.type, PortDir.Out) && binding.exePort.ioDir !== IoDir.In && binding.exePort.dataUsed) {
+            if (hasFlag(binding.port.type, PortType.Out) && binding.exePort.ioDir !== IoDir.In && binding.exePort.dataUsed) {
                 outputNodeIds.push(binding.nodeId);
             }
         }
@@ -298,4 +298,20 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         drawEndCircle(node.pos, isHover && isNil(hoverRef?.wireNode1Id) && hoverRef?.wireNode0Id === node.id);
     }
 
+    if (editorState.showExeOrder) {
+        let exeNetIdx = exeSystem.lookup.wireIdToNetIdx.get(wire.id);
+        let order = exeSystem.executionSteps.findIndex(x => x.netIdx === exeNetIdx);
+
+        if (order >= 0) {
+
+            for (let node of wire.nodes) {
+                ctx.fillStyle = '#666';
+                ctx.font = `${18 * cvs.scale}px monospace`;
+                ctx.textBaseline = 'bottom';
+                ctx.textAlign = 'left';
+                ctx.fillText(order.toString(), node.pos.x + 0.1, node.pos.y - 0.1);
+            }
+
+        }
+    }
 }

@@ -1,5 +1,5 @@
 import { Vec3 } from "@/src/utils/vector";
-import { PortDir, IExeComp, IExePort, ICompRenderArgs, IoDir } from "../CpuModel";
+import { PortType, IExeComp, IExePort, ICompRenderArgs, IoDir } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder"
 import { registerOpts, regValToStr } from "./RenderHelpers";
 
@@ -33,10 +33,10 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         name: "Registers",
         size: new Vec3(w, 66),
         ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortDir.In, width: 3 * 6 },
-            { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
-            { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
-            { id: 'outB', name: 'B', pos: new Vec3(w, 6), type: PortDir.Out, width: 32 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortType.In, width: 3 * 6 },
+            { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortType.In, width: 32 },
+            { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortType.Out, width: 32 },
+            { id: 'outB', name: 'B', pos: new Vec3(w, 6), type: PortType.Out, width: 32 },
         ],
         build: (builder) => {
             let data = builder.addData({
@@ -72,8 +72,8 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         name: "Register",
         size: new Vec3(40, 6),
         ports: [
-            { id: 'in', name: 'I', pos: new Vec3(0, 3), type: PortDir.In, width: 32 },
-            { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortDir.Out, width: 32 },
+            { id: 'in', name: 'I', pos: new Vec3(0, 3), type: PortType.In, width: 32 },
+            { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortType.Out, width: 32 },
         ],
         build: (builder) => {
             let data = builder.addData({

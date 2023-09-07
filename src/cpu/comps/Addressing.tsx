@@ -1,6 +1,6 @@
 import React from 'react';
 import { Vec3 } from "@/src/utils/vector";
-import { ICanvasState, IComp, IExeComp, IExePort, IoDir, PortDir } from "../CpuModel";
+import { ICanvasState, IComp, IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
@@ -35,13 +35,13 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         name: "Address Map",
         size: new Vec3(w, h),
         ports: [
-            { id: 'busCtrl', name: 'Bus Ctrl', pos: new Vec3(0, 2), type: PortDir.In | PortDir.Ctrl, width: 4 },
-            { id: 'busAddr', name: 'Bus Addr', pos: new Vec3(0, 4), type: PortDir.In | PortDir.Addr, width: 32 },
-            { id: 'busData', name: 'Bus Data', pos: new Vec3(0, 6), type: PortDir.In | PortDir.Out | PortDir.Tristate, width: 32 },
+            { id: 'busCtrl', name: 'Bus Ctrl', pos: new Vec3(0, 2), type: PortType.In | PortType.Ctrl, width: 4 },
+            { id: 'busAddr', name: 'Bus Addr', pos: new Vec3(0, 4), type: PortType.In | PortType.Addr, width: 32 },
+            { id: 'busData', name: 'Bus Data', pos: new Vec3(0, 6), type: PortType.In | PortType.Out | PortType.Tristate, width: 32 },
 
-            { id: 'localCtrl', name: 'Local Ctrl', pos: new Vec3(w, 2), type: PortDir.Out | PortDir.Ctrl, width: 4 },
-            { id: 'localAddr', name: 'Local Addr', pos: new Vec3(w, 4), type: PortDir.Out | PortDir.Addr, width: 32 },
-            { id: 'localData', name: 'Local Data', pos: new Vec3(w, 6), type: PortDir.In | PortDir.Out | PortDir.Tristate, width: 32 },
+            { id: 'localCtrl', name: 'Local Ctrl', pos: new Vec3(w, 2), type: PortType.Out | PortType.Ctrl, width: 4 },
+            { id: 'localAddr', name: 'Local Addr', pos: new Vec3(w, 4), type: PortType.Out | PortType.Addr, width: 32 },
+            { id: 'localData', name: 'Local Data', pos: new Vec3(w, 6), type: PortType.In | PortType.Out | PortType.Tristate, width: 32 },
         ],
         initConfig: () => ({ addrOffset: 0x1_0000, addrMask: 0xffff }),
         build: (builder) => {

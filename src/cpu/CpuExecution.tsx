@@ -1,6 +1,6 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
-import { PortDir, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir, IExePort } from "./CpuModel";
+import { PortType, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir, IExePort } from "./CpuModel";
 
 export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout, existingSystem: IExeSystem | null): IExeSystem {
 
@@ -44,10 +44,10 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
             for (let nodeIdx = 0; nodeIdx < comp.ports.length; nodeIdx++) {
                 const node = comp.ports[nodeIdx];
                 if (node.id === ref.compNodeId) {
-                    if (hasFlag(node.type, PortDir.In)) {
+                    if (hasFlag(node.type, PortType.In)) {
                         inputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx, exePort: null!, valid: false });
                     }
-                    if (hasFlag(node.type, PortDir.Out)) {
+                    if (hasFlag(node.type, PortType.Out)) {
                         outputs.push({ compIdx: compIdToIdx.get(comp.id)!, portIdx: nodeIdx, exePort: null!, valid: false });
                     }
                     break;
@@ -94,13 +94,13 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
             let comp = comps[portRef.compIdx];
             let port = comp.ports[portRef.portIdx];
             port.netIdx = netIdx;
-            if (hasFlag(port.type, PortDir.Tristate)) {
+            if (hasFlag(port.type, PortType.Tristate)) {
                 net.tristate = true;
             }
             net.width = port.width;
             net.type |= port.type;
             portRef.exePort = port;
-            portRef.valid = comp.valid;
+            portRef.valid = true; // comp.valid;
         }
     }
 
@@ -188,7 +188,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
         for (let input of net.inputs) {
             let comp = comps[input.compIdx];
             let port = comp.ports[input.portIdx];
-            if ((port.type & PortDir.InOutTri) === PortDir.InOutTri) {
+            if ((port.type & PortType.InOutTri) === PortType.InOutTri) {
                 numPhases = 2;
             }
         }
@@ -224,7 +224,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                 }
                 let netPhaseCount = netNumPhases.get(port.netIdx)!;
                 let netPhaseId = 0;
-                if (netPhaseCount > 1 && hasFlag(port.type, PortDir.InOutTri)) {
+                if (netPhaseCount > 1 && hasFlag(port.type, PortType.InOutTri)) {
                     netPhaseId = calculatePhaseId(port, comp, pIdx);
                 }
                 let netNodeId = netToNodeId(port.netIdx, netPhaseId);
@@ -405,7 +405,7 @@ export function stepExecutionCombinatorial(exeModel: IExeSystem, disableBackProp
 
     for (let comp of exeModel.comps) {
         for (let port of comp.ports) {
-            if (hasFlag(port.type, PortDir.Tristate)) {
+            if (hasFlag(port.type, PortType.Tristate)) {
                 port.ioEnabled = false;
             }
         }
@@ -448,7 +448,7 @@ export function netToString(net: IExeNet, comps: IExeComp[]) {
     let portStr = (portRef: IExePortRef) => {
         let comp = comps[portRef.compIdx];
         let port = comp.ports[portRef.portIdx];
-        let tristateStr = hasFlag(port.type, PortDir.Tristate) ? '(ts)' : '';
+        let tristateStr = hasFlag(port.type, PortType.Tristate) ? '(ts)' : '';
         let portId = comp.comp.ports[portRef.portIdx].id;
         return `${comp.comp.id}.${portId}${tristateStr}`;
     };
@@ -466,7 +466,7 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         let enabledPortValue = 0;
         for (let portRef of net.outputs) {
             let port = portRef.exePort;
-            if (portRef.valid && port.ioEnabled && (!hasFlag(port.type, PortDir.InOutTri) || port.ioDir === IoDir.Out)) {
+            if (portRef.valid && port.ioEnabled && (!hasFlag(port.type, PortType.InOutTri) || port.ioDir === IoDir.Out)) {
                 enabledCount++;
                 enabledPortValue = port.value;
             }
@@ -546,7 +546,7 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
             }
             for (let portIdx of [...phase.readPortIdxs, ...phase.writePortIdxs]) { // special case for multi-directional ports
                 let port = comp.ports[portIdx];
-                if (hasFlag(port.type, PortDir.InOutTri) && port.ioDir !== IoDir.None) {
+                if (hasFlag(port.type, PortType.InOutTri) && port.ioDir !== IoDir.None) {
                     allOutputsUnused = false;
                     break;
                 }

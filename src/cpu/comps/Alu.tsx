@@ -1,6 +1,6 @@
 import React, { CSSProperties } from "react";
 import { Vec3 } from "@/src/utils/vector";
-import { PortDir, IComp, IExeComp, IExePort, ICanvasState } from "../CpuModel";
+import { PortType, IComp, IExeComp, IExePort, ICanvasState } from "../CpuModel";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { ensureSigned32Bit, ensureUnsigned32Bit, funct3BranchIcon, funct3OpIcon } from "./RiscvInsDecode";
 import s from './CompStyles.module.scss';
@@ -23,12 +23,12 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         name: "ALU",
         size: new Vec3(16, 12),
         ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 3), type: PortDir.In, width: 6 },
-            { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: PortDir.In, width: 32 },
-            { id: 'rhs', name: 'RHS', pos: new Vec3(13, 0), type: PortDir.In, width: 32 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 3), type: PortType.In, width: 6 },
+            { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: PortType.In, width: 32 },
+            { id: 'rhs', name: 'RHS', pos: new Vec3(13, 0), type: PortType.In, width: 32 },
 
-            { id: 'branch', name: 'Branch', pos: new Vec3(4, 12), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'result', name: 'Result', pos: new Vec3(8, 12), type: PortDir.OutTri, width: 32 },
+            { id: 'branch', name: 'Branch', pos: new Vec3(4, 12), type: PortType.Out | PortType.Ctrl, width: 1 },
+            { id: 'result', name: 'Result', pos: new Vec3(8, 12), type: PortType.OutTri, width: 32 },
         ],
         build: (builder) => {
             let data = builder.addData({

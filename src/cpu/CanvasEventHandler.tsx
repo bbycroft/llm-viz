@@ -27,6 +27,9 @@ export const CanvasEventHandler: React.FC<{
         if (isKeyWithModifiers(ev, "o", Modifiers.None) && ev.type === "keydown") {
             setEditorState(a => assignImm(a, { showExeOrder: !a.showExeOrder }));
         }
+        if (isKeyWithModifiers(ev, "p", Modifiers.None) && ev.type === "keydown") {
+            setEditorState(a => assignImm(a, { transparentComps: !a.transparentComps }));
+        }
         if (ev.key === "Delete") {
             setEditorState(editLayout(true, layout => {
 
@@ -179,7 +182,7 @@ export const CanvasEventHandler: React.FC<{
         ev.preventDefault();
     });
 
-    let showTransparentComponents = dragStart?.data.ctrlDown || ctrlDown;
+    let showTransparentComponents = dragStart?.data.ctrlDown || ctrlDown || editorState.transparentComps;
 
     function handleSelectionDrag(end: boolean, origModelPos: Vec3, newModelPos: Vec3) {
 
@@ -451,15 +454,15 @@ export const CanvasEventHandler: React.FC<{
             return null;
         }
 
-        refsUnderCursor = multiSortStableAsc(refsUnderCursor, [a => {
-            if (a.ref.type === RefType.WireNode) {
-                return 0;
-            } else if (a.ref.type === RefType.CompNode) {
-                return 1;
-            } else if (a.ref.type === RefType.WireSeg) {
-                return 2;
-            }
-        }, a => a.distPx]);
+        // refsUnderCursor = multiSortStableAsc(refsUnderCursor, [a => {
+        //     if (a.ref.type === RefType.WireNode) {
+        //         return 0;
+        //     } else if (a.ref.type === RefType.CompNode) {
+        //         return 1;
+        //     } else if (a.ref.type === RefType.WireSeg) {
+        //         return 2;
+        //     }
+        // }, a => a.distPx]);
 
         return refsUnderCursor[0];
     }

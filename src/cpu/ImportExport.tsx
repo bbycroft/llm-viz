@@ -315,7 +315,7 @@ export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibra
         lsCompLookup.set(c.id, c);
     }
 
-    let comps: IComp[] = ls.comps.map(c => {
+    let comps: IComp[] = ls.comps.map<IComp | null>(c => {
         let compDef = compLibrary.comps.get(c.defId);
         if (!compDef) {
             return null;
@@ -334,7 +334,7 @@ export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibra
             size: compDef.size,
             ports: compDef.ports,
             args: cfg,
-        };
+        } as IComp;
     }).filter(isNotNil);
 
     let maxCompId = 0;

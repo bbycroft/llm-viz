@@ -1,5 +1,5 @@
 import { Vec3 } from "@/src/utils/vector";
-import { IExePort, IComp, IExeComp, PortDir, ICompRenderArgs, IExeRunArgs, IoDir } from "../CpuModel";
+import { IExePort, IComp, IExeComp, PortType, ICompRenderArgs, IExeRunArgs, IoDir } from "../CpuModel";
 import { OpCode, Funct3Op, Funct3OpImm, Funct3Branch, Funct3LoadStore } from "../RiscvIsa";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import * as d3Color from 'd3-color';
@@ -15,21 +15,21 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
         name: "Instruction Decoder",
         size: new Vec3(w, h),
         ports: [
-            { id: 'ins', name: 'Ins', pos: new Vec3(0, 1), type: PortDir.In | PortDir.Data, width: 32 },
+            { id: 'ins', name: 'Ins', pos: new Vec3(0, 1), type: PortType.In | PortType.Data, width: 32 },
 
-            { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(w, 1), type: PortDir.Out | PortDir.Ctrl, width: 5 },
-            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(w, 2), type: PortDir.Out | PortDir.Addr, width: 32 },
-            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(w, 6), type: PortDir.Out | PortDir.Data, width: 32 },
-            { id: 'rhsSel', name: 'RHS Sel', pos: new Vec3(w, 8), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(w, 1), type: PortType.Out | PortType.Ctrl, width: 5 },
+            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(w, 2), type: PortType.Out | PortType.Addr, width: 32 },
+            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(w, 6), type: PortType.Out | PortType.Data, width: 32 },
+            { id: 'rhsSel', name: 'RHS Sel', pos: new Vec3(w, 8), type: PortType.Out | PortType.Ctrl, width: 1 },
 
-            { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(1, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'regCtrl', name: 'Reg', pos: new Vec3(4, h), type: PortDir.Out | PortDir.Ctrl, width: 3 * 6 },
-            { id: 'pcAddImm', name: 'PC+Imm', pos: new Vec3(7, h), type: PortDir.Out | PortDir.Addr, width: 32 },
+            { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(1, h), type: PortType.Out | PortType.Ctrl, width: 1 },
+            { id: 'regCtrl', name: 'Reg', pos: new Vec3(4, h), type: PortType.Out | PortType.Ctrl, width: 3 * 6 },
+            { id: 'pcAddImm', name: 'PC+Imm', pos: new Vec3(7, h), type: PortType.Out | PortType.Addr, width: 32 },
             // { id: 'pcOutTristateCtrl', name: 'PC LHS', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
 
-            { id: 'pcBranchCtrl', name: 'PC Branch', pos: new Vec3(11, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'lhsSel', name: 'LHS Sel', pos: new Vec3(15, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
-            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(18, h), type: PortDir.Out | PortDir.Ctrl, width: 5 },
+            { id: 'pcBranchCtrl', name: 'PC Branch', pos: new Vec3(11, h), type: PortType.Out | PortType.Ctrl, width: 1 },
+            { id: 'lhsSel', name: 'LHS Sel', pos: new Vec3(15, h), type: PortType.Out | PortType.Ctrl, width: 1 },
+            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(18, h), type: PortType.Out | PortType.Ctrl, width: 5 },
         ],
         build: (builder) => {
             let data = builder.addData({

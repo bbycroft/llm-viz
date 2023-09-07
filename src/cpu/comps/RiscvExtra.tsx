@@ -1,5 +1,5 @@
 import { Vec3 } from "@/src/utils/vector";
-import { IExeComp, IExePort, IoDir, PortDir } from "../CpuModel";
+import { IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
 import { Funct3LoadStore } from "../RiscvIsa";
 import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { ensureUnsigned32Bit, signExtend16Bit, signExtend8Bit } from "./RiscvInsDecode";
@@ -32,15 +32,15 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         name: "Load/Store",
         size: new Vec3(lsW, lsH),
         ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: PortDir.In, width: 5 },
-            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: PortDir.In, width: 12 },
-            { id: 'addrBase', name: 'Addr Base', pos: new Vec3(5, lsH), type: PortDir.In, width: 32 },
-            { id: 'dataIn', name: 'Data In', pos: new Vec3(12, lsH), type: PortDir.In, width: 32 },
-            { id: 'dataOut', name: 'Data Out', pos: new Vec3(lsW, 6), type: PortDir.OutTri, width: 32 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: PortType.In, width: 5 },
+            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: PortType.In, width: 12 },
+            { id: 'addrBase', name: 'Addr Base', pos: new Vec3(5, lsH), type: PortType.In, width: 32 },
+            { id: 'dataIn', name: 'Data In', pos: new Vec3(12, lsH), type: PortType.In, width: 32 },
+            { id: 'dataOut', name: 'Data Out', pos: new Vec3(lsW, 6), type: PortType.OutTri, width: 32 },
 
-            { id: 'busCtrl', name: 'Bus Ctrl', pos: new Vec3(4, 0), type: PortDir.Out | PortDir.Ctrl, width: 4 },
-            { id: 'busAddr', name: 'Bus Addr', pos: new Vec3(8, 0), type: PortDir.Out | PortDir.Addr, width: 32 },
-            { id: 'busData', name: 'Bus Data', pos: new Vec3(12, 0), type: PortDir.In | PortDir.Out | PortDir.Tristate, width: 32 },
+            { id: 'busCtrl', name: 'Bus Ctrl', pos: new Vec3(4, 0), type: PortType.Out | PortType.Ctrl, width: 4 },
+            { id: 'busAddr', name: 'Bus Addr', pos: new Vec3(8, 0), type: PortType.Out | PortType.Addr, width: 32 },
+            { id: 'busData', name: 'Bus Data', pos: new Vec3(12, 0), type: PortType.In | PortType.Out | PortType.Tristate, width: 32 },
         ],
         build: (builder) => {
             let data = builder.addData({
@@ -132,10 +132,10 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         name: "Instruction Fetch",
         size: new Vec3(20, 12),
         ports: [
-            { id: 'pc', name: 'PC', pos: new Vec3(5, 3), type: PortDir.In, width: 32 },
-            { id: 'ins', name: 'Ins', pos: new Vec3(10, 1), type: PortDir.Out, width: 32 },
-            { id: 'addr', name: 'Addr', pos: new Vec3(0, 1), type: PortDir.Out, width: 32 },
-            { id: 'data', name: 'Data', pos: new Vec3(0, 2), type: PortDir.In, width: 32 },
+            { id: 'pc', name: 'PC', pos: new Vec3(5, 3), type: PortType.In, width: 32 },
+            { id: 'ins', name: 'Ins', pos: new Vec3(10, 1), type: PortType.Out, width: 32 },
+            { id: 'addr', name: 'Addr', pos: new Vec3(0, 1), type: PortType.Out, width: 32 },
+            { id: 'data', name: 'Data', pos: new Vec3(0, 2), type: PortType.In, width: 32 },
         ],
         build: (builder) => {
             let data = builder.addData({

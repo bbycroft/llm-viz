@@ -1,6 +1,6 @@
 import { isNil, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
-import { PortDir, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir } from "../CpuModel";
+import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -103,7 +103,7 @@ export class ExeCompBuilder<T, A=any> {
                 ioEnabled: true,
                 ioDir: IoDir.None,
                 dataUsed: true,
-                type: node.type ?? PortDir.In,
+                type: node.type ?? PortType.In,
                 value: 0,
                 width: node.width ?? 1,
             };
@@ -153,10 +153,7 @@ export class ExeCompBuilder<T, A=any> {
             comp: this.comp,
             data: this.data ?? data!,
             phases: this.phases,
-            phaseCount: this.phases.length,
-            phaseIdx: 0,
             ports: this.ports,
-            valid: this.valid,
         };
     }
 }
@@ -166,8 +163,8 @@ export function buildDefault(comp: IComp): IExeComp<{}> {
     let builder = new ExeCompBuilder<{}>(comp);
     builder.valid = false;
     let data = {};
-    let inPorts = builder.ports.filter(p => hasFlag(p.type, PortDir.In));
-    let outPorts = builder.ports.filter(p => hasFlag(p.type, PortDir.Out));
+    let inPorts = builder.ports.filter(p => hasFlag(p.type, PortType.In));
+    let outPorts = builder.ports.filter(p => hasFlag(p.type, PortType.Out));
     for (let port of [...inPorts, ...outPorts]) {
         port.ioEnabled = false;
     }
