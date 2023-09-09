@@ -72,9 +72,7 @@ export function constructCpuLayout(): ICpuLayout {
     };
 }
 
-export const CpuCanvas: React.FC<{
-    cpuState: ICpuState;
-}> = ({ cpuState }) => {
+export const CpuCanvas: React.FC = () => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
     let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
     let [editorState, setEditorState] = useState<IEditorState>(() => {
@@ -97,6 +95,7 @@ export const CpuCanvas: React.FC<{
             addLine: false,
             showExeOrder: false,
             transparentComps: false,
+            compLibraryVisible: false,
         };
     });
     let [, redraw] = useReducer((x) => x + 1, 0);
@@ -222,7 +221,7 @@ export const CpuCanvas: React.FC<{
                 <SchematicLibraryView />
                 {!editorState.layoutTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
             </div>
-            <LibraryBrowser />
+            {editorState.compLibraryVisible && <LibraryBrowser />}
         </div>
     </EditorContext.Provider>;
 };

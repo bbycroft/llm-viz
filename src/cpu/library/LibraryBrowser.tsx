@@ -1,7 +1,13 @@
-import { clamp, getOrAddToMap } from "@/src/utils/data";
+import { assignImm, clamp, getOrAddToMap } from "@/src/utils/data";
+import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
 import { useCombinedMouseTouchDrag } from "@/src/utils/pointer";
+import { FullscreenOverlay, ModalWindow, Portal } from "@/src/utils/Portal";
+import { faClone, faImage, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
+import { faPencil, faPlus, faTimes, IconDefinition } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import clsx from "clsx";
-import React, { useState } from "react";
+import React, { ButtonHTMLAttributes, useEffect, useLayoutEffect, useState } from "react";
+import { useEditorContext } from "../Editor";
 
 interface IMyItems {
     id: string;
@@ -71,7 +77,8 @@ function groupIntoFolders(items: IMyItems[]): IMyFolder[] {
         let folder = getOrAddToMap(folderLookup, dir, () => ({ id: dir, items: [], groups: new Map() }));
         folder.items.push(item);
 
-        let group = getOrAddToMap(folder.groups, name, () => ({ id: path.join('/'), name, items: [] }));
+        let groupId = path.join('/');
+        let group = getOrAddToMap(folder.groups, groupId, () => ({ id: groupId, name, items: [] }));
         group.items.push(item);
     }
 
@@ -84,97 +91,236 @@ function pluralize(a: string, count: number) {
 
 export const LibraryBrowser: React.FC<{}> = () => {
 
+    let { editorState, setEditorState } = useEditorContext();
     let [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-    let [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+    let [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+    useGlobalKeyboard(KeyboardOrder.Modal, ev => {
+        if (isKeyWithModifiers(ev, 'Escape', Modifiers.None)) {
+            handleClose();
+        }
+    });
 
     let folders = groupIntoFolders(exampleItems);
 
     let selectedFolder = folders.find(a => a.id === selectedFolderId);
+    let selectedGroupId = selectedItemId ? parseId(selectedItemId).path.join('/') : null;
     let selectedGroup = selectedFolder && selectedGroupId ? selectedFolder.groups.get(selectedGroupId) : null;
+    let selectedItem = selectedGroup && selectedItemId ? selectedGroup.items.find(a => a.id === selectedItemId) : null;
 
-    return <div className="flex flex-col bg-white rounded shadow-2xl ring-offset-0 absolute inset-10 box-border overflow-hidden border">
-        <div className="px-2 py-1 text-center border-b text-2xl bg-gray-500 text-white">Library Browser</div>
-        <Resizer id="libraryBrowser" className="flex-1 overflow-hidden" defaultFraction={0.3}>
-            <div className="flex flex-col flex-1 overflow-hidden">
-                <h2 className="text-center p-1 border-b">Folders</h2>
-                <div className="flex flex-col overflow-y-auto flex-1">
-                    <div className="flex flex-col bg-gray-100 flex-1">
+    useLayoutEffect(() => {
+        if (!selectedFolderId) {
+            setSelectedFolderId(folders[0].id);
+        }
+        if (!selectedItem && selectedFolder) {
+            let groups = [...selectedFolder.groups.values()];
+            setSelectedItemId(groups[0].items[0].id);
+        }
 
-                        {folders.map(folder => {
-                            let isSelected = folder.id === selectedFolderId;
-                            let itemCount = folder.items.length;
-                            let groupCount = folder.groups.size;
+    }, [selectedFolderId, selectedItem, folders, selectedFolder]);
 
-                            return <div
-                                key={folder.id}
-                                className={clsx("px-2 py-1 w-full flex cursor-pointer items-center bg-white hover:bg-slate-100", isSelected && "bg-blue-200 hover:bg-blue-300")}
-                                onClick={() => setSelectedFolderId(folder.id)}
-                            >
-                                {folder.id}
-                                <div className="ml-auto text-gray-500 text-sm">
-                                    {groupCount} {pluralize('item', groupCount)} ({itemCount} {pluralize('version', itemCount)})
-                                </div>
-                            </div>;
-                        })}
+    function handleClose() {
+        setEditorState(a => assignImm(a, { compLibraryVisible: false }));
+    }
 
-                    </div>
-                </div>
+    return <FullscreenOverlay className={"pointer-events-auto dialog-fade-in"}>
+        <div className="absolute inset-0 bg-opacity-40 bg-black pointer-events-auto" onClick={handleClose} />
+        <div className="flex flex-col bg-white rounded shadow-2xl absolute inset-10 overflow-hidden pointer-events-auto m-auto max-w-[80rem] max-h-[50rem]">
+            <div className="px-2 py-1 text-center border-b text-2xl bg-gray-500 text-white relative">
+                Library Browser
+                <button className="cursor-pointer absolute top-0 right-0 bottom-0" onClick={handleClose}>
+                    <FontAwesomeIcon icon={faTimes} className="px-3" />
+                </button>
             </div>
+            <Resizer id="libraryBrowser" className="flex-1 overflow-hidden border" defaultFraction={0.3}>
+                <div className="flex flex-col flex-1 overflow-hidden">
+                    <h2 className="text-center p-1 border-b">Folders</h2>
+                    <div className="flex flex-col overflow-y-auto flex-1">
+                        <div className="flex flex-col bg-gray-100 flex-1">
 
-            <Resizer id="fileInfoSplit" vertical className="flex-1" defaultFraction={0.7}>
-                <div className="flex-1 overflow-y-auto bg-gray-100">
-                    <div className="grid"
-                        style={{ gridTemplateColumns: 'repeat(auto-fit, 230px)' }}
-                    >
-                        {selectedFolder && <>
-
-                            {[...selectedFolder.groups.entries()].map(([gId, g]) => {
-                                let nItems = g.items.length;
+                            {folders.map(folder => {
+                                let isSelected = folder.id === selectedFolderId;
+                                let itemCount = folder.items.length;
+                                let groupCount = folder.groups.size;
 
                                 return <div
-                                    key={g.id}
-                                    className={clsx("shadow border h-[6rem] m-2 flex-none bg-white flex flex-col cursor-pointer hover:bg-slate-100")}
-                                    onClick={() => setSelectedGroupId(gId)}
+                                    key={folder.id}
+                                    className={clsx("px-2 py-1 w-full flex cursor-pointer items-center", isSelected ? "bg-blue-200 hover:bg-blue-300" : "bg-white hover:bg-slate-100")}
+                                    onClick={() => setSelectedFolderId(folder.id)}
                                 >
-                                    <h2 className="text-center">{g.items[0].title}</h2>
-
-                                    <div className="mt-auto px-2 text-slate-500 text-sm ml-auto">
-                                        {nItems > 1 && <>
-                                            {nItems} {pluralize('version', nItems)}
-                                        </>}
+                                    {folder.id}
+                                    <div className="ml-auto text-gray-500 text-sm">
+                                        {groupCount} {pluralize('item', groupCount)} ({itemCount} {pluralize('version', itemCount)})
                                     </div>
                                 </div>;
                             })}
 
-                        </>}
+                        </div>
                     </div>
                 </div>
-                <div className="flex flex-1 flex-col">
-                    <h2 className="text-center p-1 border-b">File Info</h2>
-                    {selectedGroup && <div className="flex flex-1 flex-row">
-                        <div className="w-[14rem] flex flex-col">
-                            <div className="px-2 py-1 text-center">Versions</div>
-                            <div className="overflow-y-auto bg-gray-100 flex-1">
-                                <div className="flex flex-1 flex-col">
-                                    {selectedGroup.items.map(item => {
-                                        let { version } = parseId(item.id);
-                                        return <div key={item.id} className="px-2 py-1 flex items-center">
-                                            {item.title}
-                                            <div className="text-slate-500 text-sm ml-auto">{version}</div>
-                                        </div>;
-                                    })}
-                                </div>
-                            </div>
+
+                <Resizer id="fileInfoSplit" vertical className="flex-1" defaultFraction={0.5}>
+                    <div className="flex-1 overflow-y-auto bg-gray-100 shadow-inner">
+                        <div className="grid p-2"
+                            style={{ gridTemplateColumns: 'repeat(auto-fit, 230px)' }}
+                        >
+                            {selectedFolder && <>
+
+                                {[...selectedFolder.groups.entries()].map(([gId, g]) => {
+                                    let isActive = gId === selectedGroupId;
+                                    return <GroupEntryFileCell key={gId} group={g} isActive={isActive} setSelectedItemId={setSelectedItemId} />;
+                                })}
+
+                                <FileCell onClick={() => { }} className="items-center justify-center" isSelected={false}>
+                                    <FontAwesomeIcon icon={faPlus} className="mr-2 text-6xl text-gray-300 group-hover:text-gray-400" />
+                                </FileCell>
+                            </>}
                         </div>
-                        <div className="flex flex-col flex-0">
-                            {selectedGroup.name} ({selectedGroupId})
-                        </div>
-                    </div>}
-                </div>
+                    </div>
+                    <div className="flex flex-1 flex-col">
+                        <h2 className="text-center p-1 border-b">File Info</h2>
+                        {selectedGroup && <SelectedGroupInfo group={selectedGroup} item={selectedItem ?? null} setSelectedItemId={setSelectedItemId} /> }
+                    </div>
+                </Resizer>
             </Resizer>
-        </Resizer>
+        </div>
+    </FullscreenOverlay>;
+};
+
+export const GroupEntryFileCell: React.FC<{
+    isActive: boolean;
+    group: IItemGroup;
+    setSelectedItemId: (id: string) => void;
+}> = ({ group, isActive, setSelectedItemId }) => {
+    let nItems = group.items.length;
+
+    function handleItemEdit(ev: React.MouseEvent) {
+        ev.stopPropagation();
+    }
+
+    function handleItemClone(ev: React.MouseEvent) {
+        ev.stopPropagation();
+    }
+
+    function handleGroupDelete(ev: React.MouseEvent) {
+        ev.stopPropagation();
+    }
+
+    return <FileCell
+        isSelected={isActive}
+        onClick={() => setSelectedItemId(group.items[0].id)}
+    >
+        <h2 className="text-center p-1 text-lg">{group.items[0].title}</h2>
+
+        <div className="flex flex-row flex-1">
+            <div className="flex-1 relative p-1">
+                <CompImage className="w-full h-full" />
+            </div>
+
+            <div className="px-2 text-slate-500 text-sm flex items-center flex-col">
+                <div className="mb-auto">
+                    {nItems > 1 && <>
+                        {nItems} {pluralize('version', nItems)}
+                    </>}
+                </div>
+                <div className="flex flex-row">
+                <IconButton icon={faPencil} onClick={handleItemEdit} />
+                <IconButton icon={faClone} onClick={handleItemClone} />
+                <IconButton icon={faTrashAlt} onClick={handleGroupDelete} />
+                </div>
+            </div>
+        </div>
+    </FileCell>;
+};
+
+export const IconButton: React.FC<{
+    className?: string;
+    icon: IconDefinition;
+    onClick: (ev: React.MouseEvent) => void;
+} & ButtonHTMLAttributes<HTMLButtonElement>> = ({ className, icon, onClick, ...props }) => {
+
+    return <button {...props} className={clsx("text-gray-500 hover:text-black p-1", className)} onClick={onClick}>
+        <FontAwesomeIcon icon={icon} />
+    </button>;
+};
+
+export const FileCell: React.FC<{
+    onClick: (ev: React.MouseEvent) => void;
+    className?: string;
+    children?: React.ReactNode;
+    isSelected: boolean;
+}> = ({ onClick, children, className, isSelected }) => {
+
+    return <div
+        className={clsx("shadow border h-[7.5rem] m-2 flex-none flex flex-col cursor-pointer", className, isSelected ? "bg-blue-200 hover:bg-blue-300" : "bg-white hover:bg-slate-100")}
+        onClick={onClick}>
+
+        {children}
     </div>;
 };
+
+export const SelectedGroupInfo: React.FC<{
+    group: IItemGroup,
+    setSelectedItemId: (id: string) => void;
+    item: IMyItems | null,
+}> = ({ group, item, setSelectedItemId }) => {
+
+    let selectedItemId = item?.id;
+
+    return <div className="flex flex-1 flex-row overflow-hidden">
+        <div className="w-[14rem] flex flex-col border-r">
+            <div className="px-2 py-1 text-center border-b">Versions</div>
+            <div className="overflow-y-auto bg-gray-100 flex-1">
+                <div className="flex flex-1 flex-col">
+                    {group.items.map(item => {
+                        let { version } = parseId(item.id);
+                        let isSelected = item.id === selectedItemId;
+
+                        return <div
+                            key={item.id}
+                            className={clsx("px-2 py-1 flex items-center cursor-pointer", isSelected ? "bg-blue-200 hover:bg-blue-300" : "bg-white hover:bg-slate-100")}
+                            onClick={() => setSelectedItemId(item.id)}
+                            >
+                            <div className="mr-1">Version</div>
+                            <div className="pr-2 mr-auto">{version}</div>
+
+                            <div className="text-sm">
+                                <IconButton icon={faPencil} onClick={() => {}} />
+                                <IconButton icon={faClone} onClick={() => {}} />
+                                <IconButton icon={faTrashAlt} onClick={() => {}} />
+                            </div>
+                        </div>;
+                    })}
+                </div>
+            </div>
+        </div>
+        <div className="flex flex-col flex-1 px-3 overflow-hidden">
+            <div className="flex flex-col py-1">
+                <h1 className="text-lg">{item?.title ?? group.name}</h1>
+                <h2 className="text-sm text-slate-500 font-mono pt-1">{item?.id ?? group.id}</h2>
+            </div>
+            <div className="flex-1 flex-shrink overflow-hidden max-w-[20rem]">
+                <CompImage className="flex-grow-0 pb-[66%]" />
+            </div>
+        </div>
+    </div>;
+};
+
+export const CompImage: React.FC<{
+    className?: string;
+    url?: string;
+}> = ({ className, url }) => {
+
+    let urlResolved = url;  // ?? "https://via.placeholder.com/150";
+
+    return <div className={clsx("bg-gray-200 flex items-center justify-center rounded relative overflow-hidden bg-opacity-30 shadow", className)}>
+        {url && <img src={urlResolved} className="absolute inset-0 max-h-full max-w-full object-cover w-full h-full" alt="Component" />}
+        {!url && <div className="absolute inset-0 flex justify-center items-center bg-gray-200 bg-opacity-0">
+            <FontAwesomeIcon icon={faImage} className="mr-2 text-6xl text-gray-400" />
+        </div>}
+    </div>;
+};
+
 
 export const Resizer: React.FC<{
     id: string;

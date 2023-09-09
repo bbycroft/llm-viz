@@ -104,6 +104,7 @@ export interface IEditorState {
     addLine: boolean
     showExeOrder: boolean;
     transparentComps: boolean;
+    compLibraryVisible: boolean;
 
     dragCreateComp?: IDragCreateComp;
 }

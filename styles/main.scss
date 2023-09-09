@@ -32,3 +32,12 @@ button {
     pointer-events: none;
     overflow: hidden;
 }
+
+.dialog-fade-in {
+    animation: dialog-fade-in 150ms ease forwards;
+}
+
+@keyframes dialog-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

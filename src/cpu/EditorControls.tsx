@@ -1,5 +1,8 @@
+import { faBook } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import clsx from 'clsx';
-import React from 'react';
+import React, { ButtonHTMLAttributes } from 'react';
+import { assignImm } from '../utils/data';
 import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
 import { redoAction, undoAction, useEditorContext } from "./Editor";
 import s from './EditorControls.module.scss';
@@ -24,11 +27,25 @@ export const CpuEditorToolbar: React.FC<{}> = () => {
         setEditorState(redoAction(editorState));
     }
 
+    function handleLibraryClick() {
+        setEditorState(a => assignImm(a, { compLibraryVisible: !a.compLibraryVisible }));
+    }
+
     let undoAvailable = editorState.undoStack.length > 0;
     let redoAvailable = editorState.redoStack.length > 0;
+
+
 
     return <div className={clsx(s.toolsTopLeft, s.toolbar)}>
         <button className={s.toolbarBtn} onClick={undo} disabled={!undoAvailable}>Undo</button>
         <button className={s.toolbarBtn} onClick={redo} disabled={!redoAvailable}>Redo</button>
+        <button>
+            <FontAwesomeIcon icon={faBook} onClick={handleLibraryClick} />
+        </button>
     </div>;
+};
+
+export const ToolbarBtn: React.FC<ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, className, ...props }) => {
+
+    return <button className={clsx("", className)} {...props}>{children}</button>;
 };

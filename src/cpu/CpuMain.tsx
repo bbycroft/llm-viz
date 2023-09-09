@@ -12,19 +12,19 @@ import { OpCode, Funct3Op, Funct3Branch, Funct3LoadStore, Funct3CSR, CSR_Reg } f
 export const CPUMain = () => {
     useCreateGlobalKeyboardDocumentListener();
 
-    let [cpuState] = useState(() => {
-        return { system: createSystem() };
-    });
+    // let [cpuState] = useState(() => {
+    //     return { system: createSystem() };
+    // });
 
-   useEffect(() => {
-        console.log('Running tests ...');
-        runTests().then(() => {
-        });
-   }, []);
+//    useEffect(() => {
+//         console.log('Running tests ...');
+//         runTests().then(() => {
+//         });
+//    }, []);
 
     return <>
         <div className={s.content}>
-            <CpuCanvas cpuState={cpuState} />
+            <CpuCanvas />
         </div>
         <div id="portal-container" />
     </>;
