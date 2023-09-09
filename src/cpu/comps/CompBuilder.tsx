@@ -1,6 +1,6 @@
 import { isNil, hasFlag } from "@/src/utils/data";
-import { Vec3 } from "@/src/utils/vector";
-import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir } from "../CpuModel";
+import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
+import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, ICpuLayout } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -10,11 +10,57 @@ export interface IResetOptions {
     hardReset: boolean; // reset everything including ROMs (that would usually be expected to be persistent over device restarts)
 }
 
+// this isn't that great!
+// need to be able to adjust size, name, ports based on config, where the config is per-instance
+// Also, our IComp object should probably just contain the IExeComp stuff
+
+/*
+Want to think about about what an ICompDef/IComp looks like for a sub-component
+
+ * A component may have its own exe model, as well as a sub-component tree, where we execute the
+   efficient one.
+* Also have a way to compare the two execution models.
+* But not important!
+* Have a couple of modes:
+  - when building the model, place ports into the _internal_ object
+    - and these will be placed on the external object
+  - or the other way around: add a port externally, and it will be added internally
+  - but there's some set, a mapping between them, and ports have names/ids
+* Either way, shape/position of nodes is all adjustable by the config (& user)
+
+* I think we have some standard config args (size, rotation, port list) that we apply to a component
+  - So our current plan is probably OK
+
+* What about the comp library? Does an ICompDef map to a particular user-defined type of a component,
+  or is there one ICompDef for all user-defined comps?
+
+  - So it has a common set of functions, but we want a unique defId, name, size, ports etc
+  - Also I guess the args will contain the inner/sub-comps
+
+* What about import/export
+  - Want each layout & sub-layout to be defined in a list of layouts, with refs by defId
+
+* Have a typical issue of managing the library: if we import something with a sub-layout that doesn't
+  match one in the library, what do we do? Kind of want a versioning system here, so we add an additional
+  version of the component to our library, and can optionally modify the "active" version (or move it to
+  another library item)
+*/
+
+/*
+Steps: let's create & manage a library of user-defined components.
+Store them somehow, and make them editable in a UI. Probably still local-storage, but should
+add some weightier load/store system
+Editing is either: editing directly, or within the scope of a tree of components
+
+*/
+
 export interface ICompDef<T, A = any> {
     defId: string;
     name: string;
     size: Vec3;
-    ports: ICompPort[] | ((args: A) => ICompPort[]);
+    type?: CompDefType; // defaults to BuiltIn
+    ports: ICompPort[] | ((args: A, compDef: ICompDef<T, A>) => ICompPort[]);
+    subLayout?: ISubLayoutArgs;
 
     initConfig?: (args: ICompBuilderArgs) => A;
     applyConfig?: (comp: IComp, args: A) => void;
@@ -25,6 +71,35 @@ export interface ICompDef<T, A = any> {
     renderAll?: boolean;
     copyStatefulData?: (src: T, dest: T) => void; // should copy things like memory & registers (not ports)
     reset?: (exeComp: IExeComp<T>, resetOpts: IResetOptions) => void;
+}
+
+export enum CompDefType {
+    Builtin,
+    UserDefined,
+}
+
+export interface ISubLayoutArgs {
+    // how do we reference the ports in the sub layout?
+    // maybe have some I/O components that are ports, and have the appropriate id in args
+    // we'll just have to add logic to keep them in sync, but otherwise, the inner port has pos, rot etc,
+    // and the outer port has its own pos
+
+    // how do we create a nice looking sub-layout if we construct from a group of components?
+    // give the inner layout a rectangle that matches the parent group, and put the internal ports just
+    // outside that region
+    // That way, the wires extend naturally, and when it's only partially zoomed in, everything remains the same &
+    // can be easily un-done
+    bb: BoundingBox3d;
+    subLayout: ICpuLayout;
+    ports: ISubLayoutPort[];
+}
+
+export interface ISubLayoutPort {
+    id: string;
+    name: string
+    type: PortType;
+    pos: Vec3;
+    width?: number;
 }
 
 export class CompLibrary {
@@ -47,7 +122,7 @@ export class CompLibrary {
             id: '',
             defId: compDef.defId,
             name: compDef.name,
-            ports: compDef.ports instanceof Function ? compDef.ports(args) : compDef.ports,
+            ports: compDef.ports instanceof Function ? compDef.ports(args, compDef) : compDef.ports,
             pos: new Vec3(0, 0),
             size: compDef.size,
             args,
@@ -63,7 +138,7 @@ export class CompLibrary {
             return;
         }
         comp.name = compDef.name;
-        comp.ports = compDef.ports instanceof Function ? compDef.ports(comp.args) : compDef.ports;
+        comp.ports = compDef.ports instanceof Function ? compDef.ports(comp.args, compDef) : compDef.ports;
         comp.size = compDef.size;
         compDef.applyConfig?.(comp, comp.args);
     }

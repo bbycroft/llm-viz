@@ -332,9 +332,9 @@ export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibra
             name: compDef?.name ?? 'unknown',
             pos: new Vec3(c.x, c.y),
             size: compDef.size,
-            ports: compDef.ports,
+            ports: typeof compDef.ports === 'function' ? compDef.ports(cfg, compDef) : compDef.ports,
             args: cfg,
-        } as IComp;
+        };
     }).filter(isNotNil);
 
     let maxCompId = 0;

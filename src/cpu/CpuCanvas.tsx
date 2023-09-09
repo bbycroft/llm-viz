@@ -19,6 +19,7 @@ import { renderWire } from "./WireRender";
 import { SchematicLibrary } from "./schematics/SchematicLibrary";
 import { SchematicLibraryView } from "./schematics/SchematicLIibraryView";
 import { CanvasEventHandler } from "./CanvasEventHandler";
+import { LibraryBrowser } from "./library/LibraryBrowser";
 
 interface ICpuState {
     system: any;
@@ -221,6 +222,7 @@ export const CpuCanvas: React.FC<{
                 <SchematicLibraryView />
                 {!editorState.layoutTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
             </div>
+            <LibraryBrowser />
         </div>
     </EditorContext.Provider>;
 };
