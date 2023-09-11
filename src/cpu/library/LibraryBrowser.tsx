@@ -1,13 +1,16 @@
-import { assignImm, clamp, getOrAddToMap } from "@/src/utils/data";
+import { assignImm, clamp, getOrAddToMap, isNil } from "@/src/utils/data";
 import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
 import { useCombinedMouseTouchDrag } from "@/src/utils/pointer";
-import { FullscreenOverlay, ModalWindow, Portal } from "@/src/utils/Portal";
+import { FullscreenOverlay } from "@/src/utils/Portal";
+import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
 import { faClone, faImage, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 import { faPencil, faPlus, faTimes, IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import clsx from "clsx";
-import React, { ButtonHTMLAttributes, useEffect, useLayoutEffect, useState } from "react";
+import React, { ButtonHTMLAttributes, useLayoutEffect, useMemo, useState } from "react";
+import { CompDefType, ICompDef } from "../comps/CompBuilder";
 import { useEditorContext } from "../Editor";
+import { ISchematicDef } from "../schematics/SchematicLibrary";
 
 interface IMyItems {
     id: string;
@@ -49,7 +52,7 @@ for (let i = 0; i < 0; i++) {
 
 interface IMyFolder {
     id: string;
-    items: IMyItems[];
+    items: ICompDef<any>[];
     groups: Map<string, IItemGroup>;
 }
 
@@ -57,7 +60,7 @@ interface IMyFolder {
 interface IItemGroup {
     id: string;
     name: string;
-    items: IMyItems[];
+    items: ICompDef<any>[];
 }
 
 function parseId(id: string): { dir: string, name: string, path: string[], version: string } {
@@ -68,6 +71,7 @@ function parseId(id: string): { dir: string, name: string, path: string[], versi
     return { path: pathParts, version, dir, name };
 }
 
+/*
 function groupIntoFolders(items: IMyItems[]): IMyFolder[] {
 
     let folderLookup = new Map<string, IMyFolder>();
@@ -84,10 +88,73 @@ function groupIntoFolders(items: IMyItems[]): IMyFolder[] {
 
     return [...folderLookup.values()];
 }
+*/
+
+function compsToFolders(compDefs: ICompDef<any>[]): IMyFolder[] {
+    let folderLookup = new Map<string, IMyFolder>();
+
+    for (let item of compDefs) {
+        let { dir, name, path, version } = parseId(item.defId);
+        let folder = getOrAddToMap(folderLookup, dir, () => ({ id: dir, items: [], groups: new Map() }));
+        folder.items.push(item);
+
+        let groupId = path.join('/');
+        let group = getOrAddToMap(folder.groups, groupId, () => ({ id: groupId, name, items: [] }));
+        group.items.push(item);
+    }
+
+    return [...folderLookup.values()];
+
+
+}
 
 function pluralize(a: string, count: number) {
     return count === 1 ? a : a + 's';
 }
+
+/* What does the LibraryBrowser show?
+
+We currently have 2 concepts:
+ 1) schematics, and
+ 2) components
+
+But really they can be sort of combined.
+  - We have leaf components with purely code implementations.
+  - We have components with only code impl, but in theory could have a schematic.
+  - We have components with only a schematic, built-in (for examples), and user-defined.
+
+So schematics might have an implicit ICompDef (say they have no I/O), or explicitly, such as when
+they're created from a group, or created from scratch.
+
+Our unit is a component + [schematic], which really is an ICompDef<any> atm.
+
+Can map a schematic to an ICompDef, and give it an id.
+
+Namespaces:
+
+* want a separate namespace for builtin (made by me) components
+* also need something to differentiate pure code components from schematic components
+
+
+Want to add comp logic to schematics, so they're upgraded a bit.
+
+*/
+
+function schematicToCompDef(schematic: ISchematicDef, isBuiltin: boolean): ICompDef<any> {
+    return {
+        defId: (isBuiltin ? 'builtin/' : 'user/') + schematic.id,
+        name: schematic.name,
+        ports: [],
+        size: new Vec3(10, 10),
+        type: CompDefType.UserDefined,
+        subLayout: {
+            ports: [],
+            subLayout: schematic.model,
+            bb: new BoundingBox3d(new Vec3(0, 0), new Vec3(100, 100)),
+        },
+    };
+}
+
 
 export const LibraryBrowser: React.FC<{}> = () => {
 
@@ -95,26 +162,40 @@ export const LibraryBrowser: React.FC<{}> = () => {
     let [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
     let [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
+    let builtinSchematics = editorState.schematicLibrary.builtinSchematics;
+    let customSchematics = editorState.schematicLibrary.customSchematics;
+    let comps = editorState.compLibrary.comps;
+
+    let allComps = useMemo(() => {
+        return [
+            ...[...builtinSchematics.values()].map(s => schematicToCompDef(s, true)),
+            ...[...customSchematics.values()].map(s => schematicToCompDef(s, false)),
+            ...comps.values(),
+        ];
+    }, [comps, builtinSchematics, customSchematics]);
+
+    let folders = compsToFolders(allComps);
+
     useGlobalKeyboard(KeyboardOrder.Modal, ev => {
         if (isKeyWithModifiers(ev, 'Escape', Modifiers.None)) {
             handleClose();
         }
     });
 
-    let folders = groupIntoFolders(exampleItems);
+    // let folders = groupIntoFolders(exampleItems);
 
     let selectedFolder = folders.find(a => a.id === selectedFolderId);
     let selectedGroupId = selectedItemId ? parseId(selectedItemId).path.join('/') : null;
     let selectedGroup = selectedFolder && selectedGroupId ? selectedFolder.groups.get(selectedGroupId) : null;
-    let selectedItem = selectedGroup && selectedItemId ? selectedGroup.items.find(a => a.id === selectedItemId) : null;
+    let selectedItem = selectedGroup && selectedItemId ? selectedGroup.items.find(a => a.defId === selectedItemId) : null;
 
     useLayoutEffect(() => {
-        if (!selectedFolderId) {
+        if (isNil(selectedFolderId)) {
             setSelectedFolderId(folders[0].id);
         }
         if (!selectedItem && selectedFolder) {
             let groups = [...selectedFolder.groups.values()];
-            setSelectedItemId(groups[0].items[0].id);
+            setSelectedItemId(groups[0].items[0].defId);
         }
 
     }, [selectedFolderId, selectedItem, folders, selectedFolder]);
@@ -123,11 +204,11 @@ export const LibraryBrowser: React.FC<{}> = () => {
         setEditorState(a => assignImm(a, { compLibraryVisible: false }));
     }
 
-    return <FullscreenOverlay className={"pointer-events-auto dialog-fade-in"}>
+    return <FullscreenOverlay className={"pointer-events-auto dialog-fade-in overscroll-none touch-none"}>
         <div className="absolute inset-0 bg-opacity-40 bg-black pointer-events-auto" onClick={handleClose} />
         <div className="flex flex-col bg-white rounded shadow-2xl absolute inset-10 overflow-hidden pointer-events-auto m-auto max-w-[80rem] max-h-[50rem]">
             <div className="px-2 py-1 text-center border-b text-2xl bg-gray-500 text-white relative">
-                Library Browser
+                Component Library
                 <button className="cursor-pointer absolute top-0 right-0 bottom-0" onClick={handleClose}>
                     <FontAwesomeIcon icon={faTimes} className="px-3" />
                 </button>
@@ -136,7 +217,7 @@ export const LibraryBrowser: React.FC<{}> = () => {
                 <div className="flex flex-col flex-1 overflow-hidden">
                     <h2 className="text-center p-1 border-b">Folders</h2>
                     <div className="flex flex-col overflow-y-auto flex-1">
-                        <div className="flex flex-col bg-gray-100 flex-1">
+                        <div className="flex flex-col bg-white flex-1">
 
                             {folders.map(folder => {
                                 let isSelected = folder.id === selectedFolderId;
@@ -148,9 +229,9 @@ export const LibraryBrowser: React.FC<{}> = () => {
                                     className={clsx("px-2 py-1 w-full flex cursor-pointer items-center", isSelected ? "bg-blue-200 hover:bg-blue-300" : "bg-white hover:bg-slate-100")}
                                     onClick={() => setSelectedFolderId(folder.id)}
                                 >
-                                    {folder.id}
+                                    {folder.id || '<no folder>'}
                                     <div className="ml-auto text-gray-500 text-sm">
-                                        {groupCount} {pluralize('item', groupCount)} ({itemCount} {pluralize('version', itemCount)})
+                                        {groupCount} ({itemCount})
                                     </div>
                                 </div>;
                             })}
@@ -208,9 +289,9 @@ export const GroupEntryFileCell: React.FC<{
 
     return <FileCell
         isSelected={isActive}
-        onClick={() => setSelectedItemId(group.items[0].id)}
+        onClick={() => setSelectedItemId(group.items[0].defId)}
     >
-        <h2 className="text-center p-1 text-lg">{group.items[0].title}</h2>
+        <h2 className="text-center p-1 text-lg">{group.items[0].name}</h2>
 
         <div className="flex flex-row flex-1">
             <div className="flex-1 relative p-1">
@@ -262,10 +343,10 @@ export const FileCell: React.FC<{
 export const SelectedGroupInfo: React.FC<{
     group: IItemGroup,
     setSelectedItemId: (id: string) => void;
-    item: IMyItems | null,
+    item: ICompDef<any> | null,
 }> = ({ group, item, setSelectedItemId }) => {
 
-    let selectedItemId = item?.id;
+    let selectedItemId = item?.defId;
 
     return <div className="flex flex-1 flex-row overflow-hidden">
         <div className="w-[14rem] flex flex-col border-r">
@@ -273,13 +354,13 @@ export const SelectedGroupInfo: React.FC<{
             <div className="overflow-y-auto bg-gray-100 flex-1">
                 <div className="flex flex-1 flex-col">
                     {group.items.map(item => {
-                        let { version } = parseId(item.id);
-                        let isSelected = item.id === selectedItemId;
+                        let { version } = parseId(item.defId);
+                        let isSelected = item.defId === selectedItemId;
 
                         return <div
-                            key={item.id}
+                            key={item.defId}
                             className={clsx("px-2 py-1 flex items-center cursor-pointer", isSelected ? "bg-blue-200 hover:bg-blue-300" : "bg-white hover:bg-slate-100")}
-                            onClick={() => setSelectedItemId(item.id)}
+                            onClick={() => setSelectedItemId(item.defId)}
                             >
                             <div className="mr-1">Version</div>
                             <div className="pr-2 mr-auto">{version}</div>
@@ -296,8 +377,8 @@ export const SelectedGroupInfo: React.FC<{
         </div>
         <div className="flex flex-col flex-1 px-3 overflow-hidden">
             <div className="flex flex-col py-1">
-                <h1 className="text-lg">{item?.title ?? group.name}</h1>
-                <h2 className="text-sm text-slate-500 font-mono pt-1">{item?.id ?? group.id}</h2>
+                <h1 className="text-lg">{item?.name ?? group.name}</h1>
+                <h2 className="text-sm text-slate-500 font-mono pt-1">{item?.defId ?? group.id}</h2>
             </div>
             <div className="flex-1 flex-shrink overflow-hidden max-w-[20rem]">
                 <CompImage className="flex-grow-0 pb-[66%]" />

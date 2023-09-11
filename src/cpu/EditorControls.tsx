@@ -35,12 +35,12 @@ export const CpuEditorToolbar: React.FC<{}> = () => {
     let redoAvailable = editorState.redoStack.length > 0;
 
 
-
-    return <div className={clsx(s.toolsTopLeft, s.toolbar)}>
+    return <div className={clsx(s.toolsTopLeft, s.toolbar, "flex items-stretch")}>
         <button className={s.toolbarBtn} onClick={undo} disabled={!undoAvailable}>Undo</button>
         <button className={s.toolbarBtn} onClick={redo} disabled={!redoAvailable}>Redo</button>
-        <button>
-            <FontAwesomeIcon icon={faBook} onClick={handleLibraryClick} />
+        <button className="hover:bg-blue-300 px-2 whitespace-nowrap" onClick={handleLibraryClick}>
+            Component Library
+            <FontAwesomeIcon icon={faBook} className="mx-2" />
         </button>
     </div>;
 };
