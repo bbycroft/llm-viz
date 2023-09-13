@@ -186,13 +186,13 @@ export const CompExampleView: React.FC = () => {
     }
 
     function getPcComp() {
-        return findCompByDefId('reg1') as IExeComp<ICompDataSingleReg> | undefined;
+        return findCompByDefId('core/flipflop/reg1') as IExeComp<ICompDataSingleReg> | undefined;
     }
     function getRegsComp() {
-        return findCompByDefId('reg32Riscv') as IExeComp<ICompDataRegFile> | undefined;
+        return findCompByDefId('core/riscv/reg32') as IExeComp<ICompDataRegFile> | undefined;
     }
     function getRomComp() {
-        return findCompByDefId('rom0') as IExeComp<IRomExeData> | undefined;
+        return findCompByDefId('core/mem/rom0') as IExeComp<IRomExeData> | undefined;
     }
 
     function onResetClicked() {

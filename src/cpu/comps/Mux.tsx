@@ -22,7 +22,8 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     let w = 2;
     let h = 6;
     let mux2: ICompDef<ICompDataMux> = {
-        defId: 'mux2',
+        defId: 'flow/mux2',
+        altDefIds: ['mux2'],
         name: "Mux",
         size: new Vec3(w, h),
         ports: [
@@ -97,7 +98,8 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let aH = 4;
     let adder: ICompDef<ICompDataAdder> = {
-        defId: 'adder',
+        defId: 'math/adder',
+        altDefIds: ['adder'],
         name: "+",
         size: new Vec3(w, aH),
         ports: [

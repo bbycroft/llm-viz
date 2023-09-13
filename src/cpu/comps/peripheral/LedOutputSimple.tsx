@@ -70,7 +70,8 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     let w = 30;
     let h = 8;
     let ledOutputSimple: ICompDef<ILedOutputData, ILedOutputConfig> = {
-        defId: 'p_ledOutput',
+        defId: 'io/ledOutput0',
+        altDefIds: ['p_ledOutput'],
         name: "LED Output",
         size: new Vec3(w, h),
         ports: [

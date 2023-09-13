@@ -32,7 +32,8 @@ export function createRegFileCtrlComps(_args: ICompBuilderArgs): ICompDef<any>[]
     let w = 10;
     let h = 12;
     let regFileCtrl: ICompDef<IRegFileCtrlData, IRegFileCtrlConfig> = {
-        defId: 'riscvRegFile0Input',
+        defId: 'riscv/regFile0Input',
+        altDefIds: ['riscvRegFile0Input'],
         name: "Reg File Input",
         size: new Vec3(w, h),
         ports: [

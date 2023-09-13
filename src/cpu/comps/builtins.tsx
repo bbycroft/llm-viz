@@ -31,6 +31,9 @@ export function buildCompLibrary() {
     ];
 
     for (let comp of comps) {
+        let extraId ='core/' + comp.defId;
+        comp.altDefIds = [...comp.altDefIds ?? [], comp.defId];
+        comp.defId = extraId;
         compLibrary.addComp(comp);
     }
 

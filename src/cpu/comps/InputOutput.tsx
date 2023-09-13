@@ -32,7 +32,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
     let w = 6;
     let h = 4;
     let output: ICompDef<ICompDataOutput> = {
-        defId: 'output0',
+        defId: 'io/output0',
+        altDefIds: ['output0'],
         name: "Output",
         size: new Vec3(w, h),
         ports: [
@@ -68,7 +69,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
 
     let constW = 10;
     let const32: ICompDef<ICompDataInput, IInputConfig> = {
-        defId: 'const32',
+        defId: 'io/const32',
+        altDefIds: ['const32'],
         name: "Const32",
         size: new Vec3(constW, h),
         ports: [

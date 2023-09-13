@@ -35,7 +35,12 @@ function parseId(id: string): { dir: string, name: string, path: string[], versi
 function libraryItemsToFolders(libraryItems: ILibraryItem[]): IMyFolder[] {
     let folderLookup = new Map<string, IMyFolder>();
 
-    for (let libraryItem of libraryItems) {
+    let byKey = new Map<string, ILibraryItem>();
+    for (let item of libraryItems) {
+        byKey.set(item.id, item);
+    }
+
+    for (let libraryItem of byKey.values()) {
         let { dir, name, path, version } = parseId(libraryItem.id);
 
         let folder = getOrAddToMap(folderLookup, dir, () => ({ id: dir, items: [], groups: new Map() }));

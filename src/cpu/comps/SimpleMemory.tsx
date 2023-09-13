@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Vec3 } from "@/src/utils/vector";
-import { IExePort, PortType, IComp, ICanvasState, IoDir } from "../CpuModel";
-import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IExePort, PortType, IComp, IoDir } from "../CpuModel";
+import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
 import clsx from 'clsx';
@@ -43,7 +43,8 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
     let romW = 35;
     let romH = 30;
     let rom: ICompDef<IRomExeData, IRomConfig> = {
-        defId: 'rom0',
+        defId: 'mem/rom0',
+        altDefIds: ['rom0'],
         name: "ROM",
         size: new Vec3(romW, romH),
         ports: [
@@ -109,7 +110,8 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
     let ramH = 30;
 
     let ram: ICompDef<IRamExeData, IRamConfig> = {
-        defId: 'ram0',
+        defId: 'mem/ram0',
+        altDefIds: ['ram0'],
         name: "RAM",
         size: new Vec3(ramW, ramH),
         ports: [

@@ -47,7 +47,8 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
     let h = 4;
     let rotateCenter = new Vec3(1, 2);
     let orGate: ICompDef<IBinGateData, IBinGateConfig> = {
-        defId: 'or',
+        defId: 'gate/or',
+        altDefIds: ['or'],
         name: "Or",
         size: new Vec3(w, h),
         ports: [
@@ -115,7 +116,8 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
     let notW = 3;
     let notH = 4;
     let notGate: ICompDef<INotGateData> = {
-        defId: 'not',
+        defId: 'gate/not',
+        altDefIds: ['not'],
         name: "NOT",
         size: new Vec3(notW, notH),
         ports: [

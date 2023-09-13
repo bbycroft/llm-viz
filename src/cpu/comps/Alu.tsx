@@ -1,7 +1,7 @@
-import React, { CSSProperties } from "react";
+import React from "react";
 import { Vec3 } from "@/src/utils/vector";
-import { PortType, IComp, IExeComp, IExePort, ICanvasState } from "../CpuModel";
-import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { PortType, IExeComp, IExePort } from "../CpuModel";
+import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { ensureSigned32Bit, ensureUnsigned32Bit, funct3BranchIcon, funct3OpIcon } from "./RiscvInsDecode";
 import s from './CompStyles.module.scss';
 import clsx from "clsx";
@@ -19,7 +19,8 @@ interface ICompDataAlu {
 export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let alu: ICompDef<ICompDataAlu> = {
-        defId: 'aluRiscv32_0',
+        defId: 'riscv/alu0',
+        altDefIds: ['aluRiscv32_0'],
         name: "ALU",
         size: new Vec3(16, 12),
         ports: [

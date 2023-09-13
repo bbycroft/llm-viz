@@ -195,6 +195,7 @@ export class CompLibrary {
 export function createLibraryItemFromComp(compDef: ICompDef<any>): ILibraryItem {
     return {
         id: compDef.defId,
+        altIds: compDef.altDefIds,
         name: compDef.name,
         compDef: compDef,
     };

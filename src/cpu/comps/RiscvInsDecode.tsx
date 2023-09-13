@@ -1,7 +1,7 @@
 import { Vec3 } from "@/src/utils/vector";
-import { IExePort, IComp, IExeComp, PortType, ICompRenderArgs, IExeRunArgs, IoDir } from "../CpuModel";
+import { IExePort, IExeComp, PortType, ICompRenderArgs, IExeRunArgs } from "../CpuModel";
 import { OpCode, Funct3Op, Funct3OpImm, Funct3Branch, Funct3LoadStore } from "../RiscvIsa";
-import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import * as d3Color from 'd3-color';
 import { riscvRegNames } from "./Registers";
 import { isNotNil } from "@/src/utils/data";
@@ -11,7 +11,8 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
     let w = 40;
     let h = 20;
     let alu: ICompDef<ICompDataInsDecoder> = {
-        defId: 'insDecodeRiscv32_0',
+        defId: 'riscv/insDecode0',
+        altDefIds: ['insDecodeRiscv32_0'],
         name: "Instruction Decoder",
         size: new Vec3(w, h),
         ports: [

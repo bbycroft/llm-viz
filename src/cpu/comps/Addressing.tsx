@@ -31,7 +31,8 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
     let w = 10;
     let h = 12;
     let addrMapper: ICompDef<ICompAddressMapper, IAddressMapperConfig> = {
-        defId: 'addrMap',
+        defId: 'bus/addrMap',
+        altDefIds: ['addrMap'],
         name: "Address Map",
         size: new Vec3(w, h),
         ports: [
