@@ -1,6 +1,6 @@
-import { isNil, hasFlag } from "@/src/utils/data";
+import { isNil, hasFlag, assignImm } from "@/src/utils/data";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, ICpuLayout } from "../CpuModel";
+import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, ICpuLayout, ILibraryItem } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -56,6 +56,7 @@ Editing is either: editing directly, or within the scope of a tree of components
 
 export interface ICompDef<T, A = any> {
     defId: string;
+    altDefIds?: string[]; // so we can safely rename things
     name: string;
     size: Vec3;
     type?: CompDefType; // defaults to BuiltIn
@@ -63,13 +64,27 @@ export interface ICompDef<T, A = any> {
     subLayout?: ISubLayoutArgs;
 
     initConfig?: (args: ICompBuilderArgs) => A;
+
+    // modify the comp {size, ports} based on the component args
     applyConfig?: (comp: IComp, args: A) => void;
 
+    // create the exe model for this component. Copy across any relevant data from the comp into the exeComp
     build?: (builder: ExeCompBuilder<T, A>) => IExeComp<T>;
+
+    // render to the canvas based on the {comp, exeComp} pair (+ other data)
     render?: (args: ICompRenderArgs<T, A>) => void;
+
+    // render to the DOM based on the {comp, exeComp} pair (+ other data). Suitable for user-interactive components
     renderDom?: (args: ICompRenderArgs<T, A>) => React.ReactNode;
+
+    // Let render() handle all rendering; don't render a box/name
     renderAll?: boolean;
-    copyStatefulData?: (src: T, dest: T) => void; // should copy things like memory & registers (not ports)
+
+    // copy things like memory & registers (not ports) between IExeComp data's (during a regen of the exe model)
+    copyStatefulData?: (src: T, dest: T) => void;
+
+    // action to reset stateful components, typically to 0x00. Option for hard or soft reset. Soft reset is typically
+    // equivalent to a power-down/restart (leaving ROM untouched), while a hard reset includes things like ROMs.
     reset?: (exeComp: IExeComp<T>, resetOpts: IResetOptions) => void;
 }
 
@@ -103,20 +118,37 @@ export interface ISubLayoutPort {
 }
 
 export class CompLibrary {
-    comps = new Map<string, ICompDef<any>>();
+    libraryLookup = new Map<string, ILibraryItem>();
     constructor() {}
 
     public addComp(comp: ICompDef<any>) {
-        this.comps.set(comp.defId, comp);
+        let item = createLibraryItemFromComp(comp);
+
+        this.libraryLookup.set(item.id, item);
+        for (let altId of item.altIds ?? []) {
+            this.libraryLookup.set(altId, item);
+        }
     }
 
-    create(defId: string) {
-        let compDef = this.comps.get(defId);
+    getCompDef(defId: string): ICompDef<any> | null {
+        let item = this.libraryLookup.get(defId);
+        if (!item || !item.compDef) {
+            return null;
+        }
+        return item.compDef;
+    }
+
+    create<A = undefined>(defId: string, cfg?: A | undefined): IComp<A> | null {
+        let compDef = this.getCompDef(defId);;
         if (!compDef) {
             return null;
         }
 
         let args = compDef.initConfig ? compDef.initConfig({}) : null;
+
+        if (args && cfg) {
+            args = assignImm(args, cfg);
+        }
 
         let comp: IComp = {
             id: '',
@@ -133,7 +165,7 @@ export class CompLibrary {
     }
 
     updateCompFromDef(comp: IComp) {
-        let compDef = this.comps.get(comp.defId);
+        let compDef = this.getCompDef(comp.defId);
         if (!compDef) {
             return;
         }
@@ -151,13 +183,21 @@ export class CompLibrary {
     }
 
     build(comp: IComp): IExeComp<any> {
-        let compDef = this.comps.get(comp.defId);
+        let compDef = this.getCompDef(comp.defId);
         if (compDef?.build) {
             let builder = new ExeCompBuilder<any>(comp);
             return compDef.build(builder);
         }
         return buildDefault(comp);
     }
+}
+
+export function createLibraryItemFromComp(compDef: ICompDef<any>): ILibraryItem {
+    return {
+        id: compDef.defId,
+        name: compDef.name,
+        compDef: compDef,
+    };
 }
 
 export class ExeCompBuilder<T, A=any> {

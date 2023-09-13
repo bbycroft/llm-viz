@@ -10,7 +10,7 @@ export const CompLibraryView: React.FC = () => {
 
     let { compLibrary } = editorState;
 
-    let compDefs = [...compLibrary.comps.values()];
+    let compDefs = [...compLibrary.libraryLookup.values()];
 
     let [, setDragStart] = useGlobalDrag<number>(function handleMove(ev, ds, end) {
         setEditorState(a => {
@@ -46,7 +46,7 @@ export const CompLibraryView: React.FC = () => {
                 return <div
                     className={s.entry}
                     key={idx}
-                    onMouseDown={ev => handleMouseDown(ev, comp)}
+                    onMouseDown={ev => handleMouseDown(ev, comp.compDef!)}
                 >{comp.name}</div>;
             })}
         </div>

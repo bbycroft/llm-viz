@@ -2,54 +2,14 @@ import { assignImm, clamp, getOrAddToMap, isNil } from "@/src/utils/data";
 import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
 import { useCombinedMouseTouchDrag } from "@/src/utils/pointer";
 import { FullscreenOverlay } from "@/src/utils/Portal";
-import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
 import { faClone, faImage, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 import { faPencil, faPlus, faTimes, IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import clsx from "clsx";
 import React, { ButtonHTMLAttributes, useLayoutEffect, useMemo, useState } from "react";
-import { CompDefType, ICompDef, ISubLayoutArgs } from "../comps/CompBuilder";
-import { ICpuLayout } from "../CpuModel";
+import { ILibraryItem } from "../CpuModel";
 import { useEditorContext } from "../Editor";
 import { ISchematicDef } from "../schematics/SchematicLibrary";
-
-interface IMyItems {
-    id: string;
-    title: string;
-    notes?: string;
-}
-
-let exampleItems: IMyItems[] = [
-    { id: 'cpu/riscv_simple0:1', title: 'RISCV Simple 0' },
-    { id: 'cpu/riscv_simple0:2', title: 'RISCV Simple 0' },
-    { id: 'cpu/riscv_simple0:3', title: 'RISCV Simple 0' },
-
-    { id: 'cpu/riscv_simple1:3', title: 'RISCV Simple 1' },
-    { id: 'cpu/riscv_simple1:4', title: 'RISCV Simple 1' },
-    { id: 'cpu/riscv_simple1:7', title: 'RISCV Simple 1' },
-
-    { id: 'cpu/riscv_pipeline_2stage:7', title: 'RISCV Pipelined (2 stage)' },
-    { id: 'cpu/riscv_pipeline_2stage:53', title: 'RISCV Pipelined (2 stage)' },
-    { id: 'cpu/riscv_pipeline_2stage:54', title: 'RISCV Pipelined (2 stage)' },
-
-    { id: 'cpu/riscv_pipeline_3stage', title: 'RISCV Pipelined (3 stage)' },
-
-    { id: 'riscv/alu0', title: 'RISCV ALU 0' },
-
-    { id: 'math/adder0', title: 'Adder' },
-    { id: 'math/shift32', title: 'Shift32' },
-
-    { id: 'gate/not', title: 'Not' },
-    { id: 'gate/and', title: 'And' },
-    { id: 'gate/or', title: 'Or' },
-    { id: 'gate/nor', title: 'Nor' },
-    { id: 'gate/nand', title: 'Nand' },
-    { id: 'gate/xor', title: 'Xor' },
-];
-
-for (let i = 0; i < 0; i++) {
-    exampleItems.push({ id: `folder${i.toString().padStart(2, '0')}/entry0`, title: `Folder ${i} Entry 0` });
-}
 
 interface IMyFolder {
     id: string;
@@ -64,15 +24,6 @@ interface IItemGroup {
     items: ILibraryItem[];
 }
 
-interface ILibraryItem {
-    id: string;
-    name: string;
-    url?: string;
-    notes?: string;
-    compDef?: ICompDef<any>;
-    schematic?: ICpuLayout;
-}
-
 function parseId(id: string): { dir: string, name: string, path: string[], version: string } {
     let [path, version] = id.split(':');
     let pathParts = path.split('/');
@@ -81,37 +32,11 @@ function parseId(id: string): { dir: string, name: string, path: string[], versi
     return { path: pathParts, version, dir, name };
 }
 
-/*
-function groupIntoFolders(items: IMyItems[]): IMyFolder[] {
-
+function libraryItemsToFolders(libraryItems: ILibraryItem[]): IMyFolder[] {
     let folderLookup = new Map<string, IMyFolder>();
 
-    for (let item of items) {
-        let { dir, name, path, version } = parseId(item.id);
-        let folder = getOrAddToMap(folderLookup, dir, () => ({ id: dir, items: [], groups: new Map() }));
-        folder.items.push(item);
-
-        let groupId = path.join('/');
-        let group = getOrAddToMap(folder.groups, groupId, () => ({ id: groupId, name, items: [] }));
-        group.items.push(item);
-    }
-
-    return [...folderLookup.values()];
-}
-*/
-
-function compsToFolders(compDefs: ICompDef<any>[]): IMyFolder[] {
-    let folderLookup = new Map<string, IMyFolder>();
-
-    for (let compDef of compDefs) {
-        let { dir, name, path, version } = parseId(compDef.defId);
-
-        let libraryItem: ILibraryItem = {
-            id: compDef.defId,
-            name: compDef.name,
-            compDef: compDef,
-            schematic: compDef.subLayout?.layout,
-        };
+    for (let libraryItem of libraryItems) {
+        let { dir, name, path, version } = parseId(libraryItem.id);
 
         let folder = getOrAddToMap(folderLookup, dir, () => ({ id: dir, items: [], groups: new Map() }));
         folder.items.push(libraryItem);
@@ -221,18 +146,19 @@ Namespacing of ids:
 - Add _add schematic_ support in the library
 */
 
-function schematicToCompDef(schematic: ISchematicDef, isBuiltin: boolean): ICompDef<ISubLayoutArgs> {
+function schematicToLibraryItem(schematic: ISchematicDef, isBuiltin: boolean): ILibraryItem {
     return {
-        defId: (isBuiltin ? 'builtin/' : 'user/') + schematic.id,
+        id: schematic.id,
         name: schematic.name,
-        ports: schematic?.compArgs?.ports.map(p => ({ ...p })) ?? [],
-        size: schematic?.compArgs?.size ?? new Vec3(0, 0),
-        type: CompDefType.UserDefined,
-        subLayout: {
-            ports: [],
-            layout: schematic.model,
-            bb: new BoundingBox3d(new Vec3(0, 0), new Vec3(100, 100)),
-        },
+        schematic: schematic.model,
+        // ports: schematic?.compArgs?.ports.map(p => ({ ...p })) ?? [],
+        // size: schematic?.compArgs?.size ?? new Vec3(0, 0),
+        // type: CompDefType.UserDefined,
+        // subLayout: {
+        //     ports: [],
+        //     layout: schematic.model,
+        //     bb: new BoundingBox3d(new Vec3(0, 0), new Vec3(100, 100)),
+        // },
     };
 }
 
@@ -244,17 +170,17 @@ export const LibraryBrowser: React.FC<{}> = () => {
 
     let builtinSchematics = editorState.schematicLibrary.builtinSchematics;
     let customSchematics = editorState.schematicLibrary.customSchematics;
-    let comps = editorState.compLibrary.comps;
+    let comps = editorState.compLibrary.libraryLookup;
 
-    let allComps = useMemo(() => {
+    let allItems = useMemo(() => {
         return [
-            ...[...builtinSchematics.values()].map(s => schematicToCompDef(s, true)),
-            ...[...customSchematics.values()].map(s => schematicToCompDef(s, false)),
+            ...[...builtinSchematics.values()].map(s => schematicToLibraryItem(s, true)),
+            ...[...customSchematics.values()].map(s => schematicToLibraryItem(s, false)),
             ...comps.values(),
         ];
     }, [comps, builtinSchematics, customSchematics]);
 
-    let folders = compsToFolders(allComps);
+    let folders = libraryItemsToFolders(allItems);
 
     useGlobalKeyboard(KeyboardOrder.Modal, ev => {
         if (isKeyWithModifiers(ev, 'Escape', Modifiers.None)) {

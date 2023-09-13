@@ -316,25 +316,16 @@ export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibra
     }
 
     let comps: IComp[] = ls.comps.map<IComp | null>(c => {
-        let compDef = compLibrary.comps.get(c.defId);
-        if (!compDef) {
+        let comp = compLibrary.create(c.defId, c.args);
+
+        if (!comp) {
             return null;
         }
 
-        let cfg = compDef.initConfig?.({}) ?? null;
-        if (cfg && c.args) {
-            cfg = assignImm(cfg, c.args);
-        }
+        comp.id = c.id;
+        comp.pos = new Vec3(c.x, c.y);
 
-        return {
-            defId: c.defId,
-            id: c.id,
-            name: compDef?.name ?? 'unknown',
-            pos: new Vec3(c.x, c.y),
-            size: compDef.size,
-            ports: typeof compDef.ports === 'function' ? compDef.ports(cfg, compDef) : compDef.ports,
-            args: cfg,
-        };
+        return comp;
     }).filter(isNotNil);
 
     let maxCompId = 0;

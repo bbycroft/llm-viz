@@ -11,7 +11,7 @@ import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CpuEditorToolbar } from "./EditorControls";
 import { exportData, hydrateFromLS, importData, wiresFromLsState, wiresToLsState } from "./ImportExport";
-import { buildCompLibrary } from "./comps/CompLibrary";
+import { buildCompLibrary } from "./comps/builtins";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
 import { HoverDisplay } from "./HoverDisplay";
@@ -191,7 +191,7 @@ export const CpuCanvas: React.FC = () => {
 
 
     let compDivs = (editorState.layoutTemp ?? editorState.layout).comps.map(comp => {
-        let def = editorState.compLibrary.comps.get(comp.defId)!;
+        let def = editorState.compLibrary.getCompDef(comp.defId)!;
         return def.renderDom && cvsState ? {
             comp,
             renderDom: def.renderDom,
@@ -280,7 +280,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLay
     for (let comp of layout.comps) {
         let exeCompIdx = exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1;
         let exeComp = exeSystem.comps[exeCompIdx];
-        let compDef = editorState.compLibrary.comps.get(comp.defId);
+        let compDef = editorState.compLibrary.getCompDef(comp.defId);
 
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === comp.id;
 

@@ -78,7 +78,7 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
                 // @TODO: while this keeps the data around, it doesn't update other things
                 // that might get modified in code with hot-reloading
                 // Maybe want per-comp custom logic to copy stateful data around? (mem;regs)
-                let def = compLibrary.comps.get(comp.defId)!;
+                let def = compLibrary.getCompDef(comp.defId)!;
                 if (def.copyStatefulData) {
                     def.copyStatefulData(existingComp.data, createdComp.data);
                 }
@@ -439,7 +439,7 @@ export function stepExecutionLatch(exeModel: IExeSystem) {
 
 export function resetExeModel(exeModel: IExeSystem, opts: IResetOptions) {
     for (let comp of exeModel.comps) {
-        let def = exeModel.compLibrary.comps.get(comp.comp.defId)!;
+        let def = exeModel.compLibrary.getCompDef(comp.comp.defId)!;
         def.reset?.(comp, opts);
     }
 }

@@ -1,11 +1,28 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
-import { CompLibrary } from "./comps/CompBuilder";
+import { CompLibrary, ICompDef } from "./comps/CompBuilder";
 import { SchematicLibrary } from "./schematics/SchematicLibrary";
 
-export interface IFullSystem {
-    layout: ICpuLayout;
-    exe: IExeSystem;
+/* All components & schematics and each version of them is represented by a separate ILibraryItem.
+
+Schematics are usually the top-level entities that users build with, with a set of wires & components.
+Schematics can also be used within other schematics by also having an associated component (in the same
+ILibraryItem). In that case, there are components within the schematic which map onto the ports of the
+component. That way, schematics can be nested arbitrarily.
+
+Components within a given schematic reference library-items from our library via a string id. There is
+a global namespace of ids, where each maps to our ILibraryItem. In some cases, to allow for id-renaming,
+an ILibraryItem can have multiple ids. On write, all schematics are updated to use the primary id.
+*/
+
+export interface ILibraryItem {
+    id: string;
+    altIds?: string[];
+
+    name: string;
+    notes?: string;
+    compDef?: ICompDef<any>;
+    schematic?: ICpuLayout;
 }
 
 export interface IExeRunArgs {
@@ -92,6 +109,7 @@ export interface IEditorState {
     layout: ICpuLayout;
     layoutTemp: ICpuLayout | null;
 
+    // time to combine these!! Actually, let's use CompLibrary, since it's used in more places, & rename it
     compLibrary: CompLibrary;
     schematicLibrary: SchematicLibrary;
 
