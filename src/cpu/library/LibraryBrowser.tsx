@@ -8,7 +8,8 @@ import { faPencil, faPlus, faTimes, IconDefinition } from "@fortawesome/free-sol
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import clsx from "clsx";
 import React, { ButtonHTMLAttributes, useLayoutEffect, useMemo, useState } from "react";
-import { CompDefType, ICompDef } from "../comps/CompBuilder";
+import { CompDefType, ICompDef, ISubLayoutArgs } from "../comps/CompBuilder";
+import { ICpuLayout } from "../CpuModel";
 import { useEditorContext } from "../Editor";
 import { ISchematicDef } from "../schematics/SchematicLibrary";
 
@@ -52,7 +53,7 @@ for (let i = 0; i < 0; i++) {
 
 interface IMyFolder {
     id: string;
-    items: ICompDef<any>[];
+    items: ILibraryItem[];
     groups: Map<string, IItemGroup>;
 }
 
@@ -60,7 +61,16 @@ interface IMyFolder {
 interface IItemGroup {
     id: string;
     name: string;
-    items: ICompDef<any>[];
+    items: ILibraryItem[];
+}
+
+interface ILibraryItem {
+    id: string;
+    name: string;
+    url?: string;
+    notes?: string;
+    compDef?: ICompDef<any>;
+    schematic?: ICpuLayout;
 }
 
 function parseId(id: string): { dir: string, name: string, path: string[], version: string } {
@@ -93,14 +103,22 @@ function groupIntoFolders(items: IMyItems[]): IMyFolder[] {
 function compsToFolders(compDefs: ICompDef<any>[]): IMyFolder[] {
     let folderLookup = new Map<string, IMyFolder>();
 
-    for (let item of compDefs) {
-        let { dir, name, path, version } = parseId(item.defId);
+    for (let compDef of compDefs) {
+        let { dir, name, path, version } = parseId(compDef.defId);
+
+        let libraryItem: ILibraryItem = {
+            id: compDef.defId,
+            name: compDef.name,
+            compDef: compDef,
+            schematic: compDef.subLayout?.layout,
+        };
+
         let folder = getOrAddToMap(folderLookup, dir, () => ({ id: dir, items: [], groups: new Map() }));
-        folder.items.push(item);
+        folder.items.push(libraryItem);
 
         let groupId = path.join('/');
         let group = getOrAddToMap(folder.groups, groupId, () => ({ id: groupId, name, items: [] }));
-        group.items.push(item);
+        group.items.push(libraryItem);
     }
 
     return [...folderLookup.values()];
@@ -135,26 +153,88 @@ Namespaces:
 * want a separate namespace for builtin (made by me) components
 * also need something to differentiate pure code components from schematic components
 
-
 Want to add comp logic to schematics, so they're upgraded a bit.
 
+Have:
+
+ILibraryItem {
+    id: string;
+    name: string;
+    notes: string;
+    compDef?: ICompDef,
+    schematic?: ISchematicDef,
+}
+
+i.e. both parts are optional. We can add either side of the coin as desired. When referencing
+a compDef from within a schematic, will use the compDef's defId.
+
+Namespacing of ids:
+ - so the id is something like '/core/alu0:34'
+ - said id needs to be in some namespace
+ - probably want to have a separate namespace for builtin components, and user-defined components
+ - /u/ for user-defined, any other prefix for builtin
+ - Have an annoying situation with compDefs vs schematics:
+   - we can only add compDefs to a schematic, so have Map<string, ICompDef> lookup
+   - then the ICompDef's reference the actual schematic data
+   - Maybe we want Map<string, ILibraryItem> for our lookup? That will get the ICompDef & any schematic
+
+- OK, yeah that's a good idea, we have Map<string, ILibraryItem> as our central lookup data-structure, and
+  likely backed by IndexedDb, say
+
+- OK, so these are _definitions_, but then the ILibraryItem.schematic.comp[i] is an _instance_ of a
+  definition, and so has custom, per instance data.
+
+- Probably stick to the IComp object in these.
+- Next thing is how to make the execution model work with these sub-schematics.
+
+  - So a schematic-component might be liberally duplicated within a schematic. Each instance will
+    have its own state data, but we can probably use the same execution model across all of them.
+  - This will require construction of various phases of operation, to fit in with the IComp phase
+    system. We can just ignore that for now though, and build the full execution model each time.
+
+- When we zoom in, we track of the compId as well as the libraryId's. Also, we probably have single IComps,
+  with multiple IExeComps (each IExeComp in each instance as req'd). But also need a way to map a [ICompId, ICompId, ...] to
+  an IExeComp set (could do an offset?).
+
+- Looks like the approach to separating out IComp's from IExeComps was a good one.
+
+- Things like on-demand generation of internal schematics can be done down the line (e.g. for RISCV ins-decode, have both
+    js impl & schematic). Will need a way of mapping any state (via refs somehow), and also a flag somewhere, which defines
+    which mode to run, plus a "test" / "both" mode. This flag would be updated based on camera movement.
+
+- Managing id transitions:
+  - Think maybe we want multiple defIds, then can migrate between them, and update our builtins. Easier than getting it
+    right the first time.
+
+- Managing builtin comps:
+  - Do we want to be creating ILibraryItem's, or just add the ICompDef's to the library? Probably the latter. What about if
+    we add (optional) schematics to a semi-builtin? Maybe our coded ILibraryItem references the ICompDef directly, and the
+    id gets replaced, instead of creating a dummy ILibraryItem.
+
+
+- Ok, what's our upgrade path?
+  - Id transition: add field with new ids that we'll write. Both ids map to the same ILibraryItem in our lookup
+  - Create our central ILibraryItem lookup, and populate it with our builtins, both schematics & comps
+  - Probably just delete all the existing models.
+
+- Create a data-store for library-items
+- Add _add schematic_ support in the library
 */
 
-function schematicToCompDef(schematic: ISchematicDef, isBuiltin: boolean): ICompDef<any> {
+function schematicToCompDef(schematic: ISchematicDef, isBuiltin: boolean): ICompDef<ISubLayoutArgs> {
     return {
         defId: (isBuiltin ? 'builtin/' : 'user/') + schematic.id,
         name: schematic.name,
-        ports: [],
-        size: new Vec3(10, 10),
+        ports: schematic?.compArgs?.ports.map(p => ({ ...p })) ?? [],
+        size: schematic?.compArgs?.size ?? new Vec3(0, 0),
         type: CompDefType.UserDefined,
         subLayout: {
             ports: [],
-            subLayout: schematic.model,
+            layout: schematic.model,
             bb: new BoundingBox3d(new Vec3(0, 0), new Vec3(100, 100)),
         },
     };
 }
-
 
 export const LibraryBrowser: React.FC<{}> = () => {
 
@@ -187,7 +267,7 @@ export const LibraryBrowser: React.FC<{}> = () => {
     let selectedFolder = folders.find(a => a.id === selectedFolderId);
     let selectedGroupId = selectedItemId ? parseId(selectedItemId).path.join('/') : null;
     let selectedGroup = selectedFolder && selectedGroupId ? selectedFolder.groups.get(selectedGroupId) : null;
-    let selectedItem = selectedGroup && selectedItemId ? selectedGroup.items.find(a => a.defId === selectedItemId) : null;
+    let selectedItem = selectedGroup && selectedItemId ? selectedGroup.items.find(a => a.id === selectedItemId) : null;
 
     useLayoutEffect(() => {
         if (isNil(selectedFolderId)) {
@@ -195,7 +275,7 @@ export const LibraryBrowser: React.FC<{}> = () => {
         }
         if (!selectedItem && selectedFolder) {
             let groups = [...selectedFolder.groups.values()];
-            setSelectedItemId(groups[0].items[0].defId);
+            setSelectedItemId(groups[0].items[0].id);
         }
 
     }, [selectedFolderId, selectedItem, folders, selectedFolder]);
@@ -289,7 +369,7 @@ export const GroupEntryFileCell: React.FC<{
 
     return <FileCell
         isSelected={isActive}
-        onClick={() => setSelectedItemId(group.items[0].defId)}
+        onClick={() => setSelectedItemId(group.items[0].id)}
     >
         <h2 className="text-center p-1 text-lg">{group.items[0].name}</h2>
 
@@ -343,10 +423,10 @@ export const FileCell: React.FC<{
 export const SelectedGroupInfo: React.FC<{
     group: IItemGroup,
     setSelectedItemId: (id: string) => void;
-    item: ICompDef<any> | null,
+    item: ILibraryItem | null,
 }> = ({ group, item, setSelectedItemId }) => {
 
-    let selectedItemId = item?.defId;
+    let selectedItemId = item?.id;
 
     return <div className="flex flex-1 flex-row overflow-hidden">
         <div className="w-[14rem] flex flex-col border-r">
@@ -354,13 +434,13 @@ export const SelectedGroupInfo: React.FC<{
             <div className="overflow-y-auto bg-gray-100 flex-1">
                 <div className="flex flex-1 flex-col">
                     {group.items.map(item => {
-                        let { version } = parseId(item.defId);
-                        let isSelected = item.defId === selectedItemId;
+                        let { version } = parseId(item.id);
+                        let isSelected = item.id === selectedItemId;
 
                         return <div
-                            key={item.defId}
+                            key={item.id}
                             className={clsx("px-2 py-1 flex items-center cursor-pointer", isSelected ? "bg-blue-200 hover:bg-blue-300" : "bg-white hover:bg-slate-100")}
-                            onClick={() => setSelectedItemId(item.defId)}
+                            onClick={() => setSelectedItemId(item.id)}
                             >
                             <div className="mr-1">Version</div>
                             <div className="pr-2 mr-auto">{version}</div>
@@ -378,7 +458,7 @@ export const SelectedGroupInfo: React.FC<{
         <div className="flex flex-col flex-1 px-3 overflow-hidden">
             <div className="flex flex-col py-1">
                 <h1 className="text-lg">{item?.name ?? group.name}</h1>
-                <h2 className="text-sm text-slate-500 font-mono pt-1">{item?.defId ?? group.id}</h2>
+                <h2 className="text-sm text-slate-500 font-mono pt-1">{item?.id ?? group.id}</h2>
             </div>
             <div className="flex-1 flex-shrink overflow-hidden max-w-[20rem]">
                 <CompImage className="flex-grow-0 pb-[66%]" />

@@ -1,8 +1,9 @@
 import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { iterLocalStorageEntries } from "@/src/utils/localstorage";
-import { CompLibrary } from "../comps/CompBuilder";
-import { ICpuLayout } from "../CpuModel";
-import { createInitialCpuLayout, ILSState, wiresFromLsState, wiresToLsState } from "../ImportExport";
+import { Vec3 } from "@/src/utils/vector";
+import { CompLibrary, ICompDef, ISubLayoutArgs, ISubLayoutPort } from "../comps/CompBuilder";
+import { ICpuLayout, PortType } from "../CpuModel";
+import { createInitialCpuLayout, ILSComp, ILSState, wiresFromLsState, wiresToLsState } from "../ImportExport";
 import { regFileDemo, riscvBasicSchematic } from "./RiscvBasic";
 
 export interface ILocalSchematic {
@@ -94,6 +95,7 @@ export class SchematicLibrary {
                 id: schematic.id,
                 name: schematic.name,
                 model: wiresFromLsState(createInitialCpuLayout(), schematic.model, compLibrary),
+                compArgs: compArgsFromLsState(schematic.compArgs),
                 hasEdits: false,
                 schematicStr: schematicStr!,
             });
@@ -123,6 +125,7 @@ export class SchematicLibrary {
                 id: schematic.id,
                 name: schematic.name,
                 model: wiresToLsState(schematic.model),
+                compArgs: compArgsToLsState(schematic.compArgs),
             };
             localStorage.setItem(this.schematicLocalStorageKey(schematic.id), JSON.stringify(lsSchematic));
         } else if (this.builtinSchematics.get(id)) {
@@ -141,12 +144,29 @@ export interface ILSSchematic {
     id: string;
     name: string;
     model: ILSState;
+    compArgs?: ILSCompArgs;
+}
+
+export interface ILSCompArgs {
+    w: number;
+    h: number;
+    ports: ILSCompPort[];
+}
+
+export interface ILSCompPort {
+    id: string;
+    name: string;
+    type: PortType;
+    x: number;
+    y: number;
+    width?: number;
 }
 
 export interface ISchematicDef {
     id: string;
     name: string;
     model: ICpuLayout;
+    compArgs?: ISchematicCompArgs; // a schematic may get wrapped into a component
 
     hasEdits: boolean;
     // when we switch between models, want to keep as much state around as possible
@@ -154,4 +174,43 @@ export interface ISchematicDef {
     redoStack?: ICpuLayout[];
     mtx?: AffineMat2d;
     schematicStr?: string; // for LS update detection
+}
+
+export interface ISchematicCompArgs {
+    size: Vec3;
+    ports: ISubLayoutPort[];
+}
+
+function compArgsToLsState(compArgs?: ISchematicCompArgs): ILSCompArgs | undefined {
+    if (!compArgs) {
+        return undefined;
+    }
+    return {
+        w: compArgs.size.x,
+        h: compArgs.size.y,
+        ports: compArgs.ports.map(p => ({
+            id: p.id,
+            name: p.name,
+            type: p.type,
+            x: p.pos.x,
+            y: p.pos.y,
+            width: p.width,
+        })),
+    };
+}
+
+function compArgsFromLsState(lsCompArgs?: ILSCompArgs): ISchematicCompArgs | undefined {
+    if (!lsCompArgs) {
+        return undefined;
+    }
+    return {
+        size: new Vec3(lsCompArgs.w, lsCompArgs.h),
+        ports: lsCompArgs.ports.map(p => ({
+            id: p.id,
+            name: p.name,
+            type: p.type,
+            pos: new Vec3(p.x, p.y),
+            width: p.width,
+        })),
+    };
 }

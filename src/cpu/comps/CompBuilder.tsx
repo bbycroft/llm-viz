@@ -90,7 +90,7 @@ export interface ISubLayoutArgs {
     // That way, the wires extend naturally, and when it's only partially zoomed in, everything remains the same &
     // can be easily un-done
     bb: BoundingBox3d;
-    subLayout: ICpuLayout;
+    layout: ICpuLayout;
     ports: ISubLayoutPort[];
 }
 
