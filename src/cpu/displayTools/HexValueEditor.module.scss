@@ -35,8 +35,12 @@
     pointer-events: auto;
     background-color: #fff3;
 
-    &:hover {
+    &:hover:not(.readonly) {
         background-color: #fff3;
+    }
+
+    &.minimal.readonly {
+        background-color: transparent;
     }
 
     &.minimal:not(:hover):not(:focus) {
@@ -44,8 +48,11 @@
     }
 
     &:focus {
-        background-color: #ffff;
         outline: none;
+    }
+
+    &:focus:not(.readonly) {
+        background-color: #ffff;
     }
 
     &.invalid {

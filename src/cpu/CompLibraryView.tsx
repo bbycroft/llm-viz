@@ -10,7 +10,7 @@ export const CompLibraryView: React.FC = () => {
 
     let { compLibrary } = editorState;
 
-    let compDefs = [...compLibrary.libraryLookup.values()];
+    let compDefs = [...new Set([...compLibrary.libraryLookup.values()])];
 
     let [, setDragStart] = useGlobalDrag<number>(function handleMove(ev, ds, end) {
         setEditorState(a => {

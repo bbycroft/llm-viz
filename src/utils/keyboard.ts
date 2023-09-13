@@ -84,10 +84,24 @@ export enum Modifiers {
     Shift,
 }
 
-export function isKeyWithModifiers(ev: KeyboardEvent, key: string, modifiers: Modifiers = Modifiers.None) {
-    if (key.toLowerCase() !== ev.key.toLowerCase()) {
-        return false;
-    }
+export interface IKeyboardEvent {
+    type: string;
+    key: string;
+    altKey: boolean;
+    ctrlKey: boolean;
+    shiftKey: boolean;
+    metaKey: boolean;
+}
+
+export function isArrowKeyWithModifiers(ev: IKeyboardEvent, direction: "up" | "down" | "left" | "right", modifiers: Modifiers = Modifiers.None) {
+    return (ev.key.toLowerCase() === direction || ev.key.toLowerCase() === `arrow${direction}`) && hasModifiers(ev, modifiers);
+}
+
+export function isKeyWithModifiers(ev: IKeyboardEvent, key: string, modifiers: Modifiers = Modifiers.None) {
+    return key.toLowerCase() === ev.key.toLowerCase() && hasModifiers(ev, modifiers);
+}
+
+export function hasModifiers(ev: IKeyboardEvent, modifiers: Modifiers) {
     let modifiersActual = Modifiers.None;
     modifiersActual |= ev.altKey ? Modifiers.Alt : 0;
     modifiersActual |= ev.ctrlKey || ev.metaKey ? Modifiers.CtrlOrCmd : 0;

@@ -211,7 +211,7 @@ export const CpuCanvas: React.FC = () => {
                     <div className={s.compDomElementsInner} style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
                         {compDivs}
                     </div>
-                    {/* {showTransparentComponents && <div className={s.compDomEventMask} />} */}
+                    {editorState.transparentComps && <div className={s.compDomEventMask} />}
                 </div>
             </CanvasEventHandler>}
             <div className={s.toolsLeftTop}>

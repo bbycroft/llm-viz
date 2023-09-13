@@ -1,8 +1,9 @@
 import { faAngleDown, faAngleUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import clsx from 'clsx';
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import s from './HexValueEditor.module.scss';
+import { isArrowKeyWithModifiers } from '@/src/utils/keyboard';
 
 export enum HexValueInputType {
     Hex,
@@ -15,18 +16,25 @@ export const HexValueEditor: React.FC<{
     value: number,
     inputType: HexValueInputType,
     fixedInputType?: boolean,
+    readonly?: boolean,
     hidePrefix?: boolean,
     minimalBackground?: boolean,
     padBits?: number,
+    maxBits?: number,
+    signed?: boolean,
+    inputClassName?: string,
     update: (end: boolean, val: number, inputType: HexValueInputType) => void,
-}> = ({ className, value, inputType, hidePrefix, fixedInputType, minimalBackground, padBits, update }) => {
+}> = ({ className, value, inputType, hidePrefix, fixedInputType, readonly, minimalBackground, padBits, update, maxBits, signed, inputClassName }) => {
 
-    let [text, setText] = React.useState(formatValue(value, inputType, padBits));
+    let [inputEl, setInputEl] = useState<HTMLInputElement | null>(null);
+    let [text, setText] = useState(formatValue(value, inputType, padBits));
     let textPrefix = inputType === HexValueInputType.Hex ? '0x' : inputType === HexValueInputType.Bin ? '0b' : '';
 
     useLayoutEffect(() => {
+        let cursorPos = inputEl?.selectionStart ?? 0;
         setText(formatValue(value, inputType, padBits));
-    }, [value, inputType, padBits]);
+        inputEl?.setSelectionRange(cursorPos, cursorPos);
+    }, [value, inputType, padBits, inputEl]);
 
     function isValid(t: string) {
         return !isNaN(parseValue(t));
@@ -42,6 +50,13 @@ export const HexValueEditor: React.FC<{
         }
     }
 
+    function updateTruncated(end: boolean, val: number, inputType: HexValueInputType) {
+        if (maxBits) {
+            val = clampToSignedWidth(val, maxBits, signed ?? false);
+        }
+        update(end, val, inputType);
+    }
+
     function editValue(ev: React.ChangeEvent<HTMLInputElement>, end: boolean) {
         let t = ev.target.value;
         if (t.startsWith(textPrefix)) {
@@ -51,7 +66,7 @@ export const HexValueEditor: React.FC<{
         let valid = isValid(t);
 
         if (valid) {
-            update(end, parseValue(t), inputType);
+            updateTruncated(end, parseValue(t), inputType);
         }
 
         if (end && !valid) {
@@ -63,6 +78,21 @@ export const HexValueEditor: React.FC<{
 
     }
 
+    function handleKeyDown(ev: React.KeyboardEvent<HTMLInputElement>) {
+        ev.stopPropagation();
+
+        if (isArrowKeyWithModifiers(ev, 'up') && textValid) {
+            updateTruncated(true, value + 1, inputType);
+            ev.preventDefault();
+        }
+
+        if (isArrowKeyWithModifiers(ev, 'down') && textValid) {
+            updateTruncated(true, value - 1, inputType);
+            ev.preventDefault();
+        }
+
+    }
+
     function handleInputModeChange() {
         let newInputType = (inputType + 1) % 3;
         update(true, value, newInputType);
@@ -70,7 +100,6 @@ export const HexValueEditor: React.FC<{
 
     let textValid = isValid(text);
 
-    // &nbsp; but in js text: '\u00A0'
     return <div className={clsx(s.hexValueEditor, className)}>
         {!hidePrefix && <button className={s.prefix} onClick={handleInputModeChange}>
             {!fixedInputType && <FontAwesomeIcon icon={faAngleUp} />}
@@ -78,10 +107,12 @@ export const HexValueEditor: React.FC<{
             {!fixedInputType && <FontAwesomeIcon icon={faAngleDown} />}
         </button>}
         <input
-            className={clsx(s.input, !textValid && s.invalid, minimalBackground && s.minimal)} type="text" value={text}
+            ref={setInputEl}
+            className={clsx(s.input, !textValid && s.invalid, minimalBackground && s.minimal, readonly && s.readonly, inputClassName)} type="text" value={text}
+            readOnly={readonly}
             onChange={ev => editValue(ev, false)}
             onBlur={ev => editValue(ev, true)}
-            onKeyDown={ev => { ev.stopPropagation() }}
+            onKeyDown={handleKeyDown}
             onKeyUp={ev => ev.stopPropagation()}
         />
     </div>;
@@ -95,4 +126,22 @@ function formatValue(v: number, inputType: HexValueInputType, padBits: number | 
     } else {
         return v.toString(10);
     }
+}
+
+export function clampToSignedWidth(val: number, width: number, signed: boolean) {
+    let maxVal = Math.pow(2, width);
+    if (signed) {
+        maxVal = Math.floor(maxVal / 2);
+    }
+    if (val > maxVal - 1) {
+        val = maxVal - 1;
+    }
+    if (signed && val < -maxVal) {
+        val = -maxVal;
+    }
+    if (!signed && val < 0) {
+        val = 0;
+    }
+
+    return val;
 }

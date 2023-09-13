@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect } from 'react';
 import s from './layout.module.scss';
-import '@/styles/main.scss';
+import '@/styles/main.css';
 import { inject } from '@vercel/analytics';
 import { config } from '@fortawesome/fontawesome-svg-core'
 import '@fortawesome/fontawesome-svg-core/styles.css'

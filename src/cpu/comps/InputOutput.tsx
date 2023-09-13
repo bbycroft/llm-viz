@@ -121,7 +121,7 @@ export const InputEditor: React.FC<{
 
     return <CompRectBase comp={comp} className={s.inputNumber} hideHover={true}>
         <HexValueEditor inputType={comp.args.valueMode} value={comp.args.value} update={editValue} minimalBackground />
-        <ConfigMenu btnClassName={s.configMenuTopRight}>
+        <ConfigMenu className={s.configMenuTopRight}>
             <MenuRow title={"Value"}>
                 <HexValueEditor inputType={comp.args.valueMode} value={comp.args.value} update={editValue} />
             </MenuRow>
@@ -134,20 +134,33 @@ export const InputEditor: React.FC<{
 
 
 export const MenuRow: React.FC<{
-    title: string,
+    title: React.ReactNode,
     children?: React.ReactNode,
-}> = ({ title, children }) => {
+    disabled?: boolean,
+}> = ({ title, children, disabled }) => {
 
-    return <div className={s.menuRow}>
-        <div className={s.title}>{title}</div>
-        <div className={s.content}>{children}</div>
+    return <div className={clsx("flex flex-col mx-4 my-2", disabled && "opacity-50")}>
+        <div className={"text-sm"}>{title}</div>
+        <div className={""}>{children}</div>
     </div>
 };
 
+export const CheckboxMenuTitle: React.FC<{
+    title: React.ReactNode,
+    value: boolean,
+    update: (end: boolean, value: boolean) => void,
+}> = ({ title, value, update }) => {
+
+    return <label className="text-sm flex items-center group cursor-pointer">
+        <input type="checkbox" className="mr-2 relative group-hover:drop-shadow" checked={value} onChange={e => update(true, e.target.checked)} />
+        {title}
+    </label>;
+};
+
 export const ConfigMenu: React.FC<{
-    btnClassName?: string,
+    className?: string,
     children?: React.ReactNode,
-}> = ({ btnClassName: className, children }) => {
+}> = ({ className, children }) => {
 
     let [btnRef, setBtnRef] = useState<HTMLElement | null>(null);
 
@@ -157,7 +170,13 @@ export const ConfigMenu: React.FC<{
         <button className={clsx(s.configMenuBtn, className)} ref={setBtnRef} onClick={() => setVisible(true)}>
             <FontAwesomeIcon icon={faCog} />
         </button>
-        {visible && <Popup targetEl={btnRef} placement={PopupPos.BottomLeft} className={s.compPopup} onClose={() => setVisible(false)} closeBackdrop={true}>
+        {visible && <Popup
+            targetEl={btnRef}
+            placement={PopupPos.BottomLeft}
+            className={"tex-lg shadow-lg border-gray-700 bg-gray-400 rounded"}
+            onClose={() => setVisible(false)}
+            closeBackdrop={true}>
+
             {children}
         </Popup>}
     </>;

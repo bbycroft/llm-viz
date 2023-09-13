@@ -13,6 +13,12 @@
     height: 100%;
     background-color: rgba(black, 0.1);
     pointer-events: auto;
+    animation: 150ms popup-backdrop-fadein;
+}
+
+@keyframes popup-backdrop-fadein {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .fullscreenOverlay {

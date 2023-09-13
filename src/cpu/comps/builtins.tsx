@@ -10,6 +10,7 @@ import { createAddressingComps } from "./Addressing";
 import { createInputOutputComps } from "./InputOutput";
 import { createLedOutputComps } from "./peripheral/LedOutputSimple";
 import { createRegFileCtrlComps } from "./riscv/RegisterControl";
+import { createCompIoComps } from "./CompPort";
 
 export function buildCompLibrary() {
     let compLibrary = new CompLibrary();
@@ -28,6 +29,7 @@ export function buildCompLibrary() {
         ...createInputOutputComps(args),
         ...createLedOutputComps(args),
         ...createRegFileCtrlComps(args),
+        ...createCompIoComps(args),
     ];
 
     for (let comp of comps) {
