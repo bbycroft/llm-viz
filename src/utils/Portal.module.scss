@@ -24,6 +24,7 @@
 }
 
 .modalWindowBackdrop {
+    pointer-events: auto;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -31,6 +32,7 @@
 }
 
 .modalWindow {
+    pointer-events: auto;
     max-width: 80%;
     max-height: 80%;
     background-color: white;

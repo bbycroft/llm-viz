@@ -63,7 +63,7 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICp
             outputs: outputs,
             value: 0,
             enabledCount: 0,
-            type: 0,
+            type: PortType.None,
         };
 
         nets.push(net);

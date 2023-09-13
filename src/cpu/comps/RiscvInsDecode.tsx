@@ -733,7 +733,6 @@ export const funct3OpIcon: Record<number, string> = {
     [Funct3Op.SLTU]: '<',
     [Funct3Op.XOR]: '^',
     [Funct3Op.SRL]: '>>',
-    [Funct3Op.SRAI]: '>>',
     [Funct3Op.OR]: '|',
     [Funct3Op.AND]: '&',
 };

@@ -222,7 +222,9 @@ export interface ICompPort {
     width?: number;
 }
 
+
 export enum PortType {
+    None = 0,
     In = 1 << 0,
     Out = 1 << 1,
     Tristate = 1 << 2,
