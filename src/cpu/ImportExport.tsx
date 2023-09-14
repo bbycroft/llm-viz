@@ -1,7 +1,7 @@
 import { isNotNil, assignImm } from "../utils/data";
 import { Vec3 } from "../utils/vector";
 import { CompLibrary } from "./comps/CompBuilder";
-import { IComp, ICpuLayout, IElRef, IWireGraph, IWireGraphNode, RefType } from "./CpuModel";
+import { IComp, IEditSnapshot, IElRef, IWireGraph, IWireGraphNode, RefType } from "./CpuModel";
 import { checkWires } from "./Wire";
 
 // what's our format?
@@ -35,7 +35,7 @@ W 16 ns:[3,5 p:id/ins|0,5,0|0,3,1|-2,3,2 p:insFetch/ins]
 
 */
 
-export function exportData(layout: ICpuLayout) {
+export function exportData(layout: IEditSnapshot) {
 
     let str = "#wire-schema 1\n";
 
@@ -231,7 +231,7 @@ export function importData(str: string): IImportResult {
 
     }
 
-    let outStr = exportData({ comps, wires, nextWireId: 0, nextCompId: 0, selected: [] });
+    let outStr = exportData({ comps, wires, nextWireId: 0, nextCompId: 0, selected: [], compPorts: [], compSize: new Vec3(0, 0) });
 
     if (outStr !== str) {
         makeIssue("Exported data does not match imported data", 0);
@@ -281,17 +281,20 @@ export function hydrateFromLS(ls: Partial<ILSState> | undefined): ILSState {
     };
 }
 
-export function createInitialCpuLayout(): ICpuLayout {
+export function createInitialEditSnapshot(): IEditSnapshot {
     return {
         comps: [],
         wires: [],
         nextCompId: 0,
         nextWireId: 0,
         selected: [],
+
+        compPorts: [],
+        compSize: new Vec3(0, 0),
     };
 }
 
-export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibrary: CompLibrary): ICpuLayout {
+export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLibrary: CompLibrary): IEditSnapshot {
 
     let newWires: IWireGraph[] = ls.wires.map(w => ({
         id: w.id,
@@ -341,7 +344,7 @@ export function wiresFromLsState(layoutBase: ICpuLayout, ls: ILSState, compLibra
     });
 }
 
-export function wiresToLsState(layout: ICpuLayout): ILSState {
+export function wiresToLsState(layout: IEditSnapshot): ILSState {
     return {
         wires: layout.wires
             .filter(w => w.nodes.length > 0)

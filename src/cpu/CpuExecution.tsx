@@ -1,8 +1,8 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
-import { PortType, ICpuLayout, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir, IExePort } from "./CpuModel";
+import { PortType, IEditSnapshot, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir, IExePort } from "./CpuModel";
 
-export function createExecutionModel(compLibrary: CompLibrary, displayModel: ICpuLayout, existingSystem: IExeSystem | null): IExeSystem {
+export function createExecutionModel(compLibrary: CompLibrary, displayModel: IEditSnapshot, existingSystem: IExeSystem | null): IExeSystem {
 
     let connectedCompIds = new Set<string>();
     let connectedNetIds = new Set<string>();

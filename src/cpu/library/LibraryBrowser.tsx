@@ -10,6 +10,7 @@ import React, { ButtonHTMLAttributes, useLayoutEffect, useMemo, useState } from 
 import { ILibraryItem } from "../CpuModel";
 import { useEditorContext } from "../Editor";
 import { ISchematicDef } from "../schematics/SchematicLibrary";
+import { pluralize } from "@/src/utils/text";
 
 interface IMyFolder {
     id: string;
@@ -54,10 +55,6 @@ function libraryItemsToFolders(libraryItems: ILibraryItem[]): IMyFolder[] {
     return [...folderLookup.values()];
 
 
-}
-
-function pluralize(a: string, count: number) {
-    return count === 1 ? a : a + 's';
 }
 
 /* What does the LibraryBrowser show?

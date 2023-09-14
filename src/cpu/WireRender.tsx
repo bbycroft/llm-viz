@@ -128,7 +128,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     let selectedNodes = new Set<number>();
     let selectedSegs = new Set<string>();
 
-    for (let sel of editorState.layout.selected) {
+    for (let sel of editorState.snapshot.selected) {
         if (!(sel.type === RefType.WireNode || sel.type === RefType.WireSeg) || sel.id !== wire.id) {
             continue;
         }

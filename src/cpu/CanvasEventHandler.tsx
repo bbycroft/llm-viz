@@ -4,7 +4,7 @@ import { assignImm, assignImmFull, clamp, getOrAddToMap, isNil, useFunctionRef }
 import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
 import { useCombinedMouseTouchDrag } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
-import { ICanvasState, ICpuLayout, IEditorState, IElRef, IHitTest, ISegment, IWireGraph, RefType } from './CpuModel';
+import { ICanvasState, IEditSnapshot, IEditorState, IElRef, IHitTest, ISegment, IWireGraph, RefType } from './CpuModel';
 import { editLayout, useEditorContext } from './Editor';
 import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString, wireUnlinkNodes, repackGraphIds } from './Wire';
 import s from './CpuCanvas.module.scss';
@@ -106,12 +106,12 @@ export const CanvasEventHandler: React.FC<{
             let startPos = ds.data.modelPos;
             let bb = new BoundingBox3d(startPos, endPos);
 
-            let compRefs = editorState!.layout.comps.filter(c => {
+            let compRefs = editorState!.snapshot.comps.filter(c => {
                 let bb2 = new BoundingBox3d(c.pos, c.pos.add(c.size));
                 return bb.intersects(bb2);
             }).map(c => ({ type: RefType.Comp, id: c.id }));
 
-            let wireRefs = editorState!.layout.wires.flatMap(w => {
+            let wireRefs = editorState!.snapshot.wires.flatMap(w => {
                 let nodeRefs: IElRef[] = [];
                 for (let node of w.nodes) {
                     if (bb.contains(node.pos)) {
@@ -133,7 +133,7 @@ export const CanvasEventHandler: React.FC<{
 
             setEditorState(a => assignImm(a, {
                 selectRegion: end ? null : bb,
-                layout: assignImm(a.layout, {
+                snapshot: assignImm(a.snapshot, {
                     selected: [...compRefs, ...wireRefs],
                 }),
             }));
@@ -145,7 +145,7 @@ export const CanvasEventHandler: React.FC<{
             let hoveredRef = ds.data.hovered.ref;
 
             if (hoveredRef.type === RefType.Comp) {
-                let isSelected = editorState!.layout.selected.find(a => a.type === RefType.Comp && a.id === hoveredRef.id);
+                let isSelected = editorState!.snapshot.selected.find(a => a.type === RefType.Comp && a.id === hoveredRef.id);
                 if (isSelected) {
                     // handleComponentDrag(end, hoveredRef, ds.data.modelPos, evToModel(ev));
                     handleSelectionDrag(end, ds.data.modelPos, evToModel(ev));
@@ -166,13 +166,13 @@ export const CanvasEventHandler: React.FC<{
         if (ds.data.hovered) {
             let hoveredRef = ds.data.hovered.ref;
             setEditorState(a => assignImm(a, {
-                layout: assignImm(a.layout, {
+                snapshot: assignImm(a.snapshot, {
                     selected: [hoveredRef],
                 }),
             }));
         } else {
             setEditorState(a => assignImm(a, {
-                layout: assignImm(a.layout, {
+                snapshot: assignImm(a.snapshot, {
                     selected: [],
                 }),
             }));
@@ -242,9 +242,9 @@ export const CanvasEventHandler: React.FC<{
     */
     function handleWireExtendDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
         setEditorState(editLayout(end, function handleWireExtendDrag(layout) {
-            checkWires(editorState.layout.wires, 'handleWireExtendDrag (pre edit)');
-            let wireIdx = editorState.layout.wires.findIndex(w => w.id === ref.id)!;
-            let wire = copyWireGraph(editorState.layout.wires[wireIdx]);
+            checkWires(editorState.snapshot.wires, 'handleWireExtendDrag (pre edit)');
+            let wireIdx = editorState.snapshot.wires.findIndex(w => w.id === ref.id)!;
+            let wire = copyWireGraph(editorState.snapshot.wires[wireIdx]);
             let delta = newModelPos.sub(origModelPos);
             let node = wire.nodes[ref.wireNode0Id!];
             let startPos = node.pos;
@@ -330,8 +330,8 @@ export const CanvasEventHandler: React.FC<{
     function handleWireDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
 
         setEditorState(editLayout(end, layout => {
-            let wireIdx = editorState.layout.wires.findIndex(w => w.id === ref.id)!;
-            let wire = editorState.layout.wires[wireIdx];
+            let wireIdx = editorState.snapshot.wires.findIndex(w => w.id === ref.id)!;
+            let wire = editorState.snapshot.wires[wireIdx];
             let delta = newModelPos.sub(origModelPos);
             let node0 = wire.nodes[ref.wireNode0Id!];
             let node1 = wire.nodes[ref.wireNode1Id!];
@@ -377,7 +377,7 @@ export const CanvasEventHandler: React.FC<{
         let mousePt = evToModel(ev);
         let mousePtScreen = evToScreen(ev);
 
-        let comps = editorState.layout.comps;
+        let comps = editorState.snapshot.comps;
 
         let refsUnderCursor: IHitTest[] = [];
 
@@ -412,7 +412,7 @@ export const CanvasEventHandler: React.FC<{
             }
         }
 
-        let wires = editorState.layout.wires;
+        let wires = editorState.snapshot.wires;
         for (let i = wires.length - 1; i >= 0; i--) {
             let wire = wires[i];
             for (let node of wire.nodes) {
@@ -473,7 +473,7 @@ export const CanvasEventHandler: React.FC<{
             let compOrig = editorState.dragCreateComp.compOrig;
             let mousePos = snapToGrid(evToModel(ev));
 
-            let applyFunc = (a: ICpuLayout): ICpuLayout => {
+            let applyFunc = (a: IEditSnapshot): IEditSnapshot => {
                 let newComp = assignImm(compOrig, {
                     id: '' + a.nextCompId,
                     pos: mousePos,
@@ -525,7 +525,7 @@ export const CanvasEventHandler: React.FC<{
         if (hoveredRef.type === RefType.CompNode) {
             cursor = 'crosshair';
         } else if (hoveredRef.type === RefType.WireSeg) {
-            let wire = editorState.layout.wires.find(w => w.id === hoveredRef.id);
+            let wire = editorState.snapshot.wires.find(w => w.id === hoveredRef.id);
             if (wire) {
                 let node0 = wire.nodes[hoveredRef.wireNode0Id!];
                 let node1 = wire.nodes[hoveredRef.wireNode1Id!];
@@ -538,7 +538,7 @@ export const CanvasEventHandler: React.FC<{
             cursor = 'crosshair';
         } else if (hoveredRef.type === RefType.Comp) {
 
-            if (editorState.layout.selected.find(a => a.type === RefType.Comp && a.id === hoveredRef.id)) {
+            if (editorState.snapshot.selected.find(a => a.type === RefType.Comp && a.id === hoveredRef.id)) {
                 cursor = 'move';
             }
 

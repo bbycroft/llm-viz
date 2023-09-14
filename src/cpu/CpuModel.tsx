@@ -22,7 +22,7 @@ export interface ILibraryItem {
     name: string;
     notes?: string;
     compDef?: ICompDef<any>;
-    schematic?: ICpuLayout;
+    schematic?: ISchematic;
 }
 
 export interface IExeRunArgs {
@@ -106,15 +106,15 @@ export interface IEditorState {
     mtx: AffineMat2d;
 
     activeSchematicId: string | null;
-    layout: ICpuLayout;
-    layoutTemp: ICpuLayout | null;
+    snapshot: IEditSnapshot;
+    snapshotTemp: IEditSnapshot | null;
 
     // time to combine these!! Actually, let's use CompLibrary, since it's used in more places, & rename it
     compLibrary: CompLibrary;
     schematicLibrary: SchematicLibrary;
 
-    undoStack: ICpuLayout[];
-    redoStack: ICpuLayout[];
+    undoStack: IEditSnapshot[];
+    redoStack: IEditSnapshot[];
 
     selectRegion: BoundingBox3d | null;
     hovered: IHitTest | null;
@@ -129,7 +129,7 @@ export interface IEditorState {
 
 export interface IDragCreateComp {
     compOrig: IComp;
-    applyFunc?: (a : ICpuLayout) => ICpuLayout;
+    applyFunc?: (a : IEditSnapshot) => IEditSnapshot;
 }
 
 export interface IHitTest {
@@ -239,13 +239,23 @@ export enum PortType {
     InOutTri = In | Out | Tristate,
 }
 
-export interface ICpuLayout {
+export interface ISchematic {
+    comps: IComp[];
+    wires: IWireGraph[];
+}
+
+export interface IEditSnapshot {
     selected: IElRef[];
 
+    // schematic
     nextCompId: number;
     nextWireId: number;
     comps: IComp[];
     wires: IWireGraph[];
+
+    // custom component def
+    compSize: Vec3;
+    compPorts: ICompPort[];
 }
 
 export interface IMemoryMap {

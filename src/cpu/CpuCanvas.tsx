@@ -6,7 +6,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart } from "../utils/pointer";
 import { assignImm, getOrAddToMap, isNil, isNotNil } from "../utils/data";
 import { EditorContext, IEditorContext } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, ICpuLayout, IExeSystem, ICompRenderArgs } from "./CpuModel";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IEditSnapshot, IExeSystem, ICompRenderArgs } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CpuEditorToolbar } from "./EditorControls";
@@ -20,6 +20,7 @@ import { SchematicLibrary } from "./schematics/SchematicLibrary";
 import { SchematicLibraryView } from "./schematics/SchematicLIibraryView";
 import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
+import { CompLayoutToolbar } from "./CompLayoutEditor";
 
 interface ICpuState {
     system: any;
@@ -61,7 +62,7 @@ interface ICanvasDragState {
     modelPos: Vec3;
 }
 
-export function constructCpuLayout(): ICpuLayout {
+export function constructEditSnapshot(): IEditSnapshot {
     return {
         selected: [],
 
@@ -69,6 +70,9 @@ export function constructCpuLayout(): ICpuLayout {
         nextCompId: 0,
         wires: [],
         comps: [],
+
+        compPorts: [],
+        compSize: new Vec3(0, 0),
     };
 }
 
@@ -81,8 +85,8 @@ export const CpuCanvas: React.FC = () => {
         let schematicLibrary = new SchematicLibrary();
 
         return {
-            layout: wiresFromLsState(constructCpuLayout(), lsState, compLibrary),
-            layoutTemp: null,
+            snapshot: wiresFromLsState(constructEditSnapshot(), lsState, compLibrary),
+            snapshotTemp: null,
             mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
             compLibrary,
             schematicLibrary,
@@ -108,8 +112,8 @@ export const CpuCanvas: React.FC = () => {
         editorState.schematicLibrary.populateSchematicLibrary(compLibrary);
         setEditorState(a => assignImm(a, {
             compLibrary,
-            layout: assignImm(a.layout, {
-                comps: compLibrary.updateAllCompsFromDefs(a.layout.comps),
+            snapshot: assignImm(a.snapshot, {
+                comps: compLibrary.updateAllCompsFromDefs(a.snapshot.comps),
             }),
         }));
         setIsClient(true);
@@ -123,14 +127,14 @@ export const CpuCanvas: React.FC = () => {
         let prev = prevExeModel.current;
         let sameId = prev && prev.id === editorState.activeSchematicId;
 
-        let model = createExecutionModel(editorState.compLibrary, editorState.layout, prev && sameId ? prev.system : null);
+        let model = createExecutionModel(editorState.compLibrary, editorState.snapshot, prev && sameId ? prev.system : null);
 
         if (isClient) {
             stepExecutionCombinatorial(model);
         }
 
         return model;
-    }, [editorState.activeSchematicId, editorState.layout, editorState.compLibrary, isClient]);
+    }, [editorState.activeSchematicId, editorState.snapshot, editorState.compLibrary, isClient]);
 
     prevExeModel.current = { system: exeModel, id: editorState.activeSchematicId };
 
@@ -147,12 +151,12 @@ export const CpuCanvas: React.FC = () => {
 
 
     useEffect(() => {
-        let newState = wiresToLsState(editorState.layout);
+        let newState = wiresToLsState(editorState.snapshot);
         setLsState(a => assignImm(a, newState));
-        let strExport = exportData(editorState.layout);
+        let strExport = exportData(editorState.snapshot);
         localStorage.setItem("cpu-layout-str", strExport);
         importData(strExport);
-    }, [editorState.layout, setLsState]);
+    }, [editorState.snapshot, setLsState]);
 
     useLayoutEffect(() => {
         if (!cvsState) {
@@ -177,7 +181,7 @@ export const CpuCanvas: React.FC = () => {
 
         ctx.transform(...editorState.mtx.toTransformParams());
         ctx.save();
-        renderCpu(cvsState, editorState, editorState.layoutTemp ?? editorState.layout, exeModel);
+        renderCpu(cvsState, editorState, editorState.snapshotTemp ?? editorState.snapshot, exeModel);
         // renderDragState(cvsState, editorState, dragStart, grabDirRef.current);
         ctx.restore();
 
@@ -189,9 +193,9 @@ export const CpuCanvas: React.FC = () => {
         return { editorState, setEditorState, cvsState, exeModel };
     }, [editorState, setEditorState, cvsState, exeModel]);
 
-    let singleElRef = editorState.layout.selected.length === 1 ? editorState.layout.selected[0] : null;
+    let singleElRef = editorState.snapshot.selected.length === 1 ? editorState.snapshot.selected[0] : null;
 
-    let compDivs = (editorState.layoutTemp ?? editorState.layout).comps.map(comp => {
+    let compDivs = (editorState.snapshotTemp ?? editorState.snapshot).comps.map(comp => {
         let def = editorState.compLibrary.getCompDef(comp.defId)!;
         return def.renderDom && cvsState ? {
             comp,
@@ -227,14 +231,17 @@ export const CpuCanvas: React.FC = () => {
                 <CompLibraryView />
                 <CompExampleView />
                 <SchematicLibraryView />
-                {!editorState.layoutTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
+                {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
+            </div>
+            <div className="cls_toolsTopRight absolute top-0 right-0">
+                <CompLayoutToolbar />
             </div>
             {editorState.compLibraryVisible && <LibraryBrowser />}
         </div>
     </EditorContext.Provider>;
 };
 
-function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLayout, exeSystem: IExeSystem) {
+function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: IEditSnapshot, exeSystem: IExeSystem) {
     let ctx = cvs.ctx;
 
     let tl = editorState.mtx.mulVec3Inv(new Vec3(0, 0));
@@ -362,7 +369,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLay
 
     ctx.save();
     ctx.beginPath();
-    let selectedCompSet = new Set(editorState.layout.selected.filter(a => a.type === RefType.Comp).map(a => a.id));
+    let selectedCompSet = new Set(editorState.snapshot.selected.filter(a => a.type === RefType.Comp).map(a => a.id));
     for (let comp of layout.comps.filter(c => selectedCompSet.has(c.id))) {
         ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
     }
@@ -405,7 +412,7 @@ function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart
 
     if (hover.ref.type === RefType.WireSeg && !isNil(hover.ref.wireNode0Id) && isNil(hover.ref.wireNode1Id)) {
         let wireNodeId = hover.ref.wireNode0Id;
-        let node = editorState.layout.wires.find(w => w.id === hover.ref.id)?.nodes[wireNodeId!];
+        let node = editorState.snapshot.wires.find(w => w.id === hover.ref.id)?.nodes[wireNodeId!];
 
         if (node) {
             // draw a light grey circle here

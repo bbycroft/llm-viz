@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import { assignImm, StateSetter } from '../utils/data';
-import { IComp, ICpuLayout, IEditorState, IExeSystem } from './CpuModel';
+import { IComp, IEditSnapshot, IEditorState, IExeSystem } from './CpuModel';
 import { updateWiresForComp } from './Wire';
 
 export enum PortHandling {
@@ -38,23 +38,23 @@ export function editComp<A>(end: boolean, comp: IComp<A>, updateComp: (comp: ICo
     });
 }
 
-export function editLayout(end: boolean, updateLayout: (element: ICpuLayout, state: IEditorState) => ICpuLayout) {
+export function editLayout(end: boolean, updateLayout: (element: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
     return (state: IEditorState) => {
-        let changed = updateLayout(state.layout, state);
+        let changed = updateLayout(state.snapshot, state);
 
         if (!changed) {
-            return assignImm(state, { layoutTemp: null });
+            return assignImm(state, { snapshotTemp: null });
         }
 
         if (end) {
             state = assignImm(state, {
-                layout: changed,
-                layoutTemp: null,
-                undoStack: [...state.undoStack, state.layout],
+                snapshot: changed,
+                snapshotTemp: null,
+                undoStack: [...state.undoStack, state.snapshot],
                 redoStack: [],
             });
         } else {
-            state = assignImm(state, { layoutTemp: changed });
+            state = assignImm(state, { snapshotTemp: changed });
         }
 
         return state;
@@ -67,9 +67,9 @@ export function undoAction(state: IEditorState) {
     }
 
     return assignImm(state, {
-        layout: state.undoStack[state.undoStack.length - 1],
+        snapshot: state.undoStack[state.undoStack.length - 1],
         undoStack: state.undoStack.slice(0, state.undoStack.length - 1),
-        redoStack: [...state.redoStack, state.layout],
+        redoStack: [...state.redoStack, state.snapshot],
     });
 }
 
@@ -79,8 +79,8 @@ export function redoAction(state: IEditorState) {
     }
 
     return assignImm(state, {
-        layout: state.redoStack[state.redoStack.length - 1],
-        undoStack: [...state.undoStack, state.layout],
+        snapshot: state.redoStack[state.redoStack.length - 1],
+        undoStack: [...state.undoStack, state.snapshot],
         redoStack: state.redoStack.slice(0, state.redoStack.length - 1),
     });
 }

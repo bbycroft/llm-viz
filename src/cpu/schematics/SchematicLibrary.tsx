@@ -2,8 +2,8 @@ import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { iterLocalStorageEntries } from "@/src/utils/localstorage";
 import { Vec3 } from "@/src/utils/vector";
 import { CompLibrary, ICompDef, ISubLayoutArgs, ISubLayoutPort } from "../comps/CompBuilder";
-import { ICpuLayout, PortType } from "../CpuModel";
-import { createInitialCpuLayout, ILSComp, ILSState, wiresFromLsState, wiresToLsState } from "../ImportExport";
+import { IEditSnapshot, PortType } from "../CpuModel";
+import { createInitialEditSnapshot, ILSComp, ILSState, wiresFromLsState, wiresToLsState } from "../ImportExport";
 import { regFileDemo, riscvBasicSchematic } from "./RiscvBasic";
 
 export interface ILocalSchematic {
@@ -55,7 +55,7 @@ export class SchematicLibrary {
             this.builtinSchematics.set(schematic.id, {
                 id: schematic.id,
                 name: schematic.name,
-                model: wiresFromLsState(createInitialCpuLayout(), model, compLibrary),
+                model: wiresFromLsState(createInitialEditSnapshot(), model, compLibrary),
                 hasEdits: false,
                 schematicStr: "",
             });
@@ -94,7 +94,7 @@ export class SchematicLibrary {
             customSchematics.set(schematic.id, {
                 id: schematic.id,
                 name: schematic.name,
-                model: wiresFromLsState(createInitialCpuLayout(), schematic.model, compLibrary),
+                model: wiresFromLsState(createInitialEditSnapshot(), schematic.model, compLibrary),
                 compArgs: compArgsFromLsState(schematic.compArgs),
                 hasEdits: false,
                 schematicStr: schematicStr!,
@@ -109,7 +109,7 @@ export class SchematicLibrary {
         let schematic: ISchematicDef = {
             id: id,
             name: name,
-            model: createInitialCpuLayout(),
+            model: createInitialEditSnapshot(),
             hasEdits: false,
         };
         this.customSchematics.set(id, schematic);
@@ -165,13 +165,13 @@ export interface ILSCompPort {
 export interface ISchematicDef {
     id: string;
     name: string;
-    model: ICpuLayout;
+    model: IEditSnapshot;
     compArgs?: ISchematicCompArgs; // a schematic may get wrapped into a component
 
     hasEdits: boolean;
     // when we switch between models, want to keep as much state around as possible
-    undoStack?: ICpuLayout[];
-    redoStack?: ICpuLayout[];
+    undoStack?: IEditSnapshot[];
+    redoStack?: IEditSnapshot[];
     mtx?: AffineMat2d;
     schematicStr?: string; // for LS update detection
 }

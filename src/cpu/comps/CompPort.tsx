@@ -54,6 +54,8 @@ export function portPlacementToPos(portPos: PortPlacement, w: number, h: number)
     }
 }
 
+export const compPortDefId = 'core/comp/port';
+
 export function createCompIoComps(args: ICompBuilderArgs) {
 
     let w = 6;

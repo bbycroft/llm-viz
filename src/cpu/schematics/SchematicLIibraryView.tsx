@@ -16,7 +16,7 @@ export const SchematicLibraryView: React.FC = () => {
         if (editorState.activeSchematicId) {
             let schematic = schematicLib.getSchematic(editorState.activeSchematicId);
             if (schematic) {
-                schematic.model = editorState.layout;
+                schematic.model = editorState.snapshot;
                 schematic.undoStack = editorState.undoStack;
                 schematic.redoStack = editorState.redoStack;
                 schematic.mtx = editorState.mtx;
@@ -29,7 +29,7 @@ export const SchematicLibraryView: React.FC = () => {
         setEditorState(() => {
             return assignImm(editorState, {
                 activeSchematicId: schematic.id,
-                layout: schematic.model,
+                snapshot: schematic.model,
                 undoStack: schematic.undoStack ?? [],
                 redoStack: schematic.redoStack ?? [],
                 mtx: schematic.mtx ?? new AffineMat2d(),

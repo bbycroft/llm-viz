@@ -1,9 +1,9 @@
 import { assignImm, getOrAddToMap, isNil } from "../utils/data";
 import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
-import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayout, IElRef, RefType, IComp } from "./CpuModel";
+import { IWire, ISegment, IWireGraph, IWireGraphNode, IEditSnapshot, IElRef, RefType, IComp } from "./CpuModel";
 import { PortHandling } from "./Editor";
 
-export function moveSelectedComponents(layout: ICpuLayout, delta: Vec3): ICpuLayout {
+export function moveSelectedComponents(layout: IEditSnapshot, delta: Vec3): IEditSnapshot {
     if (delta.dist(Vec3.zero) < EPSILON) {
         return layout;
     }
@@ -94,7 +94,7 @@ export function moveSelectedComponents(layout: ICpuLayout, delta: Vec3): ICpuLay
     });
 }
 
-export function updateWiresForComp(layout: ICpuLayout, comp: IComp<any>, portHandling: PortHandling): ICpuLayout {
+export function updateWiresForComp(layout: IEditSnapshot, comp: IComp<any>, portHandling: PortHandling): IEditSnapshot {
 
     if (portHandling === PortHandling.Move) {
 
@@ -319,7 +319,7 @@ export function dragSegment(wire: IWireGraph, node0Idx: number, node1Idx: number
     return assignImm(wire, { nodes: newNodes });
 }
 
-export function applyWires(layout: ICpuLayout, wires: IWireGraph[], editIdx: number): ICpuLayout {
+export function applyWires(layout: IEditSnapshot, wires: IWireGraph[], editIdx: number): IEditSnapshot {
 
     let [editedWires, newWires] = fixWires(layout, wires, editIdx);
     let nextWireId = layout.nextWireId;
@@ -363,7 +363,7 @@ export function copyWireGraph(wire: IWireGraph): IWireGraph {
     return { ...wire, nodes };
 }
 
-function createNodePosMap(layout: ICpuLayout) {
+function createNodePosMap(layout: IEditSnapshot) {
     let nodePosMap = new Map<string, { pos: Vec3, ref: IElRef }>();
     for (let comp of layout.comps) {
         for (let node of comp.ports) {
@@ -402,7 +402,7 @@ export function iterWireGraphSegments(graph: IWireGraph, cb: (node0: IWireGraphN
     1. wires that are touching each other get merged
     2. wires that have islands get split
 */
-export function fixWires(layout: ICpuLayout, wires: IWireGraph[], editIdx: number): [editedWires: IWireGraph[], newWires: IWireGraph[]] {
+export function fixWires(layout: IEditSnapshot, wires: IWireGraph[], editIdx: number): [editedWires: IWireGraph[], newWires: IWireGraph[]] {
     wires = [...wires];
     let editWire = wires[editIdx];
 

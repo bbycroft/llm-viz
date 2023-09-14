@@ -1,6 +1,6 @@
 import { isNil, hasFlag, assignImm } from "@/src/utils/data";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, ICpuLayout, ILibraryItem } from "../CpuModel";
+import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, IEditSnapshot, ILibraryItem, ISchematic } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -105,7 +105,7 @@ export interface ISubLayoutArgs {
     // That way, the wires extend naturally, and when it's only partially zoomed in, everything remains the same &
     // can be easily un-done
     bb: BoundingBox3d;
-    layout: ICpuLayout;
+    layout: ISchematic;
     ports: ISubLayoutPort[];
 }
 
