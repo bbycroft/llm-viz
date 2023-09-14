@@ -1,8 +1,22 @@
 import { createContext, useContext } from 'react';
 import { assignImm, StateSetter } from '../utils/data';
 import { IComp, ICpuLayout, IEditorState, IExeSystem } from './CpuModel';
+import { updateWiresForComp } from './Wire';
 
-export function editCompConfig<A>(end: boolean, comp: IComp<A>, updateConfig: (config: A) => A) {
+export enum PortHandling {
+    Detach, // e.g. for rotating a component, the wire will need to be manually re-attached
+    Move, // e.g. resizing a component, the wire will move with the port
+}
+
+export interface ICompEditArgs {
+    portHandling?: PortHandling;
+}
+
+export function editCompConfig<A>(end: boolean, comp: IComp<A>, updateConfig: (config: A) => A, compEditArgs?: ICompEditArgs) {
+    return editComp(end, comp, a => assignImm(a, { args: updateConfig(a.args) }), compEditArgs);
+}
+
+export function editComp<A>(end: boolean, comp: IComp<A>, updateComp: (comp: IComp<A>) => IComp<A>, compEditArgs?: ICompEditArgs) {
     return editLayout(end, (layout, state) => {
 
         let comp2 = layout.comps.find(a => a.id === comp.id) as IComp<A> | null;
@@ -10,16 +24,17 @@ export function editCompConfig<A>(end: boolean, comp: IComp<A>, updateConfig: (c
             return layout;
         }
 
-        let config2 = updateConfig(comp2.args);
-        if (config2 === comp2.args) {
+        let comp3 = updateComp(comp2);
+        if (comp3 === comp2) {
             return layout;
         }
 
-        comp2 = assignImm(comp2, { args: config2 });
-        layout = assignImm(layout, { comps: layout.comps.map(a => a.id === comp.id ? comp2! : a) });
-        state.compLibrary.updateCompFromDef(comp2);
-        return layout;
+        layout = assignImm(layout, { comps: layout.comps.map(a => a.id === comp.id ? comp3! : a) });
+        state.compLibrary.updateCompFromDef(comp3);
 
+        layout = updateWiresForComp(layout, comp3, compEditArgs?.portHandling ?? PortHandling.Move);
+
+        return layout;
     });
 }
 

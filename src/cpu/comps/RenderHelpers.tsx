@@ -1,10 +1,9 @@
 import React, { CSSProperties, memo } from "react";
-import { ICanvasState, IComp } from "../CpuModel";
+import { IComp } from "../CpuModel";
 import { ensureSigned32Bit, ensureUnsigned32Bit } from "./RiscvInsDecode";
 import s from './CompStyles.module.scss';
 import clsx from "clsx";
 import { useEditorContext } from "../Editor";
-import { assert } from "console";
 import { assignImm } from "@/src/utils/data";
 
 export function regValToStr(val: number) {
@@ -19,6 +18,7 @@ export const registerOpts = {
     innerPadX: 0.4,
 }
 
+const scalePerCell = 15;
 
 export const CompRectBase: React.FC<{
     comp: IComp,
@@ -53,7 +53,7 @@ export const CompRectBase: React.FC<{
 
 export function createCanvasDivStyle(comp: IComp): CSSProperties {
 
-    let scale = 15;
+    let scale = scalePerCell;
 
     return {
         width: comp.size.x * scale,

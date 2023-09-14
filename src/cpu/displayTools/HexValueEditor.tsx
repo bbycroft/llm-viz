@@ -50,11 +50,12 @@ export const HexValueEditor: React.FC<{
         }
     }
 
+    function clampValue(val: number) {
+        return maxBits ? clampToSignedWidth(val, maxBits, signed ?? false) : val;
+    }
+
     function updateTruncated(end: boolean, val: number, inputType: HexValueInputType) {
-        if (maxBits) {
-            val = clampToSignedWidth(val, maxBits, signed ?? false);
-        }
-        update(end, val, inputType);
+        update(end, clampValue(val), inputType);
     }
 
     function editValue(ev: React.ChangeEvent<HTMLInputElement>, end: boolean) {
@@ -66,7 +67,13 @@ export const HexValueEditor: React.FC<{
         let valid = isValid(t);
 
         if (valid) {
-            updateTruncated(end, parseValue(t), inputType);
+            let parsed = parseValue(t);
+
+            if (parsed !== clampValue(parsed)) {
+                t = formatValue(clampValue(parsed), inputType, padBits);
+            }
+
+            updateTruncated(end, parsed, inputType);
         }
 
         if (end && !valid) {

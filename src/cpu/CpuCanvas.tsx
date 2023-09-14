@@ -189,6 +189,7 @@ export const CpuCanvas: React.FC = () => {
         return { editorState, setEditorState, cvsState, exeModel };
     }, [editorState, setEditorState, cvsState, exeModel]);
 
+    let singleElRef = editorState.layout.selected.length === 1 ? editorState.layout.selected[0] : null;
 
     let compDivs = (editorState.layoutTemp ?? editorState.layout).comps.map(comp => {
         let def = editorState.compLibrary.getCompDef(comp.defId)!;
@@ -199,7 +200,14 @@ export const CpuCanvas: React.FC = () => {
     }).filter(isNotNil).map(a => {
         cvsState!.mtx = editorState.mtx;
         return <React.Fragment key={a.comp.id}>
-            {a.renderDom({ comp: a.comp, ctx: cvsState?.ctx!, cvs: cvsState!, exeComp: exeModel.comps[exeModel.lookup.compIdToIdx.get(a.comp.id) ?? -1], styles: null! })}
+            {a.renderDom({
+                comp: a.comp,
+                ctx: cvsState?.ctx!,
+                cvs: cvsState!,
+                exeComp: exeModel.comps[exeModel.lookup.compIdToIdx.get(a.comp.id) ?? -1],
+                styles: null!,
+                isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === a.comp.id,
+            })}
         </React.Fragment>;
     });
 
@@ -275,6 +283,8 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLay
         getOrAddToMap(compIdxToExeOrder, step.compIdx, () => []).push(idx++);
     }
 
+    let singleElRef = layout.selected.length === 1 ? layout.selected[0] : null;
+
     ctx.save();
     ctx.globalAlpha = editorState.transparentComps ? 0.5 : 1.0;
     for (let comp of layout.comps) {
@@ -308,6 +318,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ICpuLay
                 strokeColor: isHover ? "#a00" : "#000",
                 lineWidth: 1 * cvs.scale,
             },
+            isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === comp.id,
         };
 
         if (compDef?.render) {

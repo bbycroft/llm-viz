@@ -4,15 +4,31 @@ import { Vec3 } from "@/src/utils/vector";
 import { IComp, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
-import { editCompConfig, useEditorContext } from "../Editor";
+import { editComp, editCompConfig, useEditorContext } from "../Editor";
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from "../displayTools/HexValueEditor";
 import { CheckboxMenuTitle, ConfigMenu, MenuRow } from "./InputOutput";
+import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEllipsis, faEllipsisVertical } from "@fortawesome/free-solid-svg-icons";
+import clsx from "clsx";
+import { IPointerEvent, useCombinedMouseTouchDrag } from "@/src/utils/pointer";
+
+export enum PortPlacement {
+    Right,
+    Bottom,
+    Left,
+    Top,
+}
+
 
 export interface ICompPortConfig {
     portId: string;
     name: string;
+    w: number;
+    h: number;
+    portPos: PortPlacement;
     type: PortType;
-    width: number;
+    bitWidth: number;
     signed: boolean;
     inputOverride: boolean;
     inputValueOverride: number;
@@ -22,6 +38,19 @@ export interface ICompPortConfig {
 export interface ICompPortData {
     port: IExePort;
     value: number;
+}
+
+export function portPlacementToPos(portPos: PortPlacement, w: number, h: number) {
+    let midXSnapped = Math.floor(w / 2);
+    let midYSnapped = Math.floor(h / 2);
+
+    switch (portPos) {
+        case PortPlacement.Right: return new Vec3(w, midYSnapped);
+        case PortPlacement.Bottom: return new Vec3(midXSnapped, h);
+        case PortPlacement.Left: return new Vec3(0, midYSnapped);
+        case PortPlacement.Top: return new Vec3(midXSnapped, 0);
+        default: return new Vec3(w, midYSnapped);
+    }
 }
 
 export function createCompIoComps(args: ICompBuilderArgs) {
@@ -35,26 +64,27 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         ports: (args, compDef) => {
 
             let internalPortDir = switchPortDir(args.type);
+            let pos = portPlacementToPos(args.portPos, args.w, args.h);
 
             return [
-                { id: 'a', name: '', pos: new Vec3(w, 3), type: internalPortDir, width: args.width },
+                { id: 'a', name: '', pos, type: internalPortDir, width: args.bitWidth },
             ];
         },
         initConfig: () => ({
             portId: '',
             name: '',
+            w: 6,
+            h: 6,
             type: PortType.Out,
-            width: 1,
+            portPos: PortPlacement.Right,
+            bitWidth: 1,
             signed: false,
             valueMode: HexValueInputType.Dec,
             inputOverride: false,
             inputValueOverride: 0,
         }),
         applyConfig(comp, args) {
-            // let mat = rotateAboutAffineInt(args.rotate, rotateCenter);
-            // comp.ports = comp.ports.map(p => {
-            //     return { ...p, pos: mat.mulVec3(p.pos) }
-            // });
+            comp.size = new Vec3(args.w, args.h);
         },
         build: (builder) => {
             let args = builder.comp.args;
@@ -89,21 +119,21 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             // ctx.transform(...mtx.toTransformParams());
 
             ctx.beginPath();
-            // basic structure is a circle
+            // structure is a rounded rect, with radius equal to half the height
             let p = comp.pos;
             let s = comp.size;
-            let center = p.mulAdd(s, 0.5);
-            ctx.moveTo(p.x + s.x, center.y);
-            ctx.arc(center.x, center.y, s.x / 2, 0, 2 * Math.PI);
+            // let center = p.mulAdd(s, 0.5);
+            // ctx.moveTo(p.x + s.x, center.y);
+            // ctx.arc(center.x, center.y, s.x / 2, 0, 2 * Math.PI);
+            ctx.roundRect(p.x, p.y, s.x, s.y, s.y / 2);
 
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
             ctx.restore();
         },
-        renderDom: ({ comp, exeComp, ctx, styles }) => {
-
-            return <PortEditor comp={comp} exeComp={exeComp} styles={styles} />;
+        renderDom: ({ comp, exeComp, ctx, styles, isActive }) => {
+            return <PortEditor comp={comp} exeComp={exeComp} isActive={isActive} />;
         },
     };
 
@@ -131,13 +161,14 @@ function makeEditFunction<T, A>(setEditorState: StateSetter<IEditorState>, comp:
 
 const PortEditor: React.FC<{
     comp: IComp<ICompPortConfig>,
-    exeComp: IExeComp<ICompPortData>, styles: any,
-}> = memo(function PortEditor({ comp, exeComp, styles }) {
+    exeComp: IExeComp<ICompPortData>,
+    isActive: boolean,
+}> = memo(function PortEditor({ comp, exeComp, isActive }) {
     let { setEditorState } = useEditorContext();
 
     let editIsOverriden = makeEditFunction(setEditorState, comp, (value: boolean) => ({ inputOverride: value }));
-    let editBitWidth = makeEditFunction(setEditorState, comp, (value: number) => ({ width: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, value, comp.args.signed) }));
-    let editSigned = makeEditFunction(setEditorState, comp, (value: boolean) => ({ signed: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, comp.args.width, value) }));
+    let editBitWidth = makeEditFunction(setEditorState, comp, (value: number) => ({ bitWidth: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, value, comp.args.signed) }));
+    let editSigned = makeEditFunction(setEditorState, comp, (value: boolean) => ({ signed: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, comp.args.bitWidth, value) }));
     let editPortType = makeEditFunction(setEditorState, comp, (isInputPort: boolean, prev) => {
             let type = prev.type;
             if (isInputPort) {
@@ -151,53 +182,141 @@ const PortEditor: React.FC<{
     });
 
     function editValueOverride(end: boolean, value: number, valueMode: HexValueInputType) {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { inputValueOverride: value, valueMode })));
+        setEditorState(editCompConfig(end, comp, a => assignImm(a, { inputValueOverride: clampToSignedWidth(value, a.bitWidth, a.signed), valueMode })));
     }
 
     let isInput = hasFlag(comp.args.type, PortType.In);
     let isInputOverride = comp.args.inputOverride;
 
-    return <CompRectBase comp={comp} className={"pr-1"} hideHover={true}>
-        {isInput && <HexValueEditor
-            className="absolute inset-0 px-2"
-            inputType={comp.args.valueMode}
-            value={comp.args.inputValueOverride}
-            update={editValueOverride}
-            minimalBackground
-            inputClassName="text-center"
-            maxBits={comp.args.width}
-            padBits={comp.args.width}
-            signed={comp.args.signed}
-            hidePrefix
-        />}
-        {!isInput && <HexValueEditor
-            className="absolute inset-0 px-2"
-            value={exeComp?.data.value ?? 0}
-            minimalBackground
-            inputClassName="text-center"
-            update={(end, _val, inputType) => editValueOverride(end, comp.args.inputValueOverride, inputType)}
-            inputType={comp.args.valueMode}
-            padBits={comp.args.width}
-            signed={comp.args.signed}
-            readonly
-            hidePrefix
-        />}
-        <ConfigMenu className={"absolute top-[12px] right-[12px]"}>
-            <MenuRow title={<CheckboxMenuTitle title="Input" value={isInput} update={editPortType} />} />
-            <MenuRow title={<CheckboxMenuTitle title="Override Value" value={isInputOverride} update={editIsOverriden} />} disabled={!isInput}>
-                <HexValueEditor
-                    inputType={comp.args.valueMode}
-                    value={comp.args.inputValueOverride}
-                    update={editValueOverride}
-                    maxBits={comp.args.width}
-                    padBits={comp.args.width}
-                    signed={comp.args.signed}
-                />
-            </MenuRow>
-            <MenuRow title={"Bit Width"}>
-                <HexValueEditor inputType={HexValueInputType.Dec} hidePrefix value={comp.args.width} update={editBitWidth} />
-             </MenuRow>
-            <MenuRow title={<CheckboxMenuTitle title="Signed" value={comp.args.signed} update={editSigned} />} />
-        </ConfigMenu>
-    </CompRectBase>;
+    return <>
+        <CompRectBase comp={comp} className={""} hideHover={true}>
+            {isInput && <HexValueEditor
+                className="absolute inset-0 px-2"
+                inputType={comp.args.valueMode}
+                value={comp.args.inputValueOverride}
+                update={editValueOverride}
+                minimalBackground
+                inputClassName="text-center"
+                maxBits={comp.args.bitWidth}
+                padBits={comp.args.bitWidth}
+                signed={comp.args.signed}
+                hidePrefix
+            />}
+            {!isInput && <HexValueEditor
+                className="absolute inset-0 px-2"
+                value={exeComp?.data.value ?? 0}
+                minimalBackground
+                inputClassName="text-center"
+                update={(end, _val, inputType) => editValueOverride(end, comp.args.inputValueOverride, inputType)}
+                inputType={comp.args.valueMode}
+                padBits={comp.args.bitWidth}
+                signed={comp.args.signed}
+                readonly
+                hidePrefix
+            />}
+            <ConfigMenu className={"absolute top-[12px] right-[12px]"}>
+                <MenuRow title={<CheckboxMenuTitle title="Input" value={isInput} update={editPortType} />} />
+                <MenuRow title={<CheckboxMenuTitle title="Override Value" value={isInputOverride} update={editIsOverriden} />} disabled={!isInput}>
+                    <HexValueEditor
+                        inputType={comp.args.valueMode}
+                        value={comp.args.inputValueOverride}
+                        update={editValueOverride}
+                        maxBits={comp.args.bitWidth}
+                        padBits={comp.args.bitWidth}
+                        signed={comp.args.signed}
+                    />
+                </MenuRow>
+                <MenuRow title={"Bit Width"}>
+                    <HexValueEditor inputType={HexValueInputType.Dec} hidePrefix value={comp.args.bitWidth} update={editBitWidth} />
+                </MenuRow>
+                <MenuRow title={<CheckboxMenuTitle title="Signed" value={comp.args.signed} update={editSigned} />} />
+            </ConfigMenu>
+        </CompRectBase>
+        {isActive && <PortResizer comp={comp} exeComp={exeComp} />}
+    </>;
 });
+
+const PortResizer: React.FC<{
+    comp: IComp<ICompPortConfig>,
+    exeComp: IExeComp<ICompPortData>,
+}> = memo(function PortResizer({ comp, exeComp }) {
+
+    let { editorState, setEditorState } = useEditorContext();
+
+    useGlobalKeyboard(KeyboardOrder.Element, ev => {
+        if (isKeyWithModifiers(ev, 'r')) {
+            setEditorState(editCompConfig(true, comp, a => assignImm(a, { portPos: (a.portPos + 1) % 4 })));
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
+    });
+
+    let scale = editorState.mtx.a;
+
+    function handleResize(end: boolean, pos: Vec3, size: Vec3) {
+        setEditorState(editComp(end, comp, a => assignImm(a, { pos, args: assignImm(a.args, { w: size.x, h: size.y }), size })));
+    }
+
+    return <div className="absolute origin-top-left" style={{ transform: `translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`, width: comp.size.x * scale, height: comp.size.y * scale }}>
+        {[...new Array(4)].map((_, idx) => {
+            return <Gripper key={idx} gripPos={idx} size={comp.size} pos={comp.pos} onResize={handleResize} />;
+        })}
+    </div>;
+});
+
+export const Gripper: React.FC<{
+    gripPos: PortPlacement,
+    pos: Vec3,
+    size: Vec3,
+    onResize: (end: boolean, pos: Vec3, size: Vec3) => void,
+}> = ({ gripPos, pos, size, onResize }) => {
+    let { editorState } = useEditorContext();
+    let [el, setEl] = React.useState<HTMLElement | null>(null);
+
+    function evToModel(ev: IPointerEvent) {
+        return editorState.mtx.mulVec3Inv(new Vec3(ev.clientX, ev.clientY));
+    }
+
+    let [, setDragStart] = useCombinedMouseTouchDrag(el, _ev => ({ size, pos }), (ev, ds, end) => {
+        let oldPos = ds.data.pos;
+        let oldSize = ds.data.size;
+        let delta = evToModel(ev).sub(evToModel(ds)).round();
+        let isHoriz = gripPos === PortPlacement.Left || gripPos === PortPlacement.Right;
+
+        if (isHoriz) {
+            delta.y = 0;
+        } else {
+            delta.x = 0;
+        }
+
+        if (gripPos === PortPlacement.Left) {
+            onResize(end, oldPos.add(delta), oldSize.sub(delta));
+        } else if (gripPos === PortPlacement.Right) {
+            onResize(end, oldPos, oldSize.add(delta));
+        } else if (gripPos === PortPlacement.Top) {
+            onResize(end, oldPos.add(delta), oldSize.mulAdd(delta, -2));
+        } else {
+            onResize(end, oldPos.sub(delta), oldSize.mulAdd(delta, 2));
+        }
+    });
+
+    function handleMouseDown(ev: React.MouseEvent) {
+        setDragStart(ev);
+        ev.preventDefault();
+        ev.stopPropagation();
+    }
+
+    let isVertical = gripPos === PortPlacement.Left || gripPos === PortPlacement.Right;
+    let className = clsx(
+        "group absolute bg-gray-200 hover:bg-gray-300 border rounded pointer-events-auto flex items-center justify-center",
+        isVertical ? "cursor-ew-resize my-auto top-0 bottom-0 h-12 w-6" : "cursor-ns-resize mx-auto left-0 right-0 h-6 w-12",
+        gripPos === PortPlacement.Left && "left-[-1rem]",
+        gripPos === PortPlacement.Right && "right-[-1rem]",
+        gripPos === PortPlacement.Top && "top-[-1rem]",
+        gripPos === PortPlacement.Bottom && "bottom-[-1rem]",
+    );
+
+    return <div className={className} ref={setEl} onMouseDown={handleMouseDown}>
+        <FontAwesomeIcon icon={isVertical ? faEllipsisVertical : faEllipsis} className="text-4xl text-white group-hover:text-gray-100" />
+    </div>;
+}

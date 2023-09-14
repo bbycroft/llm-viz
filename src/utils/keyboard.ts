@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect } from "react";
 import { useFunctionRef } from "./data";
 
+
 export enum KeyboardOrder {
     MainPage = 0,
-    Modal = 1,
+    Element = 1,
+    Modal = 2,
 }
 
 export interface IKeyHandler {
@@ -13,6 +15,7 @@ export interface IKeyHandler {
 }
 
 export interface IKeyHandlerOptions {
+    isActive?: boolean;
     receiveKeyUp?: boolean;
 }
 
@@ -56,12 +59,15 @@ export function useGlobalKeyboard(order: KeyboardOrder, handler: (ev: KeyboardEv
     let manager = useContext(KeyboardManagerContext);
     let handlerRef = useFunctionRef(handler);
     let receiveKeyUp = opts?.receiveKeyUp ?? false;
+    let isActive = opts?.isActive ?? true;
 
     useEffect(() => {
-        let h = (ev: KeyboardEvent) => handlerRef.current(ev);
-        let unregister = manager.registerHandler(order, h, { receiveKeyUp });
-        return () => unregister();
-    }, [order, handlerRef, manager, receiveKeyUp]);
+        if (isActive) {
+            let h = (ev: KeyboardEvent) => handlerRef.current(ev);
+            let unregister = manager.registerHandler(order, h, { receiveKeyUp });
+            return () => unregister();
+        }
+    }, [order, handlerRef, manager, receiveKeyUp, isActive]);
 }
 
 export function useCreateGlobalKeyboardDocumentListener() {

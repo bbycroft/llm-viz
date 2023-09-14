@@ -1,6 +1,7 @@
 import { assignImm, getOrAddToMap, isNil } from "../utils/data";
 import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
-import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayout, IElRef, RefType } from "./CpuModel";
+import { IWire, ISegment, IWireGraph, IWireGraphNode, ICpuLayout, IElRef, RefType, IComp } from "./CpuModel";
+import { PortHandling } from "./Editor";
 
 export function moveSelectedComponents(layout: ICpuLayout, delta: Vec3): ICpuLayout {
     if (delta.dist(Vec3.zero) < EPSILON) {
@@ -91,6 +92,54 @@ export function moveSelectedComponents(layout: ICpuLayout, delta: Vec3): ICpuLay
             return wire;
         }),
     });
+}
+
+export function updateWiresForComp(layout: ICpuLayout, comp: IComp<any>, portHandling: PortHandling): ICpuLayout {
+
+    if (portHandling === PortHandling.Move) {
+
+        // plan: for each port, find all wires that are touching it
+        // figure out the port's delta, based on the previous position of the wire node (and delta from wire node to new comp port)
+        // run the dragNodes logic
+
+        return assignImm(layout, {
+
+            wires: layout.wires.map(wire => {
+                let nodeIdsToMove = new Map<number, Vec3>();
+                let nodeIdsToClean = new Set<number>();
+
+                for (let node of wire.nodes) {
+                    if (!node.ref || node.ref.type !== RefType.CompNode || node.ref.id !== comp.id) {
+                        continue;
+                    }
+                    let port = comp.ports.find(p => p.id === node.ref!.compNodeId);
+                    if (!port) {
+                        nodeIdsToClean.add(node.id);
+                        continue;
+                    }
+                    let delta = comp.pos.add(port.pos).sub(node.pos);
+
+                    nodeIdsToMove.set(node.id, delta);
+                }
+
+                if (nodeIdsToClean.size > 0) {
+                    wire = copyWireGraph(wire);
+                    for (let id of nodeIdsToClean) {
+                        wire.nodes[id].ref = undefined;
+                    }
+                }
+
+                if (nodeIdsToMove.size > 0) {
+                    wire = dragNodes(wire, nodeIdsToMove);
+                }
+                return wire;
+            })
+        });
+
+    }
+
+    return layout;
+
 }
 
 export function refToString(ref: IElRef): string {

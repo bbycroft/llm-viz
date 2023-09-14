@@ -194,6 +194,7 @@ export interface ICompRenderArgs<T, A = any> {
     comp: IComp<A>;
     exeComp: IExeComp<T>;
     styles: IRenderStyles;
+    isActive: boolean;
 }
 
 export interface IRenderStyles {
