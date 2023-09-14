@@ -12,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEllipsis, faEllipsisVertical } from "@fortawesome/free-solid-svg-icons";
 import clsx from "clsx";
 import { IPointerEvent, useCombinedMouseTouchDrag } from "@/src/utils/pointer";
+import { StringEditor } from "../displayTools/StringEditor";
 
 export enum PortPlacement {
     Right,
@@ -115,21 +116,21 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             ctx.save();
 
             ctx.fillStyle = 'rgb(251, 146, 60)';
-            // let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
-            // ctx.transform(...mtx.toTransformParams());
-
             ctx.beginPath();
-            // structure is a rounded rect, with radius equal to half the height
             let p = comp.pos;
             let s = comp.size;
-            // let center = p.mulAdd(s, 0.5);
-            // ctx.moveTo(p.x + s.x, center.y);
-            // ctx.arc(center.x, center.y, s.x / 2, 0, 2 * Math.PI);
             ctx.roundRect(p.x, p.y, s.x, s.y, s.y / 2);
 
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
+
+            ctx.fillStyle = 'black';
+            ctx.font = `${cvs.scale * 15}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(comp.args.name, p.x + s.x / 2, p.y + s.y + 0.3);
+
             ctx.restore();
         },
         renderDom: ({ comp, exeComp, ctx, styles, isActive }) => {
@@ -215,6 +216,19 @@ const PortEditor: React.FC<{
                 hidePrefix
             />}
             <ConfigMenu className={"absolute top-[12px] right-[12px]"}>
+                <MenuRow title={"Label"}>
+                    <StringEditor
+                        value={comp.args.name}
+                        update={makeEditFunction(setEditorState, comp, (value: string) => ({ name: value }))}
+                    />
+                </MenuRow>
+                <MenuRow title={"Id"}>
+                    <StringEditor
+                        className="font-mono"
+                        value={comp.args.portId}
+                        update={makeEditFunction(setEditorState, comp, (value: string) => ({ portId: value }))}
+                    />
+                </MenuRow>
                 <MenuRow title={<CheckboxMenuTitle title="Input" value={isInput} update={editPortType} />} />
                 <MenuRow title={<CheckboxMenuTitle title="Override Value" value={isInputOverride} update={editIsOverriden} />} disabled={!isInput}>
                     <HexValueEditor
