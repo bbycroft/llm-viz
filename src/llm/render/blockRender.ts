@@ -332,6 +332,9 @@ export function genCubeGeom(gl: WebGL2RenderingContext): IGeom {
 
 export function renderBlocksSimple(blockRender: IBlockRender, cubes: IBlkDef[]) {
     let gl = blockRender.gl;
+    if (!blockRender.simpleShader.ready) {
+        return;
+    }
     let locs = blockRender.simpleShader.locs;
     let geom = blockRender.cubeGeom;
     gl.useProgram(blockRender.simpleShader.program);
@@ -350,6 +353,11 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
     let gl = blockRender.gl;
     let locs = blockRender.shader.locs;
     let geom = blockRender.cubeGeom;
+
+    if (!blockRender.shader.ready) {
+        return;
+    }
+
     gl.useProgram(blockRender.shader.program);
 
     let camPosModel = modelMtx.mulVec3Proj(camPos);
@@ -458,6 +466,10 @@ export function renderAllBlocks(blockRender: IBlockRender, layout: IModelLayout,
 
 
 export function renderAllBlocksInstanced(blockRender: IBlockRender, layout: IModelLayout, modelMtx: Mat4f, camPos: Vec3) {
+    if (!blockRender.instancedShader.ready) {
+        return;
+    }
+
     let gl = blockRender.gl;
     let locs = blockRender.instancedShader.locs;
     let blockAccessUbo = blockRender.blockAccessUbo.localBufs[0];
