@@ -73,7 +73,7 @@ export const Commentary: React.FC = () => {
 
     let numTimes = wt.times.length;
 
-    let { nodes, prevBreak, nextBreak } = useMemo(() => {
+    let { nodes } = useMemo(() => {
         let nodes: INode[] = [];
         let prevIsTime = false;
         for (let c of wt.times) {
@@ -89,7 +89,10 @@ export const Commentary: React.FC = () => {
                 prevIsTime = true;
             }
         }
+        return { nodes };
+    }, [wt.times]);
 
+    let { prevBreak, nextBreak } = useMemo(() => {
         let prevBreak = -1;
         let nextBreak = -1;
         let lastBreak = -1;
@@ -104,7 +107,7 @@ export const Commentary: React.FC = () => {
                 lastBreak = i;
             }
         }
-        return { nodes, prevBreak, nextBreak };
+        return { prevBreak, nextBreak };
     }, [wt.times, wt.time]);
 
     interface IGuideLayout {
@@ -146,7 +149,7 @@ export const Commentary: React.FC = () => {
 
                 ranges.push({ top: childBcr.top - parasBcr.top, bottom: childBcr.bottom - parasBcr.top, nodeId: nid, startT: cStart, endT: cEnd, height: childBcr.height });
             }
-            console.log('handling resize event (or first time)', parasBcr.height);
+            // console.log('handling resize event (or first time)', parasBcr.height);
             setGuideLayout({
                 width: parasBcr.width - 40,
                 height: parasBcr.height,
@@ -282,6 +285,7 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
     function genCommentary(c: ICommentary, t: number) {
 
         let keyId = 0;
+        let paraKeyId = 0;
         let res: React.ReactNode[] = [];
         let paraItems: ReactNode[] = [];
 
@@ -289,6 +293,7 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
             if (paraItems.length) {
                 res.push(<p key={keyId++}>{paraItems}</p>);
                 paraItems = [];
+                paraKeyId = 0;
             }
         }
 
@@ -302,14 +307,14 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
                     if (j > 0) {
                         pushParagraph();
                     }
-                    paraItems.push(strPart);
+                    paraItems.push(<React.Fragment key={paraKeyId++}>{strPart}</React.Fragment>);
                 }
             }
 
             if (i < c.values.length) {
                 let val = c.values[i];
                 if (val.insertInline) {
-                    paraItems.push(val.insertInline);
+                    paraItems.push(<React.Fragment key={paraKeyId++}>{val.insertInline}</React.Fragment>);
                 }
                 if (val.insert) {
                     pushParagraph();
@@ -318,7 +323,7 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
                     res.push(el);
                 }
                 if (val.color) {
-                    let el = <span key={keyId++} style={{ color: val.color.toHexColor() }}>{markupSimple(val.str)}</span>;
+                    let el = <span key={paraKeyId++} style={{ color: val.color.toHexColor() }}>{markupSimple(val.str)}</span>;
                     paraItems.push(el);
                 }
             }
