@@ -1,4 +1,4 @@
-import { ISharedRender } from "../render/sharedRender";
+import { ISharedRender } from "../llm/render/sharedRender";
 import { roundUpTo } from "./math";
 
 export interface IGLContext {

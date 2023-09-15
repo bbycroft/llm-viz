@@ -1,0 +1,34 @@
+@import "@/styles/variables.scss";
+
+.controls {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    margin: 20px;
+    color: black;
+    opacity: 0.8;
+
+    // display: flex;
+    // flex-direction: column;
+    display: grid;
+    grid-template-rows: 40px 50px 40px;
+    grid-template-columns: 40px 50px 40px;
+    // align-items: center;
+
+}
+
+.control {
+    color: #5c5c5c;
+    filter: drop-shadow(0 0 2px #e4e4e4d2);
+    transition: all 0.1s ease;
+    // background-color: rgba(red, 0.1);
+}
+
+.arrow {
+    font-size: 200%;
+}
+
+.control:hover {
+    color: #000000;
+    filter: drop-shadow(0 0 2px #8a8a8a);
+}

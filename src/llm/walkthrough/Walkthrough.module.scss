@@ -1,0 +1,144 @@
+
+.tableWrap {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    margin: 16px 0;
+}
+
+
+.table {
+    border-collapse: collapse;
+}
+
+.table :global(th) {
+    text-align: center;
+    padding: 4px 8px;
+    color: #777;
+    font-weight: normal;
+    font-style: italic;
+
+}
+
+.table :global(thead) {
+    border-bottom: 1px solid #999;
+}
+
+.table :global(td) {
+    padding: 2px 8px;
+    text-align: center;
+}
+
+.table tr th {
+    border-right: 1px solid #999;
+}
+
+.table tr:first-child th, .table tr:first-child td {
+    border-bottom: 1px solid #999;
+}
+
+.tokString td {
+    color: #3a3;
+}
+
+.tokIndex {
+    color: #333;
+}
+
+.cellInfoCols {
+    display: flex;
+}
+
+.cellInfoCol {
+    min-width: 160px;
+    flex: 1 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 8px;
+}
+
+.cellInfoText {
+    margin-left: 8px;
+}
+
+.cellArrayHoriz {
+    display: flex;
+}
+
+.cellRect {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+}
+
+.cellCircle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+}
+
+.graph {
+    position: relative;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    margin: 8px 0;
+    z-index: 0;
+}
+
+.graphCol {
+    position: relative;
+    height: 100%;
+    width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.graphBar {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    background-color: #f00;
+}
+
+.graphBarLabel {
+    position: absolute;
+    font-size: 11px;
+}
+
+.graphBarHit {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 16px;
+    cursor: ns-resize;
+    pointer-events: auto;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+
+.axisZero {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto 0;
+    height: 1px;
+    background-color: #999;
+    z-index: -1;
+}
+
+.externalLink {
+    color: rgb(89, 89, 211);
+    text-decoration: none;
+    &:hover {
+        text-decoration: underline;
+    }
+}

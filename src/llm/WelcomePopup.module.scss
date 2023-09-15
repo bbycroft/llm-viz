@@ -1,0 +1,66 @@
+
+.modalWindow {
+    width: 900px;
+    overflow: hidden;
+    // animation: opacityFadeIn 2s;
+}
+
+.modalWindowBackdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: opacityFadeIn 300ms;
+}
+
+@keyframes opacityFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.header {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 4px 10px;
+    border-bottom: 1px solid #ccc;
+    background-color: #3b435e;
+    color: white;
+    font-size: 24px;
+    height: 50px;
+}
+
+.body {
+    padding: 4px 10px;
+    display: flex;
+}
+
+.image {
+    height: 400px;
+    flex: 0 0 auto;
+    margin: 10px;
+
+    img {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+.text {
+    align-self: center;
+    font-size: 16px;
+
+    p {
+        margin: 6px 10px;
+    }
+}
+
+.footer {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 4px 10px;
+    border-top: 1px solid #ccc;
+    height: 50px;
+}
+
+.infoBtn {
+    cursor: pointer;
+}

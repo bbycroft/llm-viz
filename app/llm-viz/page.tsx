@@ -1,6 +1,6 @@
 import React from 'react';
-import { LayerView } from '@/src/LayerView';
-import { InfoButton } from '@/src/WelcomePopup';
+import { LayerView } from '@/src/llm/LayerView';
+import { InfoButton } from '@/src/llm/WelcomePopup';
 import Link from 'next/link';
 
 export const metadata = {
