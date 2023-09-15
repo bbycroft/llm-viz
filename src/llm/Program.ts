@@ -27,6 +27,7 @@ export interface IProgramState {
     stepModel: boolean;
     mouse: IMouseState;
     render: IRenderState;
+    inWalkthrough: boolean;
     walkthrough: ReturnType<typeof initWalkthrough>;
     camera: ICamera;
     htmlSubs: Subscriptions;
@@ -130,6 +131,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         native: null,
         wasmGptModel: null,
         render,
+        inWalkthrough: true,
         walkthrough,
         camera,
         shape: shape,
@@ -216,7 +218,9 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     }
 
     // will modify layout; view; render a few things.
-    runWalkthrough(state, view);
+    if (state.inWalkthrough) {
+        runWalkthrough(state, view);
+    }
 
     drawBlockInfo(state);
     // these will get modified by the walkthrough (stored where?)

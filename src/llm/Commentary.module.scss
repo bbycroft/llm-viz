@@ -12,6 +12,7 @@
     background-color: rgba(black, 0.03);
     border-bottom: 1px solid #ccc;
     padding: 20px 20px;
+    margin-bottom: 10px;
 }
 
 .divider {
@@ -193,7 +194,7 @@
     border-radius: 50%;
     animation: beadOfLight 3s infinite linear;
   }
-  
+
   @keyframes beadOfLight {
     0% {
         top: -6px;

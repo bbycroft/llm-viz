@@ -12,7 +12,6 @@ import clsx from 'clsx';
 import { TocDiagram } from './components/TocDiagram';
 
 export function jumpToPhase(wt: IWalkthrough, phaseId: Phase) {
-    console.log('wt:', wt);
     wt.time = 0;
     wt.phase = phaseId;
     wt.running = false;
@@ -212,25 +211,27 @@ export const Commentary: React.FC = () => {
     let phase = group?.phases.find(p => p.id === wt.phase)!;
 
     // fast-scroll to top whenever phase changes (and then we'll scroll down smoothly as below)
-    // useEffect(() => {
-    //     if (parasEl) {
-    //         parasEl.parentElement!.scrollTop = 0;
-    //     }
-    // }, [parasEl, wt.phase]);
+    useEffect(() => {
+        if (parasEl) {
+            parasEl.parentElement!.scrollTop = 0;
+        }
+    }, [parasEl, wt.phase]);
 
+    let prevPhase = useRef(-1);
     let upToDate = wt.commentary?.commentaryList.length ?? 0 > 0;
     // scroll to current position whenever it changes (rangeInfo.start)
     useEffect(() => {
-        if (parasEl && parasEl.parentElement!.getBoundingClientRect().height === guideLayout.parentHeight) {
+        if (upToDate && parasEl && parasEl.parentElement!.getBoundingClientRect().height === guideLayout.parentHeight) {
             let delta = 512; // parasEl.getBoundingClientRect().top - parasEl.parentElement!.getBoundingClientRect().top - 45;
 
-            // if (prevPhase.current !== wt.phase) {
-            //     parasEl.parentElement!.scrollTop = rangeInfo.start + delta;
-            //     prevPhase.current = wt.phase;
-            // } else {
-            console.log('scrollTo', rangeInfo.start + delta, `(${rangeInfo.start} + ${delta})`, 'where height is', guideLayout.height);
-            parasEl.parentElement!.scrollTo({ top: rangeInfo.start + delta, behavior: 'smooth' });
-            // }
+
+            if (prevPhase.current !== wt.phase) {
+                parasEl.parentElement!.scrollTop = rangeInfo.start + delta;
+                prevPhase.current = wt.phase;
+            } else {
+                console.log('scrollTo', rangeInfo.start + delta, `(${rangeInfo.start} + ${delta})`, 'where height is', guideLayout.height);
+                parasEl.parentElement!.scrollTo({ top: rangeInfo.start + delta, behavior: 'smooth' });
+            }
         }
     }, [rangeInfo.start, rangeInfo.end, currPos, parasEl, upToDate, guideLayout.height, guideLayout.parentHeight]);
 

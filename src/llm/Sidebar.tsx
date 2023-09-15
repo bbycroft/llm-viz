@@ -50,14 +50,14 @@ export const WalkthroughSidebar: React.FC = () => {
                     </div>;
                 })}
             </div>
-            <div className={s.helpers}>
+            {/* <div className={s.helpers}>
                 <div className={s.camStats}>
                     (center, center) =
                 </div>
                 <div className={s.camStats}>
                     new {camera.center.toString(1)}, new {camera.angle.toString(1)}
                 </div>
-            </div>
+            </div> */}
         </div>
     </>;
 
