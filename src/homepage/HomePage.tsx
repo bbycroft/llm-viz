@@ -51,13 +51,13 @@ export const HomePage: React.FC = () => {
 
         <div className={s.projectsSection}>
             <div className={s.sectionTitle}>Projects</div>
-            <div className={s.projectCard} onClick={() => router.push('/llm-viz')}>
+            <div className={s.projectCard} onClick={() => router.push('/llm')}>
                 <div className={s.cardImage}>
                     <img src="/images/llm-viz-screenshot2.png" alt="LLM Visualization Screenshot" />
                 </div>
                 <div className={s.cardContent}>
                     <div className={s.cardTitle}>
-                        <Link href={"/llm-viz"}>
+                        <Link href={"/llm"}>
                         {/* rel="noopener noreferrer" target="_blank"> */}
                             LLM Visualization
                         </Link>

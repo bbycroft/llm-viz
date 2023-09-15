@@ -6,6 +6,15 @@ const nextConfig = {
     // Required:
     appDir: true,
   },
+  redirects: async () => {
+    return [
+      {
+        source: "/llm-viz",
+        destination: "/llm",
+        permanent: true,
+      },
+    ];
+  }
 };
 
 module.exports = nextConfig;

@@ -1,0 +1,24 @@
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.5em;
+    padding: 4px 8px;
+    background-color: #3b435e;
+    text-align: center;
+    color: white;
+}
+
+
+.back {
+    font-size: 0.8em;
+    cursor: pointer;
+    a {
+        color: white;
+        text-decoration: none;
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
