@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useCreateGlobalKeyboardDocumentListener } from '../utils/keyboard';
 import { riscvRegNames } from './comps/Registers';
-import { CpuCanvas, ICpu, IMemoryLayout, Io_Gpio, Io_Gpio_Register } from './CpuCanvas';
+import { CpuCanvas } from './CpuCanvas';
 import s from './CpuMain.module.scss';
 import { IMemoryMap } from './CpuModel';
 import { readElfFileIntoMemory } from './ElfParser';
@@ -143,6 +143,37 @@ Global data structure (probably a rehash of the above but that's OK)
 - Big goal here is to make it easy to create lots of different models/variants.
 
 */
+
+
+export interface ICpu {
+    pc: number;
+    x: Int32Array; // 32 registers, x0-x31, x0 is always 0 (even after writes!)
+    halt: boolean;
+    haltReason: string | null;
+    csr: Int32Array; // 4096 registers, csr0-csr4095
+}
+
+export interface Io_Gpio {
+    portDir: number;
+    portValue: number;
+}
+
+export enum Io_Gpio_Register {
+    PORT_DIR = 0,
+    PORT_VALUE = 1,
+    PORT_OUT_SET = 2,
+    PORT_OUT_CLEAR = 3,
+}
+
+interface IMemoryLayout {
+    romOffset: number;
+    ramOffset: number;
+    ioOffset: number;
+
+    romSize: number;
+    ramSize: number;
+    ioSize: number;
+}
 
 const memoryLayout: IMemoryLayout = {
     romOffset: 0x0000_0000, // not actually used in our RISC-V implementation (PC starts at 0x8000_0000)

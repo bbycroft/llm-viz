@@ -22,40 +22,6 @@ import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 
-interface ICpuState {
-    system: any;
-}
-
-export interface ICpu {
-    pc: number;
-    x: Int32Array; // 32 registers, x0-x31, x0 is always 0 (even after writes!)
-    halt: boolean;
-    haltReason: string | null;
-    csr: Int32Array; // 4096 registers, csr0-csr4095
-}
-
-export interface Io_Gpio {
-    portDir: number;
-    portValue: number;
-}
-
-export enum Io_Gpio_Register {
-    PORT_DIR = 0,
-    PORT_VALUE = 1,
-    PORT_OUT_SET = 2,
-    PORT_OUT_CLEAR = 3,
-}
-
-export interface IMemoryLayout {
-    romOffset: number;
-    ramOffset: number;
-    ioOffset: number;
-
-    romSize: number;
-    ramSize: number;
-    ioSize: number;
-}
-
 interface ICanvasDragState {
     mtx: AffineMat2d;
     hovered: IHitTest | null;
