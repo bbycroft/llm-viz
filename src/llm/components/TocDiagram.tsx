@@ -246,7 +246,7 @@ export const TocDiagram: React.FC<{
         let right = to.mulAdd(dir, -arrowLen).mulAdd(dirProp, arrowWidth / 2);
         let path = `M${left.x},${left.y} L${to.x},${to.y} L${right.x},${right.y}Z`;
         return <g key={key}>
-            <path d={path} fill={colors.line} />
+            <path d={path} fill={colors.line} className={s.dataPath} />
         </g>;
     }
 
@@ -270,7 +270,7 @@ export const TocDiagram: React.FC<{
                 let toX = toItem.posPx!.x + 8;
                 let xVert = size.x - 10;
                 let path = `M${fromX},${fromY} L${xVert},${fromY} L${xVert},${toY} L${toX+4},${toY}`;
-                segs.push(<path key={i} d={path} stroke={colors.line} strokeWidth={1} fill='none' strokeLinejoin='round' opacity={opacityDimmed} />);
+                segs.push(<path key={i} d={path} fill='none' strokeLinejoin='round' opacity={opacityDimmed} className={s.dataPath} />);
                 segs.push(renderArrow(new Vec3(toX, toY), new Vec3(toX + 10, toY), `residual-arrow-${i}`));
             }
             return segs;
@@ -323,7 +323,7 @@ export const TocDiagram: React.FC<{
                     let topY = Math.round(0.3 * size.y);
                     let path = `M${size.x/2},${topY} L${xPos},${topY} L${xPos},${size.y - 2}`;
                     return <>
-                        <path d={path} stroke={'black'} strokeWidth={1} fill='none' />
+                        <path d={path} stroke={'black'} fill='none' className={s.dataPath} />
                         {renderArrow(new Vec3(xPos, size.y), new Vec3(xPos, size.y-10), 'multihead-arrow')}
                     </>;
                 }
@@ -433,7 +433,7 @@ export const TocDiagram: React.FC<{
         let path2 = `M${center},${bot} L${center},${horizY} L${endPt.x},${horizY} L${endPt.x},${endPt.y - 2}`;
 
         return <>
-            <path d={path + path2} stroke={colors.line} strokeWidth={1} fill='none' />
+            <path d={path + path2} className={s.dataPath} />
             {renderArrow(endPt, new Vec3(endPt.x, endPt.y - 10), 'multihead-arrow')}
         </>;
     }
@@ -454,7 +454,7 @@ export const TocDiagram: React.FC<{
         let path = `M${startPt.x},${startPt.y} L${startPt.x},${botY} L${rightX},${botY} L${rightX},${topY} L${endPt.x},${topY} L${endPt.x},${endPt.y + 2}`;
 
         return <>
-            <path d={path} stroke={colors.line} strokeWidth={1} fill='none' />
+            <path d={path} className={s.dataPath} />
             {renderArrow(endPt, new Vec3(endPt.x, endPt.y + 10), 'multihead-arrow')}
         </>;
     }

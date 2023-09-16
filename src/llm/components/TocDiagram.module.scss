@@ -43,3 +43,13 @@
         color: white;
     }
 }
+
+.dataPath {
+    stroke-width: 1.5;
+    stroke: rgba(black, 0.8);
+    fill: none;
+}
+
+.gap {
+    @extend .dataPath;
+}
