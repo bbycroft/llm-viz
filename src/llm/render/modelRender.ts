@@ -7,7 +7,7 @@ import { initBlurRender, renderBlur, setupBlurTarget } from "./blurRender";
 import { createLineRender, renderAllLines, resetLineRender, uploadAllLines } from "./lineRender";
 import { renderAllThreads, initThreadRender } from "./threadRender";
 import { initSharedRender, RenderPhase, writeModelViewUbo } from "./sharedRender";
-import { cameraToMatrixView, ICamera } from "../Camera";
+import { cameraToMatrixView } from "../Camera";
 import { initTriRender, renderAllTris, resetTriRender, uploadAllTris } from "./triRender";
 import { createQueryManager, IQueryManager } from "./queryManager";
 import { IProgramState } from "../Program";
@@ -36,6 +36,7 @@ export interface IRenderState {
     syncObjects: ISyncObject[];
     size: Vec3;
 
+    renderTiming: boolean;
     lastGpuMs: number;
     lastJsMs: number;
 }
@@ -109,6 +110,7 @@ export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtla
         size: new Vec3(1, 1),
         lastGpuMs: 0,
         lastJsMs: 0,
+        renderTiming: false,
     };
 }
 
@@ -160,7 +162,7 @@ export function renderModel(state: IProgramState) {
 
     gl.frontFace(gl.CW); // our transform has a -ve determinant, so we switch this for correct rendering
 
-    {
+    if (args.renderTiming) {
         let text = `GPU: ${args.lastGpuMs.toFixed(1)}ms JS: ${args.lastJsMs.toFixed(1)}ms`;
         let w = size.x;
         let fontSize = 14;

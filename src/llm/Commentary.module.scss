@@ -11,7 +11,7 @@
 .tocBackground {
     background-color: rgba(black, 0.03);
     border-bottom: 1px solid #ccc;
-    padding: 20px 20px;
+    padding: 0 20px;
     margin-bottom: 10px;
 }
 
@@ -113,9 +113,18 @@
 }
 
 .continueBtn {
-    margin: 0 16px;
-    flex: 1 0 auto;
+    // margin: 0 16px;
+    flex: 3 0 auto;
     min-width: 200px;
+    background-color: rgba(#8597ff, 0.6);
+    border-color: rgba(#8597ff, 0.8)
+}
+
+.advanceBtn {
+    // margin: 0 16px;
+    // flex: 1 0 auto;
+    margin-left: 16px;
+    min-width: 80px;
     background-color: rgba(#8597ff, 0.6);
     border-color: rgba(#8597ff, 0.8)
 }
@@ -153,6 +162,7 @@
     flex-direction: row;
     justify-content: center;
     transform: translateY(20px);
+    pointer-events: none;
 }
 
 .hintText {
@@ -163,6 +173,7 @@
     border-radius: 20px;
     color: black;
     cursor: pointer;
+    pointer-events: auto;
     /* background-color: rgba(0, 146, 244, 0.2); */
 }
 

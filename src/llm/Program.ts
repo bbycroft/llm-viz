@@ -20,6 +20,7 @@ import { NativeFunctions } from "./NativeBindings";
 import { IWasmGptModel, stepWasmModel, syncWasmDataWithJsAndGpu } from "./GptModelWasm";
 import { IMovementInfo, manageMovement } from "./components/MovementControls";
 import { IBlockRender, initBlockRender } from "./render/blockRender";
+import { ILayout } from "../utils/layout";
 
 export interface IProgramState {
     native: NativeFunctions | null;
@@ -38,6 +39,7 @@ export interface IProgramState {
     jsGptModel: IGptModelLink | null;
     movement: IMovementInfo;
     display: IDisplayState;
+    pageLayout: ILayout;
     markDirty: () => void;
 }
 
@@ -176,6 +178,12 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
             lines: [],
             hoverTarget: null,
         },
+        pageLayout: {
+            height: 0,
+            width: 0,
+            isDesktop: true,
+            isPhone: true,
+        }
     };
 }
 
@@ -216,6 +224,8 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     if (isNotNil(queryRes)) {
         state.render.lastGpuMs = queryRes;
     }
+
+    state.render.renderTiming = state.pageLayout.isDesktop;
 
     // will modify layout; view; render a few things.
     if (state.inWalkthrough) {

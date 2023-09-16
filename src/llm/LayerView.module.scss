@@ -13,9 +13,9 @@
     overflow: hidden;
     z-index: 0;
 
-    @media #{$phone-width} {
-        flex-direction: column;
-    }
+    // @media #{$phone-width} {
+    //     flex-direction: column;
+    // }
 }
 
 .sidebar {

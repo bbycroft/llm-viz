@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useState } from 'react';
 import { IDataAndModel, IModelState, initModel } from './GptModel';
 import s from './LayerView.module.scss';
 import { IRenderState, IRenderView } from './render/modelRender';
@@ -13,12 +13,12 @@ import { CanvasEventSurface } from './CanvasEventSurface';
 import { Vec3 } from '@/src/utils/vector';
 import { loadNativeBindings } from './NativeBindings';
 import { constructModel, createGpuModelForWasm } from './GptModelWasm';
-import { MovementAction, MovementControls } from './components/MovementControls';
-import { initWebGpu } from './gpu/WebGpuMain';
+import { MovementAction } from './components/MovementControls';
 import { useScreenLayout } from '@/src/utils/layout';
 import { jumpPhase } from './Commentary';
 import { WelcomePopup } from './WelcomePopup';
 import { KeyboardManagerContext, KeyboardOrder, useGlobalKeyboard } from '@/src/utils/keyboard';
+import { Resizer } from '../utils/Resizer';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -160,28 +160,39 @@ export function LayerView() {
         canvasRender?.setData({ dataAndModel });
     }, [canvasRender, dataAndModel]);
 
+    useLayoutEffect(() => {
+        if (canvasRender) {
+            canvasRender.progState.pageLayout = layout;
+            canvasRender.markDirty();
+        }
+    }, [canvasRender, layout]);
+
     let sidebar = canvasRender && <div className={s.sidebar}>
         <ProgramStateContext.Provider value={canvasRender.progState}>
             <WalkthroughSidebar />
         </ProgramStateContext.Provider>
     </div>;
 
+    let mainView = <div className={s.canvasWrap}>
+        <canvas
+            className={s.canvas}
+            ref={setCanvasEl}
+        />
+        {/* <div className={s.cursorFollow} style={{ top: pointPos.y, left: pointPos.x }} /> */}
+        {canvasRender && <ProgramStateContext.Provider value={canvasRender.progState}>
+            <CanvasEventSurface>
+                {/* <MovementControls /> */}
+            </CanvasEventSurface>
+            <WelcomePopup />
+        </ProgramStateContext.Provider>}
+    </div>;
+
     return <div className={s.view}>
-        {layout.isDesktop && sidebar}
-        <div className={s.canvasWrap}>
-            <canvas
-                className={s.canvas}
-                ref={setCanvasEl}
-            />
-            {/* <div className={s.cursorFollow} style={{ top: pointPos.y, left: pointPos.x }} /> */}
-            {canvasRender && <ProgramStateContext.Provider value={canvasRender.progState}>
-                <CanvasEventSurface>
-                    <MovementControls />
-                </CanvasEventSurface>
-                <WelcomePopup />
-            </ProgramStateContext.Provider>}
-        </div>
-        {!layout.isDesktop && sidebar}
+        <Resizer id={"llm-sidebar"} className={"flex-1"} vertical={!layout.isDesktop} defaultFraction={0.4}>
+            {layout.isDesktop && sidebar}
+            {mainView}
+            {!layout.isDesktop && sidebar}
+        </Resizer>
     </div>;
 }
 

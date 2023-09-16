@@ -57,6 +57,7 @@ export function phaseTools(state: IProgramState) {
         let breakEvt = afterTime(evt, 0.001);
         if (phaseState.running && phaseState.time - phaseState.dt < breakEvt.start && phaseState.time >= breakEvt.start) {
             phaseState.running = false;
+            phaseState.speed = 1.0;
             phaseState.time = breakEvt.start + breakEvt.duration;
         }
         breakEvt.isBreak = true;

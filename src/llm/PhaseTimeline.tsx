@@ -87,7 +87,7 @@ export const PhaseTimelineHoriz: React.FC<{ times: ITimeInfo[] }> = ({ times }) 
         })}
         {inZone && <>
             <div className={s.timelineCaretHoriz} style={{ left: `${toFract(wt.time) * 100}%` }} />
-            <div className={s.timelineCaretHitHoriz} style={{ left: `${toFract(wt.time) * 100}%` }} onMouseDown={(ev) => {
+            <div className={s.timelineCaretHitHoriz} ref={setCaretHitEl} style={{ left: `${toFract(wt.time) * 100}%` }} onMouseDown={(ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();
                 setDragStart(ev);

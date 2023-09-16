@@ -66,6 +66,24 @@ export const Commentary: React.FC = () => {
         progState.markDirty();
     }
 
+    function handleAdvanceClick() {
+        if (wt.time >= wt.phaseLength) {
+            jumpPhase(wt, 1);
+            wt.time = 0;
+        } else {
+            wt.running = true;
+            let node = nodes.find(n => n.end > wt.time);
+            let speed = 15;
+            if (node) {
+                if (node.end > wt.time) {
+                    speed = (node.end - wt.time) * 2;
+                }
+            }
+            wt.speed = speed;
+        }
+        progState.markDirty();
+    }
+
     function handlePhaseDeltaClick(delta: number) {
         jumpPhase(wt, delta);
         progState.markDirty();
@@ -224,14 +242,13 @@ export const Commentary: React.FC = () => {
     let upToDate = wt.commentary?.commentaryList.length ?? 0 > 0;
     // scroll to current position whenever it changes (rangeInfo.start)
     useEffect(() => {
-        if (upToDate && parasEl && parasEl.parentElement!.getBoundingClientRect().height === guideLayout.parentHeight) {
+        if (parasEl) { // && parasEl.parentElement!.getBoundingClientRect().height === guideLayout.parentHeight) {
             let delta = 512; // parasEl.getBoundingClientRect().top - parasEl.parentElement!.getBoundingClientRect().top - 45;
 
-
             if (prevPhase.current !== wt.phase) {
-                parasEl.parentElement!.scrollTop = rangeInfo.start + delta;
+                // parasEl.parentElement!.scrollTop = rangeInfo.start + delta;
                 prevPhase.current = wt.phase;
-            } else {
+            } else if (wt.time > 0) {
                 console.log('scrollTo', rangeInfo.start + delta, `(${rangeInfo.start} + ${delta})`, 'where height is', guideLayout.height);
                 parasEl.parentElement!.scrollTo({ top: rangeInfo.start + delta, behavior: 'smooth' });
             }
@@ -267,6 +284,9 @@ export const Commentary: React.FC = () => {
         <div className={s.controls}>
             <button className={clsx(s.btn, s.continueBtn)} onClick={handleContinueClick}>
                 <div>Continue</div>
+            </button>
+            <button className={clsx(s.btn, s.advanceBtn)} onClick={handleAdvanceClick}>
+                <div>Skip</div>
             </button>
         </div>
     </>;

@@ -556,35 +556,40 @@ export const TocDiagram: React.FC<{
 
     let height = getElGlobalBounds(structure, new Vec3(0, 0))!.max.y + 10;
 
-    return <div className={s.tocDiagram}>
-        <svg viewBox={`0 0 310 ${height}`} width={'310px'} height={height} ref={setDiagramEl}>
-            {exampleInfo?.node}
-            {renderEl(structure, 0)}
-            {renderInputLines()}
-            {renderOutputLine()}
-            {renderFocusBoxes()}
-            {renderTocToDigramLines()}
-        </svg>
-        <div className={s.toc}>
-            <div className={s.tocTitle}>Table of Contents</div>
-            {entryGroups.map((group, i) => {
+    let titleAbove = false;
 
-                return <React.Fragment key={i}>
-                    <div className={s.tocGroupTitle}>{group.groupName}</div>
-                    {group.entries.map((entry, j) => {
-                        return <MenuEntry
-                            key={j}
-                            entryManager={entryManager}
-                            title={entry.title}
-                            id={entry.id}
-                            active={entry.id === activeId}
-                            hover={entry.id === hoverId}
-                            setHover={setHover}
-                            setActive={setActive}
-                        />;
-                    })}
-            </React.Fragment>;
-            })}
+    return <div>
+        {titleAbove && <div className={s.tocTitle}>Table of Contents</div>}
+        <div className={s.tocDiagram}>
+            <svg viewBox={`0 0 310 ${height}`} width={'310px'} height={height} ref={setDiagramEl}>
+                {exampleInfo?.node}
+                {renderEl(structure, 0)}
+                {renderInputLines()}
+                {renderOutputLine()}
+                {renderFocusBoxes()}
+                {renderTocToDigramLines()}
+            </svg>
+            <div className={s.toc}>
+                {!titleAbove && <div className={s.tocTitle}>Table of Contents</div>}
+                {entryGroups.map((group, i) => {
+
+                    return <React.Fragment key={i}>
+                        <div className={s.tocGroupTitle}>{group.groupName}</div>
+                        {group.entries.map((entry, j) => {
+                            return <MenuEntry
+                                key={j}
+                                entryManager={entryManager}
+                                title={entry.title}
+                                id={entry.id}
+                                active={entry.id === activeId}
+                                hover={entry.id === hoverId}
+                                setHover={setHover}
+                                setActive={setActive}
+                            />;
+                        })}
+                </React.Fragment>;
+                })}
+            </div>
         </div>
     </div>;
 };

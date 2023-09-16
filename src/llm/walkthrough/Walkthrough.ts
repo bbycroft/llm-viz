@@ -72,6 +72,7 @@ export function initWalkthrough() {
         dt: 0,
         prevTime: 0,
         running: false,
+        speed: 1,
         commentary: null as ICommentaryRes | null,
         times: [] as (ITimeInfo | ICommentary)[],
         phaseLength: 0,
@@ -139,7 +140,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
     let wt = state.walkthrough;
 
     if (wt.running) {
-        let dtSeconds = view.dt / 1000;
+        let dtSeconds = view.dt / 1000 * wt.speed;
         wt.time += dtSeconds;
         wt.dt = dtSeconds;
 
