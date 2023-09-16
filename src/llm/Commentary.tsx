@@ -126,7 +126,7 @@ export const Commentary: React.FC = () => {
             }
         }
         return { prevBreak, nextBreak };
-    }, [wt.times, wt.time]);
+    }, [wt.times, wt.time, nodes]);
 
     interface IGuideLayout {
         width: number;
@@ -253,7 +253,7 @@ export const Commentary: React.FC = () => {
                 parasEl.parentElement!.scrollTo({ top: rangeInfo.start + delta, behavior: 'smooth' });
             }
         }
-    }, [rangeInfo.start, rangeInfo.end, currPos, parasEl, upToDate, guideLayout.height, guideLayout.parentHeight]);
+    }, [rangeInfo.start, rangeInfo.end, currPos, parasEl, upToDate, guideLayout.height, guideLayout.parentHeight, wt.phase, wt.time]);
 
     return <>
         <div className={s.chapterControls}>
@@ -368,7 +368,7 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
                 let active = wt.time >= times[0].start;
                 let inRange = wt.time >= times[0].start && wt.time <= eventEndTime(times[times.length - 1]);
                 let opacity = active ? 1 : 0.6;
-                let blur = active ? 0 : 2;
+                let blur = 0; // active ? 0 : 2;
                 let showLine = times.length > 1 || !times[0].isBreak;
 
                 function handlePlayPause() {

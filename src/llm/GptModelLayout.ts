@@ -157,6 +157,7 @@ interface IBlkDefArgs {
     access?: IBlkAccessDefArgs;
     deps?: IBlkDepArgs;
     small?: boolean;
+    hidden?: boolean;
 }
 
 export interface IBlkLabel {
@@ -244,7 +245,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
                 mat: Mat4f.fromColMajor([...ensure4(args.access.x), ...ensure4(args.access.y), 0, 0, 0, 0, 0, 0, 0, 0]),
             } : undefined,
             deps: args.deps ? depArgsToDeps(args.deps) : undefined,
-            opacity: 1.0,
+            opacity: args.hidden ? 0.0 : 1.0,
             highlight: 0.0,
             small: args.small ?? false,
             special: args.special ?? BlkSpecial.None,
@@ -547,6 +548,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             t: 'i', cx: T, cz: B, cy: C, y: vOutY,
             xR: attnLeftX, zF: - headWidth * nHeads / 2,
             dimX: DimStyle.T, dimY: DimStyle.C,
+            hidden: true,
             name: 'V Output Combined',
         });
 
@@ -575,7 +577,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             t: 'i', cx: T, cz: B, cy: C, y: vFinalZ,
             xR: attnLeftX, zM: 0,
             access: { src: attnTarget?.proj.output, x: [0, 1, 0], y: [1, 0, T] },
-            // deps: { dot: [[projWeight, 'iy'], [vOutCombined, 'xi']], dotLen: C }
+            // deps: { dot: [[projWeight, 'iy'], [vOutCombined, 'xi']], dotLen: C },
             // vOutCombined isn't displayed atm, so add from the heads instead
             deps: {
                 dot: [[projWeight, 'iy'], [vOutCombined, 'xi']], dotLen: C,

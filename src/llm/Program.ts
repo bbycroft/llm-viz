@@ -225,7 +225,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
         state.render.lastGpuMs = queryRes;
     }
 
-    state.render.renderTiming = state.pageLayout.isDesktop;
+    state.render.renderTiming = false; // state.pageLayout.isDesktop;
 
     // will modify layout; view; render a few things.
     if (state.inWalkthrough) {

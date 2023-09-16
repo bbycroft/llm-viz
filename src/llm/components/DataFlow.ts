@@ -749,6 +749,10 @@ function drawDepArrows(args: IDataFlowArgs, bb: BoundingBox3d) {
     function drawDepArrow(dep: IBlkCellDep, dotLen?: number | null) {
         let { srcIdx, otherDim, isDot } = getDepSrcIdx(dep, destIdx);
 
+        if (dep.src.opacity === 0) {
+            return;
+        }
+
         if (isDot) {
             let { cx } = dimProps(dep.src, otherDim);
             srcIdx.setAt(otherDim, (dotLen ?? cx) / 2);

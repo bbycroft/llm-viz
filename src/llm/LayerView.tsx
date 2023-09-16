@@ -202,11 +202,11 @@ export function LayerView() {
                 {/* <MovementControls /> */}
             </CanvasEventSurface>
             <WelcomePopup />
-            <div className="absolute bottom-0 right-0 m-5 bg-white rounded border">
+            {/* <div className="absolute bottom-0 right-0 m-5 bg-white rounded border">
                 <button className='hover:bg-blue-400' onClick={handleCopyCamera}>
                     Copy Camera
                 </button>
-            </div>
+            </div> */}
         </ProgramStateContext.Provider>}
     </div>;
 
