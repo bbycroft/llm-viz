@@ -1,12 +1,16 @@
+import { Vec3 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
-import { commentary, IWalkthroughArgs } from "./WalkthroughTools";
+import { commentary, IWalkthroughArgs, setInitialCamera } from "./WalkthroughTools";
 
 export function walkthrough06_Projection(args: IWalkthroughArgs) {
-    let { walkthrough: wt } = args;
+    let { walkthrough: wt, state } = args;
 
     if (wt.phase !== Phase.Input_Detail_Projection) {
         return;
     }
+
+    setInitialCamera(state, new Vec3(-73.826, 0.000, -220.585), new Vec3(290.600, -11.400, 2.979));
+
     let c0 = commentary(wt, null, 0)`
 
 After the self-attention process, we have outputs from each of the heads. These outputs are the

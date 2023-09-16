@@ -6,7 +6,7 @@ import { lerp } from "@/src/utils/math";
 import { Mat4f } from "@/src/utils/matrix";
 import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
-import { commentary, DimStyle, IWalkthroughArgs, moveCameraTo } from "./WalkthroughTools";
+import { commentary, DimStyle, IWalkthroughArgs, moveCameraTo, setInitialCamera } from "./WalkthroughTools";
 
 export function walkthrough02_Embedding(args: IWalkthroughArgs) {
     let { walkthrough: wt, state, tools: { c_str, afterTime, cleanup }, layout } = args;
@@ -15,6 +15,9 @@ export function walkthrough02_Embedding(args: IWalkthroughArgs) {
     if (wt.phase !== Phase.Input_Detail_Embedding) {
         return;
     }
+
+    setInitialCamera(state, new Vec3(15.654, 0.000, -80.905), new Vec3(287.000, 14.500, 3.199));
+
     let c0 = commentary(wt, null, 0)`
 We saw previously how the tokens are mapped to a sequence of integers using a simple lookup table.
 These integers, the ${c_str('_token indices_', 0, DimStyle.TokenIdx)}, are the first and only time we see integers in the model.

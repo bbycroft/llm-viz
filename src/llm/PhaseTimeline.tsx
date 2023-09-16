@@ -74,7 +74,22 @@ export const PhaseTimelineHoriz: React.FC<{ times: ITimeInfo[] }> = ({ times }) 
         refresh();
     });
 
-    return <div className={s.timelineBaseHoriz} ref={setBaseEl}>
+    let [, setBaseDragStart] = useCombinedMouseTouchDrag<number>(baseEl, () => wt.time, function handleMove(ev, ds) {
+        let len = baseEl!.clientWidth;
+        let xPos = ev.clientX - baseEl!.getBoundingClientRect().left;
+        wt.time = clamp(timeOffset + xPos / len * totalTime, timeOffset, timeOffset + totalTime);
+        wt.running = false;
+        ev.preventDefault();
+        ev.stopPropagation();
+        wt.markDirty();
+        refresh();
+    });
+
+    return <div className={s.timelineBaseHoriz} ref={setBaseEl} onMouseDown={(ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        setBaseDragStart(ev);
+    }}>
         <div className={s.timelineLineHoriz} />
         {times.map((t, i) => {
             return <div

@@ -1,5 +1,5 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
-import { commentary, DimStyle, dimStyleColor, embed, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools } from "./WalkthroughTools";
+import { commentary, DimStyle, dimStyleColor, embed, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools, setInitialCamera } from "./WalkthroughTools";
 import s from './Walkthrough.module.scss';
 import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
 import { clamp, makeArray } from "@/src/utils/data";
@@ -55,6 +55,9 @@ export function walkthroughIntro(args: IWalkthroughArgs) {
     if (wt.phase !== Phase.Intro_Intro) {
         return;
     }
+
+    setInitialCamera(state, new Vec3(184.744, 0.000, -636.820), new Vec3(296.000, 16.000, 13.500));
+
     let c0 = commentary(wt, null, 0)`Welcome to the walkthrough of the GPT large language model! Here we'll explore the model _nano-gpt_, with a mere 85,000 parameters.
 
 It's goal is a simple one: take a sequence of six letters: ${embed(ExampleInputOutput)}
@@ -70,7 +73,7 @@ and sort them in alphabetical order, i.e. to "ABBBCC".`;
     }
 
     let t4 = afterTime(null, 1.5, 1.0);
-    moveCameraTo(args.state, t4, new Vec3(1.3, 0, 6.7), new Vec3(281.5, 12.5, 0.4));
+    moveCameraTo(args.state, t4, new Vec3(5.450, 0.000, 7.913), new Vec3(281.500, 12.500, 0.519));
     let t6 = afterTime(null, 1.0, 0.4);
 
     if (t6.active && t6.t < 1.0) {
@@ -164,7 +167,7 @@ and sort them in alphabetical order, i.e. to "ABBBCC".`;
     {
 
         let t_firstResid = afterTime(null, 1.0, 0.5);
-        moveCameraTo(state, t_firstResid, new Vec3(-22.2, 0, -143.5), new Vec3(292.3, 26.8, 2.4));
+        moveCameraTo(state, t_firstResid, new Vec3(-23.160, 0.000, -128.380), new Vec3(292.300, 26.800, 2.400));
         let t_firstResidWalk = afterTime(null, 5.0, 0.5);
 
         let processState = processUpTo(state, t_firstResidWalk, layout.blocks[0].attnResidual);

@@ -1,12 +1,16 @@
+import { Vec3 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
-import { commentary, IWalkthroughArgs } from "./WalkthroughTools";
+import { commentary, IWalkthroughArgs, setInitialCamera } from "./WalkthroughTools";
 
 export function walkthrough05_Softmax(args: IWalkthroughArgs) {
-    let { walkthrough: wt } = args;
+    let { walkthrough: wt, state } = args;
 
     if (wt.phase !== Phase.Input_Detail_Softmax) {
         return;
     }
+
+    setInitialCamera(state, new Vec3(-24.350, 0.000, -1702.195), new Vec3(283.100, 0.600, 1.556));
+
     let c0 = commentary(wt, null, 0)`
 
 The softmax operation is used as part of self-attention, as seen in the previous section, and it

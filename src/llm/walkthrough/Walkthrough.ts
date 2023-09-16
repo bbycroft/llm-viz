@@ -69,15 +69,19 @@ export function initWalkthrough() {
     return {
         phase: SavedState.state?.phase ?? Phase.Intro_Intro,
         time: SavedState.state?.phaseTime ?? 0,
+        viewDt: 0,
         dt: 0,
         prevTime: 0,
+        prevPhase: Phase.None,
         running: false,
         speed: 1,
+        cameraInitial: null as ICameraPos | null,
         commentary: null as ICommentaryRes | null,
         times: [] as (ITimeInfo | ICommentary)[],
         phaseLength: 0,
         markDirty: () => { }, // bit of a hack to get it to WalkthroughSidebar
         phaseData: new Map<Phase, any>(),
+        phaseTransitiveData: null as any,
         phaseList: [{
             groupId: PhaseGroup.Intro,
             title: 'Introduction',
@@ -138,6 +142,7 @@ export function phaseToGroup(wt: IWalkthrough) {
 
 export function runWalkthrough(state: IProgramState, view: IRenderView) {
     let wt = state.walkthrough;
+    wt.viewDt = view.dt;
 
     if (wt.running) {
         let dtSeconds = view.dt / 1000 * wt.speed;
@@ -154,6 +159,11 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
 
     SavedState.state = { phase: wt.phase, phaseTime: wt.time, camera: state.camera };
 
+    if (wt.prevPhase !== wt.phase) {
+        wt.phaseTransitiveData = null;
+    }
+
+    wt.cameraInitial = null;
     wt.times = [];
     wt.phaseLength = 0;
 
@@ -175,6 +185,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
         walkthrough09_Output(wtArgs);
     }
 
+    wt.prevPhase = wt.phase;
     wt.prevTime = wt.time;
 }
 

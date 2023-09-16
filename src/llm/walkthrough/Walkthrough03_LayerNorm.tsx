@@ -6,7 +6,7 @@ import { lerp } from "@/src/utils/math";
 import { Dim, Vec3 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
 import { processUpTo, startProcessBefore } from "./Walkthrough00_Intro";
-import { commentary, DimStyle, IWalkthroughArgs, moveCameraTo } from "./WalkthroughTools";
+import { commentary, DimStyle, IWalkthroughArgs, moveCameraTo, setInitialCamera } from "./WalkthroughTools";
 
 export function walkthrough03_LayerNorm(args: IWalkthroughArgs) {
     let { walkthrough: wt, layout, state, tools: { afterTime, c_str, breakAfter, cleanup } } = args;
@@ -15,6 +15,9 @@ export function walkthrough03_LayerNorm(args: IWalkthroughArgs) {
     if (wt.phase !== Phase.Input_Detail_LayerNorm) {
         return;
     }
+
+    setInitialCamera(state, new Vec3(-6.680, 0.000, -65.256), new Vec3(281.000, 9.000, 2.576));
+
     commentary(wt, null, 0)`
 
 The  ${c_str('_input embedding_', 0, DimStyle.Intermediates)} matrix from the previous section is the input to our first Transformer block.

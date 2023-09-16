@@ -1,14 +1,18 @@
+import { Vec3 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
-import { commentary, IWalkthroughArgs } from "./WalkthroughTools";
+import { commentary, IWalkthroughArgs, setInitialCamera } from "./WalkthroughTools";
 
 export function walkthrough08_Transformer(args: IWalkthroughArgs) {
-    let { walkthrough: wt } = args;
+    let { walkthrough: wt, state } = args;
 
     if (wt.phase !== Phase.Input_Detail_Transformer) {
         return;
     }
+
+    setInitialCamera(state, new Vec3(-135.531, 0.000, -353.905), new Vec3(291.100, 13.600, 5.706));
+
     let c0 = commentary(wt, null, 0)`
-        
+
 And that's a complete transformer block!
 
 These form the bulk of any GPT model and are repeated a number of times, with the output of one

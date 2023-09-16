@@ -1,7 +1,8 @@
 import React from 'react';
 import { Phase } from "./Walkthrough";
-import { commentary, embed, IWalkthroughArgs } from "./WalkthroughTools";
+import { commentary, embed, IWalkthroughArgs, setInitialCamera } from "./WalkthroughTools";
 import s from './Walkthrough.module.scss';
+import { Vec3 } from '@/src/utils/vector';
 
 let minGptLink = 'https://github.com/karpathy/minGPT';
 let pytorchLink = 'https://pytorch.org/';
@@ -9,11 +10,13 @@ let andrejLink = 'https://karpathy.ai/';
 let zeroToHeroLink = 'https://karpathy.ai/zero-to-hero.html';
 
 export function walkthrough01_Prelim(args: IWalkthroughArgs) {
-    let { walkthrough: wt } = args;
+    let { state, walkthrough: wt } = args;
 
     if (wt.phase !== Phase.Intro_Prelim) {
         return;
     }
+
+    setInitialCamera(state, new Vec3(184.744, 0.000, -636.820), new Vec3(296.000, 16.000, 13.500));
 
     let c0 = commentary(wt, null, 0)`
 Before we delve into the algorithm's intricacies, let's take a brief step back.

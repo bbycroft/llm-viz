@@ -1,12 +1,16 @@
+import { Vec3 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
-import { commentary, IWalkthroughArgs } from "./WalkthroughTools";
+import { commentary, IWalkthroughArgs, setInitialCamera } from "./WalkthroughTools";
 
 export function walkthrough07_Mlp(args: IWalkthroughArgs) {
-    let { walkthrough: wt } = args;
+    let { walkthrough: wt, state } = args;
 
     if (wt.phase !== Phase.Input_Detail_Mlp) {
         return;
     }
+
+    setInitialCamera(state, new Vec3(-154.755, 0.000, -460.042), new Vec3(289.100, -8.900, 2.298));
+
     let c0 = commentary(wt, null, 0)`
 
 The next half of the transformer block, after the self-attention, is the MLP (multi-layer
@@ -23,7 +27,7 @@ In the MLP, we put each of our column vectors (independently) through:
 It's also common to refer to this as a "feed-forward" network, since the data flows through it in a
 single direction.
 
-The output of the MLP is then added to the input of the MLP, continuing the residual pathway. 
+The output of the MLP is then added to the input of the MLP, continuing the residual pathway.
 `;
 
 }

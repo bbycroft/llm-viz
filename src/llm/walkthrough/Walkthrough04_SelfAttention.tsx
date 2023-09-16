@@ -12,7 +12,7 @@ import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
 import { processUpTo, startProcessBefore } from "./Walkthrough00_Intro";
 import { embedInline } from "./Walkthrough01_Prelim";
-import { Colors, commentary, IWalkthroughArgs, moveCameraTo } from "./WalkthroughTools";
+import { Colors, commentary, IWalkthroughArgs, moveCameraTo, setInitialCamera } from "./WalkthroughTools";
 
 export function walkthrough04_SelfAttention(args: IWalkthroughArgs) {
     let { walkthrough: wt, layout, state, tools: { afterTime, c_str, breakAfter, cleanup } } = args;
@@ -21,6 +21,9 @@ export function walkthrough04_SelfAttention(args: IWalkthroughArgs) {
     if (wt.phase !== Phase.Input_Detail_SelfAttention) {
         return;
     }
+
+    setInitialCamera(state, new Vec3(-125.258, 0.000, -178.805), new Vec3(294.000, 12.800, 2.681));
+
     commentary(wt, null, 0)`
 The self-attention layer is perhaps the heart of the Transformer and of GPT. It's the phase where the
 columns in our input embedding matrix "talk" to each other. Up until now, and in all other phases,

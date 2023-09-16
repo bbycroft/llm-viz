@@ -255,6 +255,34 @@ export interface ITimeInfo {
     isBreak?: boolean;
 }
 
+function getPhaseTransitiveData(wt: IWalkthrough) {
+    wt.phaseTransitiveData ??= {};
+    return wt.phaseTransitiveData;
+}
+
+export function setInitialCamera(state: IProgramState, target: Vec3, rot: Vec3) {
+    let wt = state.walkthrough;
+    wt.cameraInitial = { angle: rot, center: target };
+
+    let data = getPhaseTransitiveData(wt);
+
+    if (wt.time === 0) {
+        data.cameraSrc ??= { angle: state.camera.angle, center: state.camera.center };
+        data.cameraT ??= 0;
+
+        if (data.cameraT < 1) {
+            let src = data.cameraSrc;
+            let dest = wt.cameraInitial;
+            let t = data.cameraT;
+            state.camera.angle = src.angle.lerp(dest.angle, t);
+            state.camera.center = src.center.lerp(dest.center, t);
+
+            data.cameraT = t + wt.viewDt / 1000 * 1.5;
+            wt.markDirty();
+        }
+    }
+}
+
 export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3, rot: Vec3) {
 
     let wt = state.walkthrough;
@@ -271,7 +299,7 @@ export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3
     let camData = phaseData.cameraData.get(time.start);
     if (!camData) {
          phaseData.cameraData.set(time.start, camData = {
-            initialCaptured: prevTime ? undefined : {
+            initialCaptured: prevTime ? undefined : wt.cameraInitial ?? {
                 angle: state.camera.angle,
                 center: state.camera.center,
             },
@@ -294,14 +322,17 @@ export function moveCameraTo(state: IProgramState, time: ITimeInfo, target: Vec3
     //     };
     // }
 
-    let src = prevTime?.target ?? camData.initialCaptured;
+    let src = prevTime?.target ?? wt.cameraInitial ?? camData.initialCaptured;
 
     let dest: ICameraPos = {
         center: target,
         angle: rot,
     };
 
-    if (src && (wt.running || wt.time !== wt.prevTime) && time.active && (time.t < 1.0 || (wt.time - wt.dt < time.start + time.duration && wt.time >= time.start + time.duration))) {
+    let isMoving = wt.running || wt.time !== wt.prevTime;
+    let prevWasActive = wt.prevTime >= time.start && wt.prevTime <= time.start + time.duration;
+
+    if (src && isMoving && (time.active || prevWasActive)) {
         let t = time.t;
         state.camera.angle = src.angle.lerp(dest.angle, t);
         state.camera.center = src.center.lerp(dest.center, t);

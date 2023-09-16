@@ -39,6 +39,24 @@ export function LayerView() {
     let layout = useScreenLayout();
     let keyboardManager = useContext(KeyboardManagerContext);
 
+    function handleCopyCamera(ev: React.MouseEvent) {
+        let camera = canvasRender?.progState.camera;
+        if (!camera) {
+            return;
+        }
+
+        let vecToString = (vec: Vec3) => `new Vec3(${vec.x.toFixed(3)}, ${vec.y.toFixed(3)}, ${vec.z.toFixed(3)})`;
+
+        let cameraStr = `${vecToString(camera.center)}, ${vecToString(camera.angle)}`;
+
+        let el = document.createElement('textarea');
+        el.value = cameraStr;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+    }
+
     useGlobalKeyboard(KeyboardOrder.MainPage, (ev: KeyboardEvent) => {
         if (!canvasRender?.progState) {
             return;
@@ -184,6 +202,11 @@ export function LayerView() {
                 {/* <MovementControls /> */}
             </CanvasEventSurface>
             <WelcomePopup />
+            <div className="absolute bottom-0 right-0 m-5 bg-white rounded border">
+                <button className='hover:bg-blue-400' onClick={handleCopyCamera}>
+                    Copy Camera
+                </button>
+            </div>
         </ProgramStateContext.Provider>}
     </div>;
 
