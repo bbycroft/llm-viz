@@ -47,8 +47,7 @@
     "eslintConfig": {
         "extends": [
             "next",
-            "plugin:react/recommended",
-            "plugin:react-hooks/recommended"
+            "plugin:react/recommended"
         ],
         "rules": {
             "react/prop-types": "off",

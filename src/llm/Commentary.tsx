@@ -126,7 +126,7 @@ export const Commentary: React.FC = () => {
             }
         }
         return { prevBreak, nextBreak };
-    }, [wt.times, wt.time, nodes]);
+    }, [wt.time, nodes]);
 
     interface IGuideLayout {
         width: number;
