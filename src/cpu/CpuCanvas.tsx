@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
-import { Vec3 } from "../utils/vector";
+import { BoundingBox3d, Vec3 } from "../utils/vector";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart } from "../utils/pointer";
@@ -28,7 +28,7 @@ interface ICanvasDragState {
     modelPos: Vec3;
 }
 
-export function constructEditSnapshot(): IEditSnapshot {
+function constructEditSnapshot(): IEditSnapshot {
     return {
         selected: [],
 
@@ -42,6 +42,7 @@ export function constructEditSnapshot(): IEditSnapshot {
     };
 }
 
+
 export const CpuCanvas: React.FC = () => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
     let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
@@ -50,8 +51,10 @@ export const CpuCanvas: React.FC = () => {
         let compLibrary = buildCompLibrary();
         let schematicLibrary = new SchematicLibrary();
 
+        let editSnapshot = constructEditSnapshot();
+
         return {
-            snapshot: wiresFromLsState(constructEditSnapshot(), lsState, compLibrary),
+            snapshot: editSnapshot, // wiresFromLsState(constructEditSnapshot(), lsState, compLibrary),
             snapshotTemp: null,
             mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
             compLibrary,
@@ -72,16 +75,68 @@ export const CpuCanvas: React.FC = () => {
 
     let [isClient, setIsClient] = useState(false);
 
+    let initialLoad = useRef(true);
+    useEffect(() => {
+        if (initialLoad.current) {
+            initialLoad.current = false;
+            setEditorState(a => assignImm(a, {
+                snapshot: wiresFromLsState(a.snapshot, lsState, a.compLibrary),
+            }));
+
+        }
+    }, [lsState]);
+
+    let initialCanvasLoad = useRef(true);
+    useEffect(() => {
+        if (cvsState && initialCanvasLoad.current) {
+            initialCanvasLoad.current = false;
+            let w = cvsState.canvas.width;
+            let h = cvsState.canvas.height;
+            setEditorState(a => {
+                // goal: zoom-extent so the canvas fits the entire schematic
+
+                let bb = new BoundingBox3d();
+                for (let comp of a.snapshot.comps) {
+                    bb.addInPlace(comp.pos);
+                    bb.addInPlace(comp.pos.add(comp.size));
+                }
+                for (let wire of a.snapshot.wires) {
+                    for (let node of wire.nodes) {
+                        bb.addInPlace(node.pos);
+                    }
+                }
+
+                bb.expandInPlace(bb.size().mul(0.2).len());
+
+                // tl of view is 0,0
+                // br of view is w,h
+
+                // tl of schematic is bb.min
+                // br of schematic is bb.max
+
+                let mtx = AffineMat2d.multiply(
+                    AffineMat2d.translateVec(new Vec3(w / 2 + 200, h / 2)),
+                    AffineMat2d.scale1(Math.min(w / bb.size().x, h / bb.size().y)),
+                    AffineMat2d.translateVec(bb.center().mul(-1)),
+                );
+
+                return assignImm(a, { mtx });
+            });
+        }
+    }, [cvsState]);
+
     useEffect(() => {
         // setCtrlDown(false);
         let compLibrary = buildCompLibrary();
         editorState.schematicLibrary.populateSchematicLibrary(compLibrary);
-        setEditorState(a => assignImm(a, {
-            compLibrary,
-            snapshot: assignImm(a.snapshot, {
-                comps: compLibrary.updateAllCompsFromDefs(a.snapshot.comps),
-            }),
-        }));
+        setEditorState(a => {
+            return assignImm(a, {
+                compLibrary,
+                snapshot: assignImm(a.snapshot, {
+                    comps: compLibrary.updateAllCompsFromDefs(a.snapshot.comps),
+                }),
+            });
+        });
         setIsClient(true);
     }, [editorState.schematicLibrary]);
 

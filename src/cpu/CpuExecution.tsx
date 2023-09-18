@@ -523,7 +523,7 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
         for (let phase of comp.phases) {
             for (let portIdx of [...phase.readPortIdxs, ...phase.writePortIdxs]) {
                 let port = comp.ports[portIdx];
-                port.dataUsed = port.ioEnabled;
+                port.dataUsed = hasFlag(port.type, PortType.Ctrl) || port.ioEnabled;
             }
         }
     }
@@ -558,13 +558,18 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
                 // console.log('marking ports as unused', comp.comp.defId, step.phaseIdx, writePorts, ' => ', readPorts);
                 for (let portIdx of phase.readPortIdxs) {
                     let port = comp.ports[portIdx];
-                    port.dataUsed = false;
+                    if (!hasFlag(port.type, PortType.Ctrl)) {
+                        port.dataUsed = false;
+                    }
                 }
             }
 
 
         } else if (step.netIdx !== -1) {
             let net = exeSystem.nets[step.netIdx];
+            if (hasFlag(net.type, PortType.Ctrl)) {
+                continue;
+            }
             let allOutputsUnused = true;
             for (let portRef of net.inputs) {
                 if (portRef.exePort.dataUsed) {

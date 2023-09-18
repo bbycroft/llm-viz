@@ -259,6 +259,17 @@ export class BoundingBox3d {
             this.max.y >= b.min.y && this.min.y <= b.max.y &&
             this.max.z >= b.min.z && this.min.z <= b.max.z;
     }
+
+    expandInPlace(border: number) {
+        if (!this.empty) {
+            this.min.x -= border;
+            this.min.y -= border;
+            this.min.z -= border;
+            this.max.x += border;
+            this.max.y += border;
+            this.max.z += border;
+        }
+    }
 }
 
 // static functions that operate on Float32Arrays (or Float64Arrays)

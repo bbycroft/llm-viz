@@ -34,7 +34,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         name: "RISCV Registers",
         size: new Vec3(w, 66),
         ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortType.In, width: 3 * 6 },
+            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortType.In | PortType.Ctrl, width: 3 * 6 },
             { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortType.In, width: 32 },
             { id: 'outA', name: 'A', pos: new Vec3(w, 3), type: PortType.Out, width: 32 },
             { id: 'outB', name: 'B', pos: new Vec3(w, 6), type: PortType.Out, width: 32 },

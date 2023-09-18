@@ -28,7 +28,7 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'lhs', name: 'LHS', pos: new Vec3(3, 0), type: PortType.In, width: 32 },
             { id: 'rhs', name: 'RHS', pos: new Vec3(13, 0), type: PortType.In, width: 32 },
 
-            { id: 'branch', name: 'Branch', pos: new Vec3(4, 12), type: PortType.Out | PortType.Ctrl, width: 1 },
+            { id: 'branch', name: 'Branch', pos: new Vec3(4, 12), type: PortType.Out, width: 1 },
             { id: 'result', name: 'Result', pos: new Vec3(8, 12), type: PortType.OutTri, width: 32 },
         ],
         build: (builder) => {
