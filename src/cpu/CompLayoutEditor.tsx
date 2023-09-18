@@ -139,7 +139,10 @@ export const CompLayoutEditor: React.FC<{
         <div className='bg-gray-100 flex-1 border-y relative'>
             <canvas className='absolute w-full h-full' ref={setCanvasEl} />
         </div>
-        <div className='h-[12rem]'>
+        <div className='x-compListViewport h-[12rem] overflow-y-auto'>
+            <div className='x-compListBody bg-gray-100 flex-1 border-y'>
+
+            </div>
         </div>
 
     </div>;

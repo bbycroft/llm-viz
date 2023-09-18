@@ -22,12 +22,9 @@ export const CPUMain = () => {
 //         });
 //    }, []);
 
-    return <>
-        <div className={s.content}>
-            <CpuCanvas />
-        </div>
-        <div id="portal-container" />
-    </>;
+    return <div className={s.content}>
+        <CpuCanvas />
+    </div>;
 };
 
 /* Err, what am I doing?
