@@ -110,9 +110,9 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
     let gpt2ShapeLarge: IModelShape = {
         B: 1,
         T: 1024,
-        C: 768,
-        nHeads: 12,
-        A: 768 / 12,
+        C: 1600,
+        nHeads: 25,
+        A: 1600 / 25,
         nBlocks: 48,
         vocabSize: 50257,
     };
