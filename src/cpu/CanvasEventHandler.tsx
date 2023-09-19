@@ -9,6 +9,8 @@ import { editLayout, useEditorContext } from './Editor';
 import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString, wireUnlinkNodes, repackGraphIds } from './Wire';
 import s from './CpuCanvas.module.scss';
 import { multiSortStableAsc } from '../utils/array';
+import { FullscreenOverlay } from '../utils/Portal';
+import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 
 export const CanvasEventHandler: React.FC<{
     cvsState: ICanvasState,
@@ -545,6 +547,11 @@ export const CanvasEventHandler: React.FC<{
         }
     }
 
+    let dragCursor: string | undefined;
+    if (dragStart && !dragStart.data.hovered) {
+        dragCursor = 'cursor-grabbing';
+    }
+
     function snapToGrid(pt: Vec3) {
         return pt.round();
     }
@@ -576,6 +583,7 @@ export const CanvasEventHandler: React.FC<{
         onContextMenu={ev => ev.preventDefault()}
         style={{ cursor }}>
         {children}
+        {dragCursor && <CursorDragOverlay className={dragCursor} />}
     </div>;
 });
 

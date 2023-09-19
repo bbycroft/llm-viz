@@ -5,7 +5,7 @@ import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart } from "../utils/pointer";
 import { assignImm, getOrAddToMap, isNil, isNotNil } from "../utils/data";
-import { EditorContext, IEditorContext } from "./Editor";
+import { EditorContext, IEditorContext, IViewLayoutContext, ViewLayoutContext } from "./Editor";
 import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IEditSnapshot, IExeSystem, ICompRenderArgs } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
@@ -21,6 +21,8 @@ import { SchematicLibraryView } from "./schematics/SchematicLIibraryView";
 import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
+import { palette } from "./palette";
+import { drawGrid } from "./CanvasRenderHelpers";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -195,10 +197,11 @@ export const CpuCanvas: React.FC = () => {
         cvsState.size.y = h;
         cvsState.scale = 1.0 / editorState.mtx.a;
         cvsState.mtx = editorState.mtx;
+        let pr = window.devicePixelRatio;
 
         ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        ctx.scale(pr, pr);
 
         ctx.transform(...editorState.mtx.toTransformParams());
         ctx.save();
@@ -236,69 +239,44 @@ export const CpuCanvas: React.FC = () => {
         </React.Fragment>;
     });
 
+    let viewLayout = useMemo<IViewLayoutContext>(() => {
+        return { el: cvsState?.canvas ?? null!, mtx: editorState.mtx };
+    }, [cvsState, editorState.mtx]);
+
     return <EditorContext.Provider value={ctx}>
-        <div className={s.canvasWrap}>
-            <canvas className={s.canvas} ref={setCanvasEl} />
-            {cvsState && <CanvasEventHandler cvsState={cvsState}>
-                <div className={s.compDomElements}>
-                    <div className={s.compDomElementsInner} style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
-                        {compDivs}
+        <ViewLayoutContext.Provider value={viewLayout}>
+            <div className={s.canvasWrap}>
+                <canvas className={s.canvas} ref={setCanvasEl} />
+                {cvsState && <CanvasEventHandler cvsState={cvsState}>
+                    <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
+                        <div
+                            className={"absolute origin-top-left"}
+                            style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
+                            {compDivs}
+                        </div>
+                        {editorState.transparentComps && <div className={s.compDomEventMask} />}
                     </div>
-                    {editorState.transparentComps && <div className={s.compDomEventMask} />}
+                </CanvasEventHandler>}
+                <div className={s.toolsLeftTop}>
+                    <CpuEditorToolbar />
+                    <CompLibraryView />
+                    <CompExampleView />
+                    <SchematicLibraryView />
+                    {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
                 </div>
-            </CanvasEventHandler>}
-            <div className={s.toolsLeftTop}>
-                <CpuEditorToolbar />
-                <CompLibraryView />
-                <CompExampleView />
-                <SchematicLibraryView />
-                {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
+                <div className="cls_toolsTopRight absolute top-0 right-0">
+                    <CompLayoutToolbar />
+                </div>
+                {editorState.compLibraryVisible && <LibraryBrowser />}
             </div>
-            <div className="cls_toolsTopRight absolute top-0 right-0">
-                <CompLayoutToolbar />
-            </div>
-            {editorState.compLibraryVisible && <LibraryBrowser />}
-        </div>
+        </ViewLayoutContext.Provider>
     </EditorContext.Provider>;
 };
 
 function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: IEditSnapshot, exeSystem: IExeSystem) {
     let ctx = cvs.ctx;
 
-    let tl = editorState.mtx.mulVec3Inv(new Vec3(0, 0));
-    let br = editorState.mtx.mulVec3Inv(cvs.size);
-
-    // draw grid
-
-    // we create a tile canvas for the 1-cell grid. We'll draw it such that ??
-    let gridCvs = getOrAddToMap(cvs.tileCanvases, 'grid1', () => document.createElement('canvas')!);
-    let gridSize = 64;
-    gridCvs.width = gridSize;
-    gridCvs.height = gridSize;
-    let gridCtx = gridCvs.getContext('2d')!;
-    gridCtx.save();
-    gridCtx.clearRect(0, 0, gridCvs.width, gridCvs.height);
-    gridCtx.beginPath();
-    let r = 2.0;
-    gridCtx.moveTo(gridSize/2, gridSize/2);
-    gridCtx.arc(gridSize/2, gridSize/2, r, 0, 2 * Math.PI);
-    gridCtx.fillStyle = "#aaa";
-    gridCtx.fill();
-    gridCtx.restore();
-
-    let gridPattern = ctx.createPattern(gridCvs, 'repeat')!;
-    function drawGridAtScale(scale: number) {
-        ctx.save();
-        ctx.fillStyle = gridPattern;
-        let scaleFactor = 1 / gridSize * scale;
-        ctx.translate(0.5, 0.5);
-        ctx.scale(scaleFactor, scaleFactor);
-        let tl2 = tl.sub(new Vec3(0.5, 0.5)).mul(1 / scaleFactor);
-        let br2 = br.sub(new Vec3(0.5, 0.5)).mul(1 / scaleFactor);
-        ctx.fillRect(tl2.x, tl2.y, br2.x - tl2.x, br2.y - tl2.y);
-        ctx.restore();
-    }
-    drawGridAtScale(1);
+    drawGrid(editorState.mtx, ctx, cvs);
 
     for (let wire of layout.wires) {
         let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(wire.id) ?? -1];
@@ -323,7 +301,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: IEditSn
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === comp.id;
 
         let isValidExe = !!exeComp;
-        ctx.fillStyle = isValidExe ? "#8a8" : "#aaa";
+        ctx.fillStyle = isValidExe ? palette.compBg : "#aaa";
         ctx.strokeStyle = isHover ? "#a00" : "#000";
         ctx.lineWidth = 1 * cvs.scale;
 

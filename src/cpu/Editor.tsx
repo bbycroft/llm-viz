@@ -1,7 +1,8 @@
-import { createContext, useContext } from 'react';
-import { assignImm, StateSetter } from '../utils/data';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { assignImm, StateSetter, Subscriptions } from '../utils/data';
 import { IComp, IEditSnapshot, IEditorState, IExeSystem } from './CpuModel';
 import { updateWiresForComp } from './Wire';
+import { AffineMat2d } from '../utils/AffineMat2d';
 
 export enum PortHandling {
     Detach, // e.g. for rotating a component, the wire will need to be manually re-attached
@@ -61,6 +62,13 @@ export function editLayout(end: boolean, updateLayout: (element: IEditSnapshot, 
     };
 }
 
+export function editLayoutDirect(updateLayout: (element: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
+    return (state: IEditorState) => {
+        let changed = updateLayout(state.snapshot, state);
+        return assignImm(state, { snapshot: changed, snapshotTemp: null });
+    };
+}
+
 export function undoAction(state: IEditorState) {
     if (state.undoStack.length === 0) {
         return state;
@@ -99,4 +107,101 @@ export function useEditorContext() {
         throw new Error('EditorContext not found');
     }
     return ctx;
+}
+
+export interface IViewLayoutContext {
+    el: HTMLElement;
+    mtx: AffineMat2d;
+}
+
+export const ViewLayoutContext = createContext<IViewLayoutContext>(null!);
+
+export function useViewLayout() {
+    return useContext(ViewLayoutContext);
+}
+
+export class MyStore<T> {
+    subs: Subscriptions = new Subscriptions();
+    constructor(public value: T) {
+    }
+    setValue(value: T) {
+        this.value = value;
+        this.subs.notify();
+    }
+}
+
+export const MyStoreContext = createContext<MyStore<IEditorState>>(new MyStore<IEditorState>(null!));
+
+type ObjPartial<T> = {
+    [P in keyof T]?: T[P] | ObjPartial<T[P]>;
+};
+
+type ObjSubSplit<T> = {
+    [P in keyof T]?: ObjPartial<T[P]> | true;
+};
+
+function makeProxyObject<T extends Record<string, any>>(val: T, usages: ObjPartial<T>, subSplits: ObjSubSplit<T> | true): T {
+    let proxy = new Proxy(val, {
+        get: (target, prop: string) => {
+            let key = prop as keyof T;
+
+            if (subSplits !== true) {
+                let subSplit = subSplits[key];
+                if (subSplit) {
+
+                    let subUsage = usages[key];
+                    if (!subUsage) {
+                        subUsage = usages[key] = {};
+                    }
+
+                    return makeProxyObject(target[key], subSplit, subUsage as ObjPartial<any>);
+                }
+            }
+
+            let value = Reflect.get(target, key);
+            usages[key] = value;
+
+            return value;
+        }
+    });
+
+    return proxy;
+}
+
+function areEqual<T extends Record<string, any>>(obj: T, usages: ObjPartial<T>, subSplits: ObjSubSplit<T> | true): boolean {
+    if (subSplits !== true) {
+        for (let prop of Object.keys(usages)) {
+            let key = prop as keyof T;
+            let subSplit = subSplits[key];
+
+            if (subSplit) {
+                if (!areEqual(obj[key], usages[key]!, subSplit)) {
+                    return false;
+                }
+            } else if (obj[key] !== usages[key]) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+export function useHighPerfEditorContext() {
+    let storeCtx = useContext(MyStoreContext);
+    let visitedItemsRef = useRef<ObjPartial<IEditorState>>({});
+    let [srcValue, setSrcValue] = useState(storeCtx.value);
+
+    let subSplits = useMemo<ObjSubSplit<IEditorState>>(() => ({ }), []);
+
+    useEffect(() => {
+        function updateFn() {
+            if (!areEqual(storeCtx.value, visitedItemsRef.current, subSplits)) {
+                setSrcValue(storeCtx.value);
+            }
+        }
+        return storeCtx.subs.subscribe(updateFn);
+    }, [storeCtx, subSplits]);
+
+    visitedItemsRef.current = {};
+    return makeProxyObject(srcValue, visitedItemsRef.current, subSplits);
 }

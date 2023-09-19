@@ -4,7 +4,7 @@ import { Header } from '@/src/homepage/Header';
 
 export const metadata = {
   title: 'CPU Simulation',
-  description: 'Exploring CPU Simulation & Display',
+  description: 'Exploring the inner workings of a CPU, with an interactive visualization.',
 };
 
 export default function Page() {

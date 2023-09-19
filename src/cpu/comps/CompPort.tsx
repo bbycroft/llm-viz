@@ -4,7 +4,7 @@ import { Vec3 } from "@/src/utils/vector";
 import { IComp, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
-import { editComp, editCompConfig, useEditorContext } from "../Editor";
+import { editComp, editCompConfig, useEditorContext, useViewLayout } from "../Editor";
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from "../displayTools/HexValueEditor";
 import { CheckboxMenuTitle, ConfigMenu, MenuRow } from "./InputOutput";
 import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
@@ -13,6 +13,8 @@ import { faEllipsis, faEllipsisVertical } from "@fortawesome/free-solid-svg-icon
 import clsx from "clsx";
 import { IPointerEvent, useCombinedMouseTouchDrag } from "@/src/utils/pointer";
 import { StringEditor } from "../displayTools/StringEditor";
+import { palette } from "../palette";
+import { CursorDragOverlay } from "@/src/utils/CursorDragOverlay";
 
 export enum PortPlacement {
     Right,
@@ -117,7 +119,8 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         render: ({ comp, ctx, cvs, exeComp }) => {
             ctx.save();
 
-            ctx.fillStyle = 'rgb(251, 146, 60)';
+            let isInput = hasFlag(comp.args.type, PortType.In);
+            ctx.fillStyle = isInput ? palette.portInputBg : palette.portOutputBg;
             ctx.beginPath();
             let p = comp.pos;
             let s = comp.size;
@@ -275,7 +278,7 @@ const PortResizer: React.FC<{
 
     return <div className="absolute origin-top-left" style={{ transform: `translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`, width: comp.size.x * scale, height: comp.size.y * scale }}>
         {[...new Array(4)].map((_, idx) => {
-            return <Gripper key={idx} gripPos={idx} size={comp.size} pos={comp.pos} onResize={handleResize} />;
+            return <Gripper key={idx} gripPos={idx} size={comp.size} pos={comp.pos} onResize={handleResize} centerY />;
         })}
     </div>;
 });
@@ -284,16 +287,17 @@ export const Gripper: React.FC<{
     gripPos: PortPlacement,
     pos: Vec3,
     size: Vec3,
+    centerY?: boolean,
     onResize: (end: boolean, pos: Vec3, size: Vec3) => void,
-}> = ({ gripPos, pos, size, onResize }) => {
-    let { editorState } = useEditorContext();
+}> = ({ gripPos, pos, size, onResize, centerY }) => {
+    let { mtx } = useViewLayout();
     let [el, setEl] = React.useState<HTMLElement | null>(null);
 
     function evToModel(ev: IPointerEvent) {
-        return editorState.mtx.mulVec3Inv(new Vec3(ev.clientX, ev.clientY));
+        return mtx.mulVec3Inv(new Vec3(ev.clientX, ev.clientY));
     }
 
-    let [, setDragStart] = useCombinedMouseTouchDrag(el, _ev => ({ size, pos }), (ev, ds, end) => {
+    let [dragStart, setDragStart] = useCombinedMouseTouchDrag(el, _ev => ({ size, pos }), (ev, ds, end) => {
         let oldPos = ds.data.pos;
         let oldSize = ds.data.size;
         let delta = evToModel(ev).sub(evToModel(ds)).round();
@@ -310,9 +314,9 @@ export const Gripper: React.FC<{
         } else if (gripPos === PortPlacement.Right) {
             onResize(end, oldPos, oldSize.add(delta));
         } else if (gripPos === PortPlacement.Top) {
-            onResize(end, oldPos.add(delta), oldSize.mulAdd(delta, -2));
+            onResize(end, oldPos.add(delta), oldSize.mulAdd(delta, centerY ? -2 : -1));
         } else {
-            onResize(end, oldPos.sub(delta), oldSize.mulAdd(delta, 2));
+            onResize(end, oldPos.mulAdd(delta, centerY ? -1 : 0), oldSize.mulAdd(delta, centerY ? 2 : 1));
         }
     });
 
@@ -323,16 +327,24 @@ export const Gripper: React.FC<{
     }
 
     let isVertical = gripPos === PortPlacement.Left || gripPos === PortPlacement.Right;
-    let className = clsx(
-        "group absolute bg-gray-200 hover:bg-gray-300 border rounded pointer-events-auto flex items-center justify-center",
+    let classNameHit = clsx(
+        "group absolute pointer-events-auto flex items-center justify-center",
         isVertical ? "cursor-ew-resize my-auto top-0 bottom-0 h-12 w-6" : "cursor-ns-resize mx-auto left-0 right-0 h-6 w-12",
-        gripPos === PortPlacement.Left && "left-[-1rem]",
-        gripPos === PortPlacement.Right && "right-[-1rem]",
-        gripPos === PortPlacement.Top && "top-[-1rem]",
-        gripPos === PortPlacement.Bottom && "bottom-[-1rem]",
+        gripPos === PortPlacement.Left && "left-0 -translate-x-1/2",
+        gripPos === PortPlacement.Right && "right-0 translate-x-1/2",
+        gripPos === PortPlacement.Top && "top-0 -translate-y-1/2",
+        gripPos === PortPlacement.Bottom && "bottom-0 translate-y-1/2",
     );
 
-    return <div className={className} ref={setEl} onMouseDown={handleMouseDown}>
-        <FontAwesomeIcon icon={isVertical ? faEllipsisVertical : faEllipsis} className="text-4xl text-white group-hover:text-gray-100" />
+    let className = clsx(
+        "bg-blue-200 hover:bg-blue-300 rounded-xs flex items-center justify-center",
+        isVertical ? "h-6 w-2" : "h-2 w-6",
+    );
+
+    return <div className={classNameHit} ref={setEl} onMouseDown={handleMouseDown}>
+        <div className={className}>
+            <FontAwesomeIcon icon={isVertical ? faEllipsisVertical : faEllipsis} className="text-md text-white group-hover:text-gray-100" />
+        </div>
+        {dragStart && <CursorDragOverlay className={isVertical ? "cursor-ew-resize" : "cursor-ns-resize"} /> }
     </div>;
 }
