@@ -273,7 +273,11 @@ const PortResizer: React.FC<{
     let scale = editorState.mtx.a;
 
     function handleResize(end: boolean, pos: Vec3, size: Vec3) {
-        setEditorState(editComp(end, comp, a => assignImm(a, { pos, args: assignImm(a.args, { w: size.x, h: size.y }), size })));
+        setEditorState(editComp(end, comp, a => assignImm(a, {
+            pos,
+            args: assignImm(a.args, { w: size.x, h: size.y }),
+            size,
+        })));
     }
 
     return <div className="absolute origin-top-left" style={{ transform: `translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`, width: comp.size.x * scale, height: comp.size.y * scale }}>
@@ -318,6 +322,8 @@ export const Gripper: React.FC<{
         } else {
             onResize(end, oldPos.mulAdd(delta, centerY ? -1 : 0), oldSize.mulAdd(delta, centerY ? 2 : 1));
         }
+        ev.stopPropagation();
+        ev.preventDefault();
     });
 
     function handleMouseDown(ev: React.MouseEvent) {
