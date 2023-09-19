@@ -5,15 +5,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCaretRight, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { Gripper, ICompPortConfig, compPortDefId } from './comps/CompPort';
 import { pluralize } from '../utils/text';
-import { assignImm, hasFlag, makeArray } from '../utils/data';
+import { assignImm, clamp, hasFlag, isNotNil, makeArray, useFunctionRef } from '../utils/data';
 import { Vec3 } from '../utils/vector';
 import { useResizeChangeHandler } from '../utils/layout';
-import { IComp, ICompPort, PortType } from './CpuModel';
+import { IComp, ICompPort, IEditSnapshot, PortType } from './CpuModel';
 import { multiSortStableAsc } from '../utils/array';
 import { paletteTw } from './palette';
 import { AffineMat2d } from '../utils/AffineMat2d';
 import { IPointerEvent, useCombinedMouseTouchDrag } from '../utils/pointer';
 import { drawGrid } from './CanvasRenderHelpers';
+import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 
 /*
 
@@ -97,12 +98,14 @@ export const CompLayoutEditor: React.FC<{
 
 }> = memo(function CompLayoutEditor({ }) {
     let { editorState, setEditorState } = useEditorContext();
+    let [canvasWrapEl, setCanvasWrapEl] = useState<HTMLDivElement | null>(null);
     let [canvaEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
     let [compPos, setCompPos] = useState(new Vec3());
+    let [dragPortIdx, setDragPortIdx] = useState<number | null>(null);
     let [, redraw] = useReducer(a => a + 1, 0);
 
     let [mtx, setMtx] = useState(() => {
-        let initScale = 16;
+        let initScale = 40;
         return new AffineMat2d(initScale, 0, 0, initScale, 1, 1);
     });
 
@@ -113,6 +116,42 @@ export const CompLayoutEditor: React.FC<{
     let cvsBitsRef = useRef({
         extraCanvases: new Map<string, HTMLCanvasElement>(),
     });
+
+    function evToModel(ev: IPointerEvent) {
+        let bcr = canvaEl!.getBoundingClientRect();
+        let ctxPos = new Vec3(ev.clientX - bcr.left, ev.clientY - bcr.top);
+        return mtx.mulVec3Inv(ctxPos);
+    }
+
+    function handleWheel(ev: WheelEvent) {
+        let scale = mtx.a;
+        let newScale = clamp(scale * Math.pow(1.0013, -ev.deltaY), 0.01, 100000) / scale;
+
+        let modelPt = evToModel(ev);
+        let newMtx = AffineMat2d.multiply(
+            mtx,
+            AffineMat2d.translateVec(modelPt),
+            AffineMat2d.scale1(newScale),
+            AffineMat2d.translateVec(modelPt.mul(-1)));
+
+        setMtx(newMtx);
+        ev.stopPropagation();
+        ev.preventDefault();
+    }
+
+    let handleWheelFuncRef = useFunctionRef(handleWheel);
+
+    useEffect(() => {
+        if (canvasWrapEl) {
+            function wheelHandler(ev: WheelEvent) {
+                handleWheelFuncRef.current(ev);
+            }
+            canvasWrapEl.addEventListener("wheel", wheelHandler, { passive: false });
+            return () => {
+                canvasWrapEl!.removeEventListener("wheel", wheelHandler);
+            };
+        }
+    }, [canvasWrapEl, handleWheelFuncRef]);
 
     useLayoutEffect(() => {
         if (!canvaEl) {
@@ -193,8 +232,6 @@ export const CompLayoutEditor: React.FC<{
 
     }, [schematicPortComps, snapshot.compPorts, snapshot.compSize, setEditorState]);
 
-    console.log(compPos);
-
     function handleCompPosChange(end: boolean, pos: Vec3) {
         setCompPos(pos);
     }
@@ -202,15 +239,23 @@ export const CompLayoutEditor: React.FC<{
     return <div className='h-[30rem] w-[20rem] bg-white flex flex-col'>
 
         <ViewLayoutContext.Provider value={{ el: canvaEl!, mtx }}>
-            <div className='bg-white flex-1 border-y relative'>
+            <div className='bg-white flex-1 border-y relative shadow-inner' ref={setCanvasWrapEl}>
                 <canvas className='absolute w-full h-full' ref={setCanvasEl} />
-                <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
-                    <div className={"absolute origin-top-left"} style={{ transform: `matrix(${mtx.toTransformParams().join(',')})` }}>
+                <div className="overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none">
+                    <div className="absolute origin-top-left" style={{ transform: `matrix(${mtx.toTransformParams().join(',')})` }}>
                         <CompBoxEditor size={snapshot.compSize} pos={compPos} setPos={handleCompPosChange} />
                         {snapshot.compPorts.map((port, i) => {
                             let portId = port.id;
                             let schematicComp = schematicPortComps.find(a => a.args.portId === portId) ?? null;
-                            return <CompPortEditor key={i} portIdx={i} compPos={compPos} schematicComp={schematicComp} port={port} />;
+                            return <CompPortEditor
+                                key={i}
+                                portIdx={i}
+                                compPos={compPos}
+                                schematicComp={schematicComp}
+                                port={port}
+                                draggingPortIdx={dragPortIdx}
+                                setDraggingPortIdx={setDragPortIdx}
+                            />;
                         })}
                     </div>
                 </div>
@@ -237,16 +282,16 @@ export const CompLayoutEditor: React.FC<{
 let pxPerUnit = 15;
 
 function *iterPorts(size: Vec3) {
-    for (let i = 0; i < size.x; i++) {
+    for (let i = 1; i < size.x; i++) {
         yield new Vec3(i, 0);
     }
-    for (let i = 0; i < size.y; i++) {
+    for (let i = 1; i < size.y; i++) {
         yield new Vec3(size.x, i);
     }
-    for (let i = size.x - 1; i >= 0; i--) {
+    for (let i = size.x - 1; i >= 1; i--) {
         yield new Vec3(i, size.y);
     }
-    for (let i = size.y - 1; i >= 0; i--) {
+    for (let i = size.y - 1; i >= 1; i--) {
         yield new Vec3(0, i);
     }
 }
@@ -275,17 +320,15 @@ export const CompBoxEditor: React.FC<{
 
     let [dragStart, setDragStart] = useCombinedMouseTouchDrag(boxEl, () => pos, function handleDrag(ev, ds, end) {
         let delta = evToModel(ev).sub(evToModel(ds));
-        setPos(end, ds.data.add(delta));
+        setPos(end, ds.data.add(delta).round());
     });
 
     let zoom = mtx.a;
 
-    console.log('pos:', pos, 'size:', size, 'zoom:', zoom);
-
     return <>
         <div ref={setBoxEl} className={clsx('x_compRect absolute pointer-events-auto border border-black rounded origin-top-left cursor-move', paletteTw.compBg)}
             // style={{ left: pos.x, top: pos.y, width: size.x + 'px', height: size.y + 'px', borderWidth: 1/pxPerUnit }} //, transform: `scale(${1/pxPerUnit})` }}>
-            style={{ left: pos.x, top: pos.y, width: size.x * zoom, height: size.y * zoom, transform: `scale(${1/zoom})` }}
+            style={{ width: size.x * zoom, height: size.y * zoom, transform: `translate(${pos.x}px, ${pos.y}px) scale(${1/zoom})` }}
             onMouseDown={setDragStart}
         >
             {makeArray(4).map((_, i) => {
@@ -305,7 +348,10 @@ export const CompPortEditor: React.FC<{
     compPos: Vec3;
     schematicComp: IComp<ICompPortConfig> | null;
     port: ICompPort;
-}> = memo(function CompPortEditor({ portIdx, compPos, schematicComp, port }) {
+    draggingPortIdx: number | null;
+    setDraggingPortIdx: (idx: number | null) => void;
+}> = memo(function CompPortEditor({ portIdx, compPos, schematicComp, port, draggingPortIdx, setDraggingPortIdx }) {
+    let { setEditorState } = useEditorContext();
     let { mtx, el } = useViewLayout();
     let [portEl, setPortEl] = useState<HTMLDivElement | null>(null);
 
@@ -317,20 +363,176 @@ export const CompPortEditor: React.FC<{
 
     let [dragStart, setDragStart] = useCombinedMouseTouchDrag(portEl, () => port.pos, function handleDrag(ev, ds, end) {
         let delta = evToModel(ev).sub(evToModel(ds));
-        // setPos(end, ds.data.add(delta));
+        let newPos = ds.data.add(delta);
+        setDraggingPortIdx(end ? null : portIdx);
+        setEditorState(editLayout(end, snap => {
+            return movePortToNewLocation(snap, portIdx, newPos);
+        }));
     });
 
+    let isInput = hasFlag(port.type, PortType.In);
     let pos = compPos.add(port.pos);
 
     let zoom = mtx.a;
 
     return <div
         ref={setPortEl}
-        className={clsx('x_compPortHit group absolute origin-top-left cursor-move flex items-center justify-center bg-red-400 bg-opacity-25')}
-        style={{ left: pos.x, top: pos.y, width: 12, height: 12, transform: `scale(${1/zoom}) translate(-50%, -50%)` }}
+        className={clsx(
+            'x_compPortHit group absolute origin-top-left cursor-crosshair flex items-center justify-center pointer-events-auto',
+            isNotNil(draggingPortIdx) && 'transition-transform',
+        )}
+        style={{ width: 12, height: 12, transform: `translate(${pos.x}px, ${pos.y}px) scale(${1/zoom}) translate(-50%, -50%)` }}
         onMouseDown={setDragStart}
     >
-        <div className={clsx('x_compPort absolute rounded-[5px] w-[10px] h-[10px] bg-slate-700 group-hover:bg-slate-900')} />
+        <div
+            className={clsx(
+                'x_compPort absolute rounded-[5px] w-[10px] h-[10px] group-hover:shadow border border-black',
+                isInput && 'bg-teal-400',
+                !isInput && 'bg-orange-400',
+            )}
+        />
+        {dragStart && <CursorDragOverlay className='cursor-crosshair' />}
     </div>;
 
 });
+
+function movePortToNewLocation(snap: IEditSnapshot, portIdx: number, newPos: Vec3): IEditSnapshot {
+
+    let compSize = snap.compSize;
+    // note that newPos is not rounded, and will need to be in this function
+
+    // need to a) find the nearest edge position, and b) try to fit it into that edge
+    // slots along an edge of length 4 are at positions 1, 2, 3, i.e excluding 0 and 4
+
+    let xMin = 0.55;
+    let xMax = compSize.x - 0.55;
+
+    let yMin = 0.55;
+    let yMax = compSize.y - 0.55;
+
+    let bestEdge = 0;
+    let bestPos: Vec3 | null = null;
+    let bestDist = 0;
+
+    for (let edge of [0, 1, 2, 3]) {
+        let pos: Vec3;
+        if (edge === 0) { // top
+            pos = new Vec3(clamp(newPos.x, xMin, xMax), 0);
+        } else if (edge === 1) { // right
+            pos = new Vec3(compSize.x, clamp(newPos.y, yMin, yMax));
+        } else if (edge === 2) { // bottom
+            pos = new Vec3(clamp(newPos.x, xMin, xMax), compSize.y);
+        } else { // left
+            pos = new Vec3(0, clamp(newPos.y, yMin, yMax));
+        }
+
+        let dist = pos.dist(newPos);
+        if (!bestPos || dist < bestDist) {
+            bestPos = pos;
+            bestEdge = edge;
+            bestDist = dist;
+        }
+    }
+
+    if (!bestPos) {
+        return snap;
+    }
+
+    let fixedXPos = bestEdge === 1 || bestEdge === 3; // right or left
+    let comparePos = bestEdge === 1 || bestEdge === 2 ? compSize : new Vec3(0, 0);
+
+    let edgeLen = fixedXPos ? compSize.y : compSize.x;
+
+    let portsOnEdge = snap.compPorts
+        .map((a, i) => ({
+            srcIdx: i,
+            pos: a.pos,
+            linePos: fixedXPos ? a.pos.y : a.pos.x,
+        }))
+        .filter(a => a.srcIdx !== portIdx)
+        .filter(a => fixedXPos ? a.pos.x === comparePos.x : a.pos.y === comparePos.y);
+
+    portsOnEdge = multiSortStableAsc(portsOnEdge, [a => a.linePos]);
+
+    if (portsOnEdge.length >= edgeLen - 1) {
+        // no room for this port
+        return snap;
+    }
+
+    function tryMovePorts(startIdx: number, delta: number): number[] | null {
+        if (startIdx < 0 || startIdx >= portsOnEdge.length) {
+            return null;
+        }
+
+        // we'll insert at startIdx, and shift all ports after that by delta
+        // if there's no room, we'll return false
+        let deltas: number[] = portsOnEdge.map(() => 0);
+
+        let prevPos = portsOnEdge[startIdx].linePos; // the position we need to move out from
+        for (let i = startIdx; i >= 0 && i < portsOnEdge.length; i += delta) {
+            let port = portsOnEdge[i];
+            if (port.linePos !== prevPos) { // no need to move this port
+                break;
+            }
+            deltas[i] = delta;
+            let movedPos = port.linePos + delta;
+            if (movedPos < 1 || movedPos > edgeLen - 1) {
+                return null;
+            }
+            prevPos = movedPos;
+        }
+
+        return deltas;
+    }
+
+    let insertPos = fixedXPos ? bestPos.y : bestPos.x;
+
+    let insertPosRounded = Math.round(insertPos);
+    let matchIdx = portsOnEdge.findIndex(a => a.linePos === insertPosRounded);
+
+    let newPorts = [...snap.compPorts];
+
+    if (matchIdx >= 0) {
+        // need to shift ports on the edge to make room for the new port
+        // may need to shift either left or right, but the bestPos determines the order
+        let matchPos = portsOnEdge[matchIdx].linePos;
+        let deltas: number[] | null = null;
+        if (true) {
+            deltas = tryMovePorts(matchIdx, 1);
+            if (!deltas) {
+                deltas = tryMovePorts(matchIdx, -1);
+                insertPosRounded -= 1;
+            }
+        } else {
+            // this else case doesn't work that well, since it induces a bit of flickering when
+            // dragging around (the if condition is whether we're on the left or right of the nearest port).
+            deltas = tryMovePorts(matchIdx, -1);
+            if (!deltas) {
+                deltas = tryMovePorts(matchIdx, 1);
+                insertPosRounded += 1;
+            }
+        }
+
+        if (!deltas) {
+            return snap;
+        }
+
+        // bestPos = bestPos.withSetAt(fixedXPos ? 1 : 0, insertPosRounded);
+
+        for (let i = 0; i < portsOnEdge.length; i++) {
+            let edgePort = portsOnEdge[i];
+            let delta = deltas[i];
+            if (delta !== 0) {
+                let port = newPorts[edgePort.srcIdx];
+                newPorts[edgePort.srcIdx] = assignImm(port, {
+                    pos: port.pos.withAddAt(fixedXPos ? 1 : 0, delta),
+                });
+            }
+        }
+    }
+
+
+    newPorts[portIdx] = assignImm(newPorts[portIdx], { pos: bestPos.round() });
+
+    return assignImm(snap, { compPorts: newPorts });
+}
