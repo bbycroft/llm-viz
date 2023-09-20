@@ -1,6 +1,6 @@
 import { blockDimension, dimProps, findSubBlocks, splitGrid, splitGridForHighlight } from "./Annotations";
-import { drawDataFlow } from "./components/DataFlow";
-import { IBlkCellDep, IBlkDef } from "./GptModelLayout";
+import { drawDataFlow, getBlockValueAtIdx } from "./components/DataFlow";
+import { BlKDepSpecial, IBlkCellDep, IBlkDef } from "./GptModelLayout";
 import { IProgramState } from "./Program";
 import { clamp, isNotNil } from "@/src/utils/data";
 import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
@@ -180,6 +180,12 @@ export function drawDependences(state: IProgramState, blk: IBlkDef, idx: Vec3) {
 
     function drawDep(dep: IBlkCellDep, destIdx: Vec3, dotLen?: number | null) {
         let { srcIdx, dotDim, otherDim, isDot } = getDepSrcIdx(dep, destIdx);
+
+        if (blk.deps?.special === BlKDepSpecial.InputEmbed && dep.src === state.layout.tokEmbedObj) {
+            let tokenIdx = getBlockValueAtIdx(state.layout.idxObj, new Vec3(destIdx.x, 0, destIdx.z));
+            isDot = false;
+            srcIdx.setAt(Dim.X, tokenIdx ?? 0);
+        }
 
         if (isDot) {
             if (dep.src.deps?.lowerTri) {

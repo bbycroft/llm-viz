@@ -1,6 +1,6 @@
 import { text } from "stream/consumers";
 import { dimProps, TextAlignHoriz } from "../Annotations";
-import { BlKDepSpecial, cellPosition, IBlkCellDep, IBlkDef } from "../GptModelLayout";
+import { BlKDepSpecial, BlkSpecial, cellPosition, IBlkCellDep, IBlkDef } from "../GptModelLayout";
 import { getDepDotLen, getDepSrcIdx } from "../Interaction";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
@@ -764,6 +764,11 @@ function drawDepArrows(args: IDataFlowArgs, bb: BoundingBox3d) {
         if (isDot) {
             let { cx } = dimProps(dep.src, otherDim);
             srcIdx.setAt(otherDim, (dotLen ?? cx) / 2);
+        }
+
+        if (blk.deps?.special === BlKDepSpecial.InputEmbed && dep.src === args.state.layout.tokEmbedObj) {
+            let tokenIdx = getBlockValueAtIdx(state.layout.idxObj, new Vec3(destIdx.x, 0, destIdx.z));
+            srcIdx.setAt(Dim.X, tokenIdx ?? 0);
         }
 
         let srcT = dep.src.t;
