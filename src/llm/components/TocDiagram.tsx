@@ -634,7 +634,7 @@ export const MenuEntry: React.FC<{
 
     return <div
         ref={setDivRef}
-        className={clsx(s.menuEntry, active && s.active, hover && s.hover)}
+        className={clsx("cursor-pointer p-1 pl-3 " + s.menuEntry, active && "bg-blue-200", hover && "bg-blue-800 text-white")}
         onClick={handleClick}
         onMouseEnter={ev => handleHover(ev, true)}
         onMouseLeave={ev => handleHover(ev, false)}

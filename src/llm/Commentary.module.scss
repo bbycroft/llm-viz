@@ -75,6 +75,10 @@
     padding: 0 20px;
     position: relative;
     flex: 1;
+
+    p {
+        margin: 10px 0;
+    }
 }
 
 .chapterControls {
@@ -112,23 +116,6 @@
     width: 60px;
 }
 
-.continueBtn {
-    // margin: 0 16px;
-    flex: 3 0 auto;
-    min-width: 200px;
-    background-color: rgba(#8597ff, 0.6);
-    border-color: rgba(#8597ff, 0.8)
-}
-
-.advanceBtn {
-    // margin: 0 16px;
-    // flex: 1 0 auto;
-    margin-left: 16px;
-    min-width: 80px;
-    background-color: rgba(#8597ff, 0.6);
-    border-color: rgba(#8597ff, 0.8)
-}
-
 .commentaryBreak {
     display: flex;
     flex-direction: row;
@@ -151,30 +138,6 @@
     color: #8d8d8d;
     width: 20px;
     margin-right: 10px;
-}
-
-.hint {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    transform: translateY(20px);
-    pointer-events: none;
-}
-
-.hintText {
-    flex: 0 1 auto;
-    padding: 10px;
-    background-color: rgba(189, 208, 245, 0.9);
-    box-shadow: 0 0 5px 0 rgba(130, 143, 170, 0.3);
-    border-radius: 20px;
-    color: black;
-    cursor: pointer;
-    pointer-events: auto;
-    /* background-color: rgba(0, 146, 244, 0.2); */
 }
 
 .dividerLine {

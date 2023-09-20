@@ -296,6 +296,7 @@ export function splitGridAll(layout: IModelLayout, blk: IBlkDef, dim: Dim) {
 }
 
 export interface IColorMix {
+    color1?: Vec4;
     color2: Vec4;
     mixes: number[];
 }

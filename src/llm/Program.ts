@@ -59,7 +59,9 @@ export interface IMouseState {
 export interface IDisplayState {
     tokenColors: IColorMix | null;
     tokenIdxColors: IColorMix | null;
+    tokenOutputColors: IColorMix | null;
     tokenIdxModelOpacity?: number[];
+    topOutputOpacity?: number;
     lines: string[];
     hoverTarget: IHoverTarget | null;
 }
@@ -175,6 +177,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         display: {
             tokenColors: null,
             tokenIdxColors: null,
+            tokenOutputColors: null,
             lines: [],
             hoverTarget: null,
         },

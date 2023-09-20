@@ -10,6 +10,7 @@ import { Mat4f } from "@/src/utils/matrix";
 import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
 import { DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
 import { lineHeight } from "./TextLayout";
+import { IColorMix } from "../Annotations";
 
 export function drawModelCard(state: IProgramState) {
     let { render, layout } = state;
@@ -24,7 +25,7 @@ export function drawModelCard(state: IProgramState) {
 
     let thick = 1.0 / 10.0 * scale;
     let borderColor = Vec4.fromHexColor("#555599", 0.8);
-    let backgroundColor = Vec4.fromHexColor("#9999ee", 0.3);
+    let backgroundColor = Vec4.fromHexColor("#93c5fd", 0.3);
     let titleColor = Vec4.fromHexColor("#000000", 1.0);
     let n = new Vec3(0, 0, 1);
 
@@ -96,7 +97,12 @@ export function sortABCInputTokenToString(a: number) {
     return String.fromCharCode('A'.charCodeAt(0) + a); // just A, B, C supported!
 }
 
-export function renderInputBoxes(state: IProgramState, layout: IGptModelLayout, tl: Vec3, br: Vec3, cellW: number, fontSize: number, lineOpts: ILineOpts) {
+export interface IInputBoxOpts {
+    tokMixes?: IColorMix | null;
+    idxMixes?: IColorMix | null;
+}
+
+export function renderInputBoxes(state: IProgramState, layout: IGptModelLayout, tl: Vec3, br: Vec3, cellW: number, fontSize: number, lineOpts: ILineOpts, opts?: IInputBoxOpts) {
     let render = state.render;
     let { T } = layout.shape;
     let inCellH = br.y - tl.y;
@@ -121,26 +127,38 @@ export function renderInputBoxes(state: IProgramState, layout: IGptModelLayout, 
         if (tokens && i < layout.model!.inputLen) {
             let cx = tl.x + (i + 0.5) * cellW;
 
+            let tokOpts = { ...tokTextOpts, color: mixColorValues(opts?.tokMixes ?? null, tokTextOpts.color, i) };
+            let tokIdxOpts = { ...idxTextOpts, color: mixColorValues(opts?.idxMixes ?? null, idxTextOpts.color, i) };
             let tokStr = sortABCInputTokenToString(tokens[i]);
             let tokW = measureText(render.modelFontBuf, tokStr, tokTextOpts);
             let idxW = measureText(render.modelFontBuf, tokens[i].toString(), idxTextOpts);
             let totalH = tokTextOpts.size + idxTextOpts.size;
             let top = tl.y + (inCellH - totalH) / 2;
 
-            drawText(render.modelFontBuf, tokStr, cx - tokW / 2, top, tokTextOpts);
-            drawText(render.modelFontBuf, tokens[i].toString(),  cx - idxW / 2, top + tokTextOpts.size, idxTextOpts);
+            drawText(render.modelFontBuf, tokStr, cx - tokW / 2, top, tokOpts);
+            drawText(render.modelFontBuf, tokens[i].toString(),  cx - idxW / 2, top + tokTextOpts.size, tokIdxOpts);
         }
 
     }
 }
 
-export function renderOutputBoxes(state: IProgramState, layout: IGptModelLayout, tl: Vec3, br: Vec3, cellW: number, fontSize: number, lineOpts: ILineOpts) {
+export interface IOutputBoxOpts {
+    opacity?: number;
+    boldLast?: boolean;
+    tokMixes?: IColorMix | null;
+}
+
+export function renderOutputBoxes(state: IProgramState, layout: IGptModelLayout, tl: Vec3, br: Vec3, cellW: number, fontSize: number, lineOpts: ILineOpts, opts?: IOutputBoxOpts) {
     let render = state.render;
     let { T, vocabSize } = layout.shape;
     let outCellH = br.y - tl.y;
 
-    let tokTextOpts: IFontOpts = { color: Vec4.fromHexColor("#000000", 1.0), mtx: lineOpts.mtx, size: fontSize };
-    let idxTextOpts: IFontOpts = { color: Vec4.fromHexColor("#666666", 1.0), mtx: lineOpts.mtx, size: fontSize * 0.6 };
+    let opacity = opts?.opacity ?? 1.0;
+    let boldLast = opts?.boldLast ?? true;
+
+    lineOpts = { ...lineOpts, color: lineOpts.color.mul(opacity ?? 1.0) };
+    let tokTextOpts: IFontOpts = { color: Vec4.fromHexColor("#000000", opacity), mtx: lineOpts.mtx, size: fontSize };
+    let idxTextOpts: IFontOpts = { color: Vec4.fromHexColor("#666666", opacity), mtx: lineOpts.mtx, size: fontSize * 0.6 };
 
     let dimmedTokTextOpts: IFontOpts = { ...tokTextOpts, color: tokTextOpts.color.mul(0.3) };
     let dimmedIdxTextOpts: IFontOpts = { ...idxTextOpts, color: idxTextOpts.color.mul(0.3) };
@@ -166,9 +184,15 @@ export function renderOutputBoxes(state: IProgramState, layout: IGptModelLayout,
                 let partTop = tl.y + usedSoFar * outCellH;
                 let partH = tokProb * outCellH;
 
-                let dimmed = i < layout.model!.inputLen - 1;
-                let tokOpts = dimmed ? dimmedTokTextOpts : tokTextOpts;
-                let idxOpts = dimmed ? dimmedIdxTextOpts : idxTextOpts;
+                let dimmed = i < layout.model!.inputLen - 1 || !boldLast;
+
+                let color = mixColorValues(opts?.tokMixes ?? null, tokTextOpts.color, i);
+                if (dimmed) {
+                    color = color.mul(0.3);
+                }
+
+                let tokOpts = { ...tokTextOpts, color };
+                let idxOpts = { ...idxTextOpts, color: color.mul(0.6) };
 
                 let tokStr = sortABCInputTokenToString(tokIdx);
                 let tokW = measureText(render.modelFontBuf, tokStr, tokOpts);
@@ -190,6 +214,14 @@ export function renderOutputBoxes(state: IProgramState, layout: IGptModelLayout,
             }
         }
     }
+}
+
+export function mixColorValues(mixes: IColorMix | null, baseColor: Vec4, idx: number) {
+    if (!mixes) {
+        return baseColor;
+    }
+    let mix = mixes.mixes[idx] ?? 0.0;
+    return Vec4.lerp(mixes.color1 ?? baseColor, mixes.color2, mix);
 }
 
 let _lineRectArr = new Float32Array(3 * 4);
@@ -238,10 +270,12 @@ function renderInputAtTop(state: IProgramState) {
     let tl = new Vec3(topMid.x - inCellW * nCells / 2, topMid.y - inCellH);
     let br = new Vec3(topMid.x + inCellW * nCells / 2, topMid.y);
 
+    let outputOpacity = state.display.topOutputOpacity ?? 1.0;
+
     let lineOpts = makeLineOpts({ color: Vec4.fromHexColor("#000000", 0.2), mtx: new Mat4f(), thick: 1.5 });
     let titleTextOpts: IFontOpts = { color: Vec4.fromHexColor("#666666", 1.0), mtx: lineOpts.mtx, size: 1.9 };
 
-    renderInputBoxes(state, layout, tl, br, inCellW, 4, lineOpts);
+    renderInputBoxes(state, layout, tl, br, inCellW, 4, lineOpts, { tokMixes: state.display.tokenColors, idxMixes: state.display.tokenIdxColors });
 
     let inputTitle = "Input";
     drawText(render.modelFontBuf, inputTitle, tl.x, tl.y - lineHeight(titleTextOpts), titleTextOpts);
@@ -250,13 +284,18 @@ function renderInputAtTop(state: IProgramState) {
         let outCellH = 12;
         let outBr = new Vec3(br.x, tl.y - 4);
         let outTl = new Vec3(tl.x, outBr.y - outCellH);
-        renderOutputBoxes(state, layout, outTl, outBr, inCellW, 4, lineOpts);
+        renderOutputBoxes(state, layout, outTl, outBr, inCellW, 4, lineOpts, { opacity: outputOpacity, boldLast: outputOpacity < 1.0, tokMixes: state.display.tokenOutputColors });
 
         let outputTitle = "Output";
-        drawText(render.modelFontBuf, outputTitle, outTl.x, outTl.y - lineHeight(titleTextOpts), titleTextOpts);
+        let outputTextOpts = { ...titleTextOpts, color: titleTextOpts.color.mul(outputOpacity) };
+        drawText(render.modelFontBuf, outputTitle, outTl.x, outTl.y - lineHeight(titleTextOpts), outputTextOpts);
     }
 
     for (let i = 0; i < nCells; i++) {
+        let mixes = state.display.tokenIdxColors;
+
+        let lineOptsLocal = { ...lineOpts, color: mixColorValues(mixes, lineOpts.color, i) };
+
         let tx = tl.x + (i + 0.5) * inCellW;
         let ty = tl.y + layout.cell + inCellH;
         let bx = cellPosition(layout, inputTokBlk, Dim.X, i) + 0.5 * layout.cell;
@@ -265,15 +304,15 @@ function renderInputAtTop(state: IProgramState) {
         let midY1 = lerp(by, ty, 1/6);
         let midY2 = lerp(by, ty, 3/4);
 
-        drawLine(state.render.lineRender, new Vec3(bx, by), new Vec3(bx, midY1), lineOpts);
-        drawLine(state.render.lineRender, new Vec3(bx, midY1), new Vec3(tx, midY2), lineOpts);
-        drawLine(state.render.lineRender, new Vec3(tx, midY2), new Vec3(tx, ty), lineOpts);
+        drawLine(state.render.lineRender, new Vec3(bx, by), new Vec3(bx, midY1), lineOptsLocal);
+        drawLine(state.render.lineRender, new Vec3(bx, midY1), new Vec3(tx, midY2), lineOptsLocal);
+        drawLine(state.render.lineRender, new Vec3(tx, midY2), new Vec3(tx, ty), lineOptsLocal);
 
         let arrLen = 0.6;
         let arrowLeft = new Vec3(bx - arrLen, by - arrLen);
         let arrowRight = new Vec3(bx + arrLen, by - arrLen);
-        drawLine(state.render.lineRender, arrowLeft, new Vec3(bx, by), lineOpts);
-        drawLine(state.render.lineRender, arrowRight, new Vec3(bx, by), lineOpts);
+        drawLine(state.render.lineRender, arrowLeft, new Vec3(bx, by), lineOptsLocal);
+        drawLine(state.render.lineRender, arrowRight, new Vec3(bx, by), lineOptsLocal);
     }
 }
 
@@ -294,7 +333,7 @@ function renderOutputAtBottom(state: IProgramState) {
 
     let lineOpts = makeLineOpts({ color: Vec4.fromHexColor("#000000", 0.2), mtx: new Mat4f(), thick: 1.5 });
 
-    renderOutputBoxes(state, layout, tl, br, outCellW, 4, lineOpts);
+    renderOutputBoxes(state, layout, tl, br, outCellW, 4, lineOpts, { boldLast: true, tokMixes: state.display.tokenOutputColors });
 
     for (let i = 0; i < nCells; i++) {
         let tx = cellPosition(layout, softmax, Dim.X, i) + 0.5 * layout.cell;

@@ -1,5 +1,5 @@
 import { IWalkthrough, Phase } from "./Walkthrough";
-import { commentary, DimStyle, dimStyleColor, embed, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools, setInitialCamera } from "./WalkthroughTools";
+import { Colors, commentary, DimStyle, dimStyleColor, embed, ITimeInfo, IWalkthroughArgs, moveCameraTo, phaseTools, setInitialCamera } from "./WalkthroughTools";
 import s from './Walkthrough.module.scss';
 import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
 import { clamp, makeArray } from "@/src/utils/data";
@@ -72,18 +72,23 @@ and sort them in alphabetical order, i.e. to "ABBBCC".`;
         state.display.tokenIdxModelOpacity = makeArray(6, 0);
     }
 
-    let t4 = afterTime(null, 1.5, 1.0);
+    let t4 = afterTime(null, 1.5, 0.4);
+
     moveCameraTo(args.state, t4, new Vec3(5.450, 0.000, 7.913), new Vec3(281.500, 12.500, 0.519));
-    let t6 = afterTime(null, 1.0, 0.4);
+    let t6 = afterTime(null, 1.0, 0.2);
+
+    if (t4.active) {
+        state.display.topOutputOpacity = 0.2;
+    }
 
     if (t6.active && t6.t < 1.0) {
         let mixes = [0, 0, 0, 0, 0, 0];
         for (let i = 0; i < 6; i++) {
             // want to smoothly flash each token in turn (t6.t goes from 0-1, and each token should flash at 0.2, 0.4, 0.6, 0.8, 1.0 etc)
             let highT = (i + 1.5) / 8;
-            mixes[i] = 1.0 - clamp(Math.abs(t6.t - highT) * 8, 0, 1);
+            mixes[i] = 1.0 - clamp(Math.abs(t6.t - highT) * 4, 0, 1);
         }
-        state.display.tokenColors = { mixes, color2: new Vec4(0.8, 0.2, 0.8) };
+        state.display.tokenColors = { mixes, color2: dimStyleColor(DimStyle.Token) }; //  new Vec4(0.8, 0.2, 0.8) };
     }
 
     breakAfter();
@@ -104,7 +109,7 @@ and sort them in alphabetical order, i.e. to "ABBBCC".`;
             let highT = (i + 1.5) / 8;
             opacity[i] = clamp((t7.t - highT) * 4, 0, 1);
         }
-        state.display.tokenIdxModelOpacity = opacity;
+        state.display.tokenIdxColors = { mixes: opacity, color2: dimStyleColor(DimStyle.TokenIdx) };
 
         let idxPos = t7.t * 6;
 
@@ -197,6 +202,22 @@ and sort them in alphabetical order, i.e. to "ABBBCC".`;
         // moveCameraTo(state, t_output, new Vec3(-53.9, 0, -1654.1), new Vec3(270.9, 6.2, 1.1));
         let t_outputWalk = afterTime(null, 2.0, 0.5);
         processUpTo(state, t_outputWalk, layout.logitsSoftmax, processState);
+
+        let t_outputToks = afterTime(null, 1.0, 0.5);
+
+        if (t_firstResid.active) {
+            let arr = makeArray(6, 0);
+
+            if (t_outputToks.active) {
+                for (let i = 0; i < 6; i++) {
+                    let highT = (i + 1.5) / 8;
+                    arr[i] = clamp((t_outputToks.t - highT) * 4, 0, 1);
+                }
+            }
+
+            state.display.lines.push(arr.map(a => a.toFixed(2).padStart(4)).join(', '));
+            state.display.tokenOutputColors = { color1: new Vec4(0,0,0,0), color2: Vec4.fromHexColor('#000', 1), mixes: arr };
+        }
     }
 
     commentary(wt)`So what's the output? A prediction of the next token in the sequence. So at the 6th entry, we get probabilities that the next token is
