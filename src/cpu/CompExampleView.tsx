@@ -80,6 +80,7 @@ export const CompExampleView: React.FC = () => {
             let romArr = romComp.data.rom;
             romArr.set(example.elfSection.arr);
             romArr.fill(0, example.elfSection.arr.length);
+            romComp.data.updateCntr += 1;
         }
     }
 

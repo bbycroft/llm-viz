@@ -14,6 +14,7 @@ export interface IRomExeData {
     // please write to these rather than replace the array
     rom: Uint8Array;
     rom32View: Uint32Array;
+    updateCntr: number;
 }
 
 export interface IRomConfig {
@@ -30,6 +31,7 @@ export interface IRamExeData {
     data: IExePort;
     ram: Uint8Array;
     ram32View: Uint32Array;
+    updateCntr: number;
 }
 
 export enum BusMemCtrlType {
@@ -58,6 +60,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
                 data: builder.getPort('data'),
                 rom,
                 rom32View: new Uint32Array(rom.buffer),
+                updateCntr: 0,
             });
 
             builder.addPhase(({ data: { addr, data, rom32View } }) => {
@@ -98,11 +101,12 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
 
             // rows of 8 bytes, each byte represented by 2 hex digits
             // left to right, top to bottom (ala hex editor)
-            return exeComp ? renderData(comp, exeComp.data.rom, { addr: exeComp.data.addr.value, numBytes: 4, value: 0 }, null) : null;
+            return exeComp ? renderData(comp, exeComp.data.rom, exeComp.data.updateCntr, { addr: exeComp.data.addr.value, numBytes: 4, value: 0 }, null) : null;
 
         },
         copyStatefulData: (src, dest) => {
             dest.rom.set(src.rom);
+            dest.updateCntr = dest.updateCntr === 0 ? 1 : 0;
         },
     };
 
@@ -128,6 +132,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
                 data: builder.getPort('data'),
                 ram: ramUint8,
                 ram32View: new Uint32Array(ramUint8.buffer),
+                updateCntr: 0,
             });
 
             builder.addPhase(function ramSendPhase({ data: { ctrl, addr, data, ram32View } }) {
@@ -192,6 +197,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
                     // console.log('mask:', mask.toString(16), 'bitOffset:', bitOffset, 'existing:', existing.toString(16), 'data:', dataPort.value.toString(16), 'wordVal:', wordVal.toString(16));
 
                     ram32View[addr.value >> 2] = wordVal;
+                    data.updateCntr += 1;
                 }
             }, [], []);
 
@@ -204,6 +210,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
 
         reset: (exeComp) => {
             exeComp.data.ram.fill(0);
+            exeComp.data.updateCntr = 0;
         },
 
         renderDom: ({ comp, exeComp, styles }) => {
@@ -218,7 +225,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             let addr = data.addr.value;
             let value = data.data.value;
             let numBytes = writeType === BusMemCtrlType.Byte ? 1 : writeType === BusMemCtrlType.Half ? 2 : 4;
-            return renderData(comp, exeComp.data.ram,
+            return renderData(comp, exeComp.data.ram, exeComp.data.updateCntr,
                 isRead ? { addr, numBytes, value } : null,
                 isWrite ? { addr, numBytes, value } : null);
         },
@@ -233,7 +240,7 @@ interface IReadWriteInfo {
     value: number; // only used for writes
 }
 
-function renderData(comp: IComp, bytes: Uint8Array, read: IReadWriteInfo | null, write: IReadWriteInfo | null) {
+function renderData(comp: IComp, bytes: Uint8Array, updateCntr: number, read: IReadWriteInfo | null, write: IReadWriteInfo | null) {
 
     return <CompRectBase comp={comp}>
         <MemoryContents
@@ -243,6 +250,7 @@ function renderData(comp: IComp, bytes: Uint8Array, read: IReadWriteInfo | null,
             writeAddr={write ? write.addr : null}
             writeNumBytes={write ? write.numBytes : 0}
             writeValue={write ? write.value : null}
+            updateCntr={updateCntr}
         />
     </CompRectBase>;
 }
@@ -254,6 +262,7 @@ export const MemoryContents: React.FC<{
     writeAddr: number | null,
     writeNumBytes: number,
     writeValue: number | null,
+    updateCntr: number,
 }> = memo(function MemoryContents({ bytes, readAddr, readNumBytes, writeAddr, writeNumBytes, writeValue }) {
     let bytesPerCol = 16;
 
