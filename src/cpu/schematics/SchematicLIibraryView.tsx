@@ -2,7 +2,7 @@ import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { assignImm } from "@/src/utils/data";
 import { faCheck, faPencil, faTimes, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { editLayout, useEditorContext } from "../Editor";
 import { ISchematicDef } from "./SchematicLibrary";
 import s from "./SchematicLibraryView.module.scss";
@@ -12,18 +12,19 @@ export const SchematicLibraryView: React.FC = () => {
 
     let schematicLib = editorState.schematicLibrary;
 
-    function saveFromState() {
-        if (editorState.activeSchematicId) {
-            let schematic = schematicLib.getSchematic(editorState.activeSchematicId);
+    let saveFromState = useCallback(() => {
+        let schemId = editorState.activeSchematicId;
+        if (schemId) {
+            let schematic = schematicLib.getSchematic(schemId);
             if (schematic) {
                 schematic.model = editorState.snapshot;
                 schematic.undoStack = editorState.undoStack;
                 schematic.redoStack = editorState.redoStack;
                 schematic.mtx = editorState.mtx;
             }
-            schematicLib.saveToLocalStorage(editorState.activeSchematicId);
+            schematicLib.saveToLocalStorage(schemId);
         }
-    }
+    }, [editorState.activeSchematicId, editorState.snapshot, editorState.undoStack, editorState.redoStack, editorState.mtx, schematicLib]);
 
     function loadIntoEditor(schematic: ISchematicDef) {
         setEditorState(() => {
@@ -82,7 +83,7 @@ export const SchematicLibraryView: React.FC = () => {
 
     useEffect(() => {
         saveFromState();
-    });
+    }, [saveFromState]);
 
     return <div className={s.libraryView}>
         <div className={s.header}>Schematics</div>

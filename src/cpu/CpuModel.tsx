@@ -213,6 +213,7 @@ export interface IComp<A = any> {
     size: Vec3;
     ports: ICompPort[];
     args: A;
+    resolved: boolean;
 }
 
 export interface ICompPort {

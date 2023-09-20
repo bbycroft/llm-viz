@@ -260,9 +260,9 @@ export const LibraryBrowser: React.FC<{}> = () => {
                                     return <GroupEntryFileCell key={gId} group={g} isActive={isActive} setSelectedItemId={setSelectedItemId} />;
                                 })}
 
-                                <FileCell onClick={() => { }} className="items-center justify-center" isSelected={false}>
+                                {/* <FileCell onClick={() => { }} className="items-center justify-center" isSelected={false}>
                                     <FontAwesomeIcon icon={faPlus} className="mr-2 text-6xl text-gray-300 group-hover:text-gray-400" />
-                                </FileCell>
+                                </FileCell> */}
                             </>}
                         </div>
                     </div>

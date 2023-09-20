@@ -144,6 +144,7 @@ export function importData(str: string): IImportResult {
                 defId: type,
                 ports: [],
                 args: null,
+                resolved: false,
             };
 
             for (let j = 3; j < parts.length; j++) {
@@ -318,18 +319,14 @@ export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLi
         lsCompLookup.set(c.id, c);
     }
 
-    let comps: IComp[] = ls.comps.map<IComp | null>(c => {
+    let comps: IComp[] = ls.comps.map(c => {
         let comp = compLibrary.create(c.defId, c.args);
-
-        if (!comp) {
-            return null;
-        }
 
         comp.id = c.id;
         comp.pos = new Vec3(c.x, c.y);
 
         return comp;
-    }).filter(isNotNil);
+    });
 
     let maxCompId = 0;
     for (let c of comps) {

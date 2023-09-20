@@ -129,10 +129,13 @@ export const CpuCanvas: React.FC = () => {
 
     useEffect(() => {
         // setCtrlDown(false);
+        let schematicLibrary = new SchematicLibrary();
+        console.log('constructing schematic library');
         let compLibrary = buildCompLibrary();
-        editorState.schematicLibrary.populateSchematicLibrary(compLibrary);
+        schematicLibrary.populateSchematicLibrary(compLibrary);
         setEditorState(a => {
             return assignImm(a, {
+                schematicLibrary,
                 compLibrary,
                 snapshot: assignImm(a.snapshot, {
                     comps: compLibrary.updateAllCompsFromDefs(a.snapshot.comps),
@@ -140,9 +143,9 @@ export const CpuCanvas: React.FC = () => {
             });
         });
         setIsClient(true);
-    }, [editorState.schematicLibrary]);
+    }, []);
 
-    useResizeChangeHandler(cvsState?.canvas, redraw);
+    useResizeChangeHandler(cvsState?.canvas?.parentElement, redraw);
 
     let prevExeModel = useRef<{ system: IExeSystem, id: string | null } | null>(null);
 
@@ -188,11 +191,13 @@ export const CpuCanvas: React.FC = () => {
 
         let { canvas, ctx } = cvsState;
 
-        let bcr = canvas.getBoundingClientRect();
+        let bcr = canvas.parentElement!.getBoundingClientRect();
         let w = bcr.width;
         let h = bcr.height;
         canvas.width = Math.floor(w * window.devicePixelRatio);
         canvas.height = Math.floor(h * window.devicePixelRatio);
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
         cvsState.size.x = w;
         cvsState.size.y = h;
         cvsState.scale = 1.0 / editorState.mtx.a;
@@ -245,7 +250,7 @@ export const CpuCanvas: React.FC = () => {
 
     return <EditorContext.Provider value={ctx}>
         <ViewLayoutContext.Provider value={viewLayout}>
-            <div className={s.canvasWrap}>
+            <div className={s.canvasWrap + " overflow-hidden"}>
                 <canvas className={s.canvas} ref={setCanvasEl} />
                 {cvsState && <CanvasEventHandler cvsState={cvsState}>
                     <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>

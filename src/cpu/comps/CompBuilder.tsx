@@ -123,7 +123,10 @@ export class CompLibrary {
 
     public addComp(comp: ICompDef<any>) {
         let item = createLibraryItemFromComp(comp);
+        this.addLibraryItem(item);
+    }
 
+    public addLibraryItem(item: ILibraryItem) {
         this.libraryLookup.set(item.id, item);
         for (let altId of item.altIds ?? []) {
             this.libraryLookup.set(altId, item);
@@ -138,10 +141,19 @@ export class CompLibrary {
         return item.compDef;
     }
 
-    create<A = undefined>(defId: string, cfg?: A | undefined): IComp<A> | null {
-        let compDef = this.getCompDef(defId);;
+    create<A = undefined>(defId: string, cfg?: A | undefined): IComp<A> {
+        let compDef = this.getCompDef(defId);
         if (!compDef) {
-            return null;
+            return {
+                id: '',
+                defId,
+                name: '<unknown>',
+                args: cfg!,
+                ports: [],
+                pos: new Vec3(0, 0),
+                size: new Vec3(4, 4),
+                resolved: false,
+            };
         }
 
         let args = compDef.initConfig ? compDef.initConfig({}) : null;
@@ -158,6 +170,7 @@ export class CompLibrary {
             pos: new Vec3(0, 0),
             size: compDef.size,
             args,
+            resolved: true,
         };
         compDef.applyConfig?.(comp, comp.args);
 

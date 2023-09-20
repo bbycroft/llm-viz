@@ -184,7 +184,7 @@ export const CompLayoutEditor: React.FC<{
         ctx.scale(pr, pr);
         ctx.transform(...mtx.toTransformParams());
 
-        drawGrid(mtx, ctx, { tileCanvases: bits.extraCanvases }, '#333');
+        drawGrid(mtx, ctx, { tileCanvases: bits.extraCanvases }, '#aaa');
 
         ctx.restore();
 
@@ -260,6 +260,7 @@ export const CompLayoutEditor: React.FC<{
                                 key={i}
                                 portIdx={i}
                                 compPos={compPos}
+                                compSize={snapshot.compSize}
                                 schematicComp={schematicComp}
                                 port={port}
                                 draggingPortIdx={dragPortIdx}
@@ -270,6 +271,9 @@ export const CompLayoutEditor: React.FC<{
                 </div>
             </div>
         </ViewLayoutContext.Provider>
+        <div className='x-compProps flex flex-col border-t'>
+            {editorState.schematicLibrary.getSchematic(editorState.activeSchematicId!)?.name}
+        </div>
         <div className='x-compListViewport h-[12rem] overflow-y-auto bg-gray-100'>
             <div className='x-compListBody flex-1 border-y'>
                 {schematicPortComps.map((comp, i) => {
@@ -278,6 +282,7 @@ export const CompLayoutEditor: React.FC<{
 
                     return <div className='x-compListItem flex flex-row items-center py-1 border-b bg-white' key={i}>
                         <div className={clsx('mx-2 w-[1.2rem] text-center font-mono rounded', isInput ? paletteTw.portInputBg : paletteTw.portOutputBg)}>{isInput ? 'I' : 'O'}</div>
+                        <div className='flex font-mono text-xs ml-1 w-[3rem]'>{args.portId}</div>
                         <div className='flex-1'>{args.name}</div>
                         <div className='px-2'>{args.bitWidth}</div>
                     </div>;
@@ -354,11 +359,12 @@ export const CompBoxEditor: React.FC<{
 export const CompPortEditor: React.FC<{
     portIdx: number;
     compPos: Vec3;
+    compSize: Vec3;
     schematicComp: IComp<ICompPortConfig> | null;
     port: ICompPort;
     draggingPortIdx: number | null;
     setDraggingPortIdx: (idx: number | null) => void;
-}> = memo(function CompPortEditor({ portIdx, compPos, schematicComp, port, draggingPortIdx, setDraggingPortIdx }) {
+}> = memo(function CompPortEditor({ portIdx, compPos, compSize, schematicComp, port, draggingPortIdx, setDraggingPortIdx }) {
     let { setEditorState } = useEditorContext();
     let { mtx, el } = useViewLayout();
     let [portEl, setPortEl] = useState<HTMLDivElement | null>(null);
@@ -384,6 +390,7 @@ export const CompPortEditor: React.FC<{
     let pos = compPos.add(port.pos);
 
     let zoom = mtx.a;
+    let edge = getEdgeOfPort(port, compSize);
 
     return <div
         ref={setPortEl}
@@ -405,6 +412,17 @@ export const CompPortEditor: React.FC<{
                 !isInput && 'bg-orange-400',
             )}
         />
+        <div
+            className={clsx(
+                'font-mono absolute whitespace-nowrap',
+                edge === RectSide.Top && 'rotate-[60deg] right-1 bottom-1 origin-right',
+                edge === RectSide.Bottom && 'rotate-[60deg] left-1 top-1 origin-left',
+                edge === RectSide.Left && 'right-4',
+                edge === RectSide.Right && 'left-4',
+            )}
+        >
+            {port.id}
+        </div>
         {dragStart && <CursorDragOverlay className='cursor-crosshair' />}
     </div>;
 
@@ -445,6 +463,28 @@ function resizeCompBox(snap: IEditSnapshot, newSize: Vec3): IEditSnapshot {
         compSize: newSize,
         compPorts: newCompPorts,
     });
+}
+
+enum RectSide {
+    Top,
+    Right,
+    Bottom,
+    Left,
+}
+
+function getEdgeOfPort(port: ICompPort, compSize: Vec3): RectSide {
+    let { x, y } = port.pos;
+    if (x === 0) {
+        return RectSide.Left;
+    } else if (x === compSize.x) {
+        return RectSide.Right;
+    } else if (y === 0) {
+        return RectSide.Top;
+    } else if (y === compSize.y) {
+        return RectSide.Bottom;
+    } else {
+        throw new Error(`Port ${port.id} is not on the edge of the component`);
+    }
 }
 
 function insertPortAtPos(portToInsert: IEdgePort, insertPos: number, edgeLen: number, portsOnEdge: IEdgePort[]) {

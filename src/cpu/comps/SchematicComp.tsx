@@ -1,34 +1,42 @@
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { ILibraryItem } from "../CpuModel";
+import { ILibraryItem, ISchematic } from "../CpuModel";
 import { ICompDef } from "./CompBuilder";
+import { ISchematicCompArgs } from "../schematics/SchematicLibrary";
 
-export function createSchematicCompDef(libItem: ILibraryItem): ICompDef<any, any> {
+export interface ISchematicCompData {
+    // nothing
+}
 
-    return {
-        defId: libItem.id,
-        name: libItem.name,
-        ports: (args, compDef) => {
+export function createSchematicCompDef(id: string, name: string, schematic: ISchematic, compArgs: ISchematicCompArgs): ILibraryItem {
 
-            return [];
+    let compDef: ICompDef<ISchematicCompData, {}> = {
+        defId: id,
+        name: name,
+        ports: (args) => {
+            return compArgs.ports;
         },
-        size: new Vec3(10, 10),
+        size: compArgs.size,
         applyConfig: (comp, args) => {
-
+            comp.size = compArgs.size;
         },
-
         build: (builder) => {
-            builder.addData({
-                ports: [],
-                size: builder.comp.size,
-            });
-
+            builder.addData({});
             return builder.build();
         },
 
         subLayout: {
-            layout: libItem.schematic!,
-            ports: [],
+            layout: schematic,
+            ports: compArgs.ports,
             bb: new BoundingBox3d(),
         },
     };
+
+    let libItem: ILibraryItem = {
+        compDef,
+        id,
+        name,
+        schematic,
+    };
+
+    return libItem;
 }
