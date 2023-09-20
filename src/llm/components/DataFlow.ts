@@ -1,5 +1,5 @@
 import { text } from "stream/consumers";
-import { dimProps } from "../Annotations";
+import { dimProps, TextAlignHoriz } from "../Annotations";
 import { BlKDepSpecial, cellPosition, IBlkCellDep, IBlkDef } from "../GptModelLayout";
 import { getDepDotLen, getDepSrcIdx } from "../Interaction";
 import { IProgramState } from "../Program";
@@ -173,22 +173,18 @@ let tokEmbedBlockWidth = 40;
 let posEmbedBlockWidth = 35;
 
 export function drawOLInputEmbed(args: IDataFlowArgs) {
-    let { state, center, destIdx, mtx } = args;
+    let { center, mtx } = args;
 
-    let w = 120;
-    let h = 60;
-    let tl = new Vec3(center.x - w/2, center.y - h);
-    let br = new Vec3(center.x + w/2, center.y);
+    return drawMaths(args, center, mkTextBlock({
+        opts: { color: nameColor, mtx, size: 16 },
 
-    drawRoundedRect(state.render, tl, br, backWhiteColor, mtx, 4);
-    drawOLIndexLookup(args);
-    drawOLPosEmbedLookup(args);
+        subs: [
+            { type: TextBlockType.Custom, draw: (blk) => drawOLIndexLookup(args, blk.offset), size: new Vec3(tokEmbedBlockWidth, embedBlockHeight) },
+            { text: ' + ' },
+            { type: TextBlockType.Custom, draw: (blk) => drawOLPosEmbedLookup(args, blk.offset), size: new Vec3(posEmbedBlockWidth, embedBlockHeight) },
+        ]
 
-    let textOpts: IFontOpts = { color: new Vec4(1,1,1,1).mul(0.8), mtx, size: 20 };
-    let plusW = measureText(state.render.modelFontBuf, '+', textOpts);
-    drawText(state.render.modelFontBuf, '+', center.x - plusW / 2, center.y - 20 - textOpts.size / 2, textOpts);
-
-    return new BoundingBox3d(tl, br);
+    }), [20, 0, 0, 0]);
 }
 
 export function getBlockValueAtIdx(blk: IBlkDef, blkIdx: Vec3) {
@@ -207,7 +203,7 @@ export function getBlockValueAtIdx(blk: IBlkDef, blkIdx: Vec3) {
     return localBuffer[idx];
 }
 
-export function drawOLIndexLookup(args: IDataFlowArgs) {
+export function drawOLIndexLookup(args: IDataFlowArgs, offset: Vec3) {
     let { state, center, destIdx, mtx } = args;
     let tokenIdx = getBlockValueAtIdx(state.layout.idxObj, new Vec3(destIdx.x, 0, destIdx.z));
     let tokenPct = isNotNil(tokenIdx) ? tokenIdx / (state.layout.tokEmbedObj.cx - 1) : 0.3;
@@ -216,8 +212,10 @@ export function drawOLIndexLookup(args: IDataFlowArgs) {
     let pos = center.add(new Vec3(-35, -20, 0));
     let color = Colors.Weights;
 
-    let tl = pos.add(new Vec3(-tokEmbedBlockWidth/2, -embedBlockHeight/2));
-    let br = pos.add(new Vec3(tokEmbedBlockWidth/2,  embedBlockHeight/2));
+    // let tl = pos.add(new Vec3(-tokEmbedBlockWidth/2, -embedBlockHeight/2));
+    // let br = pos.add(new Vec3(tokEmbedBlockWidth/2,  embedBlockHeight/2));
+    let tl = offset;
+    let br = tl.add(new Vec3(tokEmbedBlockWidth, embedBlockHeight));
 
     drawLineRect(state.render, tl, br, makeLineOpts({ color, mtx, n: new Vec3(0, 0, 1), thick: 0.4 }));
 
@@ -236,7 +234,7 @@ export function drawOLIndexLookup(args: IDataFlowArgs) {
     let lineColor = Colors.Intermediates;
     let lineEndX = colTl.x + colW / 2;
     let lineEndY = colTl.y - 5;
-    let lineStartX = center.x - 10;
+    let lineStartX = br.x;
     let lineHeight = 10;
 
     let pts = new Float32Array([
@@ -247,10 +245,10 @@ export function drawOLIndexLookup(args: IDataFlowArgs) {
     let lineOpts = makeLineOpts({ color: lineColor, mtx, n: new Vec3(0, 0, 1), thick: 0.5 });
     drawLineSegs(state.render.lineRender, pts, lineOpts);
 
-    drawCells(state.render, new Vec3(1, 1), new Vec3(center.x, lineEndY - lineHeight), new Vec3(7, 7), Colors.Intermediates, mtx);
+    drawCells(state.render, new Vec3(1, 1), new Vec3(lineStartX + 8, lineEndY - lineHeight), new Vec3(7, 7), Colors.Intermediates, mtx);
 }
 
-export function drawOLPosEmbedLookup(args: IDataFlowArgs) {
+export function drawOLPosEmbedLookup(args: IDataFlowArgs, offset: Vec3) {
     let { state, center, destIdx, mtx } = args;
     let posPct = destIdx.x / (state.layout.posEmbedObj.cx - 1);
     let heightPct = destIdx.y / (state.layout.residual0.cy - 1);
@@ -258,8 +256,10 @@ export function drawOLPosEmbedLookup(args: IDataFlowArgs) {
     let pos = center.add(new Vec3(35, -20, 0));
     let color = Colors.Weights;
 
-    let tl = pos.add(new Vec3(-posEmbedBlockWidth/2, -embedBlockHeight/2));
-    let br = pos.add(new Vec3(posEmbedBlockWidth/2,  embedBlockHeight/2));
+    // let tl = pos.add(new Vec3(-posEmbedBlockWidth/2, -embedBlockHeight/2));
+    // let br = pos.add(new Vec3(posEmbedBlockWidth/2,  embedBlockHeight/2));
+    let tl = offset;
+    let br = tl.add(new Vec3(tokEmbedBlockWidth, embedBlockHeight));
 
     drawLineRect(state.render, tl, br, makeLineOpts({ color, mtx, n: new Vec3(0, 0, 1), thick: 0.4 }));
 
@@ -356,7 +356,7 @@ export function drawRoundedRect(state: IRenderState, tl: Vec3, br: Vec3, color: 
     addPrimitiveRestart(state.triRender);
 }
 
-function drawMaths(args: IDataFlowArgs, bottomMiddle: Vec3, textBlk: ITextBlock) {
+function drawMaths(args: IDataFlowArgs, bottomMiddle: Vec3, textBlk: ITextBlock, pad?: number[] | number) {
     let { state, mtx } = args;
 
     let value = getBlockValueAtIdx(args.blk, args.destIdx);
@@ -367,7 +367,7 @@ function drawMaths(args: IDataFlowArgs, bottomMiddle: Vec3, textBlk: ITextBlock)
         );
         if (isNotNil(value)) {
             textBlk.subs!.push(
-                mkTextBlock({ text: value.toFixed(2), opts: textBlk.opts }),
+                mkTextBlock({ text: value.toFixed(2), opts: textBlk.opts, size: new Vec3(35, 0), align: TextAlignHoriz.Right }),
             );
         }
     }
@@ -381,14 +381,22 @@ function drawMaths(args: IDataFlowArgs, bottomMiddle: Vec3, textBlk: ITextBlock)
     let padX = 4;
     let padY = 4;
 
-    let tl = textBlk.offset.sub(new Vec3(padX, padY));
-    let br = textBlk.offset.add(textBlk.size).add(new Vec3(padX * 2, padY));
+    let tl = textBlk.offset.sub(new Vec3(padX + getPad(pad, 2), padY + getPad(pad, 0)));
+    let br = textBlk.offset.add(textBlk.size).add(new Vec3(padX * 2 + getPad(pad, 1), padY + getPad(pad, 3)));
     drawRoundedRect(state.render, tl, br, backWhiteColor, mtx, 4);
 
     drawBlock(state.render, textBlk);
     return new BoundingBox3d(tl, br);
 }
 
+function getPad(pad: number[] | number | null | undefined, dir: number) {
+    if (Array.isArray(pad)) {
+        return pad[dir];
+    } else if (typeof pad === 'number') {
+        return pad;
+    }
+    return 0;
+}
 
 function drawLayerNormMuAgg(args: IDataFlowArgs) {
     let { center, mtx } = args;

@@ -11,6 +11,7 @@ import { Mat4f } from "@/src/utils/matrix";
 import { Vec3, Vec4 } from "@/src/utils/vector";
 import { drawRoundedRect } from "./DataFlow";
 import { drawLineRect } from "./ModelCard";
+import { TextAlignHoriz } from "../Annotations";
 
 /*
 
@@ -25,6 +26,7 @@ export interface ITextBlock {
     type: TextBlockType;
     id?: string;
     text?: string;
+    align?: TextAlignHoriz;
     opts: IFontOpts;
     size: Vec3;
     offset: Vec3;
@@ -32,17 +34,20 @@ export interface ITextBlock {
     cellX?: number;
     cellY?: number;
     rectOpts?: ILineOpts;
+    draw?: (blk: ITextBlock, render: IRenderState) => void;
 }
 
 export interface ITextBlockArgs {
     type?: TextBlockType;
     id?: string;
     text?: string;
+    align?: TextAlignHoriz;
     opts?: IFontOpts;
     rectOpts?: ILineOpts;
     color?: Vec4;
     size?: Vec3;
     offset?: Vec3;
+    draw?: (blk: ITextBlock, render: IRenderState) => void;
     subs?: (ITextBlockArgs | null)[];
     cellX?: number;
     cellY?: number;
@@ -54,6 +59,7 @@ export enum TextBlockType {
     Sqrt,
     Divide,
     Cells,
+    Custom,
 }
 
 export function lineHeight(fontOpts: IFontOpts) {
@@ -84,11 +90,13 @@ export function mkTextBlock(args: ITextBlockArgs): ITextBlock {
         type: type,
         id: args.id,
         text: args.text,
+        align: args.align,
         opts: opts!,
         size: args.size ?? new Vec3(0, 0, 0),
         offset: args.offset ?? new Vec3(0, 0, 0),
         subs: args.subs?.filter(isNotNil).map(a => mkTextBlock({ ...a, opts: a.opts ?? opts })),
         rectOpts: args.rectOpts,
+        draw: args.draw,
         cellX: args.cellX,
         cellY: args.cellY,
     };
@@ -144,7 +152,7 @@ export function sizeBlock(render: IRenderState, blk: ITextBlock) {
             throw new Error('Text block has no text');
         }
         blk.size = new Vec3(
-            measureText(render.modelFontBuf, blk.text!, opts),
+            Math.max(blk.size.x, measureText(render.modelFontBuf, blk.text!, opts)),
             lineHeight(opts),
         );
         break;
@@ -168,6 +176,10 @@ export function sizeBlock(render: IRenderState, blk: ITextBlock) {
     case TextBlockType.Cells: {
         let spacing = cellSizing(blk);
         blk.size = new Vec3(spacing.size.x + spacing.pad, spacing.size.y);
+        break;
+    }
+    case TextBlockType.Custom: {
+        // already sized
         break;
     }
     default: { let _exhaustCheck: never = blk.type; }
@@ -208,6 +220,9 @@ export function layoutBlock(blk: ITextBlock) {
     case TextBlockType.Cells: {
         break;
     }
+    case TextBlockType.Custom: {
+        break;
+    }
     default: { let _exhaustCheck: never = blk.type; }
     }
 }
@@ -229,7 +244,11 @@ export function drawBlock(render: IRenderState, blk: ITextBlock) {
         break;
     }
     case TextBlockType.Text: {
-        drawText(render.modelFontBuf, blk.text!, blk.offset.x, blk.offset.y + blk.opts.size * 0.1, blk.opts);
+        let xPos = blk.offset.x;
+        if (blk.align === TextAlignHoriz.Right) {
+            xPos = blk.offset.x + blk.size.x - measureText(render.modelFontBuf, blk.text!, blk.opts);
+        }
+        drawText(render.modelFontBuf, blk.text!, xPos, blk.offset.y + blk.opts.size * 0.1, blk.opts);
         break;
     }
     case TextBlockType.Sqrt: {
@@ -270,6 +289,10 @@ export function drawBlock(render: IRenderState, blk: ITextBlock) {
 
         drawCells(render, new Vec3(blk.cellX!, blk.cellY!), center, spacing.size, blk.opts.color, blk.opts.mtx);
 
+        break;
+    }
+    case TextBlockType.Custom: {
+        blk.draw?.(blk, render);
         break;
     }
     default: { let _exhaustCheck: never = blk.type; }
