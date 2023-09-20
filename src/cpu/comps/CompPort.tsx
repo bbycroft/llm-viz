@@ -40,6 +40,8 @@ export interface ICompPortConfig {
 
 export interface ICompPortData {
     port: IExePort;
+    externalPort: IExePort;
+    externalPortBound: boolean;
     value: number;
 }
 
@@ -97,20 +99,28 @@ export function createCompIoComps(args: ICompBuilderArgs) {
 
             let data = builder.addData({
                 port: builder.getPort('a'),
+                externalPort: builder.createExternalPort('_b', args.type, args.bitWidth),
+                externalPortBound: false,
                 value: isInput && args.inputOverride ? args.inputValueOverride : 0,
             });
 
             if (isInput) {
                 builder.addPhase(({ data }) => {
+                    if (data.externalPortBound) {
+                        data.value = data.externalPort.value;
+                    }
                     data.port.value = data.value;
                     data.port.ioEnabled = true;
-                }, [], [data.port]);
+                }, [data.externalPort], [data.port]);
 
             } else {
                 builder.addPhase(({ data }) => {
                     data.value = data.port.value;
+                    if (data.externalPortBound) {
+                        data.externalPort.value = data.value;
+                    }
                     data.port.ioEnabled = true;
-                }, [data.port], []);
+                }, [data.port], [data.externalPort]);
             }
 
             return builder.build();

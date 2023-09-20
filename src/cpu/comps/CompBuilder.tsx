@@ -252,6 +252,23 @@ export class ExeCompBuilder<T, A=any> {
         return this.ports[portIdx];
     }
 
+    public createExternalPort(id: string, type: PortType, width: number): IExePort {
+        let portIdx = this.ports.length;
+        this.portNameToIdx.set(id, portIdx);
+        let newPort: IExePort = {
+            portIdx,
+            netIdx: -1,
+            dataUsed: true,
+            ioEnabled: true,
+            ioDir: IoDir.None,
+            type: type,
+            value: 0,
+            width: width,
+        };
+        this.ports.push(newPort);
+        return newPort;
+    }
+
     public addData(data: T): T {
         this.data = data;
         return data;
@@ -283,6 +300,8 @@ export class ExeCompBuilder<T, A=any> {
             data: this.data ?? data!,
             phases: this.phases,
             ports: this.ports,
+            compFullId: this.comp.id,
+            idx: -1,
         };
     }
 }

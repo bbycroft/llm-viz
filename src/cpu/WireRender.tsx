@@ -30,14 +30,18 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         let key = (compId: string, portId: string) => `${compId}:${portId}`;
 
         for (let exePortRef of [...exeNet.inputs, ...exeNet.outputs]) {
-            let exeComp = exeSystem.comps[exePortRef.compIdx];
-            let exePort = exeComp.ports[exePortRef.portIdx];
+            let exeComp = exePortRef.exeComp;
+            let exePort = exePortRef.exePort;
             let comp = exeComp.comp;
-            let port = comp.ports[exePortRef.portIdx];
+            let port = comp.ports[exePort.portIdx];
+
+            if (!port) {
+                continue;
+            }
 
             portBindings.set(key(comp.id, port.id), {
                 comp: comp,
-                port: comp.ports[exePortRef.portIdx],
+                port: comp.ports[exePort.portIdx],
                 exePort: exePort,
                 nodeId: -1,
             });

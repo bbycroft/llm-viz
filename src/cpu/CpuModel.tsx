@@ -52,11 +52,13 @@ export interface IExeStep {
 }
 
 export interface IExeComp<T = any> {
+    idx: number;
     comp: IComp; // a (maybe) rendered component
     ports: IExePort[];
     data: T;
     phases: IExePhase<T>[];
     subSystem?: IExeSystem;
+    compFullId: string;
 }
 
 export interface IExePhase<T = any> {
@@ -84,7 +86,9 @@ export enum IoDir {
 }
 
 export interface IExeNet {
+    idx: number;
     wire: IWireGraph; // a (maybe) rendered wire
+    wireFullId: string;
     inputs: IExePortRef[]; // will have multiple inputs for buses (inputs with tristate)
     outputs: IExePortRef[];
     tristate: boolean;
@@ -96,8 +100,9 @@ export interface IExeNet {
 
 // in our execution data model, we use indexes rather than ids for perf
 export interface IExePortRef {
-    compIdx: number;
+    comp: IComp;
     portIdx: number;
+    exeComp: IExeComp
     exePort: IExePort;
     valid: boolean;
 }
