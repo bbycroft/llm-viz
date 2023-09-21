@@ -10,6 +10,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowDown, faChevronLeft, faChevronRight, faPause, faPlay } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
 import { TocDiagram } from './components/TocDiagram';
+import { BlockText, DimensionText } from './components/CommentaryHelpers';
 
 export function jumpToPhase(wt: IWalkthrough, phaseId: Phase) {
     wt.time = 0;
@@ -343,8 +344,15 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
                     res.push(el);
                 }
                 if (val.color) {
-                    let el = <span key={paraKeyId++} style={{ color: val.color.toHexColor() }}>{markupSimple(val.str)}</span>;
-                    paraItems.push(el);
+                    let color = val.color.toHexColor();
+                    let content = markupSimple(val.str);
+                    if (val.dim) {
+                        paraItems.push(<DimensionText key={paraKeyId++} style={{ color }} dim={val.dim}>{content}</DimensionText>);
+                    } else if (val.blk) {
+                        paraItems.push(<BlockText key={paraKeyId++} style={{ color }} blk={val.blk}>{content}</BlockText>);
+                    } else {
+                        paraItems.push(<span key={paraKeyId++} style={{ color }}>{content}</span>);
+                    }
                 }
             }
         }

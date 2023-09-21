@@ -21,6 +21,7 @@ import { IWasmGptModel, stepWasmModel, syncWasmDataWithJsAndGpu } from "./GptMod
 import { IMovementInfo, manageMovement } from "./components/MovementControls";
 import { IBlockRender, initBlockRender } from "./render/blockRender";
 import { ILayout } from "../utils/layout";
+import { DimStyle } from "./walkthrough/WalkthroughTools";
 
 export interface IProgramState {
     native: NativeFunctions | null;
@@ -64,6 +65,8 @@ export interface IDisplayState {
     topOutputOpacity?: number;
     lines: string[];
     hoverTarget: IHoverTarget | null;
+    blkIdxHover: number[] | null;
+    dimHover: DimStyle | null;
 }
 
 export interface IHoverTarget {
@@ -180,6 +183,8 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
             tokenOutputColors: null,
             lines: [],
             hoverTarget: null,
+            dimHover: null,
+            blkIdxHover: null,
         },
         pageLayout: {
             height: 0,

@@ -9,18 +9,21 @@ import { processUpTo, startProcessBefore } from "./Walkthrough00_Intro";
 import { commentary, DimStyle, IWalkthroughArgs, moveCameraTo, setInitialCamera } from "./WalkthroughTools";
 
 export function walkthrough03_LayerNorm(args: IWalkthroughArgs) {
-    let { walkthrough: wt, layout, state, tools: { afterTime, c_str, breakAfter, cleanup } } = args;
+    let { walkthrough: wt, layout, state, tools: { afterTime, c_str, c_blockRef, c_dimRef, breakAfter, cleanup } } = args;
     let { C } = layout.shape;
 
     if (wt.phase !== Phase.Input_Detail_LayerNorm) {
         return;
     }
 
+    let ln = layout.blocks[0].ln1;
+
     setInitialCamera(state, new Vec3(-6.680, 0.000, -65.256), new Vec3(281.000, 9.000, 2.576));
+    wt.dimHighlightBlocks = [layout.residual0, ...ln.cubes];
 
     commentary(wt, null, 0)`
 
-The  ${c_str('_input embedding_', 0, DimStyle.Intermediates)} matrix from the previous section is the input to our first Transformer block.
+The  ${c_blockRef('_input embedding_', state.layout.residual0)} matrix from the previous section is the input to our first Transformer block.
 
 The first step in the Transformer block is to apply _layer normalization_ to this matrix. This is an
 operation that normalizes the values in each column of the matrix separately.`;
@@ -36,15 +39,17 @@ operation that normalizes the values in each column of the matrix separately.`;
 Normalization is an important step in the training of deep neural networks, and it helps improve the
 stability of the model during training.
 
-We can regard each column separately, so let's focus on the 4rd column (t = 3) for now.`;
+We can regard each column separately, so let's focus on the 4rd column (${c_dimRef('t = 3', DimStyle.T)}) for now.`;
 
     breakAfter();
     let t_focusColumn = afterTime(null, 0.5);
 
+    // mu ascii: \u03bc
+    // sigma ascii: \u03c3
     breakAfter();
     commentary(wt)`
 The goal is to make the average value in the column equal to 0 and the standard deviation equal to 1. To do this,
-we find both of these quantities for the column and then subtract the average and divide by the standard deviation.`;
+we find both of these quantities (${c_blockRef('mean (\u03bc)', ln.lnAgg1)} & ${c_blockRef('std dev (\u03c3)', ln.lnAgg2)}) for the column and then subtract the average and divide by the standard deviation.`;
 
     breakAfter();
 
@@ -53,13 +58,13 @@ we find both of these quantities for the column and then subtract the average an
 
     breakAfter();
     commentary(wt)`
-The notation we use here is E[x] for the average and Var[x] for the variance (of the column). The
+The notation we use here is E[x] for the average and Var[x] for the variance (of the column of length ${c_dimRef('C', DimStyle.C)}). The
 variance is simply the standard deviation squared. The epsilon term (ε = 1e-5) is there to prevent division by zero.
 
-We compute and store these two values in our aggregation layer since we're applying them to all values in the column.
+We compute and store these values in our aggregation layer since we're applying them to all values in the column.
 
 Finally, once we have the normalized values, we multiply each element in the column by a learned
-weight (γ) and then add a bias (β) value.`;
+${c_blockRef('weight (\u03b3)', ln.lnSigma)} and then add a ${c_blockRef('bias (β)', ln.lnMu)} value, resulting in our ${c_blockRef('normalized values', ln.lnResid)}.`;
 
     breakAfter();
 
@@ -69,11 +74,8 @@ weight (γ) and then add a bias (β) value.`;
 
     breakAfter();
     commentary(wt)`
-In a sense, these operations undo the normalization, but they also
-allow the model to learn and fine-tune the scale and shift of the values, which helps it better capture
-the underlying patterns in the data.
-We run this normalization operation on each column of the input embedding matrix, and the result is
-the normalized input embedding, which is ready to be passed into the Self-Attention layer.
+We run this normalization operation on each column of the ${c_blockRef('input embedding matrix', layout.residual0)}, and the result is
+the ${c_blockRef('normalized input embedding', ln.lnResid)}, which is ready to be passed into the Self-Attention layer.
 `;
 
     breakAfter();

@@ -1,57 +1,61 @@
 import React from 'react';
 import { dimProps, duplicateGrid, findSubBlocks, splitGrid, splitGridAll } from "../Annotations";
 import { drawDataFlow, getBlockValueAtIdx } from "../components/DataFlow";
-import { getBlkDimensions, IBlkDef, setBlkPosition } from "../GptModelLayout";
+import { BlkSpecial, getBlkDimensions, IBlkDef, setBlkPosition } from "../GptModelLayout";
 import { drawDependences } from "../Interaction";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
-import { clamp } from "@/src/utils/data";
+import { clamp, makeArray } from "@/src/utils/data";
 import { lerp, lerpSmoothstep } from "@/src/utils/math";
 import { Mat4f } from "@/src/utils/matrix";
 import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
 import { processUpTo, startProcessBefore } from "./Walkthrough00_Intro";
 import { embedInline } from "./Walkthrough01_Prelim";
-import { Colors, commentary, IWalkthroughArgs, moveCameraTo, setInitialCamera } from "./WalkthroughTools";
+import { Colors, commentary, DimStyle, dimStyleColor, IWalkthroughArgs, moveCameraTo, setInitialCamera } from "./WalkthroughTools";
+import { BlockText } from '../components/CommentaryHelpers';
+import clsx from 'clsx';
 
 export function walkthrough04_SelfAttention(args: IWalkthroughArgs) {
-    let { walkthrough: wt, layout, state, tools: { afterTime, c_str, breakAfter, cleanup } } = args;
+    let { walkthrough: wt, layout, state, tools: { afterTime, c_str, c_blockRef, c_dimRef, breakAfter, cleanup } } = args;
     let { C, A, nHeads } = layout.shape;
 
     if (wt.phase !== Phase.Input_Detail_SelfAttention) {
         return;
     }
 
+    let block0 = layout.blocks[0];
+    let head2 = block0.heads[2];
+
     setInitialCamera(state, new Vec3(-125.258, 0.000, -178.805), new Vec3(294.000, 12.800, 2.681));
+    wt.dimHighlightBlocks = [layout.residual0, block0.ln1.lnResid, ...head2.cubes];
 
     commentary(wt, null, 0)`
 The self-attention layer is perhaps the heart of the Transformer and of GPT. It's the phase where the
 columns in our input embedding matrix "talk" to each other. Up until now, and in all other phases,
-the columns can be regarded independently.`;
-    let t_moveCamera = afterTime(null, 1.0);
+the columns can be regarded independently.
 
-    commentary(wt)`
 The self-attention layer is made up of several heads, and we'll focus on one of them for now.`;
     breakAfter();
-    let t_moveCamera2 = afterTime(null, 1.0);
+    let t_moveCamera = afterTime(null, 1.0);
     let t_highlightHeads = afterTime(null, 2.0);
-    let t_moveCamera3 = afterTime(null, 1.0);
+    let t_moveCamera2 = afterTime(null, 1.0);
     let t_focusHeads = focusSelfAttentionHeadTimers(args, 3.0);
 
     breakAfter();
     commentary(wt)`
-The first step is to produce three vectors for each column from the normalized input embedding matrix.
+The first step is to produce three vectors for each of the ${c_dimRef('C', DimStyle.C)} columns from the ${c_blockRef('normalized input embedding matrix', block0.ln1.lnResid)}.
 These vectors are:
 
 ${embedInline(<ul>
-    <li>Q: Query vector</li>
-    <li>K: Key vector</li>
-    <li>V: Value vector</li>
+    <li>Q: <BlockText blk={head2.qBlock}>Query vector</BlockText></li>
+    <li>K: <BlockText blk={head2.kBlock}>Key vector</BlockText></li>
+    <li>V: <BlockText blk={head2.vBlock}>Value vector</BlockText></li>
 </ul>)}
 
 To produce one of these vectors, we perform a matrix-vector multiplication with a bias added. Each
-output cell is some linear combination of the input vector. For the Q vectors, this is done with a dot product between
-a row of the Q-weight matrix and the input column vector.`;
+output cell is some linear combination of the input vector. E.g. for the ${c_blockRef('Q vectors', head2.qBlock)}, this is done with a dot product between
+a row of the ${c_blockRef('Q-weight matrix', head2.qWeightBlock)} and the ${c_blockRef('input', block0.ln1.lnResid)} column vector.`;
     breakAfter();
 
     let t_focusQCol = afterTime(null, 1.0);
@@ -59,7 +63,7 @@ a row of the Q-weight matrix and the input column vector.`;
 
     breakAfter();
     commentary(wt)`
-The dot product operation, which you'll see a lot of, is quite simple: We pair each element from
+The dot product operation, which we'll see a lot of, is quite simple: We pair each element from
 the first vector with the corresponding element from the second vector, multiply the pairs together
 and then add the results up.`;
     breakAfter();
@@ -88,50 +92,98 @@ We repeat this operation for each output cell in the Q, K, V vectors:`;
 
     breakAfter();
     commentary(wt)`
-Now that we have our Q, K, and V vectors for all the input columns, what do we do with them? Let's
-now look at the 6th column (t = 5):`;
+What do we do with our Q (query), K (key), and V (value) vectors? The naming
+gives us a hint: "key" and "value" are reminiscent of a dictionary in software, with keys mapping to
+values. Then "query" is what we use to look up the value.
+
+${embedInline(<div className='ml-4'>
+    <div className='text-sm mt-1 text-center italic'>Software analogy</div>
+    <div className='text-xs mt-1 mb-1 text-gray-600'>Lookup table:</div>
+    <div className='font-mono text-sm'>{'table = { "key0": "value0", "key1": "value1", ... }'}</div>
+    <div className='text-xs mt-1 mb-1 text-gray-600'>Query Process:</div>
+    <div className='font-mono text-sm'>{'table["key1"] => "value1"'}</div>
+</div>)}
+
+In the case of self-attention, instead of returning a single entry, we return some weighted
+combination of the entries. To find that weighting, we take a dot product between a Q vector and each
+of the K vectors. We normalize that weighting, before finally using it to multiply with the
+corresponding V vector, and then adding them all up.
+
+${embedInline((() => {
+    let keyCol = dimStyleColor(DimStyle.Intermediates);
+    let valCol = dimStyleColor(DimStyle.A);
+    let qCol = dimStyleColor(DimStyle.Aggregates);
+
+    return <div className='ml-4'>
+        <div className='text-sm mt-1 text-center italic'>Self Attention</div>
+        <div className='text-xs mt-2 mb-1 text-gray-600'>Lookup table:</div>
+        <div className='font-mono text-sm flex items-center'>K:
+            <div className='mx-2 my-1'>{makeTextVector(keyCol)}</div>
+            <div className='mx-2 my-1'>{makeTextVector(keyCol)}</div>
+            <div className='mx-2 my-1'>{makeTextVector(keyCol)}</div>
+        </div>
+        <div className='font-mono text-sm flex items-center'>V:
+            <div className='mx-2 my-1'>{makeTextVector(valCol)}</div>
+            <div className='mx-2 my-1'>{makeTextVector(valCol)}</div>
+            <div className='mx-2 my-1'>{makeTextVector(valCol)}</div>
+        </div>
+        <div className='text-xs mt-2 mb-1 text-gray-600'>Query Process:</div>
+        <div className='font-mono text-sm flex items-center'>
+            <div className='flex items-center'>Q: <div className='mx-2 my-1'>{makeTextVector(qCol)}</div></div>
+        </div>
+        <div className='font-mono text-sm flex items-center -ml-2 mt-2'>
+            <div className='flex items-center mx-2'>w0 = <div className='m-1'>{makeTextVector(qCol)}</div>.<div className='m-1'>{makeTextVector(keyCol)}</div></div>
+            <div className='flex items-center mx-2'>w1 = <div className='m-1'>{makeTextVector(qCol)}</div>.<div className='m-1'>{makeTextVector(keyCol)}</div></div>
+            <div className='flex items-center mx-2'>w2 = <div className='m-1'>{makeTextVector(qCol)}</div>.<div className='m-1'>{makeTextVector(keyCol)}</div></div>
+        </div>
+        <div className='font-mono text-sm flex items-center my-2'>
+            [w0n, w1n, w2n] =&nbsp;<span className='italic'>normalization</span>([w0, w1, w2])
+        </div>
+        <div className='font-mono text-sm flex items-center'>
+            result =
+            w0n * <div className='ml-2 mr-2 my-1'>{makeTextVector(valCol)}</div>&nbsp;+&nbsp;
+            w1n * <div className='ml-2 mr-2 my-1'>{makeTextVector(valCol)}</div>&nbsp;+&nbsp;
+            w2n * <div className='ml-2 mr-2 my-1'>{makeTextVector(valCol)}</div>
+        </div>
+
+    </div>;
+})())}
+
+For a more concrete example, let's look at the 6th column (${c_dimRef('t = 5', DimStyle.T)}), from which
+we will query from:`;
     breakAfter();
 
     let t_focusQKVCols = afterTime(null, 1.0);
 
     breakAfter();
+// It would like to find relevant information from other columns and extract their values. The other
+// columns each have a K (key) vector, which represents the information that that column has, and our
+// Q (query) vector is what information is relevant to us.
     commentary(wt)`
-It would like to find relevant information from other columns and extract their values. The other
-columns each have a K (key) vector, which represents the information that that column has, and our
-Q (query) vector is what information is relevant to us.
+The {K, V} entries of our lookup are the 6 columns in the past, and the Q value is the current time.
 
-How do we do this in practice? It requires a few steps, and we'll go through them one by one. Let's
-begin with the first part:`;
+We first calculate the dot product between the ${c_blockRef('Q vector', head2.qBlock)} of the current column (${c_dimRef('t = 5', DimStyle.T)}) and the ${c_blockRef('K vectors', head2.kBlock)}
+of each of the those previous columns. These are then stored in the corresponding row (${c_dimRef('t = 5', DimStyle.T)})
+of the ${c_blockRef('attention matrix', head2.attnMtx)}.`;
     breakAfter();
 
     let t_processAttnRow = afterTime(null, 3.0);
 
     breakAfter();
     commentary(wt)`
-Here we see a dot product between our Q vector and the K vectors of the other columns. This dot
-product can be interpreted slightly differently from the previous matrix-vector multiplication
-(although the operation is identical!). It's a way of measuring the similarity between the two
-vectors. If they're very similar, the dot product will be large. If they're very different, the dot
-product will be small or negative.
+These dot products are a way of measuring the similarity between the two vectors. If they're very
+similar, the dot product will be large. If they're very different, the dot product will be small or
+negative.
 
-As we saw, doing this for our Q column (t = 5) produces a row (t = 5) in the attention matrix,
-and we can think of each of these elements as scores.`;
-    // breakAfter();
+The idea of only using the query against past keys makes this _causal_ self-attention. That is,
+tokens can't "see into the future".
 
-    // let t_processAllAttn = afterTime(null, 3.0);
+Another element is that after we take the dot product, we divide by sqrt(${c_dimRef('A', DimStyle.A)}), where
+${c_dimRef('A', DimStyle.A)} is the length of the Q/K/V vectors. This scaling is done to prevent large values from
+dominating the normalization (softmax) in the next step.
 
-    // breakAfter();
-    commentary(wt)`
-You'll notice that we only fill in the first 6 elements of the row (up to and including the matrix
-diagonal). This is because we're running a process of _causal_ self-attention. In other words,
-we're only allowed to look in the past.
-
-Another key element is that after the dot product, we divide by the square root of the length of the
-Q/K/V vectors (sqrt(A)). This scaling is done to prevent large values from dominating the
-softmax operation in the next step.
-
-We'll briefly skip over the softmax operation (described in the next section); suffice it to say,
-each row is normalized to sum to 1.`;
+We'll mostly skip over the softmax operation (described later); suffice it to say, each row is normalized to sum
+to 1.`;
     breakAfter();
 
     let t_processAttnSmAggRow = afterTime(null, 1.0);
@@ -139,8 +191,8 @@ each row is normalized to sum to 1.`;
 
     breakAfter();
     commentary(wt)`
-Finally, we can produce the output vector for our column (t = 5). We look at the (t = 5) row of the
-normalized self-attention matrix and for each element, multiply the corresponding V vector of the
+Finally, we can produce the output vector for our column (${c_dimRef('t = 5', DimStyle.T)}). We look at the (${c_dimRef('t = 5', DimStyle.T)}) row of the
+${c_blockRef('normalized self-attention matrix', head2.attnMtxSm)} and for each element, multiply the corresponding ${c_blockRef('V vector', head2.vBlock)} of the
 other columns element-wise.`;
     breakAfter();
 
@@ -177,12 +229,9 @@ that it can only look in the past.
 // Running this process for all the columns produces our self-attention matrix, which is a square
 // matrix, T x T, and due to the causal nature of the process, is a lower triangular matrix.
 
-    moveCameraTo(state, t_moveCamera, new Vec3(-152.8, 0, -218.6), new Vec3(296, 15.5, 2.3));
-    moveCameraTo(state, t_moveCamera2, new Vec3(-192.1, 0, -214.8), new Vec3(293.5, 49, 2.3));
-    moveCameraTo(state, t_moveCamera3, new Vec3(-92.7, 0, -219), new Vec3(286, 12.8, 1.4));
+    moveCameraTo(state, t_moveCamera, new Vec3(-192.1, 0, -214.8), new Vec3(293.5, 49, 2.3));
+    moveCameraTo(state, t_moveCamera2, new Vec3(-92.7, 0, -219), new Vec3(286, 12.8, 1.4));
 
-    let block0 = layout.blocks[0];
-    let head2 = block0.heads[2];
 
     if (t_highlightHeads.t > 0.0) {
         block0.selfAttendLabel.visible = lerp(0, 1, t_highlightHeads.t * 10);
@@ -710,4 +759,13 @@ export function drawSymbolBetweenBlocks(args: IWalkthroughArgs, block1: IBlkDef,
     let fontOpts: IFontOpts = { color, size, mtx };
     let w = measureText(args.state.render.modelFontBuf, symbol, fontOpts);
     drawText(args.state.render.modelFontBuf, symbol, -w/2, -fontOpts.size/2, fontOpts);
+}
+
+function makeTextVector(col: Vec4, count: number = 3) {
+    let bgColor = new Vec4(col.x, col.y, col.z, 0.5);
+    return <div className='flex flex-col pb-[2px]'>
+        {makeArray(3, 0).map((_, i) => {
+            return <div key={i} className={"w-3 h-3 border-2 mb-[-2px]"} style={{ borderColor: col.toHexColor(), backgroundColor: bgColor.toHexColor() }} />;
+        })}
+    </div>;
 }

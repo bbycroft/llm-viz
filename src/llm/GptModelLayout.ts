@@ -7,6 +7,7 @@ import { dimProps } from "./Annotations";
 import { DimStyle, dimStyleColor } from "./walkthrough/WalkthroughTools";
 
 export interface IBlkDef {
+    idx: number; // index in the layout.cubes array
     t: 'w' | 'i' | 'a', // weights; intermediate value; aggregate (just LN & softmax)
     x: number;
     y: number;
@@ -249,6 +250,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             highlight: 0.0,
             small: args.small ?? false,
             special: args.special ?? BlkSpecial.None,
+            idx: -1,
         };
     }
 
@@ -890,6 +892,10 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
     // let decoderCount = vocabSize * C; (excluded from the weight count apparently)
 
     cubes.push(lmHeadWeight, logits, logitsAgg1, logitsAgg2, logitsSoftmax);
+
+    for (let i = 0; i < cubes.length; i++) {
+        cubes[i].idx = i;
+    }
 
     return {
         cubes,

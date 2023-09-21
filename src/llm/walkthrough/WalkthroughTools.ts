@@ -25,6 +25,16 @@ export function phaseTools(state: IProgramState) {
         return { str, duration, start: 0, t: 0.0, color: dimStyleColor(style) };
     }
 
+    function c_blockRef(str: string, blk: IBlkDef | IBlkDef[], style?: DimStyle) {
+        let firstBlk = Array.isArray(blk) ? blk[0] : blk;
+        style ??= firstBlk.t === 'i' ? DimStyle.Intermediates : firstBlk.t === "w" ? DimStyle.Weights : DimStyle.Aggregates;
+        return { str, duration: 0, start: 0, t: 0.0, color: dimStyleColor(style), blk };
+    }
+
+    function c_dimRef(str: string, style: DimStyle) {
+        return { str, duration: 0, start: 0, t: 0.0, color: dimStyleColor(style), dim: style };
+    }
+
     function atTime(start: number, duration?: number, wait?: number): ITimeInfo {
         return createAtTime(phaseState, start, duration, wait);
     }
@@ -73,7 +83,7 @@ export function phaseTools(state: IProgramState) {
         };
     }
 
-    return { atTime, atEvent, afterTime, cleanup, commentary, commentaryPara, c_str, breakAfter };
+    return { atTime, atEvent, afterTime, cleanup, commentary, commentaryPara, c_str, c_blockRef, c_dimRef, breakAfter };
 }
 
 function createAtTime(wt: IWalkthrough, start: number, duration?: number, wait?: number): ITimeInfo {

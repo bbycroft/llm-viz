@@ -79,6 +79,7 @@ export function initWalkthrough() {
         commentary: null as ICommentaryRes | null,
         times: [] as (ITimeInfo | ICommentary)[],
         phaseLength: 0,
+        dimHighlightBlocks: null as IBlkDef[] | null,
         markDirty: () => { }, // bit of a hack to get it to WalkthroughSidebar
         phaseData: new Map<Phase, any>(),
         phaseTransitiveData: null as any,
@@ -166,6 +167,7 @@ export function runWalkthrough(state: IProgramState, view: IRenderView) {
     wt.cameraInitial = null;
     wt.times = [];
     wt.phaseLength = 0;
+    wt.dimHighlightBlocks = null;
 
     let wtArgs: IWalkthroughArgs = { state, layout: state.layout, tools: phaseTools(state), walkthrough: wt };
 

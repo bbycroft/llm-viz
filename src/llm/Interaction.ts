@@ -103,8 +103,27 @@ export function runMouseHitTesting(state: IProgramState) {
         highlightCellUnderMouse(state, main, c, pt2);
         drawDependences(state, main, ptIdx);
         drawDataFlow(state, main, ptIdx);
+    } else if (isNotNil(state.display.blkIdxHover)) {
+        for (let idx of state.display.blkIdxHover) {
+            let mainBlk = state.layout.cubes[idx];
+
+            iterVisibleSubCubes(mainBlk, (c) => {
+                c.highlight = 0.2;
+            });
+        }
     }
 
+    if (isNotNil(state.display.dimHover)) {
+        let blks = state.walkthrough.dimHighlightBlocks;
+        for (let blk of blks ?? []) {
+            if (blk.dimX === state.display.dimHover) {
+                blockDimension(state, state.layout, blk, Dim.X, blk.dimX, 1.0);
+            }
+            if (blk.dimY === state.display.dimHover) {
+                blockDimension(state, state.layout, blk, Dim.Y, blk.dimY, 1.0);
+            }
+        }
+    }
 }
 
 
