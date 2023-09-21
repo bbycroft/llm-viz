@@ -3,13 +3,15 @@ import { assignImm } from "@/src/utils/data";
 import { faCheck, faPencil, faTimes, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useCallback, useEffect, useState } from "react";
-import { editLayout, useEditorContext } from "../Editor";
+import { useEditorContext } from "../Editor";
 import { ISchematicDef } from "./SchematicLibrary";
 import s from "./SchematicLibraryView.module.scss";
+import { createSchematicCompDef } from "../comps/SchematicComp";
 
 export const SchematicLibraryView: React.FC = () => {
     let { editorState, setEditorState } = useEditorContext();
 
+    let compLibrary = editorState.compLibrary;
     let schematicLib = editorState.schematicLibrary;
 
     let saveFromState = useCallback(() => {
@@ -21,10 +23,15 @@ export const SchematicLibraryView: React.FC = () => {
                 schematic.undoStack = editorState.undoStack;
                 schematic.redoStack = editorState.redoStack;
                 schematic.mtx = editorState.mtx;
+
+                if (schematic.compArgs) {
+                    let libItem = createSchematicCompDef(schematic.id, schematic.name, schematic.model, schematic.compArgs);
+                    compLibrary.addLibraryItem(libItem);
+                }
             }
             schematicLib.saveToLocalStorage(schemId);
         }
-    }, [editorState.activeSchematicId, editorState.snapshot, editorState.undoStack, editorState.redoStack, editorState.mtx, schematicLib]);
+    }, [editorState.activeSchematicId, editorState.snapshot, editorState.undoStack, editorState.redoStack, editorState.mtx, schematicLib, compLibrary]);
 
     function loadIntoEditor(schematic: ISchematicDef) {
         setEditorState(() => {

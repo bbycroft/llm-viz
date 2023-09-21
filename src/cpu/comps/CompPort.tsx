@@ -203,15 +203,17 @@ const PortEditor: React.FC<{
 
     let isInput = hasFlag(comp.args.type, PortType.In);
     let isInputOverride = comp.args.inputOverride;
+    let isBound = exeComp.data.externalPortBound;
 
     return <>
         <CompRectBase comp={comp} className={""} hideHover={true}>
             {isInput && <HexValueEditor
                 className="absolute inset-0 px-2"
                 inputType={comp.args.valueMode}
-                value={comp.args.inputValueOverride}
+                value={isBound ? exeComp.data.value : comp.args.inputValueOverride}
                 update={editValueOverride}
                 minimalBackground
+                readonly={isBound}
                 inputClassName="text-center"
                 maxBits={comp.args.bitWidth}
                 padBits={comp.args.bitWidth}

@@ -2,6 +2,8 @@ import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
 import { ILibraryItem, ISchematic } from "../CpuModel";
 import { ICompDef } from "./CompBuilder";
 import { ISchematicCompArgs } from "../schematics/SchematicLibrary";
+import * as d3Color from 'd3-color';
+import { clamp } from "@/src/utils/data";
 
 export interface ISchematicCompData {
     // nothing
@@ -24,6 +26,31 @@ export function createSchematicCompDef(id: string, name: string, schematic: ISch
             return builder.build();
         },
 
+        renderAll: true,
+        render: ({ comp, exeComp, ctx, cvs }) => {
+
+            let fillStyle = ctx.fillStyle;
+
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.save();
+
+            let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
+            createInsetGradient(ctx, bb, cvs.scale * 20, '#06b6d4');
+
+            ctx.lineWidth = cvs.scale * 1;
+            ctx.beginPath();
+            ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+            ctx.strokeStyle = 'black';
+            ctx.stroke();
+
+            ctx.restore();
+        },
+
         subLayout: {
             layout: schematic,
             ports: compArgs.ports,
@@ -39,4 +66,57 @@ export function createSchematicCompDef(id: string, name: string, schematic: ISch
     };
 
     return libItem;
+}
+
+export enum RectSide {
+    Top,
+    Right,
+    Bottom,
+    Left,
+}
+
+function createInsetGradient(ctx: CanvasRenderingContext2D, bb: BoundingBox3d, inset: number, colorOuter: string) {
+    let w = bb.max.x - bb.min.x;
+    let h = bb.max.y - bb.min.y;
+
+    for (let i = 0; i < 4; i++) {
+        let isTB = i % 2 === 0;
+        let isBR = i === 1 || i === 2;
+        let base = isBR ? bb.max : bb.min;
+        let insetX = isTB ? 0 : (isBR ? -inset : inset);
+        let insetY = isTB ? (isBR ? -inset : inset) : 0;
+        let oppDir = (isTB ? new Vec3(w, 0) : new Vec3(0, h)).mul(isBR ? -1 : 1);
+
+        let grad = ctx.createLinearGradient(base.x, base.y, base.x + insetX, base.y + insetY);
+        function hexWithOpacity(hex: string, stop: number) {
+            let opacity = Math.pow(1.0 - stop, 2.0);
+
+            let color = d3Color.color(hex)!;
+            return color.formatHex() + clamp((opacity * 255) >> 0, 0, 255).toString(16).padStart(2, '0');
+        }
+        grad.addColorStop(0, hexWithOpacity(colorOuter, 0));
+        grad.addColorStop(0.25, hexWithOpacity(colorOuter, 0.25));
+        grad.addColorStop(0.5, hexWithOpacity(colorOuter, 0.5));
+        grad.addColorStop(0.75, hexWithOpacity(colorOuter, 0.75));
+        grad.addColorStop(1, hexWithOpacity(colorOuter, 1));
+
+        ctx.fillStyle = grad;
+        // now have to create a trapazoid path
+        let mulFactor = 0.95; // 0.95; // 1.0; // 0.95;
+
+        ctx.beginPath();
+        if (isTB) {
+            ctx.moveTo(base.x, base.y);
+            ctx.lineTo(base.x + oppDir.x, base.y + oppDir.y);
+            ctx.lineTo(base.x + oppDir.x - insetY * mulFactor, base.y + insetY);
+            ctx.lineTo(base.x + insetY * mulFactor, base.y + insetY);
+        } else {
+            ctx.moveTo(base.x, base.y);
+            ctx.lineTo(base.x + oppDir.x, base.y + oppDir.y);
+            ctx.lineTo(base.x + oppDir.x + insetX, base.y + oppDir.y - insetX * mulFactor);
+            ctx.lineTo(base.x + insetX, base.y + insetX * mulFactor);
+        }
+        ctx.closePath();
+        ctx.fill();
+    }
 }

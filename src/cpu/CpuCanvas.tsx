@@ -6,7 +6,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart } from "../utils/pointer";
 import { assignImm, getOrAddToMap, isNil, isNotNil } from "../utils/data";
 import { EditorContext, IEditorContext, IViewLayoutContext, ViewLayoutContext } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IEditSnapshot, IExeSystem, ICompRenderArgs } from "./CpuModel";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IEditSnapshot, IExeSystem, ICompRenderArgs, ISchematic } from "./CpuModel";
 import { useLocalStorageState } from "../utils/localstorage";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CpuEditorToolbar } from "./EditorControls";
@@ -23,6 +23,7 @@ import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
 import { drawGrid } from "./CanvasRenderHelpers";
+import { ICompDef, ISubLayoutArgs } from "./comps/CompBuilder";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -224,25 +225,49 @@ export const CpuCanvas: React.FC = () => {
 
     let singleElRef = editorState.snapshot.selected.length === 1 ? editorState.snapshot.selected[0] : null;
 
-    let compDivs = (editorState.snapshotTemp ?? editorState.snapshot).comps.map(comp => {
-        let def = editorState.compLibrary.getCompDef(comp.defId)!;
-        return def.renderDom && cvsState ? {
-            comp,
-            renderDom: def.renderDom,
-        } : null;
-    }).filter(isNotNil).map(a => {
-        cvsState!.mtx = editorState.mtx;
-        return <React.Fragment key={a.comp.id}>
-            {a.renderDom({
-                comp: a.comp,
-                ctx: cvsState?.ctx!,
-                cvs: cvsState!,
-                exeComp: exeModel.comps[exeModel.lookup.compIdToIdx.get(a.comp.id) ?? -1],
-                styles: null!,
-                isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === a.comp.id,
-            })}
-        </React.Fragment>;
-    });
+    function getCompDomElements(schematic: ISchematic, idPrefix: string) {
+        return schematic.comps
+            .map(comp => {
+                let def = editorState.compLibrary.getCompDef(comp.defId)!;
+                return (def.renderDom || def.subLayout) && cvsState ? {
+                    comp,
+                    def,
+                    renderDom: def.renderDom,
+                    subLayout: def.subLayout,
+                } : null;
+            })
+            .filter(isNotNil)
+            .map(a => {
+                cvsState!.mtx = editorState.mtx;
+                let compFullId = idPrefix + a.comp.id;
+
+                let subLayoutDom = null;
+                if (a.subLayout) {
+                    let subMtx = computeSubLayoutMatrix(a.comp, a.def, a.subLayout);
+
+                    subLayoutDom = <div
+                        className={"absolute origin-top-left"}
+                        style={{ transform: `matrix(${subMtx.toTransformParams().join(',')})` }}
+                    >
+                        {getCompDomElements(a.subLayout.layout, idPrefix + a.comp.id + '|')}
+                    </div>;
+                }
+
+                return <React.Fragment key={a.comp.id}>
+                    {a.renderDom?.({
+                        comp: a.comp,
+                        ctx: cvsState?.ctx!,
+                        cvs: cvsState!,
+                        exeComp: exeModel.comps[exeModel.lookup.compIdToIdx.get(compFullId) ?? -1],
+                        styles: null!,
+                        isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === compFullId,
+                    }) ?? null}
+                    {subLayoutDom}
+                </React.Fragment>;
+        });
+    }
+
+    let compDivs = getCompDomElements(editorState.snapshotTemp ?? editorState.snapshot, '');
 
     let viewLayout = useMemo<IViewLayoutContext>(() => {
         return { el: cvsState?.canvas ?? null!, mtx: editorState.mtx };
@@ -278,14 +303,14 @@ export const CpuCanvas: React.FC = () => {
     </EditorContext.Provider>;
 };
 
-function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: IEditSnapshot, exeSystem: IExeSystem) {
+function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix = '') {
     let ctx = cvs.ctx;
 
     drawGrid(editorState.mtx, ctx, cvs);
 
     for (let wire of layout.wires) {
-        let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(wire.id) ?? -1];
-        renderWire(cvs, editorState, wire, exeNet, exeSystem);
+        let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(idPrefix + wire.id) ?? -1];
+        renderWire(cvs, editorState, wire, exeNet, exeSystem, idPrefix);
     }
 
     let compIdxToExeOrder = new Map<number, number[]>();
@@ -294,16 +319,17 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: IEditSn
         getOrAddToMap(compIdxToExeOrder, step.compIdx, () => []).push(idx++);
     }
 
-    let singleElRef = layout.selected.length === 1 ? layout.selected[0] : null;
+    let singleElRef = editorState.snapshot.selected.length === 1 ? editorState.snapshot.selected[0] : null;
 
     ctx.save();
     ctx.globalAlpha = editorState.transparentComps ? 0.5 : 1.0;
     for (let comp of layout.comps) {
-        let exeCompIdx = exeSystem.lookup.compIdToIdx.get(comp.id) ?? -1;
+        let compFullId = idPrefix + comp.id;
+        let exeCompIdx = exeSystem.lookup.compIdToIdx.get(compFullId) ?? -1;
         let exeComp = exeSystem.comps[exeCompIdx];
         let compDef = editorState.compLibrary.getCompDef(comp.defId);
 
-        let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === comp.id;
+        let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === compFullId;
 
         let isValidExe = !!exeComp;
         ctx.fillStyle = isValidExe ? palette.compBg : "#aaa";
@@ -329,7 +355,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: IEditSn
                 strokeColor: isHover ? "#a00" : "#000",
                 lineWidth: 1 * cvs.scale,
             },
-            isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === comp.id,
+            isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === compFullId,
         };
 
         if (compDef?.render) {
@@ -348,6 +374,20 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: IEditSn
 
         for (let node of comp.ports) {
             renderNode(cvs, editorState, comp, node);
+        }
+
+        if (compDef?.subLayout) {
+            // nested rendering!!!!
+            ctx.save();
+
+            let subMtx = computeSubLayoutMatrix(comp, compDef, compDef.subLayout);
+
+            ctx.transform(...subMtx.toTransformParams());
+            let subCvs: ICanvasState = { ...cvs, mtx: subMtx, scale: cvs.scale / subMtx.a };
+
+            renderCpu(subCvs, editorState, compDef.subLayout.layout, exeSystem, idPrefix + comp.id + '|');
+
+            ctx.restore();
         }
 
         if (editorState.showExeOrder) {
@@ -374,7 +414,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: IEditSn
     ctx.save();
     ctx.beginPath();
     let selectedCompSet = new Set(editorState.snapshot.selected.filter(a => a.type === RefType.Comp).map(a => a.id));
-    for (let comp of layout.comps.filter(c => selectedCompSet.has(c.id))) {
+    for (let comp of layout.comps.filter(c => selectedCompSet.has(idPrefix + c.id))) {
         ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
     }
     ctx.strokeStyle = "#77f";
@@ -384,6 +424,27 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: IEditSn
     ctx.restore();
 
     renderSelectRegion(cvs, editorState);
+}
+
+function computeSubLayoutMatrix(comp: IComp, compDef: ICompDef<any>, subLayout: ISubLayoutArgs) {
+    let subSchematic = subLayout.layout;
+    let bb = new BoundingBox3d();
+    for (let c of subSchematic.comps) {
+        bb.addInPlace(c.pos);
+        bb.addInPlace(c.pos.add(c.size));
+    }
+    bb.expandInPlace(Math.min(bb.size().x, bb.size().y) * 0.1);
+
+    let bbSize = bb.size();
+    let scale = Math.min(comp.size.x / bbSize.x, comp.size.y / bbSize.y);
+
+    let subMtx = AffineMat2d.multiply(
+        AffineMat2d.translateVec(comp.pos.mulAdd(comp.size, 0.5)),
+        AffineMat2d.scale1(scale),
+        AffineMat2d.translateVec(bb.min.mul(-1).mulAdd(bbSize, -0.5)),
+    );
+
+    return subMtx;
 }
 
 function renderSelectRegion(cvs: ICanvasState, editorState: IEditorState) {

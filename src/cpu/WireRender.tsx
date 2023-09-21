@@ -3,12 +3,13 @@ import { Vec3 } from "../utils/vector";
 import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortType, IWireGraphNode, IoDir } from "./CpuModel";
 import { iterWireGraphSegments } from "./Wire";
 
-export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem) {
+export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem, idPrefix: string) {
     let ctx = cvs.ctx;
 
     let isCtrl = false;
     let isData = false;
     let isAddr = false;
+    let fullWireId = idPrefix + wire.id;
 
     interface IPortBinding {
         comp: IComp;
@@ -126,14 +127,14 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     let width = isCtrl || exeNet?.width < 32 ? 1 : 3;
 
     let hoverRef = editorState.hovered?.ref;
-    let isHover = (hoverRef?.type === RefType.WireSeg || hoverRef?.type === RefType.WireNode) && hoverRef.id === wire.id;
+    let isHover = (hoverRef?.type === RefType.WireSeg || hoverRef?.type === RefType.WireNode) && hoverRef.id === fullWireId;
 
     let isSelected = false;
     let selectedNodes = new Set<number>();
     let selectedSegs = new Set<string>();
 
     for (let sel of editorState.snapshot.selected) {
-        if (!(sel.type === RefType.WireNode || sel.type === RefType.WireSeg) || sel.id !== wire.id) {
+        if (!(sel.type === RefType.WireNode || sel.type === RefType.WireSeg) || sel.id !== fullWireId) {
             continue;
         }
         isSelected = true;
@@ -303,7 +304,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     }
 
     if (editorState.showExeOrder) {
-        let exeNetIdx = exeSystem.lookup.wireIdToNetIdx.get(wire.id);
+        let exeNetIdx = exeSystem.lookup.wireIdToNetIdx.get(fullWireId);
         let order = exeSystem.executionSteps.findIndex(x => x.netIdx === exeNetIdx);
 
         if (order >= 0) {

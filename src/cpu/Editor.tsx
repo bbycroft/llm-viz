@@ -41,21 +41,21 @@ export function editComp<A>(end: boolean, comp: IComp<A>, updateComp: (comp: ICo
 
 export function editLayout(end: boolean, updateLayout: (element: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
     return (state: IEditorState) => {
-        let changed = updateLayout(state.snapshot, state);
-
-        if (!changed) {
-            return assignImm(state, { snapshotTemp: null });
-        }
+        let newSnapshot = updateLayout(state.snapshot, state);
 
         if (end) {
+            if (newSnapshot === state.snapshot) {
+                return assignImm(state, { snapshotTemp: null });
+            }
+
             state = assignImm(state, {
-                snapshot: changed,
+                snapshot: newSnapshot,
                 snapshotTemp: null,
                 undoStack: [...state.undoStack, state.snapshot],
                 redoStack: [],
             });
         } else {
-            state = assignImm(state, { snapshotTemp: changed });
+            state = assignImm(state, { snapshotTemp: newSnapshot });
         }
 
         return state;
