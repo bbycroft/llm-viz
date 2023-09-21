@@ -422,11 +422,12 @@ function markupSimple(inputStr: string): React.ReactNode {
     let prevC = '';
     let idx = 0;
     for (let c of inputStr) {
-        if (c === '_' && prevC !== '_') {
+        if (c === '_' && ((italicLocs.length % 2) === 1 || !prevC.match(/[a-zA-Z0-9]/))) {
             italicLocs.push(idx);
         // } else if (c === '*' && prevC !== '*') {
         //     boldLocs.push(idx);
         }
+        prevC = c;
         idx++;
     }
 

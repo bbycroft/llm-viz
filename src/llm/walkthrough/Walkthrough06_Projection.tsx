@@ -35,7 +35,7 @@ ${c_dimRef('t = 4', DimStyle.T)}, we go from 3 vectors of length ${c_dimRef('A =
 
     commentary(wt)`
 
-It's worth noting that in GPT, the length of the vectors within a head (${c_dimRef('A = 16', DimStyle.A)}) is equal to ${c_dimRef('C', DimStyle.C)} / numHeads.
+It's worth noting that in GPT, the length of the vectors within a head (${c_dimRef('A = 16', DimStyle.A)}) is equal to ${c_dimRef('C', DimStyle.C)} / num_heads.
 This ensures that when we stack them back together, we get the original length, ${c_dimRef('C', DimStyle.C)}.
 
 From here, we perform the projection to get the output of the layer. This is a simple matrix-vector

@@ -247,7 +247,7 @@ export function runProgram(view: IRenderView, state: IProgramState) {
     drawModelCard(state);
     // drawTokens(state.render, state.layout, state.display);
 
-    manageMovement(state, view);
+    // manageMovement(state, view);
     runMouseHitTesting(state);
     state.render.sharedRender.activePhase = RenderPhase.Opaque;
     drawBlockLabels(state.render, state.layout);
