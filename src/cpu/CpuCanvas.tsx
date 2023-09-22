@@ -22,8 +22,8 @@ import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
-import { computeSubLayoutMatrix, drawGrid } from "./CanvasRenderHelpers";
-import { ICompDef, ISubLayoutArgs } from "./comps/CompBuilder";
+import { drawGrid } from "./CanvasRenderHelpers";
+import { computeSubLayoutMatrix } from "./SubSchematics";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -259,6 +259,7 @@ export const CpuCanvas: React.FC = () => {
                         comp: a.comp,
                         ctx: cvsState?.ctx!,
                         cvs: cvsState!,
+                        editCtx: { idPrefix },
                         exeComp: exeModel.comps[exeModel.lookup.compIdToIdx.get(compFullId) ?? -1],
                         styles: null!,
                         isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === compFullId,
@@ -349,6 +350,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             ctx,
             cvs,
             exeComp,
+            editCtx: { idPrefix },
             styles: {
                 fontSize: 1.8,
                 lineHeight: 2.0,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Vec3 } from "@/src/utils/vector";
-import { ICanvasState, IComp, IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
+import { ICanvasState, IComp, IEditContext, IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
@@ -152,8 +152,8 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.stroke();
             */
         },
-        renderDom: ({ comp, cvs, exeComp }) => {
-            return <Addressing cvs={cvs} comp={comp} exeComp={exeComp} />;
+        renderDom: ({ comp, exeComp, editCtx }) => {
+            return <Addressing editCtx={editCtx} comp={comp} exeComp={exeComp} />;
         },
     };
 
@@ -161,19 +161,19 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 }
 
 export const Addressing: React.FC<{
-    cvs: ICanvasState,
+    editCtx: IEditContext,
     comp: IComp<IAddressMapperConfig>,
     exeComp: IExeComp<ICompAddressMapper>,
-}> = ({ cvs, comp, exeComp }) => {
+}> = ({ editCtx, comp, exeComp }) => {
 
     let { setEditorState } = useEditorContext();
 
     function editAddrOffset(end: boolean, value: number) {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { addrOffset: value })));
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { addrOffset: value })));
     }
 
     function editAddrMask(end: boolean, value: number) {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { addrMask: value })));
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { addrMask: value })));
     }
 
     return <CompRectBase comp={comp} className={s.compAddressing} hideHover>

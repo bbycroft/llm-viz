@@ -7,7 +7,7 @@ import { lookupPortInfo, netToString } from "./CpuExecution";
 import { ISchematic, IoDir, PortType, RefType } from "./CpuModel";
 import { useEditorContext } from "./Editor";
 import s from "./HoverDisplay.module.scss";
-import { computeSubLayoutMatrix } from "./CanvasRenderHelpers";
+import { computeSubLayoutMatrix } from "./SubSchematics";
 
 export const HoverDisplay: React.FC<{
     canvasEl: HTMLCanvasElement | null,

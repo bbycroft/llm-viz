@@ -196,10 +196,15 @@ export interface ISegment {
 export interface ICompRenderArgs<T, A = any> {
     cvs: ICanvasState;
     ctx: CanvasRenderingContext2D;
+    editCtx: IEditContext;
     comp: IComp<A>;
     exeComp: IExeComp<T>;
     styles: IRenderStyles;
     isActive: boolean;
+}
+
+export interface IEditContext {
+    idPrefix: string;
 }
 
 export interface IRenderStyles {

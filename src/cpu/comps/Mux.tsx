@@ -1,7 +1,6 @@
 import { Vec3 } from "@/src/utils/vector";
-import { PortType, IExePort, IComp } from "../CpuModel";
-import { ICompBuilderArgs, ICompDef, ExeCompBuilder } from "./CompBuilder";
-import { ensureSigned32Bit } from "./RiscvInsDecode";
+import { PortType, IExePort } from "../CpuModel";
+import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 
 interface ICompDataMux {
     inSelPort: IExePort;

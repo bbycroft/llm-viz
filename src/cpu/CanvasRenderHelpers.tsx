@@ -47,24 +47,3 @@ export function drawGrid(mtx: AffineMat2d, ctx: CanvasRenderingContext2D, gridSt
     drawGridAtScale(1);
 }
 
-
-export function computeSubLayoutMatrix(comp: IComp, compDef: ICompDef<any>, subLayout: ISubLayoutArgs) {
-    let subSchematic = subLayout.layout;
-    let bb = new BoundingBox3d();
-    for (let c of subSchematic.comps) {
-        bb.addInPlace(c.pos);
-        bb.addInPlace(c.pos.add(c.size));
-    }
-    bb.expandInPlace(Math.min(bb.size().x, bb.size().y) * 0.1);
-
-    let bbSize = bb.size();
-    let scale = Math.min(comp.size.x / bbSize.x, comp.size.y / bbSize.y);
-
-    let subMtx = AffineMat2d.multiply(
-        AffineMat2d.translateVec(comp.pos.mulAdd(comp.size, 0.5)),
-        AffineMat2d.scale1(scale),
-        AffineMat2d.translateVec(bb.min.mul(-1).mulAdd(bbSize, -0.5)),
-    );
-
-    return subMtx;
-}

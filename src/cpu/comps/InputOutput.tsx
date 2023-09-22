@@ -1,6 +1,6 @@
 import React, { memo, useState } from 'react';
 import { Vec3 } from "@/src/utils/vector";
-import { ICanvasState, IComp, IExeComp, IExePort, PortType } from "../CpuModel";
+import { ICanvasState, IComp, IEditContext, IExeComp, IExePort, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from '../Editor';
 import { assignImm } from '@/src/utils/data';
@@ -97,8 +97,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             // ctx.fillText('' + ensureSigned32Bit(exeComp?.data.value ?? 0), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y * 0.5);
         },
 
-        renderDom: ({ comp, exeComp, styles }) => {
-            return <InputEditor comp={comp} exeComp={exeComp} styles={styles} />;
+        renderDom: ({ comp, exeComp, styles, editCtx }) => {
+            return <InputEditor editCtx={editCtx} comp={comp} exeComp={exeComp} styles={styles} />;
         },
     };
 
@@ -106,17 +106,18 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
 }
 
 export const InputEditor: React.FC<{
+    editCtx: IEditContext,
     comp: IComp<IInputConfig>,
     exeComp: IExeComp<ICompDataInput>, styles: any,
-}> = memo(function InputEditor({ comp, exeComp, styles }) {
+}> = memo(function InputEditor({ editCtx, comp, exeComp, styles }) {
     let { setEditorState } = useEditorContext();
 
     function editValue(end: boolean, value: number, valueMode: HexValueInputType) {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { value, valueMode })));
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { value, valueMode })));
     }
 
     function editBitWidth(end: boolean, value: number) {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { bitWidth: value })));
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { bitWidth: value })));
     }
 
     return <CompRectBase comp={comp} className={s.inputNumber} hideHover={true}>

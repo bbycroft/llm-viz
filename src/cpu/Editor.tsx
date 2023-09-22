@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignImm, StateSetter, Subscriptions } from '../utils/data';
-import { IComp, IEditSnapshot, IEditorState, IExeSystem } from './CpuModel';
+import { IComp, IEditContext, IEditSnapshot, IEditorState, IExeSystem } from './CpuModel';
 import { updateWiresForComp } from './Wire';
 import { AffineMat2d } from '../utils/AffineMat2d';
 
@@ -13,12 +13,17 @@ export interface ICompEditArgs {
     portHandling?: PortHandling;
 }
 
-export function editCompConfig<A>(end: boolean, comp: IComp<A>, updateConfig: (config: A) => A, compEditArgs?: ICompEditArgs) {
-    return editComp(end, comp, a => assignImm(a, { args: updateConfig(a.args) }), compEditArgs);
+
+export function editCompConfig<A>(editCtx: IEditContext, end: boolean, comp: IComp<A>, updateConfig: (config: A) => A, compEditArgs?: ICompEditArgs) {
+    return editComp(editCtx, end, comp, a => assignImm(a, { args: updateConfig(a.args) }), compEditArgs);
 }
 
-export function editComp<A>(end: boolean, comp: IComp<A>, updateComp: (comp: IComp<A>) => IComp<A>, compEditArgs?: ICompEditArgs) {
+export function editComp<A>(editCtx: IEditContext, end: boolean, comp: IComp<A>, updateComp: (comp: IComp<A>) => IComp<A>, compEditArgs?: ICompEditArgs) {
     return editLayout(end, (layout, state) => {
+
+        if (editCtx.idPrefix) {
+            return layout; // TODO
+        }
 
         let comp2 = layout.comps.find(a => a.id === comp.id) as IComp<A> | null;
         if (!comp2) {

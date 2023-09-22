@@ -1,5 +1,5 @@
 import { Vec3 } from "@/src/utils/vector";
-import { PortType, IExeComp, IExePort, ICompRenderArgs, IoDir } from "../CpuModel";
+import { PortType, IExeComp, IExePort, ICompRenderArgs } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder"
 import { registerOpts, regValToStr } from "./RenderHelpers";
 

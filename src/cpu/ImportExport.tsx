@@ -145,6 +145,7 @@ export function importData(str: string): IImportResult {
                 ports: [],
                 args: null,
                 resolved: false,
+                hasSubSchematic: false,
             };
 
             for (let j = 3; j < parts.length; j++) {
@@ -232,7 +233,7 @@ export function importData(str: string): IImportResult {
 
     }
 
-    let outStr = exportData({ comps, wires, nextWireId: 0, nextCompId: 0, selected: [], compPorts: [], compSize: new Vec3(0, 0) });
+    let outStr = exportData(createInitialEditSnapshot());
 
     if (outStr !== str) {
         makeIssue("Exported data does not match imported data", 0);
@@ -292,6 +293,8 @@ export function createInitialEditSnapshot(): IEditSnapshot {
 
         compPorts: [],
         compSize: new Vec3(0, 0),
+
+        subComps: new Map(),
     };
 }
 

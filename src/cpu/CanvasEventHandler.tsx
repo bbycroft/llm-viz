@@ -9,7 +9,7 @@ import { editLayout, useEditorContext } from './Editor';
 import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString, wireUnlinkNodes, repackGraphIds } from './Wire';
 import s from './CpuCanvas.module.scss';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
-import { computeSubLayoutMatrix } from './CanvasRenderHelpers';
+import { computeSubLayoutMatrix, getCompSubSchematic } from './SubSchematics';
 
 export const CanvasEventHandler: React.FC<{
     cvsState: ICanvasState,
@@ -433,8 +433,9 @@ export const CanvasEventHandler: React.FC<{
                             // be related to zoom level
                             let def = editorState.compLibrary.getCompDef(comp.defId);
                             let subMtx = mtx.mul(computeSubLayoutMatrix(comp, def!, def!.subLayout!));
+                            let subSchematic = getCompSubSchematic(editorState, comp)!;
 
-                            let subRef = getRefUnderCursor(editorState, ev, def!.subLayout!.layout, subMtx, idPrefix + comp.id + '|');
+                            let subRef = getRefUnderCursor(editorState, ev, subSchematic, subMtx, idPrefix + comp.id + '|');
 
                             if (subRef) {
                                 refsUnderCursor.push(subRef);

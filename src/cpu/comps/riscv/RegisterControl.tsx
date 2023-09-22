@@ -5,7 +5,7 @@ import s from '../CompStyles.module.scss';
 import riscvS from './Riscv.module.scss';
 
 import { assignImm } from '@/src/utils/data';
-import { ICanvasState, IComp, IExeComp, IExePort, PortType } from '../../CpuModel';
+import { ICanvasState, IComp, IEditContext, IExeComp, IExePort, PortType } from '../../CpuModel';
 import { HexValueEditor, HexValueInputType } from '../../displayTools/HexValueEditor';
 import { useEditorContext, editCompConfig } from '../../Editor';
 import { ICompBuilderArgs, ICompDef } from '../CompBuilder';
@@ -66,8 +66,8 @@ export function createRegFileCtrlComps(_args: ICompBuilderArgs): ICompDef<any>[]
 
             return builder.build();
         },
-        renderDom: ({ comp, cvs, exeComp }) => {
-            return <RegFileCtrl cvs={cvs} comp={comp} exeComp={exeComp} />;
+        renderDom: ({ editCtx, comp, exeComp }) => {
+            return <RegFileCtrl editCtx={editCtx} comp={comp} exeComp={exeComp} />;
         },
     };
 
@@ -75,23 +75,23 @@ export function createRegFileCtrlComps(_args: ICompBuilderArgs): ICompDef<any>[]
 }
 
 export const RegFileCtrl: React.FC<{
-    cvs: ICanvasState,
+    editCtx: IEditContext,
     comp: IComp<IRegFileCtrlConfig>,
     exeComp: IExeComp<IRegFileCtrlData>,
-}> = ({ cvs, comp, exeComp }) => {
+}> = ({ editCtx, comp, exeComp }) => {
 
     let { setEditorState } = useEditorContext();
 
     function editAddrOffset(end: boolean, enabled: boolean, value: number) {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { inReg: value, inEnable: enabled })));
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { inReg: value, inEnable: enabled })));
     }
 
     function editOutRegA(end: boolean, enabled: boolean, value: number) {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { outAReg: value, outAEnable: enabled })));
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { outAReg: value, outAEnable: enabled })));
     }
 
     function editOutRegB(end: boolean, enabled: boolean, value: number) {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { outBReg: value, outBEnable: enabled })));
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { outBReg: value, outBEnable: enabled })));
     }
 
     return <CompRectBase comp={comp} className={s.compRegFileCtrl} hideHover>

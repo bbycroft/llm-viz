@@ -1,7 +1,7 @@
 import React from "react";
 import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { Vec3 } from "@/src/utils/vector";
-import { IComp, IExeComp, IExePort, PortType } from "../CpuModel";
+import { IComp, IEditContext, IExeComp, IExePort, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { CompRectBase } from "./RenderHelpers";
@@ -105,10 +105,10 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.stroke();
             ctx.restore();
         },
-        renderDom: ({ comp, exeComp, ctx }) => {
+        renderDom: ({ comp, exeComp, editCtx }) => {
 
             return <CompRectBase comp={comp} hideHover>
-                <BinGate comp={comp} exeComp={exeComp} />
+                <BinGate editCtx={editCtx} comp={comp} exeComp={exeComp} />
             </CompRectBase>;
         },
     };
@@ -163,14 +163,15 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 }
 
 export const BinGate: React.FC<{
+    editCtx: IEditContext,
     comp: IComp<IBinGateConfig>,
     exeComp: IExeComp<IBinGateData>,
-}> = ({ comp }) => {
+}> = ({ editCtx, comp }) => {
     let { setEditorState } = useEditorContext();
 
     function handleRotate() {
         let newRotate = (comp.args.rotate + 1) % 4;
-        setEditorState(editCompConfig(true, comp, a => assignImm(a, { rotate: newRotate })));
+        setEditorState(editCompConfig(editCtx, true, comp, a => assignImm(a, { rotate: newRotate })));
     }
 
     return <div className={s.compBinGate} onClick={handleRotate}></div>;

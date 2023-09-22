@@ -1,7 +1,7 @@
 import React, { memo } from "react";
 import { StateSetter, assignImm, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
-import { IComp, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
+import { IComp, IEditContext, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import { editComp, editCompConfig, useEditorContext, useViewLayout } from "../Editor";
@@ -148,8 +148,8 @@ export function createCompIoComps(args: ICompBuilderArgs) {
 
             ctx.restore();
         },
-        renderDom: ({ comp, exeComp, ctx, styles, isActive }) => {
-            return <PortEditor comp={comp} exeComp={exeComp} isActive={isActive} />;
+        renderDom: ({ comp, exeComp, ctx, styles, isActive, editCtx }) => {
+            return <PortEditor editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} />;
         },
     };
 
@@ -169,23 +169,24 @@ export function switchPortDir(dir: PortType) {
     return newDir;
 }
 
-function makeEditFunction<T, A>(setEditorState: StateSetter<IEditorState>, comp: IComp<T>, updateFn: (value: A, prev: T) => Partial<T>) {
+function makeEditFunction<T, A>(setEditorState: StateSetter<IEditorState>, editCtx: IEditContext, comp: IComp<T>, updateFn: (value: A, prev: T) => Partial<T>) {
     return (end: boolean, value: A) => {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, updateFn(value, a))));
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, updateFn(value, a))));
     };
 }
 
 const PortEditor: React.FC<{
+    editCtx: IEditContext,
     comp: IComp<ICompPortConfig>,
     exeComp: IExeComp<ICompPortData>,
     isActive: boolean,
-}> = memo(function PortEditor({ comp, exeComp, isActive }) {
+}> = memo(function PortEditor({ editCtx, comp, exeComp, isActive }) {
     let { setEditorState } = useEditorContext();
 
-    let editIsOverriden = makeEditFunction(setEditorState, comp, (value: boolean) => ({ inputOverride: value }));
-    let editBitWidth = makeEditFunction(setEditorState, comp, (value: number) => ({ bitWidth: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, value, comp.args.signed) }));
-    let editSigned = makeEditFunction(setEditorState, comp, (value: boolean) => ({ signed: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, comp.args.bitWidth, value) }));
-    let editPortType = makeEditFunction(setEditorState, comp, (isInputPort: boolean, prev) => {
+    let editIsOverriden = makeEditFunction(setEditorState, editCtx, comp, (value: boolean) => ({ inputOverride: value }));
+    let editBitWidth = makeEditFunction(setEditorState, editCtx, comp, (value: number) => ({ bitWidth: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, value, comp.args.signed) }));
+    let editSigned = makeEditFunction(setEditorState, editCtx, comp, (value: boolean) => ({ signed: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, comp.args.bitWidth, value) }));
+    let editPortType = makeEditFunction(setEditorState, editCtx, comp, (isInputPort: boolean, prev) => {
             let type = prev.type;
             if (isInputPort) {
                 type |= PortType.In;
@@ -198,7 +199,7 @@ const PortEditor: React.FC<{
     });
 
     function editValueOverride(end: boolean, value: number, valueMode: HexValueInputType) {
-        setEditorState(editCompConfig(end, comp, a => assignImm(a, { inputValueOverride: clampToSignedWidth(value, a.bitWidth, a.signed), valueMode })));
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { inputValueOverride: clampToSignedWidth(value, a.bitWidth, a.signed), valueMode })));
     }
 
     let isInput = hasFlag(comp.args.type, PortType.In);
@@ -236,14 +237,14 @@ const PortEditor: React.FC<{
                 <MenuRow title={"Label"}>
                     <StringEditor
                         value={comp.args.name}
-                        update={makeEditFunction(setEditorState, comp, (value: string) => ({ name: value }))}
+                        update={makeEditFunction(setEditorState, editCtx, comp, (value: string) => ({ name: value }))}
                     />
                 </MenuRow>
                 <MenuRow title={"Id"}>
                     <StringEditor
                         className="font-mono"
                         value={comp.args.portId}
-                        update={makeEditFunction(setEditorState, comp, (value: string) => ({ portId: value }))}
+                        update={makeEditFunction(setEditorState, editCtx, comp, (value: string) => ({ portId: value }))}
                     />
                 </MenuRow>
                 <MenuRow title={<CheckboxMenuTitle title="Input" value={isInput} update={editPortType} />} />
@@ -263,20 +264,21 @@ const PortEditor: React.FC<{
                 <MenuRow title={<CheckboxMenuTitle title="Signed" value={comp.args.signed} update={editSigned} />} />
             </ConfigMenu>
         </CompRectBase>
-        {isActive && <PortResizer comp={comp} exeComp={exeComp} />}
+        {isActive && <PortResizer editCtx={editCtx} comp={comp} exeComp={exeComp} />}
     </>;
 });
 
 const PortResizer: React.FC<{
+    editCtx: IEditContext,
     comp: IComp<ICompPortConfig>,
     exeComp: IExeComp<ICompPortData>,
-}> = memo(function PortResizer({ comp, exeComp }) {
+}> = memo(function PortResizer({ editCtx, comp, exeComp }) {
 
     let { editorState, setEditorState } = useEditorContext();
 
     useGlobalKeyboard(KeyboardOrder.Element, ev => {
         if (isKeyWithModifiers(ev, 'r')) {
-            setEditorState(editCompConfig(true, comp, a => assignImm(a, { portPos: (a.portPos + 1) % 4 })));
+            setEditorState(editCompConfig(editCtx, true, comp, a => assignImm(a, { portPos: (a.portPos + 1) % 4 })));
             ev.preventDefault();
             ev.stopPropagation();
         }
@@ -285,7 +287,7 @@ const PortResizer: React.FC<{
     let scale = editorState.mtx.a;
 
     function handleResize(end: boolean, pos: Vec3, size: Vec3) {
-        setEditorState(editComp(end, comp, a => assignImm(a, {
+        setEditorState(editComp(editCtx, end, comp, a => assignImm(a, {
             pos,
             args: assignImm(a.args, { w: size.x, h: size.y }),
             size,
