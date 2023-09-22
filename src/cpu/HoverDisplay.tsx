@@ -4,9 +4,10 @@ import { Popup, PopupPos } from "../utils/Portal";
 import { Vec3 } from "../utils/vector";
 import { ensureSigned32Bit, ensureUnsigned32Bit, signExtend32Bit } from "./comps/RiscvInsDecode";
 import { lookupPortInfo, netToString } from "./CpuExecution";
-import { IoDir, PortType, RefType } from "./CpuModel";
+import { ISchematic, IoDir, PortType, RefType } from "./CpuModel";
 import { useEditorContext } from "./Editor";
 import s from "./HoverDisplay.module.scss";
+import { computeSubLayoutMatrix } from "./CanvasRenderHelpers";
 
 export const HoverDisplay: React.FC<{
     canvasEl: HTMLCanvasElement | null,
@@ -115,8 +116,22 @@ export const HoverDisplay: React.FC<{
             }
         }
 
+        let mtx = editorState.mtx;
+        let schematic: ISchematic = editorState.snapshot;
+
+        let subParts = hovered.ref.id.split('|');
+        for (let i = 0; i < subParts.length - 1; i++) {
+            let comp = schematic.comps.find(c => c.id === subParts[i]);
+            let def = editorState.compLibrary.getCompDef(comp?.defId ?? '');
+            if (!comp || !def) {
+                break;
+            }
+            let subMtx = computeSubLayoutMatrix(comp, def, def.subLayout!);
+            mtx = mtx.mul(subMtx);
+        }
+
         let offset = new Vec3(20, 20);
-        let pos = editorState.mtx.mulVec3(hovered.modelPt).add(offset);
+        let pos = mtx.mulVec3(hovered.modelPt).add(offset);
         x = <Popup placement={PopupPos.TopLeft} targetEl={canvasEl} className={s.hoverDisplay} offsetX={pos.x} offsetY={pos.y}>
             <div>{content}</div>
         </Popup>

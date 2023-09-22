@@ -22,7 +22,7 @@ import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
-import { drawGrid } from "./CanvasRenderHelpers";
+import { computeSubLayoutMatrix, drawGrid } from "./CanvasRenderHelpers";
 import { ICompDef, ISubLayoutArgs } from "./comps/CompBuilder";
 
 interface ICanvasDragState {
@@ -42,6 +42,8 @@ function constructEditSnapshot(): IEditSnapshot {
 
         compPorts: [],
         compSize: new Vec3(0, 0),
+
+        subComps: new Map(),
     };
 }
 
@@ -131,7 +133,6 @@ export const CpuCanvas: React.FC = () => {
     useEffect(() => {
         // setCtrlDown(false);
         let schematicLibrary = new SchematicLibrary();
-        console.log('constructing schematic library');
         let compLibrary = buildCompLibrary();
         schematicLibrary.populateSchematicLibrary(compLibrary);
         setEditorState(a => {
@@ -426,26 +427,6 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
     renderSelectRegion(cvs, editorState);
 }
 
-function computeSubLayoutMatrix(comp: IComp, compDef: ICompDef<any>, subLayout: ISubLayoutArgs) {
-    let subSchematic = subLayout.layout;
-    let bb = new BoundingBox3d();
-    for (let c of subSchematic.comps) {
-        bb.addInPlace(c.pos);
-        bb.addInPlace(c.pos.add(c.size));
-    }
-    bb.expandInPlace(Math.min(bb.size().x, bb.size().y) * 0.1);
-
-    let bbSize = bb.size();
-    let scale = Math.min(comp.size.x / bbSize.x, comp.size.y / bbSize.y);
-
-    let subMtx = AffineMat2d.multiply(
-        AffineMat2d.translateVec(comp.pos.mulAdd(comp.size, 0.5)),
-        AffineMat2d.scale1(scale),
-        AffineMat2d.translateVec(bb.min.mul(-1).mulAdd(bbSize, -0.5)),
-    );
-
-    return subMtx;
-}
 
 function renderSelectRegion(cvs: ICanvasState, editorState: IEditorState) {
 

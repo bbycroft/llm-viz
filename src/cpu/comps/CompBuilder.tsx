@@ -153,6 +153,7 @@ export class CompLibrary {
                 pos: new Vec3(0, 0),
                 size: new Vec3(4, 4),
                 resolved: false,
+                hasSubSchematic: false,
             };
         }
 
@@ -171,6 +172,7 @@ export class CompLibrary {
             size: compDef.size,
             args,
             resolved: true,
+            hasSubSchematic: !!compDef.subLayout,
         };
         compDef.applyConfig?.(comp, comp.args);
 
@@ -185,6 +187,7 @@ export class CompLibrary {
         comp.name = compDef.name;
         comp.ports = compDef.ports instanceof Function ? compDef.ports(comp.args, compDef) : compDef.ports;
         comp.size = compDef.size;
+        comp.hasSubSchematic = !!compDef.subLayout;
         compDef.applyConfig?.(comp, comp.args);
     }
 

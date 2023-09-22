@@ -3,7 +3,7 @@ import { IComp } from "../CpuModel";
 import { ensureSigned32Bit, ensureUnsigned32Bit } from "./RiscvInsDecode";
 import s from './CompStyles.module.scss';
 import clsx from "clsx";
-import { useEditorContext } from "../Editor";
+import { useEditorContext, useViewLayout } from "../Editor";
 import { assignImm } from "@/src/utils/data";
 
 export function regValToStr(val: number) {
@@ -20,6 +20,7 @@ export const registerOpts = {
 
 const scalePerCell = 15;
 
+/* This div have the size of 15 x comp-rect-size, i.e. if a comp is of size (10, 20), this div will have size (150, 300) */
 export const CompRectBase: React.FC<{
     comp: IComp,
     hideHover?: boolean,
@@ -61,3 +62,40 @@ export function createCanvasDivStyle(comp: IComp): CSSProperties {
         transform: `translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`,
     };
 }
+
+/* This div will take the size of the pixels on the screen that covers the comp rect */
+export const CompRectUnscaled: React.FC<{
+    comp: IComp,
+    hideHover?: boolean,
+    children?: React.ReactNode,
+}> = memo(function CompRectUnscaled({ comp, hideHover, children }) {
+    let viewLayout = useViewLayout();
+
+    let { setEditorState } = useEditorContext();
+
+    function handleHover(isHover: boolean) {
+        if (!hideHover) {
+            return;
+        }
+        setEditorState(a => {
+            return assignImm(a, {
+                maskHover: isHover ? comp.id : (a.maskHover === comp.id ? null : a.maskHover),
+            });
+        });
+    }
+
+    let scale = Math.max(viewLayout.mtx.a, 15);
+
+    return <div
+        className="absolute origin-top-left"
+        onMouseEnter={() => handleHover(true)}
+        onMouseLeave={() => handleHover(false)}
+        style={{
+            transform: `translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`,
+            width: comp.size.x * scale,
+            height: comp.size.y * scale,
+        }}
+    >
+        {children}
+    </div>;
+});

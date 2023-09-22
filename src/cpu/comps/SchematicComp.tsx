@@ -1,9 +1,13 @@
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { ILibraryItem, ISchematic } from "../CpuModel";
+import { IComp, IExeComp, ILibraryItem, ISchematic } from "../CpuModel";
 import { ICompDef } from "./CompBuilder";
 import { ISchematicCompArgs } from "../schematics/SchematicLibrary";
 import * as d3Color from 'd3-color';
 import { clamp } from "@/src/utils/data";
+import React, { memo } from "react";
+import { CompRectBase, CompRectUnscaled } from "./RenderHelpers";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCodeBranch, faPencil, faFloppyDisk, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 
 export interface ISchematicCompData {
     // nothing
@@ -49,6 +53,9 @@ export function createSchematicCompDef(id: string, name: string, schematic: ISch
             ctx.stroke();
 
             ctx.restore();
+        },
+        renderDom: ({ comp, exeComp, isActive }) => {
+            return <SchematicComp comp={comp} exeComp={exeComp} isActive={isActive} compDef={compDef} />;
         },
 
         subLayout: {
@@ -120,3 +127,35 @@ function createInsetGradient(ctx: CanvasRenderingContext2D, bb: BoundingBox3d, i
         ctx.fill();
     }
 }
+
+const SchematicComp: React.FC<{
+    comp: IComp<ISchematicCompData>,
+    exeComp: IExeComp<{}>,
+    compDef: ICompDef<ISchematicCompData, {}>,
+    isActive: boolean,
+}> = memo(function SchematicComp({ comp, exeComp, isActive, compDef }) {
+
+    let unsavedChanges = true;
+
+    return <>
+        <CompRectBase comp={comp}>
+        </CompRectBase>
+        <CompRectUnscaled hideHover comp={comp}>
+            <div className="absolute top-0 right-0 m-2 bg-white rounded shadow pointer-events-auto flex h-10 overflow-hidden shadow-[rgba(0,0,0,0.2)]">
+                <div className="relative flex items-center px-2">
+                    {compDef.name}
+                </div>
+                <button className="relative px-2 hover:bg-blue-300 min-w-[2.5rem] text-slate-700">
+                    <FontAwesomeIcon icon={faFloppyDisk} />
+                    {unsavedChanges && <div className="absolute -top-1 -right-0 text-red-500 text-2xl">*</div>}
+                </button>
+                <button className="px-2 hover:bg-blue-300 min-w-[2.5rem] text-slate-700" title="Branch this instance">
+                    <FontAwesomeIcon icon={faCodeBranch} />
+                </button>
+                <button className="px-2 hover:bg-blue-300 min-w-[2.5rem] text-slate-700">
+                    <FontAwesomeIcon icon={faMagnifyingGlass} />
+                </button>
+            </div>
+        </CompRectUnscaled>
+    </>;
+});

@@ -219,6 +219,7 @@ export interface IComp<A = any> {
     ports: ICompPort[];
     args: A;
     resolved: boolean;
+    hasSubSchematic: boolean;
 }
 
 export interface ICompPort {
@@ -262,6 +263,15 @@ export interface IEditSnapshot {
     // custom component def
     compSize: Vec3;
     compPorts: ICompPort[];
+
+    subComps: Map<string, IEditSchematic>;
+}
+
+interface IEditSchematic {
+    nextCompId: number;
+    nextWireId: number;
+    comps: IComp[];
+    wires: IWireGraph[];
 }
 
 export interface IMemoryMap {
