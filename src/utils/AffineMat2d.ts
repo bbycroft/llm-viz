@@ -1,4 +1,4 @@
-import { Vec3 } from "./vector";
+import { BoundingBox3d, Vec3 } from "./vector";
 
 export class AffineMat2d {
     constructor(
@@ -52,6 +52,14 @@ export class AffineMat2d {
             (this.a * y - this.c * x) * detInv,
             v.z,
         );
+    }
+
+    mulBb(bb: BoundingBox3d) {
+        return new BoundingBox3d(this.mulVec3(bb.min), this.mulVec3(bb.max));
+    }
+
+    mulBbInv(bb: BoundingBox3d) {
+        return new BoundingBox3d(this.mulVec3Inv(bb.min), this.mulVec3Inv(bb.max));
     }
 
     toTransformParams(): [number, number, number, number, number, number] {

@@ -269,6 +269,26 @@ export class BoundingBox3d {
             this.max.y += border;
             this.max.z += border;
         }
+        return this;
+    }
+
+    shrinkInPlaceXY(inset: number) {
+        if (!this.empty) {
+            this.min.x += inset;
+            this.min.y += inset;
+            this.max.x -= inset;
+            this.max.y -= inset;
+            if (this.min.x > this.max.x || this.min.y > this.max.y) {
+                this.empty = true;
+                this.min = new Vec3();
+                this.max = new Vec3();
+            }
+        }
+        return this;
+    }
+
+    toString(): string {
+        return `BoundingBox3d(${this.min}, ${this.max})`;
     }
 }
 

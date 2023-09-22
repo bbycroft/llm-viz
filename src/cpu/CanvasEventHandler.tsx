@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { AffineMat2d } from '../utils/AffineMat2d';
-import { assignImm, assignImmFull, clamp, getOrAddToMap, isNil, useFunctionRef } from '../utils/data';
+import { assignImm, assignImmFull, clamp, getOrAddToMap, useFunctionRef } from '../utils/data';
 import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
 import { useCombinedMouseTouchDrag } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
@@ -8,8 +8,6 @@ import { ICanvasState, IEditSnapshot, IEditorState, IElRef, IHitTest, ISchematic
 import { editLayout, useEditorContext } from './Editor';
 import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString, wireUnlinkNodes, repackGraphIds } from './Wire';
 import s from './CpuCanvas.module.scss';
-import { multiSortStableAsc } from '../utils/array';
-import { FullscreenOverlay } from '../utils/Portal';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 import { computeSubLayoutMatrix } from './CanvasRenderHelpers';
 
@@ -95,8 +93,8 @@ export const CanvasEventHandler: React.FC<{
 
     let [dragStart, setDragStart] = useCombinedMouseTouchDrag(cvsState?.canvas ?? null, ev => {
         return {
-            mtx: editorState!.mtx,
-            hovered: ev.button === 0 ? editorState!.hovered : null,
+            mtx: editorState.mtx,
+            hovered: ev.button === 0 ? editorState.hovered : null,
             modelPos: evToModel(ev, editorState.mtx),
             ctrlDown: ctrlDown,
             isSelecting: (ev.button === 0 && ctrlDown) || ev.button === 2,
@@ -109,12 +107,12 @@ export const CanvasEventHandler: React.FC<{
             let startPos = ds.data.modelPos;
             let bb = new BoundingBox3d(startPos, endPos);
 
-            let compRefs = editorState!.snapshot.comps.filter(c => {
+            let compRefs = editorState.snapshot.comps.filter(c => {
                 let bb2 = new BoundingBox3d(c.pos, c.pos.add(c.size));
                 return bb.intersects(bb2);
             }).map(c => ({ type: RefType.Comp, id: c.id }));
 
-            let wireRefs = editorState!.snapshot.wires.flatMap(w => {
+            let wireRefs = editorState.snapshot.wires.flatMap(w => {
                 let nodeRefs: IElRef[] = [];
                 for (let node of w.nodes) {
                     if (bb.contains(node.pos)) {
@@ -198,9 +196,17 @@ export const CanvasEventHandler: React.FC<{
 
     function handleWireCreateDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
         setEditorState(editLayout(end, layout => {
+            let startComp = layout.comps.find(c => c.id === ref.id);
+            if (!startComp) {
+                console.log(`WARN: handleWireCreateDrag: comp '${ref.id}' not found`);
+                return layout;
+            }
+            let startNode = startComp.ports.find(n => n.id === ref.compNodeId);
+            if (!startNode) {
+                console.log(`WARN: handleWireCreateDrag: comp '${ref.id}' does not have the port '${ref.compNodeId}'`);
+                return layout;
+            }
 
-            let startComp = layout.comps.find(c => c.id === ref.id)!;
-            let startNode = startComp.ports.find(n => n.id === ref.compNodeId)!;
             let startPt = startComp.pos.add(startNode.pos);
             let endPt = snapToGrid(newModelPos);
 
@@ -246,7 +252,12 @@ export const CanvasEventHandler: React.FC<{
     function handleWireExtendDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
         setEditorState(editLayout(end, function handleWireExtendDrag(layout) {
             checkWires(editorState.snapshot.wires, 'handleWireExtendDrag (pre edit)');
-            let wireIdx = editorState.snapshot.wires.findIndex(w => w.id === ref.id)!;
+            let wireIdx = editorState.snapshot.wires.findIndex(w => w.id === ref.id);
+            if (wireIdx === -1) {
+                console.log(`WARN: handleWireExtendDrag: wire '${ref.id}' not found`);
+                return layout;
+            }
+
             let wire = copyWireGraph(editorState.snapshot.wires[wireIdx]);
             let delta = newModelPos.sub(origModelPos);
             let node = wire.nodes[ref.wireNode0Id!];
@@ -333,7 +344,11 @@ export const CanvasEventHandler: React.FC<{
     function handleWireDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
 
         setEditorState(editLayout(end, layout => {
-            let wireIdx = editorState.snapshot.wires.findIndex(w => w.id === ref.id)!;
+            let wireIdx = editorState.snapshot.wires.findIndex(w => w.id === ref.id);
+            if (wireIdx === -1) {
+                console.log(`WARN: handleWireDrag: wire ${ref.id} not found`)
+                return layout;
+            }
             let wire = editorState.snapshot.wires[wireIdx];
             let delta = newModelPos.sub(origModelPos);
             let node0 = wire.nodes[ref.wireNode0Id!];
@@ -377,11 +392,12 @@ export const CanvasEventHandler: React.FC<{
     }
 
     function getRefUnderCursor(editorState: IEditorState, ev: React.MouseEvent, schematic?: ISchematic, mtx?: AffineMat2d, idPrefix: string = ''): IHitTest | null {
-        let mousePt = evToModel(ev, mtx ?? editorState.mtx);
-        let mousePtScreen = evToScreen(ev);
-
         mtx ??= editorState.mtx;
         schematic ??= editorState.snapshot;
+
+        let mousePt = evToModel(ev, mtx);
+        let mousePtScreen = evToScreen(ev);
+
         let comps = schematic.comps;
 
         let refsUnderCursor: IHitTest[] = [];
@@ -410,16 +426,20 @@ export const CanvasEventHandler: React.FC<{
                 if (bb.contains(mousePt)) {
 
                     if (comp.hasSubSchematic) {
-                        // need some test of whether we can click through to the sub-schematic,
-                        // since still want to be able to select the component itself. Also should
-                        // be related to zoom level
-                        let def = editorState.compLibrary.getCompDef(comp.defId);
-                        let subMtx = mtx.mul(computeSubLayoutMatrix(comp, def!, def!.subLayout!));
+                        let screenBb = mtx.mulBb(bb).shrinkInPlaceXY(20);
+                        if (screenBb.contains(mousePtScreen)) {
+                            // need some test of whether we can click through to the sub-schematic,
+                            // since still want to be able to select the component itself. Also should
+                            // be related to zoom level
+                            let def = editorState.compLibrary.getCompDef(comp.defId);
+                            let subMtx = mtx.mul(computeSubLayoutMatrix(comp, def!, def!.subLayout!));
 
-                        let subRef = getRefUnderCursor(editorState, ev, def!.subLayout!.layout, subMtx, idPrefix + comp.id + '|');
+                            let subRef = getRefUnderCursor(editorState, ev, def!.subLayout!.layout, subMtx, idPrefix + comp.id + '|');
 
-                        if (subRef) {
-                            refsUnderCursor.push(subRef);
+                            if (subRef) {
+                                refsUnderCursor.push(subRef);
+                            }
+                            continue;
                         }
                     }
 
