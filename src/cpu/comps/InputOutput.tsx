@@ -1,22 +1,23 @@
 import React, { memo, useState } from 'react';
 import { Vec3 } from "@/src/utils/vector";
-import { ICanvasState, IComp, IEditContext, IExeComp, IExePort, PortType } from "../CpuModel";
+import { IComp, IEditContext, IExeComp, IExePort, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from '../Editor';
 import { assignImm } from '@/src/utils/data';
-import { CompRectBase } from './RenderHelpers';
+import { CompRectBase, CompRectUnscaled, makeEditFunction, CheckboxMenuTitle, ConfigMenu, MenuRow } from './RenderHelpers';
 import s from './CompStyles.module.scss';
-import { HexValueEditor, HexValueInputType } from '../displayTools/HexValueEditor';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCog } from '@fortawesome/free-solid-svg-icons';
-import { Popup, PopupPos } from '@/src/utils/Portal';
-import clsx from 'clsx';
+import { HexValueEditor, HexValueInputType, clampToSignedWidth } from '../displayTools/HexValueEditor';
 import { FontType, makeCanvasFont } from '../CanvasRenderHelpers';
+import { PortPlacement, PortResizer, portPlacementToPos } from './CompPort';
 
 interface IInputConfig {
     value: number;
     valueMode: HexValueInputType;
     bitWidth: number;
+    w: number;
+    h: number;
+    portPos: PortPlacement;
+    signed: boolean;
 }
 
 interface ICompDataOutput {
@@ -74,10 +75,26 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
         altDefIds: ['const32'],
         name: "Const32",
         size: new Vec3(constW, h),
-        ports: [
-            { id: 'out', name: '', pos: new Vec3(constW, h/2), type: PortType.Out, width: 32 },
-        ],
-        initConfig: () => ({ value: 4, valueMode: HexValueInputType.Hex, bitWidth: 32 }),
+        ports: (args, compDef) => {
+            let portType = PortType.Out;
+            let pos = portPlacementToPos(args.portPos, args.w, args.h);
+
+            return [
+                { id: 'out', name: '', pos, type: portType, width: args.bitWidth },
+            ];
+        },
+        initConfig: () => ({
+            value: 4,
+            valueMode: HexValueInputType.Hex,
+            bitWidth: 32,
+            h: 4,
+            w: constW,
+            portPos: PortPlacement.Right,
+            signed: false,
+        }),
+        applyConfig: (comp, args) => {
+            comp.size = new Vec3(args.w, args.h);
+        },
         build: (builder) => {
             let data = builder.addData({
                 value: builder.comp.args.value,
@@ -98,8 +115,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             // ctx.fillText('' + ensureSigned32Bit(exeComp?.data.value ?? 0), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y * 0.5);
         },
 
-        renderDom: ({ comp, exeComp, styles, editCtx }) => {
-            return <InputEditor editCtx={editCtx} comp={comp} exeComp={exeComp} styles={styles} />;
+        renderDom: ({ comp, exeComp, styles, editCtx, isActive }) => {
+            return <InputEditor editCtx={editCtx} isActive={isActive} comp={comp} exeComp={exeComp} styles={styles} />;
         },
     };
 
@@ -108,78 +125,58 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
 
 export const InputEditor: React.FC<{
     editCtx: IEditContext,
+    isActive: boolean,
     comp: IComp<IInputConfig>,
     exeComp: IExeComp<ICompDataInput>, styles: any,
-}> = memo(function InputEditor({ editCtx, comp, exeComp, styles }) {
+}> = memo(function InputEditor({ editCtx, comp, isActive }) {
     let { setEditorState } = useEditorContext();
+
+    let editBitWidth = makeEditFunction(setEditorState, editCtx, comp, (value: number) => ({ bitWidth: value }));
+    let editSigned = makeEditFunction(setEditorState, editCtx, comp, (value: boolean) => ({
+        signed: value,
+        value: clampToSignedWidth(comp.args.value, comp.args.bitWidth, value),
+    }));
 
     function editValue(end: boolean, value: number, valueMode: HexValueInputType) {
         setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { value, valueMode })));
     }
 
-    function editBitWidth(end: boolean, value: number) {
-        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { bitWidth: value })));
-    }
-
-    return <CompRectBase comp={comp} className={s.inputNumber} hideHover={true}>
-        <HexValueEditor inputType={comp.args.valueMode} value={comp.args.value} update={editValue} minimalBackground />
-        <ConfigMenu className={s.configMenuTopRight}>
-            <MenuRow title={"Value"}>
-                <HexValueEditor inputType={comp.args.valueMode} value={comp.args.value} update={editValue} />
-            </MenuRow>
-            <MenuRow title={"Bit Width"}>
-                <HexValueEditor inputType={HexValueInputType.Dec} hidePrefix value={comp.args.bitWidth} update={editBitWidth} />
-             </MenuRow>
-        </ConfigMenu>
-    </CompRectBase>;
+    return <>
+        <CompRectBase comp={comp} className={s.inputNumber} hideHover={true}>
+            <HexValueEditor
+                    className="absolute inset-0 px-2"
+                    inputType={comp.args.valueMode}
+                    value={comp.args.value}
+                    update={editValue}
+                    minimalBackground
+                    readonly={false}
+                    inputClassName="text-center"
+                    maxBits={comp.args.bitWidth}
+                    // padBits={comp.args.bitWidth}
+                    signed={comp.args.signed}
+                    hidePrefix
+            />
+        </CompRectBase>
+        {isActive && <CompRectUnscaled comp={comp} hideHover>
+            <ConfigMenu className="absolute top-1 right-1 text-2xl">
+                <MenuRow title={"Value"}>
+                    <HexValueEditor
+                        inputType={comp.args.valueMode}
+                        value={comp.args.value}
+                        update={editValue}
+                        maxBits={comp.args.bitWidth}
+                        padBits={comp.args.bitWidth}
+                        signed={comp.args.signed}
+                    />
+                </MenuRow>
+                <MenuRow title={"Bit Width"}>
+                    <HexValueEditor inputType={HexValueInputType.Dec} hidePrefix value={comp.args.bitWidth} update={editBitWidth} />
+                </MenuRow>
+                <MenuRow title={<CheckboxMenuTitle title="Signed" value={comp.args.signed} update={editSigned} />} />
+            </ConfigMenu>
+        </CompRectUnscaled>}
+        {isActive && <PortResizer editCtx={editCtx} comp={comp} />}
+    </>;
 });
 
 
-export const MenuRow: React.FC<{
-    title: React.ReactNode,
-    children?: React.ReactNode,
-    disabled?: boolean,
-}> = ({ title, children, disabled }) => {
-
-    return <div className={clsx("flex flex-col mx-4 my-2", disabled && "opacity-50")}>
-        <div className={"text-sm"}>{title}</div>
-        <div className={""}>{children}</div>
-    </div>
-};
-
-export const CheckboxMenuTitle: React.FC<{
-    title: React.ReactNode,
-    value: boolean,
-    update: (end: boolean, value: boolean) => void,
-}> = ({ title, value, update }) => {
-
-    return <label className="text-sm flex items-center group cursor-pointer">
-        <input type="checkbox" className="mr-2 relative group-hover:drop-shadow" checked={value} onChange={e => update(true, e.target.checked)} />
-        {title}
-    </label>;
-};
-
-export const ConfigMenu: React.FC<{
-    className?: string,
-    children?: React.ReactNode,
-}> = ({ className, children }) => {
-
-    let [btnRef, setBtnRef] = useState<HTMLElement | null>(null);
-
-    let [visible, setVisible] = useState(false);
-
-    return <>
-        <button className={clsx(s.configMenuBtn, className)} ref={setBtnRef} onClick={() => setVisible(true)}>
-            <FontAwesomeIcon icon={faCog} />
-        </button>
-        {visible && <Popup
-            targetEl={btnRef}
-            placement={PopupPos.BottomLeft}
-            className={"tex-lg shadow-lg border-gray-700 bg-gray-400 rounded"}
-            onClose={() => setVisible(false)}
-            closeBackdrop={true}>
-
-            {children}
-        </Popup>}
-    </>;
-};

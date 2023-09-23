@@ -1,10 +1,13 @@
-import React, { CSSProperties, memo } from "react";
-import { IComp } from "../CpuModel";
+import React, { CSSProperties, memo, useState } from "react";
+import { IComp, IEditContext, IEditorState } from "../CpuModel";
 import { ensureSigned32Bit, ensureUnsigned32Bit } from "./RiscvInsDecode";
 import s from './CompStyles.module.scss';
 import clsx from "clsx";
-import { useEditorContext, useViewLayout } from "../Editor";
-import { assignImm } from "@/src/utils/data";
+import { editCompConfig, useEditorContext, useViewLayout } from "../Editor";
+import { StateSetter, assignImm } from "@/src/utils/data";
+import { Popup, PopupPos } from "@/src/utils/Portal";
+import { faCog } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 export function regValToStr(val: number) {
     let valU32 = ensureUnsigned32Bit(val);
@@ -99,3 +102,58 @@ export const CompRectUnscaled: React.FC<{
         {children}
     </div>;
 });
+
+export function makeEditFunction<T, A>(setEditorState: StateSetter<IEditorState>, editCtx: IEditContext, comp: IComp<T>, updateFn: (value: A, prev: T) => Partial<T>) {
+    return (end: boolean, value: A) => {
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, updateFn(value, a))));
+    };
+}
+
+export const MenuRow: React.FC<{
+    title: React.ReactNode,
+    children?: React.ReactNode,
+    disabled?: boolean,
+}> = ({ title, children, disabled }) => {
+
+    return <div className={clsx("flex flex-col mx-4 my-2", disabled && "opacity-50")}>
+        <div className={"text-sm"}>{title}</div>
+        <div className={""}>{children}</div>
+    </div>
+};
+
+export const CheckboxMenuTitle: React.FC<{
+    title: React.ReactNode,
+    value: boolean,
+    update: (end: boolean, value: boolean) => void,
+}> = ({ title, value, update }) => {
+
+    return <label className="text-sm flex items-center group cursor-pointer">
+        <input type="checkbox" className="mr-2 relative group-hover:drop-shadow" checked={value} onChange={e => update(true, e.target.checked)} />
+        {title}
+    </label>;
+};
+
+export const ConfigMenu: React.FC<{
+    className?: string,
+    children?: React.ReactNode,
+}> = ({ className, children }) => {
+
+    let [btnRef, setBtnRef] = useState<HTMLElement | null>(null);
+
+    let [visible, setVisible] = useState(false);
+
+    return <>
+        <button className={clsx(s.configMenuBtn, className)} ref={setBtnRef} onClick={() => setVisible(true)}>
+            <FontAwesomeIcon icon={faCog} />
+        </button>
+        {visible && <Popup
+            targetEl={btnRef}
+            placement={PopupPos.BottomLeft}
+            className={"tex-lg shadow-lg border-gray-700 bg-gray-400 rounded"}
+            onClose={() => setVisible(false)}
+            closeBackdrop={true}>
+
+            {children}
+        </Popup>}
+    </>;
+};

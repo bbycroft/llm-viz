@@ -3,10 +3,9 @@ import { StateSetter, assignImm, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
 import { IComp, IEditContext, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { CompRectBase } from "./RenderHelpers";
+import { CheckboxMenuTitle, CompRectBase, ConfigMenu, MenuRow } from "./RenderHelpers";
 import { editComp, editCompConfig, useEditorContext, useViewLayout } from "../Editor";
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from "../displayTools/HexValueEditor";
-import { CheckboxMenuTitle, ConfigMenu, MenuRow } from "./InputOutput";
 import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEllipsis, faEllipsisVertical } from "@fortawesome/free-solid-svg-icons";
@@ -267,15 +266,14 @@ const PortEditor: React.FC<{
                 <MenuRow title={<CheckboxMenuTitle title="Signed" value={comp.args.signed} update={editSigned} />} />
             </ConfigMenu>
         </CompRectBase>
-        {isActive && <PortResizer editCtx={editCtx} comp={comp} exeComp={exeComp} />}
+        {isActive && <PortResizer editCtx={editCtx} comp={comp} />}
     </>;
 });
 
-const PortResizer: React.FC<{
+export const PortResizer: React.FC<{
     editCtx: IEditContext,
-    comp: IComp<ICompPortConfig>,
-    exeComp: IExeComp<ICompPortData>,
-}> = memo(function PortResizer({ editCtx, comp, exeComp }) {
+    comp: IComp<{ w: number, h: number, portPos: PortPlacement }>,
+}> = memo(function PortResizer({ editCtx, comp }) {
 
     let { editorState, setEditorState } = useEditorContext();
 
