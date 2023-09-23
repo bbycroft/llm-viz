@@ -5,6 +5,7 @@ import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import * as d3Color from 'd3-color';
 import { riscvRegNames } from "./Registers";
 import { isNotNil } from "@/src/utils/data";
+import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 
 export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
@@ -360,20 +361,20 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
     let data = exeComp.data;
     let ins = data.ins.value;
 
-    ctx.font = `${styles.fontSize}px monospace`;
+    ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
     let originalBitStr = ins.toString(2).padStart(32, '0');
     let width = ctx.measureText(originalBitStr).width;
 
     let leftX = comp.pos.x + comp.size.x/2 - width/2;
     let lineY = (a: number) => comp.pos.y + 1.0 + styles.lineHeight * (a + 2.0);
 
-    ctx.font = `italic ${styles.fontSize}px sans-serif`;
+    ctx.font = makeCanvasFont(styles.fontSize, FontType.Italic);
     ctx.fillStyle = '#000';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText('RISCV 32-bit Instruction Decode', leftX + width/2, lineY(-1.5));
 
-    ctx.font = `${styles.fontSize}px monospace`;
+    ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
     ctx.fillStyle = '#000';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
@@ -447,8 +448,8 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
         ctx.fillText(text, center, lineY(2));
     }
 
-    let infoFont1 = `${styles.fontSize * 0.8}px monospace`;
-    let infoFont2 = `italic ${styles.fontSize * 0.6}px sans-serif`;
+    let infoFont1 = makeCanvasFont(styles.fontSize * 0.8, FontType.Mono);
+    let infoFont2 = makeCanvasFont(styles.fontSize * 0.6, FontType.Italic);
     let line2Height = 3.5;
     let line3Height = 4.5;
     let line4Height = 5.5;

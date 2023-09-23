@@ -15,6 +15,7 @@ import { IPointerEvent, useCombinedMouseTouchDrag } from "@/src/utils/pointer";
 import { StringEditor } from "../displayTools/StringEditor";
 import { palette } from "../palette";
 import { CursorDragOverlay } from "@/src/utils/CursorDragOverlay";
+import { makeCanvasFont } from "../CanvasRenderHelpers";
 
 export enum PortPlacement {
     Right,
@@ -143,7 +144,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             let scale = Math.min(cvs.scale, 1/15);
 
             ctx.fillStyle = 'black';
-            ctx.font = `${scale * 14}px sans-serif`;
+            ctx.font = makeCanvasFont(scale * 14);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             ctx.fillText(comp.args.name, p.x + s.x / 2, p.y + s.y + 0.3);

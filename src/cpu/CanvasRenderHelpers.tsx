@@ -1,8 +1,28 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
-import { getOrAddToMap } from "../utils/data";
-import { BoundingBox3d, Vec3 } from "../utils/vector";
-import { IComp } from "./CpuModel";
-import { ICompDef, ISubLayoutArgs } from "./comps/CompBuilder";
+import { getOrAddToMap, hasFlag } from "../utils/data";
+import { Vec3 } from "../utils/vector";
+
+
+export enum FontType {
+    None = 0,
+    Default = 1,
+    Mono = 2,
+    Italic = 4,
+}
+
+export function makeCanvasFont(fontSize: number, fontType: FontType = FontType.Default) {
+    let baseType = fontType & (FontType.Default | FontType.Mono);
+    let str = hasFlag(fontType, FontType.Italic) ? 'italic ' : '';
+    switch (baseType) {
+        case FontType.Default:
+            str = `${fontSize}px Arial`;
+            break;
+        case FontType.Mono:
+            str = `${fontSize}px monospace`;
+            break;
+    }
+    return str;
+}
 
 export interface ICanvasGridState {
     tileCanvases: Map<string, HTMLCanvasElement>;

@@ -22,7 +22,7 @@ import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
-import { drawGrid } from "./CanvasRenderHelpers";
+import { drawGrid, makeCanvasFont } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix } from "./SubSchematics";
 
 interface ICanvasDragState {
@@ -368,7 +368,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
         } else {
             let text = comp.name;
             let textHeight = 3;
-            ctx.font = `${textHeight / 4}px Arial`;
+            ctx.font = makeCanvasFont(textHeight / 4);
             ctx.textAlign = 'center';
             ctx.textBaseline = "middle";
             ctx.fillStyle = "#000";
@@ -400,7 +400,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             ctx.fillStyle = "#a3a";
             ctx.strokeStyle = "#000";
             ctx.lineWidth = 3 * cvs.scale;
-            ctx.font = `${30 * cvs.scale}px Arial`;
+            ctx.font = makeCanvasFont(30 * cvs.scale);
             ctx.textAlign = 'center';
             ctx.textBaseline = "middle";
             let px = comp.pos.x + (comp.size.x) / 2;
@@ -530,7 +530,7 @@ function renderCompPort(cvs: ICanvasState, editorState: IEditorState, comp: ICom
 
         let text = node.name;
         let textHeight = 12 * scale;
-        ctx.font = `${textHeight}px Arial`;
+        ctx.font = makeCanvasFont(textHeight);
         ctx.textAlign = (isTop || isBot) ? 'center' : isLeft ? 'start' : 'end';
         ctx.textBaseline = (isLeft || isRight) ? "middle" : isTop ? 'top' : 'bottom';
         ctx.fillStyle = "#000";

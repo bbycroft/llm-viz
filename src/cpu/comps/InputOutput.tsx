@@ -11,6 +11,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCog } from '@fortawesome/free-solid-svg-icons';
 import { Popup, PopupPos } from '@/src/utils/Portal';
 import clsx from 'clsx';
+import { FontType, makeCanvasFont } from '../CanvasRenderHelpers';
 
 interface IInputConfig {
     value: number;
@@ -54,7 +55,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             }
 
             ctx.save();
-            ctx.font = `${styles.fontSize}px monospace`;
+            ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
             ctx.fillStyle = '#000';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';

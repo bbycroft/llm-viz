@@ -6,6 +6,7 @@ import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
 import clsx from 'clsx';
 import { isNotNil } from '@/src/utils/data';
+import { FontType, makeCanvasFont } from '../CanvasRenderHelpers';
 
 export interface IRomExeData {
     addr: IExePort;
@@ -78,7 +79,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
                     let word = exeComp.data.rom32View[i];
                     let wordStr = '0x' + word.toString(16).padStart(8, '0');
 
-                    ctx.font = `${styles.fontSize}px monospace`;
+                    ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
                     let width = ctx.measureText(wordStr).width;
 
                     let isActive = exeComp.data.addr.value >>> 2 === i;

@@ -1,5 +1,6 @@
 import { hasFlag, isNil } from "../utils/data";
 import { Vec3 } from "../utils/vector";
+import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
 import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortType, IWireGraphNode, IoDir } from "./CpuModel";
 import { iterWireGraphSegments } from "./Wire";
 
@@ -289,7 +290,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
         if (isSelected) {
             ctx.fillStyle = '#666';
-            ctx.font = `${18 * cvs.scale}px monospace`;
+            ctx.font = makeCanvasFont(18 * cvs.scale, FontType.Mono);
             ctx.textBaseline = 'bottom';
             ctx.textAlign = 'left';
             for (let node of wire.nodes) {
@@ -311,7 +312,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
             for (let node of wire.nodes) {
                 ctx.fillStyle = '#666';
-                ctx.font = `${18 * cvs.scale}px monospace`;
+                ctx.font = makeCanvasFont(18 * cvs.scale, FontType.Mono);
                 ctx.textBaseline = 'bottom';
                 ctx.textAlign = 'left';
                 ctx.fillText(order.toString(), node.pos.x + 0.1, node.pos.y - 0.1);

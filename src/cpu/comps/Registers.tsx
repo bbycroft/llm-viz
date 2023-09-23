@@ -2,6 +2,7 @@ import { Vec3 } from "@/src/utils/vector";
 import { PortType, IExeComp, IExePort, ICompRenderArgs } from "../CpuModel";
 import { ICompBuilderArgs, ICompDef } from "./CompBuilder"
 import { registerOpts, regValToStr } from "./RenderHelpers";
+import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 
 export interface ICompDataRegFile {
     inCtrlPort: IExePort;
@@ -175,7 +176,7 @@ function renderPc({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataSingl
     ctx.fill();
     ctx.stroke();
 
-    ctx.font = `${styles.fontSize}px monospace`;
+    ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
     ctx.textAlign = 'end';
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#000";
@@ -230,7 +231,7 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
             ctx.fill();
         };
 
-        ctx.font = `${styles.fontSize}px monospace`;
+        ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
         ctx.textAlign = 'end';
         ctx.textBaseline = "middle";
 

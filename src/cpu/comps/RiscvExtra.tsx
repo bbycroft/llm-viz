@@ -1,8 +1,9 @@
 import { Vec3 } from "@/src/utils/vector";
-import { IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
+import { IExePort, IoDir, PortType } from "../CpuModel";
 import { Funct3LoadStore } from "../RiscvIsa";
-import { ExeCompBuilder, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { ensureUnsigned32Bit, signExtend16Bit, signExtend8Bit } from "./RiscvInsDecode";
+import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { signExtend16Bit, signExtend8Bit } from "./RiscvInsDecode";
+import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 
 export interface ICompDataLoadStore {
     ctrl: IExePort;
@@ -165,7 +166,7 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                 let y = comp.pos.y + 0.3;
                 let word = exeComp.data.data.value;
                 ctx.fillStyle = 'black';
-                ctx.font = `${textHeight}px monospace`;
+                ctx.font = makeCanvasFont(textHeight, FontType.Mono);
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'top';
 
