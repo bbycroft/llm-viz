@@ -121,7 +121,7 @@ export interface IEditorState {
     undoStack: IEditSnapshot[];
     redoStack: IEditSnapshot[];
 
-    selectRegion: BoundingBox3d | null;
+    selectRegion: ISelectRegion | null;
     hovered: IHitTest | null;
     maskHover: string | null;
     addLine: boolean
@@ -130,6 +130,11 @@ export interface IEditorState {
     compLibraryVisible: boolean;
 
     dragCreateComp?: IDragCreateComp;
+}
+
+export interface ISelectRegion {
+    idPrefix: string;
+    bbox: BoundingBox3d;
 }
 
 export interface IDragCreateComp {

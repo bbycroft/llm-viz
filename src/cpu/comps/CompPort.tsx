@@ -140,8 +140,10 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             ctx.fill();
             ctx.stroke();
 
+            let scale = Math.min(cvs.scale, 1/15);
+
             ctx.fillStyle = 'black';
-            ctx.font = `${cvs.scale * 15}px sans-serif`;
+            ctx.font = `${scale * 14}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             ctx.fillText(comp.args.name, p.x + s.x / 2, p.y + s.y + 0.3);
@@ -204,7 +206,7 @@ const PortEditor: React.FC<{
 
     let isInput = hasFlag(comp.args.type, PortType.In);
     let isInputOverride = comp.args.inputOverride;
-    let isBound = exeComp.data.externalPortBound;
+    let isBound = exeComp?.data.externalPortBound ?? false;
 
     return <>
         <CompRectBase comp={comp} className={""} hideHover={true}>

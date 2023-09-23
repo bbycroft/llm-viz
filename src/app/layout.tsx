@@ -17,12 +17,14 @@ export default function RootLayout({
     }, []);
 
     return <html lang="en" className={s.html}>
+        <head>
+            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&family=Merriweather:ital@0;1" />
+        </head>
         <body className={s.body}>{children}</body>
     </html>;
 }
 
 /* <head>
-    <title>Brendan's Home Page</title>
     <link rel="preload" href="/fonts/font-atlas.png" as="image" />
     <link rel="preload" href="/fonts/font-def.json" as="fetch" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&family=Merriweather:ital@0;1" />

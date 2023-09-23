@@ -376,7 +376,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
         }
 
         for (let node of comp.ports) {
-            renderNode(cvs, editorState, comp, node);
+            renderCompPort(cvs, editorState, comp, node);
         }
 
         if (compDef?.subLayout) {
@@ -426,20 +426,20 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
     ctx.stroke();
     ctx.restore();
 
-    renderSelectRegion(cvs, editorState);
+    renderSelectRegion(cvs, editorState, idPrefix);
 }
 
 
-function renderSelectRegion(cvs: ICanvasState, editorState: IEditorState) {
+function renderSelectRegion(cvs: ICanvasState, editorState: IEditorState, idPrefix: string) {
 
-    if (!editorState.selectRegion) {
+    if (!editorState.selectRegion || editorState.selectRegion.idPrefix !== idPrefix) {
         return;
     }
 
     let region = editorState.selectRegion;
     let ctx = cvs.ctx;
-    let p0 = region.min; // editorState.mtx.mulVec3Inv(region.min);
-    let p1 = region.max; // editorState.mtx.mulVec3Inv(region.max);
+    let p0 = region.bbox.min; // editorState.mtx.mulVec3Inv(region.min);
+    let p1 = region.bbox.max; // editorState.mtx.mulVec3Inv(region.max);
 
     ctx.save();
     ctx.strokeStyle = "#000";
@@ -502,7 +502,7 @@ function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart
 
 }
 
-function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompPort) {
+function renderCompPort(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompPort) {
     let hoverRef = editorState.hovered?.ref;
     let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === node.id;
     let type = node.type ?? 0;
@@ -511,7 +511,10 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
     let ctx = cvs.ctx;
     let x = comp.pos.x + node.pos.x;
     let y = comp.pos.y + node.pos.y;
-    let r = 2 / 10;
+
+    let scale = Math.min(cvs.scale, 1 / 15);
+
+    let r = 3 * scale;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2 * Math.PI);
     ctx.strokeStyle = isHover ? "#f00" : "#000";
@@ -526,12 +529,12 @@ function renderNode(cvs: ICanvasState, editorState: IEditorState, comp: IComp, n
         let isRight = node.pos.x === comp.size.x;
 
         let text = node.name;
-        let textHeight = 0.7;
+        let textHeight = 12 * scale;
         ctx.font = `${textHeight}px Arial`;
         ctx.textAlign = (isTop || isBot) ? 'center' : isLeft ? 'start' : 'end';
         ctx.textBaseline = (isLeft || isRight) ? "middle" : isTop ? 'top' : 'bottom';
         ctx.fillStyle = "#000";
-        let deltaAmt = 0.3;
+        let deltaAmt = 8 * scale;
         let deltaX = isLeft ? deltaAmt : isRight ? -deltaAmt : 0;
         let deltaY = isTop ? deltaAmt : isBot ? -deltaAmt : 0;
         ctx.fillText(text, x + deltaX, y + deltaY);

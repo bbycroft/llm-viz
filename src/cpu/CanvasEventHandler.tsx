@@ -100,6 +100,10 @@ export const CanvasEventHandler: React.FC<{
             isSelecting: (ev.button === 0 && ctrlDown) || ev.button === 2,
         };
      }, function handleDrag(ev, ds, end) {
+
+        let selection = document.getSelection();
+        selection?.removeAllRanges();
+
         let delta = new Vec3(ev.clientX - ds.clientX, ev.clientY - ds.clientY);
 
         if (ds.data.isSelecting) {
@@ -133,7 +137,7 @@ export const CanvasEventHandler: React.FC<{
 
 
             setEditorState(a => assignImm(a, {
-                selectRegion: end ? null : bb,
+                selectRegion: end ? null : { bbox: bb, idPrefix: '' },
                 snapshot: assignImm(a.snapshot, {
                     selected: [...compRefs, ...wireRefs],
                 }),
@@ -425,7 +429,7 @@ export const CanvasEventHandler: React.FC<{
                 let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
                 if (bb.contains(mousePt)) {
 
-                    if (comp.hasSubSchematic) {
+                    if (comp.hasSubSchematic && editorState.maskHover !== comp.id) {
                         let screenBb = mtx.mulBb(bb).shrinkInPlaceXY(20);
                         if (screenBb.contains(mousePtScreen)) {
                             // need some test of whether we can click through to the sub-schematic,

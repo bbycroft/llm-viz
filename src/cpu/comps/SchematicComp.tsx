@@ -141,7 +141,7 @@ const SchematicComp: React.FC<{
         <CompRectBase comp={comp}>
         </CompRectBase>
         <CompRectUnscaled hideHover comp={comp}>
-            <div className="absolute top-0 right-0 m-2 bg-white rounded shadow pointer-events-auto flex h-10 overflow-hidden shadow-[rgba(0,0,0,0.2)]">
+            <div className="absolute top-0 right-0 m-2 bg-white rounded shadow pointer-events-auto flex h-10 overflow-hidden shadow-[rgba(0,0,0,0.2)] opacity-10 hover:opacity-100 transition-opacity">
                 <div className="relative flex items-center px-2">
                     {compDef.name}
                 </div>

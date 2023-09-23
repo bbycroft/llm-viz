@@ -181,7 +181,7 @@ export const TocDiagram: React.FC<{
     }
 
     let sizeScale = 20;
-    let fontSize = 14;
+    let fontSize = 11;
 
     calcSizes(structure);
     calcPosition(structure, new Vec3(10 + 0.5, 90 + 0.5));
@@ -302,7 +302,7 @@ export const TocDiagram: React.FC<{
                     <text fontSize={11} textAnchor='end' x={textX} y={center.y + 0.25 * fontSize}>pos embed</text>
                     <circle cx={embedX} cy={center.y} r={10} stroke={colors.line} fill='none' />;
                     <line x1={embedX + 14} x2={center.x - 10} y1={center.y} y2={center.y} stroke={colors.line} strokeWidth={1} />;
-                    <text textAnchor='middle' x={embedX} y={center.y + 5} fontSize={22}>~</text>
+                    <text textAnchor='middle' x={embedX} y={center.y + 5} fontSize={18}>~</text>
                     {renderArrow(new Vec3(center.x - 8, center.y), new Vec3(center.x - 12, center.y), 'posEmbedArrow')}
                     {renderPlus(center, 'posEmbed')}
                 </>;
@@ -387,14 +387,14 @@ export const TocDiagram: React.FC<{
             {textSegs.map((seg, i) => {
                 return <React.Fragment key={i}>
                     <rect x={offsets[i]} y={0} width={widths[i] + 1} height={20} fill={colors[i]} />
-                    <text x={offsets[i]} y={16} fontSize={16}>{seg.replaceAll(' ', '\xa0')}</text>
+                    <text x={offsets[i]} y={16} fontSize={14}>{seg.replaceAll(' ', '\xa0')}</text>
                     <text x={offsets[i] + widths[i] / 2} y={30} fontSize={9} textAnchor='middle' fill={'#338a'}>{ids[i]}</text>
                 </React.Fragment>;
             })}
             {egTextSegs.map((seg, i) => {
                 return <React.Fragment key={i}>
                     <rect x={egPosX} y={egTopY + 20 * i} width={egWidths[i] + 1} height={20} fill={egColor} />
-                    <text x={egPosX} y={egTopY + 20 * i + 16} fontSize={16} fillOpacity={egPct[i]}>{seg.replaceAll(' ', '\xa0')}</text>
+                    <text x={egPosX} y={egTopY + 20 * i + 16} fontSize={12} fillOpacity={egPct[i]}>{seg.replaceAll(' ', '\xa0')}</text>
                     <text x={egPosX + egMaxWidth + egIdWidth} y={egTopY + 20 * i + 13} fontSize={9} textAnchor='end' fill={'#338a'}>{egIds[i]}</text>
                 </React.Fragment>;
             })}
