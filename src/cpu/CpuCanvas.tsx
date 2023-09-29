@@ -104,8 +104,9 @@ export const CpuCanvas: React.FC = () => {
                 if (!a.needsZoomExtent) {
                     return a;
                 }
+                let pr = window.devicePixelRatio;
                 let bb = computeModelBoundingBox(a.snapshot);
-                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(330, 0), new Vec3(w, h)), 0.05);
+                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(330, 0), new Vec3(w / pr, h / pr)), 0.05);
                 return assignImm(a, { mtx, needsZoomExtent: false });
             });
         }
@@ -165,7 +166,7 @@ export const CpuCanvas: React.FC = () => {
         setLsState(a => assignImm(a, newState));
         let strExport = exportData(editorState.snapshot);
         localStorage.setItem("cpu-layout-str", strExport);
-        importData(strExport);
+        // importData(strExport);
     }, [editorState.snapshot, setLsState]);
 
     useLayoutEffect(() => {

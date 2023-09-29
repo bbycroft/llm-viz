@@ -2,7 +2,7 @@ import React, { memo, useEffect, useRef, useState } from 'react';
 import { AffineMat2d } from '../utils/AffineMat2d';
 import { assignImm, assignImmFull, clamp, getOrAddToMap, useFunctionRef } from '../utils/data';
 import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
-import { useCombinedMouseTouchDrag } from '../utils/pointer';
+import { useCombinedMouseTouchDrag, useTouchEvents } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
 import { ICanvasState, IEditSnapshot, IEditorState, IElRef, IHitTest, ISchematic, ISegment, IWireGraph, RefType } from './CpuModel';
 import { editLayout, useEditorContext } from './Editor';
@@ -90,6 +90,50 @@ export const CanvasEventHandler: React.FC<{
             };
         }
     }, [canvasWrapEl, handleWheelFuncRef]);
+
+
+    useTouchEvents(canvasWrapEl, { mtx: editorState.mtx }, { alwaysSendDragEvent: true },
+        function handle1PointDrag(ev, ds) {
+            let aPt0 = new Vec3(ds.touches[0].clientX, ds.touches[0].clientY);
+            let bPt0 = new Vec3(ev.touches[0].clientX, ev.touches[0].clientY);
+            let delta = bPt0.sub(aPt0);
+
+            let mtx = AffineMat2d.multiply(
+                AffineMat2d.translateVec(delta),
+                ds.data.mtx,
+            );
+
+            ev.stopPropagation();
+            ev.preventDefault();
+            setEditorState(a => assignImm(a, { mtx }));
+        },
+        function handle2PointDrag(ev, ds) {
+            let aPt0 = new Vec3(ds.touches[0].clientX, ds.touches[0].clientY);
+            let aPt1 = new Vec3(ds.touches[1].clientX, ds.touches[1].clientY);
+
+            let bPt0 = new Vec3(ev.touches[0].clientX, ev.touches[0].clientY);
+            let bPt1 = new Vec3(ev.touches[1].clientX, ev.touches[1].clientY);
+
+            let aCenter = aPt0.lerp(aPt1, 0.5);
+            let bCenter = bPt0.lerp(bPt1, 0.5);
+
+            let aLen = aPt0.dist(aPt1);
+            let bLen = bPt0.dist(bPt1);
+
+            // scale by ratio of lengths; keep model centers
+
+            let scale = bLen / aLen;
+            let mtx = AffineMat2d.multiply(
+                AffineMat2d.translateVec(bCenter),
+                AffineMat2d.scale1(scale),
+                AffineMat2d.translateVec(aCenter.mul(-1)),
+                ds.data.mtx,
+            );
+
+            ev.stopPropagation();
+            ev.preventDefault();
+            setEditorState(a => assignImm(a, { mtx }));
+        });
 
     let [dragStart, setDragStart] = useCombinedMouseTouchDrag(cvsState?.canvas ?? null, ev => {
         return {

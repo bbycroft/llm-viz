@@ -1,5 +1,5 @@
 import { isNotNil, assignImm } from "../utils/data";
-import { Vec3 } from "../utils/vector";
+import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary } from "./comps/CompBuilder";
 import { IComp, IEditSnapshot, IElRef, IWireGraph, IWireGraphNode, RefType } from "./CpuModel";
 import { checkWires } from "./Wire";
@@ -293,6 +293,7 @@ export function createInitialEditSnapshot(): IEditSnapshot {
 
         compPorts: [],
         compSize: new Vec3(0, 0),
+        compBbox: new BoundingBox3d(),
 
         subComps: new Map(),
     };
