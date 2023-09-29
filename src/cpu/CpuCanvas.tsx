@@ -17,13 +17,14 @@ import { CompExampleView } from "./CompExampleView";
 import { HoverDisplay } from "./HoverDisplay";
 import { renderWire } from "./WireRender";
 import { SchematicLibrary } from "./schematics/SchematicLibrary";
-import { SchematicLibraryView } from "./schematics/SchematicLIibraryView";
+import { SchematicLibraryView } from "./schematics/SchematicLibraryView";
 import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
 import { drawGrid, makeCanvasFont } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix } from "./SubSchematics";
+import { computeModelBoundingBox, computeZoomExtentMatrix } from "./ModelHelpers";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -42,6 +43,7 @@ function constructEditSnapshot(): IEditSnapshot {
 
         compPorts: [],
         compSize: new Vec3(0, 0),
+        compBbox: new BoundingBox3d(),
 
         subComps: new Map(),
     };
@@ -74,6 +76,7 @@ export const CpuCanvas: React.FC = () => {
             showExeOrder: false,
             transparentComps: false,
             compLibraryVisible: false,
+            needsZoomExtent: true,
         };
     });
     let [, redraw] = useReducer((x) => x + 1, 0);
@@ -86,49 +89,27 @@ export const CpuCanvas: React.FC = () => {
             initialLoad.current = false;
             setEditorState(a => assignImm(a, {
                 snapshot: wiresFromLsState(a.snapshot, lsState, a.compLibrary),
+                needsZoomExtent: true,
             }));
 
         }
     }, [lsState]);
 
-    let initialCanvasLoad = useRef(true);
-    useEffect(() => {
-        if (cvsState && initialCanvasLoad.current) {
-            initialCanvasLoad.current = false;
+    useLayoutEffect(() => {
+        if (cvsState) {
             let w = cvsState.canvas.width;
             let h = cvsState.canvas.height;
             setEditorState(a => {
                 // goal: zoom-extent so the canvas fits the entire schematic
-
-                let bb = new BoundingBox3d();
-                for (let comp of a.snapshot.comps) {
-                    bb.addInPlace(comp.pos);
-                    bb.addInPlace(comp.pos.add(comp.size));
+                if (!a.needsZoomExtent) {
+                    return a;
                 }
-                for (let wire of a.snapshot.wires) {
-                    for (let node of wire.nodes) {
-                        bb.addInPlace(node.pos);
-                    }
-                }
-
-                bb.expandInPlace(bb.size().mul(0.2).len());
-
-                // tl of view is 0,0
-                // br of view is w,h
-
-                // tl of schematic is bb.min
-                // br of schematic is bb.max
-
-                let mtx = AffineMat2d.multiply(
-                    AffineMat2d.translateVec(new Vec3(w / 2 + 200, h / 2)),
-                    AffineMat2d.scale1(Math.min(w / bb.size().x, h / bb.size().y)),
-                    AffineMat2d.translateVec(bb.center().mul(-1)),
-                );
-
-                return assignImm(a, { mtx });
+                let bb = computeModelBoundingBox(a.snapshot);
+                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(330, 0), new Vec3(w, h)), 0.05);
+                return assignImm(a, { mtx, needsZoomExtent: false });
             });
         }
-    }, [cvsState]);
+    }, [cvsState, editorState.needsZoomExtent]);
 
     useEffect(() => {
         // setCtrlDown(false);
@@ -142,6 +123,7 @@ export const CpuCanvas: React.FC = () => {
                 snapshot: assignImm(a.snapshot, {
                     comps: compLibrary.updateAllCompsFromDefs(a.snapshot.comps),
                 }),
+                needsZoomExtent: true,
             });
         });
         setIsClient(true);
@@ -352,7 +334,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             exeComp,
             editCtx: { idPrefix },
             styles: {
-                fontSize: 1.8,
+                fontSize: 1.6,
                 lineHeight: 2.0,
                 fillColor: isValidExe ? "#8a8" : "#aaa",
                 strokeColor: isHover ? "#a00" : "#000",

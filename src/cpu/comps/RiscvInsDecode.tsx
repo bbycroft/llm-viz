@@ -368,7 +368,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
     let leftX = comp.pos.x + comp.size.x/2 - width/2;
     let lineY = (a: number) => comp.pos.y + 1.0 + styles.lineHeight * (a + 2.0);
 
-    ctx.font = makeCanvasFont(styles.fontSize, FontType.Italic);
+    ctx.font = makeCanvasFont(styles.fontSize, FontType.Default | FontType.Italic);
     ctx.fillStyle = '#000';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -449,7 +449,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
     }
 
     let infoFont1 = makeCanvasFont(styles.fontSize * 0.8, FontType.Mono);
-    let infoFont2 = makeCanvasFont(styles.fontSize * 0.6, FontType.Italic);
+    let infoFont2 = makeCanvasFont(styles.fontSize * 0.6, FontType.Default | FontType.Italic);
     let line2Height = 3.5;
     let line3Height = 4.5;
     let line4Height = 5.5;

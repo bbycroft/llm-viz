@@ -7,6 +7,7 @@ import { useEditorContext } from "../Editor";
 import { ISchematicDef } from "./SchematicLibrary";
 import s from "./SchematicLibraryView.module.scss";
 import { createSchematicCompDef } from "../comps/SchematicComp";
+import { BoundingBox3d } from "@/src/utils/vector";
 
 export const SchematicLibraryView: React.FC = () => {
     let { editorState, setEditorState } = useEditorContext();
@@ -41,6 +42,7 @@ export const SchematicLibraryView: React.FC = () => {
                 undoStack: schematic.undoStack ?? [],
                 redoStack: schematic.redoStack ?? [],
                 mtx: schematic.mtx ?? new AffineMat2d(),
+                needsZoomExtent: true,
             });
         });
     }

@@ -107,19 +107,30 @@ export interface IExePortRef {
     valid: boolean;
 }
 
+// We're adding a new level of state, which tracks all editors (tabs), and they each have their own state (mostly).
+// Keep some global state like the comp library here.
+export interface IProgramState {
+    compLibrary: CompLibrary;
+    schematicLibrary: SchematicLibrary;
+
+    activeEditorIdx: number;
+    editors: IEditorState[];
+}
+
 export interface IEditorState {
     mtx: AffineMat2d;
 
-    activeSchematicId: string | null;
     snapshot: IEditSnapshot;
     snapshotTemp: IEditSnapshot | null;
+
+    undoStack: IEditSnapshot[];
+    redoStack: IEditSnapshot[];
+
+    activeSchematicId: string | null;
 
     // time to combine these!! Actually, let's use CompLibrary, since it's used in more places, & rename it
     compLibrary: CompLibrary;
     schematicLibrary: SchematicLibrary;
-
-    undoStack: IEditSnapshot[];
-    redoStack: IEditSnapshot[];
 
     selectRegion: ISelectRegion | null;
     hovered: IHitTest | null;
@@ -128,6 +139,7 @@ export interface IEditorState {
     showExeOrder: boolean;
     transparentComps: boolean;
     compLibraryVisible: boolean;
+    needsZoomExtent: boolean;
 
     dragCreateComp?: IDragCreateComp;
 }
@@ -273,6 +285,7 @@ export interface IEditSnapshot {
     // custom component def
     compSize: Vec3;
     compPorts: ICompPort[];
+    compBbox: BoundingBox3d;
 
     subComps: Map<string, IEditSchematic>;
 }

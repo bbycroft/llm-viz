@@ -38,7 +38,7 @@
 .memRow {
     display: flex;
     flex-direction: row;
-    padding-right: 15px;
+    margin-right: 15px;
     pointer-events: auto;
     height: 26px;
 }
@@ -49,12 +49,14 @@
     text-align: right;
     margin-right: 5px;
     user-select: none;
+    overflow: hidden;
 }
 
 .memRowBytes {
     flex: 1 1 auto;
     display: flex;
     flex-direction: row;
+    background-color: white;
 
     &.allZeros {
         color: #555555;
