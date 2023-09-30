@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useFunctionRef } from "./data";
 import { Vec3 } from "./vector";
+import { useFunctionRef } from "./hooks";
 
 export interface ILayout {
     width: number;

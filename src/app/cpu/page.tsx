@@ -9,7 +9,6 @@ export const metadata = {
 
 export default function Page() {
     return <>
-        <Header title={"CPU Simulation"} />
         <CPUMain />
         <div id="portal-container"></div>
     </>;

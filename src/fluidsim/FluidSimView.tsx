@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useState } from "react";
-import { Subscriptions, useSubscriptions } from "../utils/data";
 import { useScreenLayout } from "../utils/layout";
 import { ICanvasTargetDef, IFluidSimState, initFluidSimState, stepFluidSim } from "./FluidSimMain";
 import s from "./FluidSimView.module.scss";
+import { Subscriptions, useSubscriptions } from "../utils/hooks";
 
 let dummySubs = new Subscriptions();
 

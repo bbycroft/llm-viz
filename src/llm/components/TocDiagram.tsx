@@ -1,12 +1,13 @@
-import React, { memo, useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import React, { memo, useCallback, useLayoutEffect, useState } from 'react';
 import { BoundingBox3d, Vec3 } from '@/src/utils/vector';
 import s from './TocDiagram.module.scss';
 import * as d3Color from 'd3-color';
-import { isNotNil, Subscriptions } from '@/src/utils/data';
+import { isNotNil } from '@/src/utils/data';
 import { Phase } from '../walkthrough/Walkthrough';
 import clsx from 'clsx';
 import { jumpToPhase } from '../Commentary';
 import { useProgramState } from '../Sidebar';
+import { Subscriptions } from '@/src/utils/hooks';
 
 enum ElType {
     Cell,

@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { assignImm, StateSetter, Subscriptions } from '../utils/data';
+import { assignImm, StateSetter } from '../utils/data';
 import { IComp, IEditContext, IEditSnapshot, IEditorState, IExeSystem } from './CpuModel';
 import { updateWiresForComp } from './Wire';
 import { AffineMat2d } from '../utils/AffineMat2d';
+import { Subscriptions } from '../utils/hooks';
 
 export enum PortHandling {
     Detach, // e.g. for rotating a component, the wire will need to be manually re-attached

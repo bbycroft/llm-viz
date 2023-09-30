@@ -4,14 +4,13 @@ import React from 'react';
 import { faCircleQuestion } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { createContext, useContext, useEffect } from 'react';
-import { assignImm, Subscriptions, useSubscriptions } from '@/src/utils/data';
+import { assignImm } from '@/src/utils/data';
 import { KeyboardOrder, useGlobalKeyboard } from '@/src/utils/keyboard';
 import { useLocalStorageState } from '@/src/utils/localstorage';
 import { ModalWindow } from '@/src/utils/Portal';
 import s from './WelcomePopup.module.scss';
-import IntroImage from './intro-image-opt.svg';
-import Image from 'next/image';
 import { TocDiagram } from './components/TocDiagram';
+import { Subscriptions, useSubscriptions } from '../utils/hooks';
 
 interface IWelcomePopupLS {
     visible: boolean;

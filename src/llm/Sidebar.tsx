@@ -1,5 +1,4 @@
 import s from './Sidebar.module.scss';
-import { useSubscriptions } from '@/src/utils/data';
 import React, { createContext, useContext, useState } from 'react';
 import clsx from 'clsx';
 import { IPhaseDef } from './walkthrough/WalkthroughTools';
@@ -7,6 +6,7 @@ import { PhaseTimeline } from './PhaseTimeline';
 import { Commentary } from './Commentary';
 import { IProgramState } from './Program';
 import { Popup, PopupPos } from '@/src/utils/Portal';
+import { useSubscriptions } from '../utils/hooks';
 
 export const WalkthroughSidebar: React.FC = () => {
     let progState = useProgramState();

@@ -8,7 +8,7 @@ import { drawText, IFontAtlasData, IFontOpts, measureText } from "./render/fontR
 import { initRender, IRenderState, IRenderView, renderModel, resetRenderBuffers } from "./render/modelRender";
 import { beginQueryAndGetPrevMs, endQuery } from "./render/queryManager";
 import { SavedState } from "./SavedState";
-import { isNotNil, Subscriptions } from "@/src/utils/data";
+import { isNotNil } from "@/src/utils/data";
 import { Vec3, Vec4 } from "@/src/utils/vector";
 import { initWalkthrough, runWalkthrough } from "./walkthrough/Walkthrough";
 import { IColorMix } from "./Annotations";
@@ -22,6 +22,7 @@ import { IMovementInfo, manageMovement } from "./components/MovementControls";
 import { IBlockRender, initBlockRender } from "./render/blockRender";
 import { ILayout } from "../utils/layout";
 import { DimStyle } from "./walkthrough/WalkthroughTools";
+import { Subscriptions } from "../utils/hooks";
 
 export interface IProgramState {
     native: NativeFunctions | null;

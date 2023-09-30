@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect } from "react";
-import { useFunctionRef } from "./data";
-
+import { useFunctionRef } from "./hooks";
 
 export enum KeyboardOrder {
     MainPage = 0,

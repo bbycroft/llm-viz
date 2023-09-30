@@ -24,7 +24,7 @@ import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
 import { drawGrid, makeCanvasFont } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix } from "./SubSchematics";
-import { computeModelBoundingBox, computeZoomExtentMatrix } from "./ModelHelpers";
+import { computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -32,53 +32,10 @@ interface ICanvasDragState {
     modelPos: Vec3;
 }
 
-function constructEditSnapshot(): IEditSnapshot {
-    return {
-        selected: [],
-
-        nextWireId: 0,
-        nextCompId: 0,
-        wires: [],
-        comps: [],
-
-        compPorts: [],
-        compSize: new Vec3(0, 0),
-        compBbox: new BoundingBox3d(),
-
-        subComps: new Map(),
-    };
-}
-
-
 export const CpuCanvas: React.FC = () => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
     let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
-    let [editorState, setEditorState] = useState<IEditorState>(() => {
-
-        let compLibrary = buildCompLibrary();
-        let schematicLibrary = new SchematicLibrary();
-
-        let editSnapshot = constructEditSnapshot();
-
-        return {
-            snapshot: editSnapshot, // wiresFromLsState(constructEditSnapshot(), lsState, compLibrary),
-            snapshotTemp: null,
-            mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
-            compLibrary,
-            schematicLibrary,
-            activeSchematicId: null,
-            redoStack: [],
-            undoStack: [],
-            hovered: null,
-            maskHover: null,
-            selectRegion: null,
-            addLine: false,
-            showExeOrder: false,
-            transparentComps: false,
-            compLibraryVisible: false,
-            needsZoomExtent: true,
-        };
-    });
+    let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState());
     let [, redraw] = useReducer((x) => x + 1, 0);
 
     let [isClient, setIsClient] = useState(false);

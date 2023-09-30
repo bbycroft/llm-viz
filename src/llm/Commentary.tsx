@@ -2,7 +2,7 @@ import React, { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState
 import s from './Commentary.module.scss';
 import { PhaseTimelineHoriz } from './PhaseTimeline';
 import { useProgramState } from './Sidebar';
-import { clamp, useRequestAnimationFrame } from '@/src/utils/data';
+import { clamp } from '@/src/utils/data';
 import { lerp, lerpSmoothstep } from '@/src/utils/math';
 import { phaseToGroup, IWalkthrough, Phase } from './walkthrough/Walkthrough';
 import { eventEndTime, ICommentary, isCommentary, ITimeInfo } from './walkthrough/WalkthroughTools';
@@ -11,6 +11,7 @@ import { faArrowDown, faChevronLeft, faChevronRight, faPause, faPlay } from '@fo
 import clsx from 'clsx';
 import { TocDiagram } from './components/TocDiagram';
 import { BlockText, DimensionText } from './components/CommentaryHelpers';
+import { useRequestAnimationFrame } from '../utils/hooks';
 
 export function jumpToPhase(wt: IWalkthrough, phaseId: Phase) {
     wt.time = 0;

@@ -1,6 +1,8 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
-import { IEditSnapshot } from "./CpuModel";
+import { IEditSnapshot, IEditorState } from "./CpuModel";
+import { buildCompLibrary } from "./comps/builtins";
+import { SchematicLibrary } from "./schematics/SchematicLibrary";
 
 
 export function computeModelBoundingBox(model: IEditSnapshot): BoundingBox3d {
@@ -36,4 +38,49 @@ export function computeZoomExtentMatrix(modelBb: BoundingBox3d, viewBb: Bounding
     );
 
     return mtx;
+}
+
+export function createCpuEditorState(): IEditorState {
+
+    let compLibrary = buildCompLibrary();
+    let schematicLibrary = new SchematicLibrary();
+
+    let editSnapshot = constructEditSnapshot();
+
+    return {
+        snapshot: editSnapshot, // wiresFromLsState(constructEditSnapshot(), lsState, compLibrary),
+        snapshotTemp: null,
+        mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
+        compLibrary,
+        schematicLibrary,
+        activeSchematicId: null,
+        redoStack: [],
+        undoStack: [],
+        hovered: null,
+        maskHover: null,
+        selectRegion: null,
+        addLine: false,
+        showExeOrder: false,
+        transparentComps: false,
+        compLibraryVisible: false,
+        needsZoomExtent: true,
+    };
+}
+
+
+export function constructEditSnapshot(): IEditSnapshot {
+    return {
+        selected: [],
+
+        nextWireId: 0,
+        nextCompId: 0,
+        wires: [],
+        comps: [],
+
+        compPorts: [],
+        compSize: new Vec3(0, 0),
+        compBbox: new BoundingBox3d(),
+
+        subComps: new Map(),
+    };
 }

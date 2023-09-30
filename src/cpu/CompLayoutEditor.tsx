@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCaretRight, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { Gripper, ICompPortConfig, compPortDefId } from './comps/CompPort';
 import { pluralize } from '../utils/text';
-import { assignImm, clamp, hasFlag, isNotNil, makeArray, useFunctionRef } from '../utils/data';
+import { assignImm, clamp, hasFlag, isNotNil, makeArray } from '../utils/data';
 import { Vec3 } from '../utils/vector';
 import { useResizeChangeHandler } from '../utils/layout';
 import { IComp, ICompPort, IEditSnapshot, PortType } from './CpuModel';
@@ -15,6 +15,7 @@ import { AffineMat2d } from '../utils/AffineMat2d';
 import { IPointerEvent, useCombinedMouseTouchDrag } from '../utils/pointer';
 import { drawGrid } from './CanvasRenderHelpers';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
+import { useFunctionRef } from '../utils/hooks';
 
 /*
 

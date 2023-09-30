@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { AffineMat2d } from '../utils/AffineMat2d';
-import { assignImm, assignImmFull, clamp, getOrAddToMap, useFunctionRef } from '../utils/data';
+import { assignImm, assignImmFull, clamp, getOrAddToMap } from '../utils/data';
 import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
 import { useCombinedMouseTouchDrag, useTouchEvents } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
@@ -10,6 +10,7 @@ import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, d
 import s from './CpuCanvas.module.scss';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 import { computeSubLayoutMatrix, getCompSubSchematic } from './SubSchematics';
+import { useFunctionRef } from '../utils/hooks';
 
 export const CanvasEventHandler: React.FC<{
     cvsState: ICanvasState,

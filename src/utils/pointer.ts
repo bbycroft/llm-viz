@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useFunctionRef } from "./data";
+import { useFunctionRef } from "./hooks";
 
 export interface IDragStart<T> {
     clientX: number;
@@ -105,6 +105,12 @@ export interface IMouseEvent extends IPointerEvent {
 export interface IWheelEvent extends IMouseEvent {
     deltaMode: number;
     deltaY: number;
+}
+
+export interface IBaseEvent {
+    type: string;
+    stopPropagation(): void;
+    preventDefault(): void;
 }
 
 export function getWheelDelta(ev: IWheelEvent): number {
