@@ -151,8 +151,8 @@ function bitRangeTypeColor(type: BitRangeType) {
 function bitRangeToChar(type: BitRangeType) {
     switch (type) {
         case BitRangeType.Rd: return 'd';
-        case BitRangeType.Rs1: return 's';
-        case BitRangeType.Rs2: return 't';
+        case BitRangeType.Rs1: return 'a';
+        case BitRangeType.Rs2: return 'b';
         case BitRangeType.Imm: return 'i';
         default: return 'x';
     }
@@ -191,6 +191,15 @@ function makeInstructions() {
         type: BitRangeType.Imm,
         name: 'imm12',
         bitRange: { lo: 20, hi: 31 },
+    };
+
+    let imm12StoreRange: IInsBitRep = {
+        type: BitRangeType.Imm,
+        name: 'imm12',
+        bitRange: [
+            { lo: 7, hi: 11 },
+            { lo: 25, hi: 31 },
+        ],
     };
 
     let imm12BranchRange: IInsBitRep = {
@@ -352,7 +361,52 @@ function makeInstructions() {
         ],
     };
 
-    return [rType, iType, iTypeShift, bType, jalType, jalrType];
+    let uType: IInsStructure = {
+        name: 'u-type',
+        sections: [codeRange, rdRange, imm20Range],
+        mnemonics: [
+            { name: 'lui', title: 'Load Upper Immediate', vals: [{ section: BitRangeType.Code, value: 0b011_0111 }] },
+            { name: 'auipc', title: 'Add Upper Immediate to PC', vals: [{ section: BitRangeType.Code, value: 0b001_0111 }] },
+        ],
+        fields: [
+            { type: BitRangeType.Rd,  name: 'rd', description: 'Destination register' },
+            { type: BitRangeType.Imm, name: 'imm', description: 'Immediate value' },
+        ],
+    };
+
+    let loadType: IInsStructure = {
+        name: 'load-type',
+        sections: [withVal(codeRange, 0b000_0011), rdRange, funct3Range, rs1Range, imm12Range],
+        mnemonics: [
+            { name: 'lb',  vals: rTypeVals(0b000), title: 'Load Byte' },
+            { name: 'lh',  vals: rTypeVals(0b001), title: 'Load Halfword' },
+            { name: 'lw',  vals: rTypeVals(0b010), title: 'Load Word' },
+            { name: 'lbu', vals: rTypeVals(0b100), title: 'Load Byte (unsigned)' },
+            { name: 'lhu', vals: rTypeVals(0b101), title: 'Load Halfword (unsigned)' },
+        ],
+        fields: [
+            { type: BitRangeType.Rd,  name: 'rd', description: 'Destination register' },
+            { type: BitRangeType.Rs1, name: 'rs1', description: 'Source register 1' },
+            { type: BitRangeType.Imm, name: 'imm', description: 'Immediate value' },
+        ],
+    };
+
+    let storeType: IInsStructure = {
+        name: 'store-type',
+        sections: [withVal(codeRange, 0b010_0011), funct3Range, rs1Range, rs2Range, imm12StoreRange],
+        mnemonics: [
+            { name: 'sb', vals: rTypeVals(0b000), title: 'Store Byte' },
+            { name: 'sh', vals: rTypeVals(0b001), title: 'Store Halfword' },
+            { name: 'sw', vals: rTypeVals(0b010), title: 'Store Word' },
+        ],
+        fields: [
+            { type: BitRangeType.Rs1, name: 'rs1', description: 'Source register 1' },
+            { type: BitRangeType.Rs2, name: 'rs2', description: 'Source register 2' },
+            { type: BitRangeType.Imm, name: 'imm', description: 'Immediate value' },
+        ],
+    };
+
+    return [rType, iType, iTypeShift, bType, jalType, jalrType, uType, loadType, storeType];
 }
 
 interface IBitRange {

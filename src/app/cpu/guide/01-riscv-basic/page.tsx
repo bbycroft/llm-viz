@@ -265,7 +265,7 @@ export default function Page() {
 
         </GuideSection>
 
-        <GuideSection title={"B-type (branching) instruction"}>
+        <GuideSection title={"B-type (branching) instructions"}>
 
         <Para>
             The next instruction type we'll add is the B-type (branching) instruction. This is the first time we'll be making
@@ -340,9 +340,104 @@ export default function Page() {
 
         <SchematicView schematicId={"b-type"} caption={"Add result switching"} />
 
+        </GuideSection>
+        <GuideSection title={"Upper-immediate instructions"}>
+        <Para>
+            So far, we've only been able to load 12-bit values immediate values into registers. Typically this is done with
+            `addi rd 0 imm`, i.e. adding 0 to the immediate value. But what if we want to load a 32-bit value? We could do several
+            addi's & shifts, but RISCV provides instructions to set the remaining upper 20 bits:
+        </Para>
+
+        <InstructionTable>
+            <InstructionDetail name={'lui'} />
+            <InstructionDetail name={'auipc'} />
+        </InstructionTable>
+
+        <Para>
+            The first one, <Ins>lui</Ins> (load upper immediate), sets the upper 20 bits of a register to the immediate
+            value provided. We can do this simply by setting the LHS to 0, and the RHS to the immediate value. Since these wires
+            are 32-bits in width, the mapping to the upper bits happens entirely in INS-decode.
+        </Para>
+
+        <Para>
+            The second one, <Ins>auipc</Ins> (add upper immediate to PC), is essentially the same, except the LHS is set to
+            the PC. Luckily, we don't need an changes, as we already have the mux used to select between PC & register file
+            for the LHS.
+        </Para>
 
         </GuideSection>
 
+        <GuideSection title={"Load/Store instructions"}>
+        <Para>
+            Right now, our CPU can't do much. It can load values into registers, operate on them, and jump around the code.
+            The next major thing is to be able to read & write to memory. This is actually quite powerful, as addresses don't
+            necessarily need to map to physical memory, but can instead control external devices.
+        </Para>
+        <Para>
+            To access memory, RISCV provides a couple of types of instruction: load & store.
+        </Para>
+
+        <ul className='self-center my-4'>
+            <li><b>Load:</b> memory@address --&gt; register</li>
+            <li><b>Store:</b> register --&gt; memory@address</li>
+        </ul>
+
+        <Para>
+            So to do any computations on data, we first need to load it into a register from memory, then operate on it, before
+            storing the result back into memory. The RISVC instructions for this are as follows:
+        </Para>
+
+        <InstructionTable>
+            <InstructionDetail name={'lb'} />
+            <InstructionDetail name={'lh'} />
+            <InstructionDetail name={'lw'} />
+            <InstructionDetail name={'lbu'} />
+            <InstructionDetail name={'lhu'} />
+
+            <InstructionDetail name={'sb'} />
+            <InstructionDetail name={'sh'} />
+            <InstructionDetail name={'sw'} />
+        </InstructionTable>
+
+        <Para>
+            There are a few different types of load & store instructions. The main breakdown is that there are 3 different
+            sizes of data that can be loaded/stored: 8-bit (b; "byte"), 16-bit (h; "half-word"), and 32-bit (w; "word").
+            The byte & half-word sizes also have unsigned versions, as for the other ones, we sign-extend the value to 32-bits.
+        </Para>
+
+        <Para>
+            In all cases, the memory address is calculated as (reg[rs1] + imm). For our CPU, we won't use the ALU for this
+            addition, but instead include an adder in the load/store component. We'll feed in the LHS value (reg[rs1]), into
+            the load/store. We also feed reg[rs2] into the load/store for stores. Finally, for loads, we send the result to the
+            registers in the same manner as the ALU results.
+        </Para>
+
+        <Para>
+            Let's take a look at the RAM (memory) component that we'll be interfacing with. It's a simple component that takes
+            an address, some control lines, and a bi-directional data line. The data line is used for both reads & writes, so
+            that in any given cycle, it can either read or write the provided address. The choice of reading or writing (or neither)
+            is controlled by the control lines. Finally, writing can be done in either 8-bit, 16-bit, or 32-bit chunks, also controlled
+            by the control lines.
+        </Para>
+
+        <SchematicView schematicId={"b-type"} caption={"RAM control"} />
+
+        <Para>
+            To hook this RAM to our CPU, we add our load/store component and wire it up to the address/data/ctrl bus, as well as
+            the CPU internals. We can now execute our load & store instructions to read & write to the memory.
+        </Para>
+
+        <SchematicView schematicId={"b-type"} caption={"RAM & load/store connected"} />
+
+        <Para>
+            This enables us to write programs that can access memory, and therefore do useful things. In our setup here, the address
+            0x0 refers to the first 32-bit value in RAM and 0x4 refers to the second 32-bit value in RAM. This isn't that great,
+            since our ROM <em>also</em> has its first 32-bit value at address 0x0 (where the PC is initialized to). Generally
+            when setting up a system like this, we want non-overlapping address spaces for our different regions of memory, and
+            compilers will typically complain if this is not the case.
+        </Para>
+
+        </GuideSection>
 
     </CpuEnabledGuide>;
 }
