@@ -53,6 +53,7 @@ export function createCpuEditorState(): IEditorState {
         mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
         compLibrary,
         schematicLibrary,
+        desiredSchematicId: null,
         activeSchematicId: null,
         redoStack: [],
         undoStack: [],

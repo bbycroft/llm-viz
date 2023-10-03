@@ -14,20 +14,23 @@ import { isNotNil } from '../utils/data';
 import { createCpuEditorState } from './ModelHelpers';
 import { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { IBaseEvent } from '../utils/pointer';
-import { EditorContext, IEditorContext } from './Editor';
+import { EditorContext, IEditorContext, useEditorContext } from './Editor';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useFunctionRef } from '../utils/hooks';
 
 export const CPUMain = () => {
     useCreateGlobalKeyboardDocumentListener();
-    let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState());
-    let [name, setName] = useState('1 Bit Adder');
+    // let [schematicId, setSchematicId] = useState<string | null>(null);
+    // let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState());
+    // let [name, setName] = useState('1 Bit Adder');
 
-    let editorContext: IEditorContext = useMemo(() => ({
-        editorState,
-        exeModel: null!,
-        setEditorState,
-    }), [editorState]);
+    // let editorContext: IEditorContext = useMemo(() => ({
+    //     editorState,
+    //     exeModel: null!,
+    //     setEditorState,
+    // }), [editorState]);
 
-    return <EditorContext.Provider value={editorContext}>
+    return <>
         <Header title={""}>
             <button className='flex px-2 text-2xl'>
                 <FontAwesomeIcon icon={faBars} />
@@ -40,14 +43,58 @@ export const CPUMain = () => {
                     }
                 }} /> */}
             </div>
-            <div className='ml-3 w-3 h-3 bg-white rounded-[1rem]'>
-            </div>
+            {/* <div className='ml-3 w-3 h-3 bg-white rounded-[1rem]'> */}
+            {/* </div> */}
         </Header>
         <div className={s.content}>
-            <CpuCanvas />
+            <CpuCanvas>
+                <QueryUpdater />
+            </CpuCanvas>
         </div>
-    </EditorContext.Provider>;
+    </>;
 };
+
+const QueryUpdater: React.FC<{
+}> = () => {
+    let router = useRouter();
+    let searchParams = useSearchParams();
+    let { editorState, setEditorState } = useEditorContext();
+
+    let schematicId = searchParams.get('schematicId');
+
+    function updateUrl(schematicId: string | null) {
+        let currQuery = new URLSearchParams(location.search);
+        let newQuery = updateQuery(currQuery, { schematicId });
+        if (newQuery !== currQuery.toString()) {
+            router.replace(location.pathname + '?' + newQuery);
+        }
+    }
+    let updateUrlRef = useFunctionRef(updateUrl);
+
+    useEffect(() => {
+        if (editorState.activeSchematicId) {
+            updateUrlRef.current(editorState.activeSchematicId);
+        }
+    }, [editorState.activeSchematicId, updateUrlRef]);
+
+    useEffect(() => {
+        setEditorState(a => ({ ...a, desiredSchematicId: schematicId ?? null }));
+    }, [schematicId, setEditorState]);
+
+    return null;
+};
+
+function updateQuery(searchParams: URLSearchParams, changes: Record<string, string | null>) {
+    let params = new URLSearchParams(searchParams.toString());
+    for (let [key, value] of Object.entries(changes)) {
+        if (value === null) {
+            params.delete(key);
+        } else {
+            params.set(key, value);
+        }
+    }
+    return params.toString();
+}
 
 function createCpuProgramState(): IProgramState {
     return {

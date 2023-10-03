@@ -1,4 +1,3 @@
-import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { assignImm } from "@/src/utils/data";
 import { faCheck, faPencil, faTimes, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -7,7 +6,6 @@ import { useEditorContext } from "../Editor";
 import { ISchematicDef } from "./SchematicLibrary";
 import s from "./SchematicLibraryView.module.scss";
 import { createSchematicCompDef } from "../comps/SchematicComp";
-import { BoundingBox3d } from "@/src/utils/vector";
 
 export const SchematicLibraryView: React.FC = () => {
     let { editorState, setEditorState } = useEditorContext();
@@ -36,14 +34,7 @@ export const SchematicLibraryView: React.FC = () => {
 
     function loadIntoEditor(schematic: ISchematicDef) {
         setEditorState(() => {
-            return assignImm(editorState, {
-                activeSchematicId: schematic.id,
-                snapshot: schematic.model,
-                undoStack: schematic.undoStack ?? [],
-                redoStack: schematic.redoStack ?? [],
-                mtx: schematic.mtx ?? new AffineMat2d(),
-                needsZoomExtent: true,
-            });
+            return assignImm(editorState, { desiredSchematicId: schematic.id });
         });
     }
 

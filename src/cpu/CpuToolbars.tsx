@@ -26,7 +26,9 @@ export const MainToolbar: React.FC<{
     });
 
     function save() {
-
+        if (editorState.activeSchematicId) {
+            editorState.schematicLibrary.saveToLocalStorage(editorState.activeSchematicId);
+        }
     }
 
     function saveAs() {
@@ -49,7 +51,7 @@ export const MainToolbar: React.FC<{
     let redoAvailable = editorState.redoStack.length > 0;
 
     return <div className='h-12 bg-white drop-shadow-md flex'>
-        <ToolbarButton icon={faFloppyDisk} onClick={save} notImpl tip={`Save (${modifiersToString('S', Modifiers.CtrlOrCmd)})`} />
+        <ToolbarButton icon={faFloppyDisk} onClick={save} tip={`Save (${modifiersToString('S', Modifiers.CtrlOrCmd)})`} />
         <ToolbarButton icon={faCodeFork} onClick={saveAs} notImpl tip={`Duplicate (${modifiersToString('S', Modifiers.CtrlOrCmd | Modifiers.Shift)})`} />
 
         <ToolbarDivider />

@@ -3,6 +3,7 @@ import { CPUDirectory, makeCpuMetadata } from '@/src/cpu/guide/GuideIndex';
 import { CpuEnabledGuide, GuideSection, Ins, Para } from '@/src/cpu/guide/CpuEnabledGuide';
 import { SchematicView } from '@/src/cpu/guide/SchematicView';
 import { InstructionDetail, InstructionTable } from '@/src/cpu/guide/InstructionDetail';
+import { CpuPortal } from '@/src/cpu/CpuPortal';
 
 const dir = CPUDirectory.RiscvBasic;
 
@@ -57,7 +58,7 @@ export default function Page() {
             is 4 bytes long, we'll need to increment the PC by 4 each time we execute an instruction. Let's see this in action:
         </Para>
 
-        <SchematicView schematicId={"01-pc-add"} caption={"PC register with a loop-back that gets 4 added to it on each cycle"} />
+        <CpuPortal schematicId={"riscv-basic"} caption={"PC register with a loop-back that gets 4 added to it on each cycle"} />
 
         <Para>
             We can see that the output of the PC register is connected to the input of the <em>add</em> component. Combined with

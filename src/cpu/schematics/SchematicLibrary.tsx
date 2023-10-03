@@ -1,9 +1,9 @@
 import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { iterLocalStorageEntries } from "@/src/utils/localstorage";
 import { Vec3 } from "@/src/utils/vector";
-import { CompLibrary, ICompDef, ISubLayoutArgs, ISubLayoutPort } from "../comps/CompBuilder";
-import { IEditSnapshot, ILibraryItem, PortType } from "../CpuModel";
-import { createInitialEditSnapshot, ILSComp, ILSState, wiresFromLsState, wiresToLsState } from "../ImportExport";
+import { CompLibrary, ISubLayoutPort } from "../comps/CompBuilder";
+import { IEditSnapshot, PortType } from "../CpuModel";
+import { createInitialEditSnapshot, ILSState, wiresFromLsState, wiresToLsState } from "../ImportExport";
 import { regFileDemo, riscvBasicSchematic } from "./RiscvBasic";
 import { assignImm } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";

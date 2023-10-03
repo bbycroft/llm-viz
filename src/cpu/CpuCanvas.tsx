@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
@@ -6,11 +8,8 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart } from "../utils/pointer";
 import { assignImm, getOrAddToMap, isNil, isNotNil } from "../utils/data";
 import { EditorContext, IEditorContext, IViewLayoutContext, ViewLayoutContext } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IEditSnapshot, IExeSystem, ICompRenderArgs, ISchematic } from "./CpuModel";
-import { useLocalStorageState } from "../utils/localstorage";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IExeSystem, ICompRenderArgs, ISchematic } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
-import { CpuEditorToolbar } from "./EditorControls";
-import { exportData, hydrateFromLS, importData, wiresFromLsState, wiresToLsState } from "./ImportExport";
 import { buildCompLibrary } from "./comps/builtins";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
@@ -47,42 +46,47 @@ So our sandbox needs a bit of work. To main goals:
 export const CpuCanvas: React.FC<{
     readonly?: boolean;
     schematicId?: string;
-}> = ({ }) => {
+    children?: React.ReactNode;
+}> = ({ schematicId, readonly, children }) => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
-    let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
+    // let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
     let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState());
     let [, redraw] = useReducer((x) => x + 1, 0);
 
     let [isClient, setIsClient] = useState(false);
+    useEffect(() => setIsClient(true), []);
 
-    let initialLoad = useRef(true);
+    // let initialLoad = useRef(true);
+    // useEffect(() => {
+    //     if (initialLoad.current) {
+    //         initialLoad.current = false;
+    //         setEditorState(a => assignImm(a, {
+    //             snapshot: wiresFromLsState(a.snapshot, lsState, a.compLibrary),
+    //             needsZoomExtent: true,
+    //         }));
+    //     }
+    // }, [lsState]);
+
     useEffect(() => {
-        if (initialLoad.current) {
-            initialLoad.current = false;
-            setEditorState(a => assignImm(a, {
-                snapshot: wiresFromLsState(a.snapshot, lsState, a.compLibrary),
-                needsZoomExtent: true,
-            }));
-
+        if (schematicId) {
+            setEditorState(a => assignImm(a, { desiredSchematicId: schematicId ?? null }));
         }
-    }, [lsState]);
+    }, [schematicId]);
 
     useLayoutEffect(() => {
         if (cvsState) {
-            let w = cvsState.canvas.width;
-            let h = cvsState.canvas.height;
+            let bcr = cvsState.canvas.getBoundingClientRect();
             setEditorState(a => {
                 // goal: zoom-extent so the canvas fits the entire schematic
                 if (!a.needsZoomExtent) {
                     return a;
                 }
-                let pr = window.devicePixelRatio;
                 let bb = computeModelBoundingBox(a.snapshot);
-                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(330, 0), new Vec3(w / pr, h / pr)), 0.05);
+                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(readonly ? 0 : 330, 0), new Vec3(bcr.width, bcr.height)), 0.05);
                 return assignImm(a, { mtx, needsZoomExtent: false });
             });
         }
-    }, [cvsState, editorState.needsZoomExtent]);
+    }, [cvsState, editorState.needsZoomExtent, readonly]);
 
     useEffect(() => {
         // setCtrlDown(false);
@@ -99,8 +103,29 @@ export const CpuCanvas: React.FC<{
                 needsZoomExtent: true,
             });
         });
-        setIsClient(true);
     }, []);
+
+    useEffect(() => {
+        if (editorState.activeSchematicId !== editorState.desiredSchematicId && editorState.desiredSchematicId) {
+            const schematic = editorState.schematicLibrary.getSchematic(editorState.desiredSchematicId);
+
+            if (schematic) {
+                setEditorState(a => assignImm(a, {
+                    activeSchematicId: schematic.id,
+                    snapshot: schematic.model,
+                    undoStack: schematic.undoStack ?? [],
+                    redoStack: schematic.redoStack ?? [],
+                    mtx: schematic.mtx ?? new AffineMat2d(),
+                    needsZoomExtent: true,
+                }));
+            } else {
+                setEditorState(a => assignImm(a, {
+                    desiredSchematicId: null,
+                }));
+            }
+        }
+
+    }, [editorState.desiredSchematicId, editorState.schematicLibrary, editorState.activeSchematicId]);
 
     useResizeChangeHandler(cvsState?.canvas?.parentElement, redraw);
 
@@ -122,24 +147,23 @@ export const CpuCanvas: React.FC<{
     prevExeModel.current = { system: exeModel, id: editorState.activeSchematicId };
 
     let setCanvasEl = useCallback((el: HTMLCanvasElement | null) => {
-
-        if (el) {
-            let ctx = el.getContext("2d")!;
-            setCvsState({ canvas: el, ctx, size: new Vec3(1, 1), scale: 1, tileCanvases: new Map(), mtx: AffineMat2d.identity() });
-
-        } else {
-            setCvsState(null);
-        }
+        setCvsState(el ? {
+            canvas: el,
+            ctx: el.getContext('2d')!,
+            size: new Vec3(1, 1),
+            scale: 1,
+            tileCanvases: new Map(),
+            mtx: AffineMat2d.identity(),
+        } : null);
     }, []);
 
-
-    useEffect(() => {
-        let newState = wiresToLsState(editorState.snapshot);
-        setLsState(a => assignImm(a, newState));
-        let strExport = exportData(editorState.snapshot);
-        localStorage.setItem("cpu-layout-str", strExport);
-        // importData(strExport);
-    }, [editorState.snapshot, setLsState]);
+    // useEffect(() => {
+    //     let newState = wiresToLsState(editorState.snapshot);
+    //     setLsState(a => assignImm(a, newState));
+    //     let strExport = exportData(editorState.snapshot);
+    //     localStorage.setItem("cpu-layout-str", strExport);
+    //     // importData(strExport);
+    // }, [editorState.snapshot, setLsState]);
 
     useLayoutEffect(() => {
         if (!cvsState) {
@@ -232,7 +256,7 @@ export const CpuCanvas: React.FC<{
 
     return <EditorContext.Provider value={ctx}>
         <ViewLayoutContext.Provider value={viewLayout}>
-            <MainToolbar />
+            {!readonly && <MainToolbar />}
             <div className="relative touch-none flex-1 overflow-hidden">
                 <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
                 {cvsState && <CanvasEventHandler cvsState={cvsState}>
@@ -246,15 +270,17 @@ export const CpuCanvas: React.FC<{
                     </div>
                 </CanvasEventHandler>}
                 <div className={s.toolsLeftTop}>
-                    <CompLibraryView />
-                    <CompExampleView />
-                    <SchematicLibraryView />
+                    {!readonly && <>
+                        <CompExampleView />
+                        <SchematicLibraryView />
+                    </>}
                     {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
                 </div>
                 <div className="cls_toolsTopRight absolute top-0 right-0">
-                    <CompLayoutToolbar />
+                    {!readonly && <CompLayoutToolbar />}
                 </div>
                 {editorState.compLibraryVisible && <LibraryBrowser />}
+                {children}
             </div>
         </ViewLayoutContext.Provider>
     </EditorContext.Provider>;

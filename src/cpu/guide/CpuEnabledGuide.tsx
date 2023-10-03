@@ -1,12 +1,16 @@
+'use client';
 import React, { useMemo } from 'react';
 import { CPUDirectory, guideEntries } from './GuideIndex';
 import { Header } from '@/src/homepage/Header';
 import { NavSidebar } from './NavSidebar';
+import { useCreateGlobalKeyboardDocumentListener } from '@/src/utils/keyboard';
 
 export const CpuEnabledGuide: React.FC<{
     dir: CPUDirectory;
     children?: React.ReactNode;
 }> = ({ dir, children }) => {
+    useCreateGlobalKeyboardDocumentListener();
+
     let entry = useMemo(() => guideEntries.find(x => x.id === dir)!, [dir]);
 
     return <main className='flex flex-col min-h-screen'>

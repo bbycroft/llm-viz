@@ -301,8 +301,9 @@ export function createInitialEditSnapshot(): IEditSnapshot {
 
 export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLibrary: CompLibrary): IEditSnapshot {
 
+    let wireIdx = 0;
     let newWires: IWireGraph[] = ls.wires.map(w => ({
-        id: w.id,
+        id: '' + wireIdx++,
         nodes: w.nodes.map(n => ({
             id: n.id,
             pos: new Vec3(n.x, n.y),

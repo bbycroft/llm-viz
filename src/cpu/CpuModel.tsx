@@ -126,6 +126,7 @@ export interface IEditorState {
     undoStack: IEditSnapshot[];
     redoStack: IEditSnapshot[];
 
+    desiredSchematicId: string | null;
     activeSchematicId: string | null;
 
     // time to combine these!! Actually, let's use CompLibrary, since it's used in more places, & rename it
