@@ -72,8 +72,9 @@ export const Popup: React.FC<{
     let pos = computeTransform(targetBcr, popupBcr, placement);
 
     let el = <div ref={setPopupEl} className={clsx(s.popup, className)} style={{
-        left: pos.x + (offsetX ?? 0),
-        top: pos.y + (offsetY ?? 0),
+        transform: `translate(${pos.x + (offsetX ?? 0)}px, ${pos.y + (offsetY ?? 0)}px)`,
+        left: 0,
+        top: 0,
     }}>
         {children}
     </div>;

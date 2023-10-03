@@ -25,6 +25,7 @@ import { palette } from "./palette";
 import { drawGrid, makeCanvasFont } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix } from "./SubSchematics";
 import { computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
+import { MainToolbar } from "./CpuToolbars";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -32,7 +33,21 @@ interface ICanvasDragState {
     modelPos: Vec3;
 }
 
-export const CpuCanvas: React.FC = () => {
+/**
+
+So our sandbox needs a bit of work. To main goals:
+
+* be able to load a small inset schematic, as in the guides
+* show a rich editor for editing/browsing the schematics
+
+* So need a "load this" api
+
+*/
+
+export const CpuCanvas: React.FC<{
+    readonly?: boolean;
+    schematicId?: string;
+}> = ({ }) => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
     let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
     let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState());
@@ -217,8 +232,9 @@ export const CpuCanvas: React.FC = () => {
 
     return <EditorContext.Provider value={ctx}>
         <ViewLayoutContext.Provider value={viewLayout}>
-            <div className={s.canvasWrap + " overflow-hidden"}>
-                <canvas className={s.canvas} ref={setCanvasEl} />
+            <MainToolbar />
+            <div className="relative touch-none flex-1 overflow-hidden">
+                <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
                 {cvsState && <CanvasEventHandler cvsState={cvsState}>
                     <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
                         <div
@@ -226,11 +242,10 @@ export const CpuCanvas: React.FC = () => {
                             style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
                             {compDivs}
                         </div>
-                        {editorState.transparentComps && <div className={s.compDomEventMask} />}
+                        {editorState.transparentComps && <div className="absolute w-full h-full pointer-events-auto top-0 left-0" />}
                     </div>
                 </CanvasEventHandler>}
                 <div className={s.toolsLeftTop}>
-                    <CpuEditorToolbar />
                     <CompLibraryView />
                     <CompExampleView />
                     <SchematicLibraryView />

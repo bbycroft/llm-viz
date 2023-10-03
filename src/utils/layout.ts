@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect as useLayoutEffect, useState } from "react";
 import { Vec3 } from "./vector";
 import { useFunctionRef } from "./hooks";
 
@@ -12,7 +12,7 @@ export interface ILayout {
 export function useScreenLayout() {
     let [layout, setLayout] = useState<ILayout>({ width: 0, height: 0, isDesktop: true, isPhone: false });
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         // check the media queries that we use in css land
         let mediaQuery = window.matchMedia('screen and (max-width: 800px)');
 
@@ -40,13 +40,15 @@ export function useScreenLayout() {
 
 export function useResizeChangeHandler(el: HTMLElement | undefined | null, handler: (size: Vec3, bcr: DOMRect) => void) {
     let handlerRef = useFunctionRef(handler);
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!el) return;
-        let observer = new ResizeObserver(() => {
-            let bcr = el.getBoundingClientRect();
+        function handleResize() {
+            let bcr = el!.getBoundingClientRect();
             handlerRef.current(new Vec3(bcr.width, bcr.height, 0), bcr);
-        });
+        }
+        let observer = new ResizeObserver(handleResize);
         observer.observe(el);
+        handleResize();
         return () => observer.disconnect();
     }, [el, handlerRef]);
 }

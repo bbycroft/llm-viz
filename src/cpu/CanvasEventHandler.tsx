@@ -392,13 +392,13 @@ export const CanvasEventHandler: React.FC<{
 
     function handleWireDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
 
-        setEditorState(editLayout(end, layout => {
-            let wireIdx = editorState.snapshot.wires.findIndex(w => w.id === ref.id);
+        setEditorState(editLayout(end, (layout, state) => {
+            let wireIdx = state.snapshot.wires.findIndex(w => w.id === ref.id);
             if (wireIdx === -1) {
                 console.log(`WARN: handleWireDrag: wire ${ref.id} not found`)
                 return layout;
             }
-            let wire = editorState.snapshot.wires[wireIdx];
+            let wire = state.snapshot.wires[wireIdx];
             let delta = newModelPos.sub(origModelPos);
             let node0 = wire.nodes[ref.wireNode0Id!];
             let node1 = wire.nodes[ref.wireNode1Id!];
@@ -425,17 +425,19 @@ export const CanvasEventHandler: React.FC<{
     }
 
     function handleWheel(ev: WheelEvent) {
-        let scale = editorState.mtx.a;
-        let newScale = clamp(scale * Math.pow(1.0013, -ev.deltaY), 0.01, 100000) / scale;
+        setEditorState(a => {
+            let scale = a.mtx.a;
+            let newScale = clamp(scale * Math.pow(1.0013, -ev.deltaY), 0.01, 100000) / scale;
 
-        let modelPt = evToModel(ev, editorState.mtx);
-        let newMtx = AffineMat2d.multiply(
-            editorState.mtx,
-            AffineMat2d.translateVec(modelPt),
-            AffineMat2d.scale1(newScale),
-            AffineMat2d.translateVec(modelPt.mul(-1)));
+            let modelPt = evToModel(ev, a.mtx);
+            let newMtx = AffineMat2d.multiply(
+                a.mtx,
+                AffineMat2d.translateVec(modelPt),
+                AffineMat2d.scale1(newScale),
+                AffineMat2d.translateVec(modelPt.mul(-1)));
 
-        setEditorState(a => assignImm(a, { mtx: newMtx }));
+            return assignImm(a, { mtx: newMtx });
+        });
         ev.stopPropagation();
         ev.preventDefault();
     }

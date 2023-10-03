@@ -105,6 +105,12 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             return exeComp ? renderData(comp, exeComp.data.rom, exeComp.data.updateCntr, { addr: exeComp.data.addr.value, numBytes: 4, value: 0 }, null) : null;
 
         },
+        reset: (exeComp, { hardReset }) => {
+            if (hardReset) {
+                exeComp.data.rom.fill(0);
+                exeComp.data.updateCntr = 0;
+            }
+        },
         copyStatefulData: (src, dest) => {
             dest.rom.set(src.rom);
             dest.updateCntr = dest.updateCntr === 0 ? 1 : 0;

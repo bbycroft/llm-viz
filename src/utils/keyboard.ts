@@ -83,10 +83,10 @@ export function useCreateGlobalKeyboardDocumentListener() {
 }
 
 export enum Modifiers {
-    None,
-    Alt,
-    CtrlOrCmd,
-    Shift,
+    None = 0,
+    Alt = 1,
+    CtrlOrCmd = 2,
+    Shift = 4,
 }
 
 export interface IKeyboardEvent {
