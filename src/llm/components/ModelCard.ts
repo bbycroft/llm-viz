@@ -11,16 +11,17 @@ import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
 import { DimStyle, dimStyleColor } from "../walkthrough/WalkthroughTools";
 import { lineHeight } from "./TextLayout";
 import { IColorMix } from "../Annotations";
+import { clamp } from "@/src/utils/data";
 
-export function drawModelCard(state: IProgramState) {
-    let { render, layout } = state;
+export function drawModelCard(state: IProgramState, layout: IGptModelLayout, title: string, offset: Vec3) {
+    let { render } = state;
     let { camPos } = cameraToMatrixView(state.camera);
-    let dist = camPos.dist(new Vec3(0, 0, -30));
+    let dist = camPos.dist(new Vec3(0, 0, -30)); //.add(offset));
 
-    let scale = Math.max(dist / 500.0, 1.0);
+    let scale = clamp(dist / 500.0, 1.0, 800.0);
 
     let pinY = -60;
-    let mtx = Mat4f.fromScaleTranslation(new Vec3(scale, scale, scale), new Vec3(0, pinY, 0))
+    let mtx = Mat4f.fromScaleTranslation(new Vec3(scale, scale, scale), new Vec3(0, pinY, 0).add(offset))
         .mul(Mat4f.fromTranslation(new Vec3(0, -pinY, 0)));
 
     let thick = 1.0 / 10.0 * scale;
@@ -31,17 +32,16 @@ export function drawModelCard(state: IProgramState) {
 
     let lineOpts: ILineOpts = { color: borderColor, mtx, thick, n };
 
-    let tl = new Vec3(-110, -97, 0);
-    let br = new Vec3( 110, -70, 0);
+    let tl = new Vec3(-45, -97, 0);
+    let br = new Vec3( 45, -70, 0);
     drawLineRect(render, tl, br, lineOpts);
 
     addQuad(render.triRender, new Vec3(tl.x, tl.y, -0.1), new Vec3(br.x, br.y, -0.1), backgroundColor, mtx);
 
-    let title = "nano-gpt";
-
     // let w = measureTextWidth(state.modelFontBuf, title, .0);
     let { B, C, T, A, nBlocks, nHeads, vocabSize } = layout.shape;
 
+    let midX = (tl.x + br.x) / 2;
     let paramLeft = br.x - 50;
     let paramOff = tl.y + 2;
 
@@ -54,39 +54,45 @@ export function drawModelCard(state: IProgramState) {
 
     let titleFontScale = 13;
     let titleW = measureTextWidth(render.modelFontBuf, title, titleFontScale);
-    writeTextToBuffer(render.modelFontBuf, title, titleColor, tl.x + 2, tl.y + paramHeight / 2 - titleFontScale / 2 - 1, titleFontScale, mtx);
+    let titleHeight = titleFontScale * paramLineHeight;
+    writeTextToBuffer(render.modelFontBuf, title, titleColor, midX - titleW / 2, tl.y + 2, titleFontScale, mtx);
 
     // layout.weightCount = 150000000000;
-    let weightSize = 8;
-    let weightTitleW = measureTextWidth(render.modelFontBuf, `n_params = `, paramFontScale);
-    let weightOffX = 80;
+
+    let nParamsText = `n_params = `;
     let weightCountText = numberToCommaSep(layout.weightCount);
-    writeTextToBuffer(render.modelFontBuf, `n_params = `, titleColor, tl.x + weightOffX - weightTitleW, tl.y + paramHeight / 2 - paramFontScale / 2, paramFontScale, mtx);
-    writeTextToBuffer(render.modelFontBuf, weightCountText, titleColor, tl.x + weightOffX, tl.y + paramHeight / 2 - weightSize / 2, weightSize, mtx);
-    let infoText = "goal: sort 6 letters from { A, B, C } into ascending order";
-    writeTextToBuffer(render.modelFontBuf, infoText, titleColor, tl.x + 2, tl.y + paramHeight + 2, 4, mtx);
 
-    paramOff = tl.y + 2;
-    addParam("C (channels) = ", C.toString(), dimStyleColor(DimStyle.C));
-    addParam("T (time) = ", T.toString(), dimStyleColor(DimStyle.T));
-    addParam("B (batches) = ", B.toString(), dimStyleColor(DimStyle.B));
-    paramOff = tl.y + 2;
-    paramLeft += 35;
-    addParam("n_vocab = ", vocabSize.toString(), dimStyleColor(DimStyle.n_vocab));
-    addParam("n_layers = ", nBlocks.toString(), dimStyleColor(DimStyle.n_layers));
-    addParam("n_heads = ", nHeads.toString(), dimStyleColor(DimStyle.n_heads));
+    let weightSize = 8;
+    let weightTitleW = measureTextWidth(render.modelFontBuf, nParamsText, paramFontScale);
+    let weightCountW = measureTextWidth(render.modelFontBuf, weightCountText, weightSize);
+    // let infoText = "goal: sort 6 letters from { A, B, C } into ascending order";
+    // writeTextToBuffer(render.modelFontBuf, infoText, titleColor, tl.x + 2, tl.y + paramHeight + 2, 4, mtx);
 
-    function addParam(name: string, value: string, color: Vec4 = borderColor) {
-        let y = paramOff;
-        let w = measureTextWidth(render.modelFontBuf, name, paramFontScale);
-        let numW = measureTextWidth(render.modelFontBuf, value, paramFontScale);
-        let left = paramLeft;
-        writeTextToBuffer(render.modelFontBuf, name, color,  left - w        , y, paramFontScale, mtx);
-        writeTextToBuffer(render.modelFontBuf, value, color, left + maxLen * numWidth - numW, y, paramFontScale, mtx);
-        paramOff += paramFontScale * paramLineHeight;
-    }
+    paramOff = tl.y + titleHeight + 4;
+    let weightX = midX - (weightCountW + weightTitleW) / 2;
 
-    addLine(render.lineRender, thick, borderColor, new Vec3(tl.x, tl.y + paramHeight), new Vec3(br.x, tl.y + paramHeight), n, mtx);
+    writeTextToBuffer(render.modelFontBuf, nParamsText, titleColor, weightX, paramOff - paramFontScale / 2, paramFontScale, mtx);
+    writeTextToBuffer(render.modelFontBuf, weightCountText, titleColor, weightX + weightTitleW, paramOff - weightSize / 2, weightSize, mtx);
+    // addParam("C (channels) = ", C.toString(), dimStyleColor(DimStyle.C));
+    // addParam("T (time) = ", T.toString(), dimStyleColor(DimStyle.T));
+    // addParam("B (batches) = ", B.toString(), dimStyleColor(DimStyle.B));
+    // paramOff = tl.y + 2;
+    // paramLeft += 35;
+    // addParam("n_vocab = ", vocabSize.toString(), dimStyleColor(DimStyle.n_vocab));
+    // addParam("n_layers = ", nBlocks.toString(), dimStyleColor(DimStyle.n_layers));
+    // addParam("n_heads = ", nHeads.toString(), dimStyleColor(DimStyle.n_heads));
+
+    // function addParam(name: string, value: string, color: Vec4 = borderColor) {
+    //     let y = paramOff;
+    //     let w = measureTextWidth(render.modelFontBuf, name, paramFontScale);
+    //     let numW = measureTextWidth(render.modelFontBuf, value, paramFontScale);
+    //     let left = paramLeft;
+    //     writeTextToBuffer(render.modelFontBuf, name, color,  left - w        , y, paramFontScale, mtx);
+    //     writeTextToBuffer(render.modelFontBuf, value, color, left + maxLen * numWidth - numW, y, paramFontScale, mtx);
+    //     paramOff += paramFontScale * paramLineHeight;
+    // }
+
+    // addLine(render.lineRender, thick, borderColor, new Vec3(tl.x, tl.y + paramHeight), new Vec3(br.x, tl.y + paramHeight), n, mtx);
 
     renderOutputAtBottom(state);
 

@@ -188,6 +188,20 @@ export function renderModel(state: IProgramState) {
 
     renderAllBlocks(blockRender, layout, modelMtx, camPos, lightPosArr, lightColorArr);
 
+    args.sharedRender.activePhase = RenderPhase.Opaque;
+
+    for (let example of state.examples) {
+        if (example.enabled && example.layout) {
+            let { modelMtx, viewMtx } = camera;
+            let { camPos } = cameraToMatrixView(camera);
+            var modelMtxLocal = modelMtx.mul(Mat4f.fromTranslation(example.offset));
+            writeModelViewUbo(args.sharedRender, modelMtxLocal, viewMtx);
+            renderAllBlocksInstanced(example.blockRender, example.layout, modelMtxLocal, camPos);
+        }
+    }
+
+    writeModelViewUbo(args.sharedRender, modelMtx, viewMtx);
+
     renderAllThreads(args.threadRender);
 
     gl.polygonOffset(-1.0, -2.0);
@@ -213,16 +227,4 @@ export function renderModel(state: IProgramState) {
     }
     gl.disable(gl.POLYGON_OFFSET_FILL);
 
-    args.sharedRender.activePhase = RenderPhase.Opaque;
-
-    for (let example of state.examples) {
-        if (example.enabled && example.layout) {
-            let { modelMtx, viewMtx } = camera;
-            let { camPos } = cameraToMatrixView(camera);
-            var modelMtxLocal = modelMtx.mul(Mat4f.fromTranslation(example.offset));
-            writeModelViewUbo(args.sharedRender, modelMtxLocal, viewMtx);
-            renderAllBlocksInstanced(example.blockRender, example.layout, modelMtxLocal, camPos);
-            // renderAllBlocks(example.blockRender, example.layout, modelMtxLocal, camPos, lightPosArr, lightColorArr);
-        }
-    }
 }

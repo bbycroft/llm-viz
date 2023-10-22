@@ -19,6 +19,7 @@ import { jumpPhase } from './Commentary';
 import { WelcomePopup } from './WelcomePopup';
 import { KeyboardManagerContext, KeyboardOrder, useGlobalKeyboard } from '@/src/utils/keyboard';
 import { Resizer } from '../utils/Resizer';
+import { ModelSelectorToolbar } from './components/ModelSelectorToolbar';
 
 async function fetchTensorData(url: string): Promise<ITensorSet> {
     let resp = await fetch(url);
@@ -201,12 +202,13 @@ export function LayerView() {
             <CanvasEventSurface>
                 {/* <MovementControls /> */}
             </CanvasEventSurface>
-            <WelcomePopup />
+            {/* <WelcomePopup /> */}
             <div className="absolute bottom-0 right-0 m-5 bg-white rounded border">
                 <button className='hover:bg-blue-400' onClick={handleCopyCamera}>
                     Copy Camera
                 </button>
             </div>
+            <ModelSelectorToolbar />
         </ProgramStateContext.Provider>}
     </div>;
 

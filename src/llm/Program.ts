@@ -1,4 +1,4 @@
-import { genModelViewMatrices, ICamera } from "./Camera";
+import { genModelViewMatrices, ICamera, ICameraPos, updateCamera } from "./Camera";
 import { drawAllArrows } from "./components/Arrow";
 import { drawBlockLabels } from "./components/SectionLabels";
 import { drawModelCard } from "./components/ModelCard";
@@ -35,7 +35,9 @@ export interface IProgramState {
     camera: ICamera;
     htmlSubs: Subscriptions;
     layout: IGptModelLayout;
+    mainExample: IModelExample;
     examples: IModelExample[];
+    currExampleId: number;
     shape: IModelShape;
     gptGpuModel: IGpuGptModel | null;
     jsGptModel: IGptModelLink | null;
@@ -52,6 +54,8 @@ export interface IModelExample {
     layout?: IGptModelLayout;
     blockRender: IBlockRender;
     offset: Vec3;
+    modelCardOffset: Vec3;
+    camera?: ICameraPos;
 }
 
 export interface IMouseState {
@@ -133,6 +137,10 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         vocabSize: 50257,
     };
 
+    function makeCamera(center: Vec3, angle: Vec3): ICameraPos {
+        return { center, angle };
+    }
+
     let delta = new Vec3(10000, 0, 0);
 
     return {
@@ -144,24 +152,40 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
         camera,
         shape: shape,
         layout: genGptModelLayout(shape),
+        currExampleId: -1,
+        mainExample: {
+            name: 'nano-gpt',
+            enabled: true,
+            shape: shape,
+            offset: new Vec3(),
+            modelCardOffset: new Vec3(),
+            blockRender: null!,
+            camera: makeCamera(new Vec3(42.771, 0.000, -569.287), new Vec3(284.959, 26.501, 12.867)),
+        },
         examples: [{
             name: 'GPT-2 (small)',
             enabled: true,
             shape: gpt2ShapeSmall,
             offset: delta.mul(-5),
+            modelCardOffset: delta.mul(-2.0),
             blockRender: initBlockRender(render.ctx),
+            camera: makeCamera(new Vec3(-65141.321, 0.000, -69843.439), new Vec3(224.459, 24.501, 1574.240)),
         }, {
             name: 'GPT-2 (XL)',
             enabled: true,
             shape: gpt2ShapeLarge,
             offset: delta.mul(20),
+            modelCardOffset: delta.mul(0.5),
             blockRender: initBlockRender(render.ctx),
+            camera: makeCamera(new Vec3(237902.688, 0.000, -47282.484), new Vec3(311.959, 23.501, 1382.449)),
         }, {
             name: 'GPT-3',
             enabled: false,
             shape: gpt3Shape,
             offset: delta.mul(50.0),
+            modelCardOffset: delta.mul(15.0),
             blockRender: initBlockRender(render.ctx),
+            camera: makeCamera(new Vec3(837678.163, 0.000, -485242.286), new Vec3(238.959, 10.501, 12583.939)),
         }],
         gptGpuModel: null,
         jsGptModel: null,
@@ -241,12 +265,20 @@ export function runProgram(view: IRenderView, state: IProgramState) {
         runWalkthrough(state, view);
     }
 
+    updateCamera(state, view);
+
     drawBlockInfo(state);
     // these will get modified by the walkthrough (stored where?)
     drawAllArrows(state.render, state.layout);
 
-    drawModelCard(state);
+    drawModelCard(state, state.layout, 'nano-gpt', new Vec3());
     // drawTokens(state.render, state.layout, state.display);
+
+    for (let example of state.examples) {
+        if (example.enabled && example.layout) {
+            drawModelCard(state, example.layout, example.name, example.offset.add(example.modelCardOffset));
+        }
+    }
 
     // manageMovement(state, view);
     runMouseHitTesting(state);

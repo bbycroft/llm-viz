@@ -2,6 +2,8 @@ import { IModelLayout } from "./GptModelLayout";
 import { IProgramState } from "./Program";
 import { Mat4f } from "@/src/utils/matrix";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
+import { IRenderView } from "./render/modelRender";
+import { clamp } from "../utils/data";
 
 export interface ICamera {
     camPos: Vec3;
@@ -17,6 +19,13 @@ export interface ICamera {
     // probably should just split out the zoom into a separate variable
     angleDesired?: Vec3;
     angleZDesired?: number;
+
+    desiredCamera?: ICameraPos;
+    desiredCameraTransition?: {
+        t: number;
+        initialPos: ICameraPos;
+        targetPos: ICameraPos;
+    },
 
     transition: {
         centerT?: number;
@@ -133,87 +142,38 @@ export function cameraMoveToDesired(camera: ICamera, dt: number) {
     }
 }
 
-    /*
-    if (camera.centerDesired && (!camera.transition.centerVel || camera.transition.centerVel.dist(camera.centerDesired) < 0.01)) {
-        camera.center = camera.centerDesired;
-        camera.transition.centerVel = camera.centerDesired;
-        camera.centerDesired = undefined;
-    } else if (!camera.centerDesired) {
-        camera.transition.centerVel = undefined;
-    }
+export function updateCamera(state: IProgramState, view: IRenderView) {
 
-    if (camera.angleZDesired && (!camera.transition.angleZVel || Math.abs(camera.transition.angleZVel - camera.angleZDesired) < 0.01)) {
-        camera.angle.z = camera.angleZDesired;
-        camera.transition.angleZVel = camera.angleZDesired;
-        camera.angleZDesired = undefined;
-    } else if (!camera.angleZDesired) {
-        camera.transition.angleZVel = undefined;
-    }
+    let transition = state.camera.desiredCameraTransition;
 
-    if (camera.angleRotDesired && (!camera.transition.angleRotVel || camera.transition.angleRotVel.dist(camera.angleRotDesired) < 0.01)) {
-        camera.angle.x = camera.angleRotDesired.x;
-        camera.angle.y = camera.angleRotDesired.y;
-        camera.transition.angleRotVel = camera.angleRotDesired;
-        camera.angleRotDesired = undefined;
-    } else if (!camera.angleRotDesired) {
-        camera.transition.angleRotVel = undefined;
-    }
-    */
+    if (transition) {
+        if (transition.t < 1) {
+            transition.t = clamp(transition.t + view.dt / 1000 * 1.5, 0, 1);
+            let src = transition.initialPos;
+            let dest = transition.targetPos;
 
-    /*
-    if (camera.centerDesired) {
-        let { pos, vel } = applySpringStep(
-            camera.center,
-            camera.centerDesired,
-            camera.transition.centerVel,
-            dt, { tension: 1, mass: 1 / 40, extra: 1 });
-
-        camera.transition.centerVel = vel;
-        camera.center = pos;
-
-        camera.centerDesired = undefined;
-    } else {
-        camera.transition.centerVel = undefined;
-    }
-
-    if (camera.angleZDesired) {
-        let { pos, vel } = applySpringStep(
-            new Vec3(camera.angle.z),
-            new Vec3(camera.angleZDesired),
-            camera.transition.angleZVel ? new Vec3(camera.transition.angleZVel) : undefined,
-            dt, { tension: 1, mass: 1 / 40 });
-
-        camera.angle.z = pos.x;
-        camera.transition.angleZVel = vel.x;
-        camera.angleZDesired = undefined;
-    } else {
-        camera.transition.angleZVel = undefined;
-    }
-
-    if (camera.angleRotDesired) {
-        // need to account for the discontinuity at 0/360
-        // how? probably just need to add/subtract 360 when the difference is > 180
-        let desiredX = camera.angleRotDesired.x;
-        while (desiredX - camera.angle.x > 180) {
-            desiredX -= 360;
+            state.camera.angle = src.angle.lerp(dest.angle, transition.t);
+            state.camera.center = src.center.lerp(dest.center, transition.t);
+            view.markDirty();
+        } else {
+            state.camera.desiredCameraTransition = undefined;
         }
-        while (desiredX - camera.angle.x < -180) {
-            desiredX += 360;
-        }
-
-        let { pos, vel } = applySpringStep(
-            new Vec3(camera.angle.x, camera.angle.y),
-            new Vec3(desiredX, camera.angleRotDesired.y),
-            camera.transition.angleRotVel,
-            dt, { tension: 1, mass: 1 / 40 });
-
-        camera.transition.angleRotVel = vel;
-        camera.angle.x = pos.x;
-        camera.angle.y = pos.y;
-
-        camera.angleRotDesired = undefined;
     }
-    */
+
+    // take a frame before we start moving the camera
+    if (state.camera.desiredCamera) {
+        state.camera.desiredCameraTransition = {
+            t: 0,
+            initialPos: {
+                center: state.camera.center,
+                angle: state.camera.angle,
+            },
+            targetPos: state.camera.desiredCamera,
+        }
+        state.camera.desiredCamera = undefined;
+        view.markDirty();
+    }
+}
 
 
 export interface ISpringConfig {

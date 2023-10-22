@@ -475,7 +475,8 @@ export function renderAllBlocksInstanced(blockRender: IBlockRender, layout: IMod
     let blockAccessUbo = blockRender.blockAccessUbo.localBufs[0];
     gl.useProgram(blockRender.instancedShader.program);
 
-    let camPosModel = modelMtx.mulVec3Proj(camPos);
+    let modelMtxInv = modelMtx.invert();
+    let camPosModel = modelMtxInv.mulVec3Proj(camPos);
     gl.uniform3f(locs.u_camPos, camPosModel.x, camPosModel.y, camPosModel.z);
 
     gl.uniform1i(locs.u_accessSampler, 0);
