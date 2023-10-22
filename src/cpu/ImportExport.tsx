@@ -285,6 +285,7 @@ export function hydrateFromLS(ls: Partial<ILSState> | undefined): ILSState {
 
 export function createInitialEditSnapshot(): IEditSnapshot {
     return {
+        name: '',
         comps: [],
         wires: [],
         nextCompId: 0,
