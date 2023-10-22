@@ -275,6 +275,7 @@ export interface ISchematic {
 }
 
 export interface IEditSnapshot {
+    name: string;
     selected: IElRef[];
 
     // schematic

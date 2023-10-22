@@ -54,7 +54,7 @@ export default function Page() {
             This is stored in a <em>register</em> as a 32 bit number.
         </Para>
         <Para>
-            Because the PC is an address, it points to a byte in memory. And then since each instruction
+            Because the PC is an address, it points to a byte (8 bits) in memory. And then since each instruction
             is 4 bytes long, we'll need to increment the PC by 4 each time we execute an instruction. Let's see this in action:
         </Para>
 
@@ -187,7 +187,7 @@ export default function Page() {
         </InstructionTable>
 
         <Para>
-            These 10 instructions can be defined with 4 bits, so that's what is used in the instruction decoder. We also
+            These 10 instructions can be defined with 4 bits (2^3 = 8: too small; 2^4 = 16: sufficient), so that's what is used in the instruction decoder. We also
             pass a few extra bits to the ALU, which tell it whether to do anything at all, as well as whether
             it should produce a <em>branch</em> bit. Let's hook up the ALU, and see it in action:
         </Para>
@@ -269,7 +269,7 @@ export default function Page() {
         <GuideSection title={"B-type (branching) instructions"}>
 
         <Para>
-            The next instruction type we'll add is the B-type (branching) instruction. This is the first time we'll be making
+            The next instruction type we'll support is the B-type (branching) instruction. This is the first time we'll be making
             the PC register jump to something other than PC + 4. This instruction forms the basis of things like if/else statements
             and for-loops. The instruction is a bit like the I-type instruction: it contains two register values and an immediate.
             However, the 2 registers represent two values to compare (i.e. reads), and the immediate is used as an address offset.
@@ -287,14 +287,14 @@ export default function Page() {
 
         <Para>
             We pass the two register values to the ALU, and perform a comparison on them. There are a few different comparison
-            types, and each of them produces a 1-bit value: is the condition met or not? We then use this 1-bit value to choose
+            types, and each of them produces a 1-bit value: "Is the condition met?". We then use this 1-bit value to choose
             whether we want to jump or not.
         </Para>
 
         <Para>
-            The instruction decoder is already sending the ALU a <em>branch</em> bit, which tells it to produce a 1-bit value, and
-            now we need to wire that value to a mux. That mux can then select between the PC + 4 value, and the PC + 4 + offset value.
-            Since they're both offsets, we can select between '4' & 'offset', where the offset comes from the instruction decoder.
+            The instruction decoder is already sending the ALU a <em>branch</em> bit, which tells it to output a 1-bit value, and
+            now we need to wire that output value to a mux. That mux can then select between the <code>PC + 4</code> value, and the <code>PC + offset</code> value.
+            Since they're both offsets, we can select between <code>4</code> & <code>offset</code>, where the offset comes from the instruction decoder.
         </Para>
 
         <SchematicView schematicId={"b-type"} caption={"Ins-decode with branching"} />
@@ -320,8 +320,8 @@ export default function Page() {
 
         <Para>
             These two, <Ins>jal</Ins> (jump & link) and <Ins>jalr</Ins> (jump & link register), are fairly similar. They both jump to
-            a new address (the jump part), and they both store the value (PC + 4) in a register (the link part). The difference is that
-            <Ins>jal</Ins> calculates the new address as (PC + 20-bit-imm), and <Ins>jalr</Ins> calculates it as (reg[rs1] + 12-bit-imm).
+            a new address (the jump part), and they both store the value <code>PC + 4</code> in a register (the link part). The difference is that
+            <Ins>jal</Ins> calculates the new address as <code>PC + 20-bit-imm</code>, and <Ins>jalr</Ins> calculates it as <code>reg[rs1] + 12-bit-imm</code>.
         </Para>
 
         <Para>
@@ -333,8 +333,8 @@ export default function Page() {
         <SchematicView schematicId={"b-type"} caption={"Add PC mux wires"} />
 
         <Para>
-            To handle the ALU results, we need to add a couple more mux's. Normally, PC + [offset] goes back to PC, and ALU output
-            goes to the register file. But for our jump instructions, we do the opposite: PC + [offset] goes to the register file, and
+            To handle the ALU results, we need to add a couple more mux's. Normally, <code>PC + [offset]</code> goes back to PC, and ALU output
+            goes to the register file. But for our jump instructions, we do the opposite: <code>PC + [offset]</code> goes to the register file, and
             ALU output goes to PC. To do this, we can use a couple of mux's to select the correct source. This can be controlled
             by a single signal from the instruction decoder.
         </Para>

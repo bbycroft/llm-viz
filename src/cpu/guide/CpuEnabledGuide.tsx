@@ -4,6 +4,7 @@ import { CPUDirectory, guideEntries } from './GuideIndex';
 import { Header } from '@/src/homepage/Header';
 import { NavSidebar } from './NavSidebar';
 import { useCreateGlobalKeyboardDocumentListener } from '@/src/utils/keyboard';
+import './guideStyle.css';
 
 export const CpuEnabledGuide: React.FC<{
     dir: CPUDirectory;
@@ -17,7 +18,7 @@ export const CpuEnabledGuide: React.FC<{
         <Header title={entry.name} />
         <div className='flex flex-grow items-start'>
             <NavSidebar className='w-3/12 bg-slate-100 min-h-full' activeEntry={dir} />
-            <div className='w-9/12 flex flex-col py-2 mb-[10rem]'>
+            <div className='guide-style w-9/12 flex flex-col py-2 mb-[10rem]'>
                 {children}
             </div>
             <div className='w-3/12 bg-slate-100 min-h-full'>

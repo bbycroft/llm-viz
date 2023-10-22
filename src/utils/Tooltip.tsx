@@ -1,4 +1,4 @@
-import React, { CSSProperties, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import React, { CSSProperties, useMemo, useState } from "react";
 import { Portal } from "./Portal";
 import clsx from "clsx";
 import { useResizeChangeHandler } from "./layout";

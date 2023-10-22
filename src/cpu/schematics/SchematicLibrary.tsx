@@ -111,6 +111,7 @@ export class SchematicLibrary {
             let snapshot = createInitialEditSnapshot();
             snapshot = wiresFromLsState(snapshot, lsSchematic.model, compLibrary);
             snapshot = addCompArgsToSnapshot(snapshot, compArgs);
+            snapshot.name = lsSchematic.name;
 
             customSchematics.set(lsSchematic.id, {
                 id: lsSchematic.id,

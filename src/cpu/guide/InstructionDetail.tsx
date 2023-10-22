@@ -44,10 +44,11 @@ export const InstructionDetail: React.FC<{
             {bitNodes.map((node, i) => {
                 let type = node.section?.type ?? BitRangeType.Code;
                 let valStr = bitRangeToChar(type).repeat(node.nBits);
-                if (isNotNil(node.value)) {
+                let explicitValue = isNotNil(node.value);
+                if (explicitValue && isNotNil(node.value)) {
                     valStr = node.value.toString(2).padStart(node.nBits, '0');
                 }
-                return <span key={i} className={clsx(bitRangeTypeColor(type))}>
+                return <span key={i} className={clsx(bitRangeTypeColor(type), explicitValue ? 'font-bold' : '')}>
                     {valStr}
                 </span>;
             })}

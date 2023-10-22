@@ -24,7 +24,7 @@ import { palette } from "./palette";
 import { drawGrid, makeCanvasFont } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix } from "./SubSchematics";
 import { computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
-import { MainToolbar } from "./CpuToolbars";
+import { MainToolbar } from "./toolbars/CpuToolbars";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -271,6 +271,7 @@ export const CpuCanvas: React.FC<{
                 </CanvasEventHandler>}
                 <div className={s.toolsLeftTop}>
                     {!readonly && <>
+                        <CompLibraryView />
                         <CompExampleView />
                         <SchematicLibraryView />
                     </>}

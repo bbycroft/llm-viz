@@ -72,6 +72,7 @@ export function createCpuEditorState(): IEditorState {
 export function constructEditSnapshot(): IEditSnapshot {
     return {
         selected: [],
+        name: "",
 
         nextWireId: 0,
         nextCompId: 0,

@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { faBook, faCheck, faChevronRight, faClockRotateLeft, faCodeFork, faExpand, faFloppyDisk, faForward, faForwardFast, faForwardStep, faPlay, faPowerOff, faRedo, faRotateLeft, faTimes, faUndo } from '@fortawesome/free-solid-svg-icons';
 import { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { assignImm, isNotNil } from '../utils/data';
-import { useGlobalKeyboard, KeyboardOrder, isKeyWithModifiers, Modifiers } from '../utils/keyboard';
-import { IBaseEvent } from '../utils/pointer';
-import { redoAction, undoAction, useEditorContext } from './Editor';
+import { assignImm, isNotNil } from '../../utils/data';
+import { useGlobalKeyboard, KeyboardOrder, isKeyWithModifiers, Modifiers } from '../../utils/keyboard';
+import { IBaseEvent } from '../../utils/pointer';
+import { editLayout, redoAction, undoAction, useEditorContext } from '../Editor';
 import clsx from 'clsx';
-import { Tooltip } from '../utils/Tooltip';
-import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from './CpuExecution';
-import { modifiersToString } from './Keymap';
+import { Tooltip } from '../../utils/Tooltip';
+import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from '../CpuExecution';
+import { modifiersToString } from '../Keymap';
+import { ComponentAdder } from '../ComponentAdder';
+import { ToolbarButton, ToolbarDivider } from './ToolbarBasics';
 
 export const MainToolbar: React.FC<{
 
@@ -47,6 +49,10 @@ export const MainToolbar: React.FC<{
         setEditorState(a => assignImm(a, { compLibraryVisible: !a.compLibraryVisible }));
     }
 
+    function handleNameChange(ev: IBaseEvent, value: string, end: boolean) {
+        setEditorState(editLayout(end, a => assignImm(a, { name: value })));
+    }
+
     let undoAvailable = editorState.undoStack.length > 0;
     let redoAvailable = editorState.redoStack.length > 0;
 
@@ -70,37 +76,21 @@ export const MainToolbar: React.FC<{
         <ToolbarDivider />
 
         <ViewportControls />
+
+        <ToolbarDivider />
+
+        <ComponentAdder />
+
+        <ToolbarDivider />
+
+        <div className='min-w-[200px] h-full flex items-center'>
+            <div className='mr-2'>Name:</div>
+            <ToolbarNameEditor value={editorState.snapshot.name} setValue={handleNameChange} />
+        </div>
     </div>;
 };
 
-const ToolbarButton: React.FC<{
-    className?: string,
-    icon?: IconProp,
-    text?: string,
-    disabled?: boolean;
-    notImpl?: boolean;
-    tip?: React.ReactNode,
-    children?: React.ReactNode,
-    onClick?: (ev: IBaseEvent) => void,
-}> = ({ className, icon, text, disabled, notImpl, tip, children, onClick }) => {
 
-    let btn = <button
-        className={clsx(className, 'group self-stretch min-w-[3rem] flex items-center justify-center disabled:opacity-40 rounded-md my-1', !disabled && "hover:bg-blue-300 active:bg-blue-400", notImpl && "bg-red-100")}
-        disabled={disabled}
-        onClick={onClick}
-    >
-        {text}
-        {icon && <FontAwesomeIcon icon={icon} className={clsx('text-gray-600 disabled:text-gray-300', text && 'ml-3')} />}
-        {children}
-    </button>;
-
-    return tip ? <Tooltip tip={tip}>{btn}</Tooltip> : btn;
-};
-
-
-const ToolbarDivider: React.FC<{ className?: string }> = ({ className }) => {
-    return <div className={clsx(className, 'w-[1px] bg-slate-300 my-1 mx-2')} />;
-};
 
 const ToolbarNameEditor: React.FC<{
     value: string,
@@ -143,9 +133,9 @@ const ToolbarNameEditor: React.FC<{
     });
 
     return <>
-        {!isEditingName && <div className='hover:bg-slate-600 px-1 rounded' onClick={() => setEditingName(value)}>{value}</div>}
+        {!isEditingName && <div className='hover:bg-slate-300 bg-slate-100 my-1 px-2 py-1 rounded flex-1' onClick={() => setEditingName(value)}>{value}</div>}
         {isEditingName && <>
-            <input ref={setInputEl} type='text' className='bg-slate-600 px-1 mr-1 rounded focus:outline-none focus:border-slate-500 w-[16rem] max-w-[20rem] flex-shrink' value={editingName || ''} onChange={ev => setEditingName(ev.target.value)} />
+            <input ref={setInputEl} type='text' className='bg-slate-300 px-2 py-1 mr-1 my-1 rounded focus:outline-none focus:border-slate-500 w-[16rem] max-w-[20rem] flex-shrink' value={editingName || ''} onChange={ev => setEditingName(ev.target.value)} />
             <button className={"px-1 mx-1 hover:text-slate-200"} onClick={applyEditName}>
                 <FontAwesomeIcon icon={faCheck} />
             </button>
