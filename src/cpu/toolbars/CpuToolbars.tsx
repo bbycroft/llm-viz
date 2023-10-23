@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { faBook, faCheck, faChevronRight, faClockRotateLeft, faCodeFork, faExpand, faFloppyDisk, faForward, faForwardFast, faForwardStep, faPlay, faPowerOff, faRedo, faRotateLeft, faTimes, faUndo } from '@fortawesome/free-solid-svg-icons';
-import { IconProp } from '@fortawesome/fontawesome-svg-core';
+import React, { useEffect, useRef, useState } from 'react';
+import { faBook, faCheck, faChevronRight, faClockRotateLeft, faCodeFork, faExpand, faFloppyDisk, faForward, faForwardFast, faForwardStep, faPause, faPlay, faPowerOff, faRedo, faRotateLeft, faSortNumericUp, faTimes, faUndo } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { assignImm, isNotNil } from '../../utils/data';
 import { useGlobalKeyboard, KeyboardOrder, isKeyWithModifiers, Modifiers } from '../../utils/keyboard';
@@ -12,6 +11,7 @@ import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from '.
 import { modifiersToString } from '../Keymap';
 import { ComponentAdder } from '../ComponentAdder';
 import { ToolbarButton, ToolbarDivider } from './ToolbarBasics';
+import { useInterval, useRequestAnimationFrame } from '@/src/utils/hooks';
 
 export const MainToolbar: React.FC<{
 
@@ -185,27 +185,80 @@ export const StepperControls: React.FC<{
         setEditorState(a => ({ ...a }));
     }
 
-    function forwardSlow() {
+    let isPlaying = isNotNil(editorState.stepSpeed);
+    let intervalEnabled = isPlaying && editorState.stepSpeed! < 60;
+    let interval = isNotNil(editorState.stepSpeed) ? 1000 / editorState.stepSpeed : 0;
+    let animFrameEnabled = isPlaying && !intervalEnabled;
 
+    function stepOrStop() {
+        if (exeModel.runArgs.halt) {
+            setEditorState(a => assignImm(a, { stepSpeed: undefined }));
+            return false;
+        }
+
+        if (!exeModel.runArgs.halt) {
+            stepExecutionLatch(exeModel);
+        }
+
+        stepExecutionCombinatorial(exeModel);
+
+        setEditorState(a => ({ ...a }));
+
+        return !exeModel.runArgs.halt;
+    }
+
+
+    useInterval(intervalEnabled, interval, () => {
+        stepOrStop();
+    }, { runImmediately: true });
+
+    let iterAcc = useRef(0);
+
+    if (!animFrameEnabled) {
+        iterAcc.current = 0;
+    }
+
+    useRequestAnimationFrame(animFrameEnabled, dt => {
+        let perfStart = performance.now();
+        let numIterationsFloat = editorState.stepSpeed! * dt / 1;
+        let maxTime = 16;
+        iterAcc.current += numIterationsFloat;
+        let itersToRun = Math.floor(iterAcc.current);
+        for (let i = 0; i < itersToRun; i++) {
+            let running = stepOrStop();
+            if (!running || performance.now() > perfStart + maxTime) {
+                iterAcc.current = 0;
+                break;
+            }
+            iterAcc.current -= 1;
+        }
+    });
+
+    function forwardSlow() {
+        setEditorState(a => assignImm(a, { stepSpeed: 1.0 }));
     }
 
     function forwardMed() {
-
+        setEditorState(a => assignImm(a, { stepSpeed: 20.0 }));
     }
 
     function forwardFast() {
-
+        setEditorState(a => assignImm(a, { stepSpeed: 100000.0 }));
     }
 
-    let halted = exeModel.runArgs.halt;
+    function stop() {
+        setEditorState(a => assignImm(a, { stepSpeed: undefined }));
+    }
+
+    let halted = exeModel.runArgs.halt && !isPlaying;
 
     return <>
         <ToolbarButton icon={faPowerOff} disabled={false} onClick={resetHard} tip={"Hard reset: clear all memory"} />
         <ToolbarButton icon={faClockRotateLeft} disabled={false} onClick={resetSoft} tip={`Soft reset: clear RAM & registers (${modifiersToString('Backspace')})`} />
         <ToolbarButton icon={faChevronRight} disabled={halted} onClick={step} className='px-4' text={'Step'} tip={`Take single step (${modifiersToString('Space')})`} />
-        <ToolbarButton icon={faPlay} disabled={halted} onClick={forwardSlow} notImpl tip={"Step slowly: 1 Hz"} />
-        <ToolbarButton icon={faForward} disabled={halted} onClick={forwardMed} notImpl tip={"Step medium: 60 Hz"} />
-        <ToolbarButton icon={faForwardFast} disabled={halted} onClick={forwardFast} notImpl tip={"Step fast as possible"} />
+        <ToolbarButton icon={isPlaying ? faPause : faPlay} disabled={halted} onClick={isPlaying ? stop : forwardSlow} tip={"Step slowly: 1 Hz"} />
+        <ToolbarButton icon={faForward} disabled={halted} onClick={forwardMed} tip={"Step medium: 20 Hz"} />
+        <ToolbarButton icon={faForwardFast} disabled={halted} onClick={forwardFast} tip={"Step fast as possible"} />
     </>;
 };
 

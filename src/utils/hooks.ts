@@ -34,6 +34,25 @@ export function useRequestAnimationFrame(active: boolean, cb: (dt: number) => vo
     }, [active, cbRef]);
 }
 
+export interface IIntervalOptions {
+    // run the callback immediately on mount
+    runImmediately?: boolean;
+}
+
+export function useInterval(active: boolean, delay: number, cb: () => void, opts?: IIntervalOptions) {
+    let cbRef = useFunctionRef(cb);
+    let runImmediately = opts?.runImmediately ?? false;
+    useEffect(() => {
+        if (active) {
+            let handle = setInterval(cbRef.current, delay);
+            if (runImmediately) {
+                cbRef.current();
+            }
+            return () => clearInterval(handle);
+        }
+    }, [active, delay, cbRef, runImmediately]);
+}
+
 export function logChangesFn(name: string) {
     let prevValue: any = null;
     return (currValue: any) => {

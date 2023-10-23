@@ -143,6 +143,8 @@ export interface IEditorState {
     needsZoomExtent: boolean;
 
     dragCreateComp?: IDragCreateComp;
+
+    stepSpeed?: number;
 }
 
 export interface ISelectRegion {
