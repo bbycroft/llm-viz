@@ -8,7 +8,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart } from "../utils/pointer";
 import { assignImm, getOrAddToMap, isNil, isNotNil } from "../utils/data";
 import { EditorContext, IEditorContext, IViewLayoutContext, ViewLayoutContext } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IExeSystem, ICompRenderArgs, ISchematic } from "./CpuModel";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { buildCompLibrary } from "./comps/builtins";
 import { CompLibraryView } from "./CompLibraryView";
@@ -46,8 +46,9 @@ So our sandbox needs a bit of work. To main goals:
 export const CpuCanvas: React.FC<{
     readonly?: boolean;
     schematicId?: string;
+    toolbars?: ToolbarTypes[],
     children?: React.ReactNode;
-}> = ({ schematicId, readonly, children }) => {
+}> = ({ schematicId, readonly, toolbars, children }) => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
     // let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
     let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState());
@@ -82,6 +83,11 @@ export const CpuCanvas: React.FC<{
                     return a;
                 }
                 let bb = computeModelBoundingBox(a.snapshot);
+
+                if (bb.empty) {
+                    bb = new BoundingBox3d(new Vec3(0, 0), new Vec3(20, 20));
+                }
+
                 let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(readonly ? 0 : 330, 0), new Vec3(bcr.width, bcr.height)), 0.05);
                 return assignImm(a, { mtx, needsZoomExtent: false });
             });
@@ -256,7 +262,7 @@ export const CpuCanvas: React.FC<{
 
     return <EditorContext.Provider value={ctx}>
         <ViewLayoutContext.Provider value={viewLayout}>
-            {!readonly && <MainToolbar />}
+            {!readonly && <MainToolbar readonly={readonly} toolbars={toolbars} />}
             <div className="relative touch-none flex-1 overflow-hidden">
                 <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
                 {cvsState && <CanvasEventHandler cvsState={cvsState}>
@@ -277,6 +283,9 @@ export const CpuCanvas: React.FC<{
                     </>}
                     {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
                 </div>
+                {readonly && <div className="absolute left-2 top-2 pointer-events-auto">
+                    <MainToolbar readonly={readonly} toolbars={toolbars} />
+                </div>}
                 <div className="cls_toolsTopRight absolute top-0 right-0">
                     {!readonly && <CompLayoutToolbar />}
                 </div>

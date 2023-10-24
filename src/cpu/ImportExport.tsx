@@ -1,7 +1,7 @@
 import { isNotNil, assignImm } from "../utils/data";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary } from "./comps/CompBuilder";
-import { IComp, IEditSnapshot, IElRef, IWireGraph, IWireGraphNode, RefType } from "./CpuModel";
+import { IComp, IEditSnapshot, IElRef, ISchematic, IWireGraph, IWireGraphNode, RefType } from "./CpuModel";
 import { checkWires } from "./Wire";
 
 // what's our format?
@@ -35,7 +35,7 @@ W 16 ns:[3,5 p:id/ins|0,5,0|0,3,1|-2,3,2 p:insFetch/ins]
 
 */
 
-export function exportData(layout: IEditSnapshot) {
+export function exportData(layout: ISchematic) {
 
     let str = "#wire-schema 1\n";
 
@@ -67,7 +67,8 @@ export function exportData(layout: IEditSnapshot) {
 }
 
 export interface IImportResult {
-   issues: ILineIssue[] | null;
+    issues: ILineIssue[] | null;
+    schematic?: ISchematic;
 }
 
 export interface ILineIssue {
@@ -225,6 +226,13 @@ export function importData(str: string): IImportResult {
                     }
                 }
             }
+            for (let node of nodes) {
+                for (let edge of node.edges) {
+                    if (node.id > edge) {
+                        nodes[edge].edges.push(node.id);
+                    }
+                }
+            }
             wires.push({ id, nodes });
         } else {
             makeIssue(`Unexpected line start letter: '${line[0]}'`, lineIdx);
@@ -233,9 +241,11 @@ export function importData(str: string): IImportResult {
 
     }
 
-    let outStr = exportData(createInitialEditSnapshot());
+    let schematic = { comps, wires };
 
-    if (outStr !== str) {
+    let outStr = exportData(schematic);
+
+    if (outStr.replaceAll(/\r/g, '') !== str.replaceAll(/\r/g, '')) {
         makeIssue("Exported data does not match imported data", 0);
         console.log('--- str:\n', str);
         console.log('--- outStr:\n', outStr);
@@ -245,13 +255,16 @@ export function importData(str: string): IImportResult {
         console.log(res.issues);
     }
 
+    if (!res.issues) {
+        res.schematic = { comps, wires };
+    }
+
     return res;
 }
 
 
 
 export interface ILSGraphWire {
-    id: string;
     nodes: ILSGraphWireNode[];
 }
 
@@ -347,12 +360,11 @@ export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLi
     });
 }
 
-export function wiresToLsState(layout: IEditSnapshot): ILSState {
+export function schematicToLsState(layout: ISchematic): ILSState {
     return {
         wires: layout.wires
             .filter(w => w.nodes.length > 0)
             .map(w => ({
-                id: w.id,
                 nodes: w.nodes.map(n => ({ id: n.id, x: n.pos.x, y: n.pos.y, edges: n.edges, ref: n.ref })),
             })),
         comps: layout.comps.map(c => ({

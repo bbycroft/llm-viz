@@ -172,6 +172,11 @@ export interface ICanvasState {
     tileCanvases: Map<string, HTMLCanvasElement>;
 }
 
+export enum ToolbarTypes {
+    PlayPause = "PlayPause",
+    Viewport = "Viewport",
+}
+
 export interface IElRef {
     type: RefType;
     id: string;

@@ -109,7 +109,9 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
 
             // rows of 8 bytes, each byte represented by 2 hex digits
             // left to right, top to bottom (ala hex editor)
-            return exeComp ? renderData(comp, exeComp.data.rom, exeComp.data.updateCntr, { addr: exeComp.data.addr.value, numBytes: 4, value: 0 }, null) : null;
+            let addrRounded = exeComp ? exeComp.data.addr.value & ~0b11 : 0;
+
+            return exeComp ? renderData(comp, exeComp.data.rom, exeComp.data.updateCntr, { addr: addrRounded, numBytes: 4, value: 0 }, null) : null;
 
         },
         reset: (exeComp, { hardReset }) => {

@@ -6,11 +6,12 @@ import { useCombinedMouseTouchDrag, useTouchEvents } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
 import { ICanvasState, IEditSnapshot, IEditorState, IElRef, IHitTest, ISchematic, ISegment, IWireGraph, RefType } from './CpuModel';
 import { editLayout, useEditorContext } from './Editor';
-import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString, wireUnlinkNodes, repackGraphIds } from './Wire';
+import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString, wireUnlinkNodes, repackGraphIds, splitIntoIslands } from './Wire';
 import s from './CpuCanvas.module.scss';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 import { computeSubLayoutMatrix, getCompSubSchematic } from './SubSchematics';
 import { useFunctionRef } from '../utils/hooks';
+import { copySelection, cutSelection, pasteSelection } from './Clipboard';
 
 export const CanvasEventHandler: React.FC<{
     cvsState: ICanvasState,
@@ -32,6 +33,16 @@ export const CanvasEventHandler: React.FC<{
         if (isKeyWithModifiers(ev, "p", Modifiers.None) && ev.type === "keydown") {
             setEditorState(a => assignImm(a, { transparentComps: !a.transparentComps }));
         }
+        if (isKeyWithModifiers(ev, "x", Modifiers.CtrlOrCmd) && ev.type === "keydown") {
+            cutSelection(ev, editorState, setEditorState);
+        }
+        if (isKeyWithModifiers(ev, "c", Modifiers.CtrlOrCmd) && ev.type === "keydown") {
+            copySelection(ev, editorState, setEditorState);
+        }
+        if (isKeyWithModifiers(ev, "v", Modifiers.CtrlOrCmd) && ev.type === "keydown") {
+            pasteSelection(ev, editorState, setEditorState);
+        }
+
         if (ev.key === "Delete") {
             setEditorState(editLayout(true, layout => {
 

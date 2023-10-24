@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { faBook, faCheck, faChevronRight, faClockRotateLeft, faCodeFork, faExpand, faFloppyDisk, faForward, faForwardFast, faForwardStep, faPause, faPlay, faPowerOff, faRedo, faRotateLeft, faSortNumericUp, faTimes, faUndo } from '@fortawesome/free-solid-svg-icons';
+import { faBook, faCheck, faChevronRight, faClockRotateLeft, faCodeFork, faExpand, faFileArrowDown, faFloppyDisk, faForward, faForwardFast, faForwardStep, faPause, faPlay, faPowerOff, faRedo, faRotateLeft, faSortNumericUp, faTimes, faUndo } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { assignImm, isNotNil } from '../../utils/data';
 import { useGlobalKeyboard, KeyboardOrder, isKeyWithModifiers, Modifiers } from '../../utils/keyboard';
@@ -12,10 +12,12 @@ import { modifiersToString } from '../Keymap';
 import { ComponentAdder } from '../ComponentAdder';
 import { ToolbarButton, ToolbarDivider } from './ToolbarBasics';
 import { useInterval, useRequestAnimationFrame } from '@/src/utils/hooks';
+import { ToolbarTypes } from '../CpuModel';
 
 export const MainToolbar: React.FC<{
-
-}> = () => {
+    readonly?: boolean,
+    toolbars?: ToolbarTypes[],
+}> = ({ readonly, toolbars }) => {
     let { editorState, setEditorState } = useEditorContext();
 
     useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
@@ -37,6 +39,12 @@ export const MainToolbar: React.FC<{
 
     }
 
+    function saveToFile() {
+        if (editorState.activeSchematicId) {
+            editorState.schematicLibrary.saveToFile(editorState.activeSchematicId);
+        }
+    }
+
     function undo() {
         setEditorState(undoAction(editorState));
     }
@@ -56,9 +64,23 @@ export const MainToolbar: React.FC<{
     let undoAvailable = editorState.undoStack.length > 0;
     let redoAvailable = editorState.redoStack.length > 0;
 
+    if (readonly) {
+        return <div className='top-1 left-1 h-12 bg-white drop-shadow-md flex'>
+            {toolbars?.includes(ToolbarTypes.PlayPause) && <>
+                <StepperControls />
+                <ToolbarDivider />
+            </>}
+            {toolbars?.includes(ToolbarTypes.Viewport) && <>
+                <ViewportControls />
+
+            </>}
+        </div>;
+    }
+
     return <div className='h-12 bg-white drop-shadow-md flex'>
         <ToolbarButton icon={faFloppyDisk} onClick={save} tip={`Save (${modifiersToString('S', Modifiers.CtrlOrCmd)})`} />
         <ToolbarButton icon={faCodeFork} onClick={saveAs} notImpl tip={`Duplicate (${modifiersToString('S', Modifiers.CtrlOrCmd | Modifiers.Shift)})`} />
+        <ToolbarButton icon={faFileArrowDown} onClick={saveToFile} tip={`Save To File`} />
 
         <ToolbarDivider />
 

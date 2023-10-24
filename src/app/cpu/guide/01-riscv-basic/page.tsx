@@ -58,7 +58,7 @@ export default function Page() {
             is 4 bytes long, we'll need to increment the PC by 4 each time we execute an instruction. Let's see this in action:
         </Para>
 
-        <CpuPortal schematicId={"riscv-basic"} caption={"PC register with a loop-back that gets 4 added to it on each cycle"} />
+        <CpuPortal schematicId={"c-a7yetcbo"} caption={"Fig 1: PC register with a loop-back that gets 4 added to it on each cycle"} height={16} width={50} />
 
         <Para>
             We can see that the output of the PC register is connected to the input of the <em>add</em> component. Combined with
@@ -78,7 +78,7 @@ export default function Page() {
             we'll return the 32-bit (4 byte) value stored at that address. The blue highlight indicates that address.
         </Para>
 
-        <SchematicView schematicId={"01-pc-rom"} caption={"PC register looking up ROM contents"} />
+        <CpuPortal schematicId={"c-s1m3zs3x"} caption={"Fig 2: PC register looking up ROM contents"} height={16} width={50} />
 
         <Para>
             So as the PC advances, 4 bytes at a time, we get the next instruction from the ROM to execute. Currently,

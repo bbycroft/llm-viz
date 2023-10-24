@@ -3,10 +3,12 @@ import { iterLocalStorageEntries } from "@/src/utils/localstorage";
 import { Vec3 } from "@/src/utils/vector";
 import { CompLibrary, ISubLayoutPort } from "../comps/CompBuilder";
 import { IEditSnapshot, PortType } from "../CpuModel";
-import { createInitialEditSnapshot, ILSState, wiresFromLsState, wiresToLsState } from "../ImportExport";
+import { createInitialEditSnapshot, ILSState, wiresFromLsState, schematicToLsState } from "../ImportExport";
 import { regFileDemo, riscvBasicSchematic } from "./RiscvBasic";
 import { assignImm } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";
+import { pcCounterSchematic } from "./pcCounterSchematic";
+import { romUsageSchematic } from "./romUsageSchematic";
 
 export interface ILocalSchematic {
     id: string;
@@ -27,6 +29,11 @@ export class SchematicLibrary {
         regFileDemo,
     ];
 
+    localSchematics2: ILSSchematic[] = [
+        pcCounterSchematic,
+        romUsageSchematic,
+    ];
+
     constructor() {
     }
 
@@ -35,6 +42,7 @@ export class SchematicLibrary {
         this.customSchematics.clear();
 
         this.addLocalSchematics(compLibrary);
+        this.addLocalSchematics2(compLibrary);
         this.readFromLocalStorage(compLibrary);
 
         this.addSchematicsToCompLibrary(compLibrary);
@@ -77,6 +85,12 @@ export class SchematicLibrary {
         }
     }
 
+    public addLocalSchematics2(compLibrary: CompLibrary) {
+        for (let lsSchematic of this.localSchematics2) {
+            this.builtinSchematics.set(lsSchematic.id, this.lsSchematicToSchematicDef(lsSchematic, compLibrary));
+        }
+    }
+
     deleteCustomSchematic(id: string) {
         this.customSchematics.delete(id);
         localStorage.removeItem(this.schematicLocalStorageKey(id));
@@ -106,22 +120,26 @@ export class SchematicLibrary {
                 return;
             }
 
-            let compArgs = compArgsFromLsState(lsSchematic.compArgs);
-
-            let snapshot = createInitialEditSnapshot();
-            snapshot = wiresFromLsState(snapshot, lsSchematic.model, compLibrary);
-            snapshot = addCompArgsToSnapshot(snapshot, compArgs);
-            snapshot.name = lsSchematic.name;
-
-            customSchematics.set(lsSchematic.id, {
-                id: lsSchematic.id,
-                name: lsSchematic.name,
-                model: snapshot,
-                compArgs: compArgs || undefined,
-                hasEdits: false,
-                schematicStr: schematicStr!,
-            });
+            customSchematics.set(lsSchematic.id, this.lsSchematicToSchematicDef(lsSchematic, compLibrary))
         });
+    }
+
+    private lsSchematicToSchematicDef(lsSchematic: ILSSchematic, compLibrary: CompLibrary): ISchematicDef {
+        let compArgs = compArgsFromLsState(lsSchematic.compArgs);
+
+        let snapshot = createInitialEditSnapshot();
+        snapshot = wiresFromLsState(snapshot, lsSchematic.model, compLibrary);
+        snapshot = addCompArgsToSnapshot(snapshot, compArgs);
+        snapshot.name = lsSchematic.name;
+
+        return {
+            id: lsSchematic.id,
+            name: lsSchematic.name,
+            model: snapshot,
+            compArgs: compArgs || undefined,
+            hasEdits: false,
+            schematicStr: "",
+        };
     }
 
     private resolveSchematicRefs(compLibrary: CompLibrary) {
@@ -165,7 +183,7 @@ export class SchematicLibrary {
             let lsSchematic: ILSSchematic = {
                 id: schematic.id,
                 name: schematic.name,
-                model: wiresToLsState(schematic.model),
+                model: schematicToLsState(schematic.model),
                 compArgs: compArgsToLsState(schematic.model),
             };
             // console.log('saving schematic', lsSchematic, 'based on snapshot', schematic.model);
@@ -174,6 +192,38 @@ export class SchematicLibrary {
             // console.log(`Can't update builtin schematic ${id}`);
         } else {
             console.error(`Schematic ${id} not found`);
+        }
+    }
+
+    async saveToFile(id: string) {
+        let schematic = this.customSchematics.get(id);
+
+        if (schematic) {
+            let lsSchematic: ILSSchematic = {
+                id: schematic.id,
+                name: schematic.name,
+                model: schematicToLsState(schematic.model),
+                compArgs: compArgsToLsState(schematic.model),
+            };
+
+            let lsStr = JSON.stringify(lsSchematic);
+
+            let name = schematic.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+            let nameToCamel = name.replace(/[_ ^]([a-z])/g, (g) => g[1].toUpperCase());
+
+            let body = `
+import { ILSSchematic } from "@/src/cpu/schematics/SchematicLibrary";
+export const ${nameToCamel}Schematic: ILSSchematic = ${lsStr};
+`;
+
+            await fetch(`/cpu/api/save-schematic-to-file?filename=${nameToCamel}Schematic.tsx`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain',
+                },
+                body: body,
+            });
         }
     }
 
