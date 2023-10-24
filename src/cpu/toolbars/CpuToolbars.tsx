@@ -41,7 +41,7 @@ export const MainToolbar: React.FC<{
 
     function saveToFile() {
         if (editorState.activeSchematicId) {
-            editorState.schematicLibrary.saveToFile(editorState.activeSchematicId);
+            editorState.schematicLibrary.saveToFile(editorState.activeSchematicId, editorState.snapshot);
         }
     }
 

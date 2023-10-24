@@ -88,7 +88,7 @@ export const CpuCanvas: React.FC<{
                     bb = new BoundingBox3d(new Vec3(0, 0), new Vec3(20, 20));
                 }
 
-                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(readonly ? 0 : 330, 0), new Vec3(bcr.width, bcr.height)), 0.05);
+                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(readonly ? 0 : 330, readonly ? 50 : 0), new Vec3(bcr.width, bcr.height)), 0.05);
                 return assignImm(a, { mtx, needsZoomExtent: false });
             });
         }

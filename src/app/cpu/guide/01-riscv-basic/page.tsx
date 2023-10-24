@@ -78,7 +78,7 @@ export default function Page() {
             we'll return the 32-bit (4 byte) value stored at that address. The blue highlight indicates that address.
         </Para>
 
-        <CpuPortal schematicId={"c-s1m3zs3x"} caption={"Fig 2: PC register looking up ROM contents"} height={16} width={50} />
+        <CpuPortal schematicId={"c-s1m3zs3x"} caption={"Fig 2: PC register looking up ROM contents"} height={30} width={70} />
 
         <Para>
             So as the PC advances, 4 bytes at a time, we get the next instruction from the ROM to execute. Currently,

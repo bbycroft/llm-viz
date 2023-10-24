@@ -3,7 +3,7 @@ import { iterLocalStorageEntries } from "@/src/utils/localstorage";
 import { Vec3 } from "@/src/utils/vector";
 import { CompLibrary, ISubLayoutPort } from "../comps/CompBuilder";
 import { IEditSnapshot, PortType } from "../CpuModel";
-import { createInitialEditSnapshot, ILSState, wiresFromLsState, schematicToLsState } from "../ImportExport";
+import { createInitialEditSnapshot, ILSState, wiresFromLsState, schematicToLsState, exportData } from "../ImportExport";
 import { regFileDemo, riscvBasicSchematic } from "./RiscvBasic";
 import { assignImm } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";
@@ -195,36 +195,36 @@ export class SchematicLibrary {
         }
     }
 
-    async saveToFile(id: string) {
-        let schematic = this.customSchematics.get(id);
+    async saveToFile(id: string, editSnapshot: IEditSnapshot) {
+        let lsSchematic: ILSSchematic = {
+            id: id,
+            name: editSnapshot.name,
+            model: schematicToLsState(editSnapshot),
+            compArgs: compArgsToLsState(editSnapshot),
+        };
 
-        if (schematic) {
-            let lsSchematic: ILSSchematic = {
-                id: schematic.id,
-                name: schematic.name,
-                model: schematicToLsState(schematic.model),
-                compArgs: compArgsToLsState(schematic.model),
-            };
+        let lsStr = JSON.stringify(lsSchematic);
 
-            let lsStr = JSON.stringify(lsSchematic);
+        let dataStr = exportData(editSnapshot);
 
-            let name = schematic.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        let name = editSnapshot.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
-            let nameToCamel = name.replace(/[_ ^]([a-z])/g, (g) => g[1].toUpperCase());
+        let nameToCamel = name.replace(/[_ ^]([a-z])/g, (g) => g[1].toUpperCase());
 
-            let body = `
+        let body = `
 import { ILSSchematic } from "@/src/cpu/schematics/SchematicLibrary";
 export const ${nameToCamel}Schematic: ILSSchematic = ${lsStr};
+
+export const ${nameToCamel}SchematicStr = \`${dataStr}\`;
 `;
 
-            await fetch(`/cpu/api/save-schematic-to-file?filename=${nameToCamel}Schematic.tsx`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'text/plain',
-                },
-                body: body,
-            });
-        }
+        await fetch(`/cpu/api/save-schematic-to-file?filename=${nameToCamel}Schematic.tsx`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain',
+            },
+            body: body,
+        });
     }
 
     private schematicLocalStorageKey(id: string) {
