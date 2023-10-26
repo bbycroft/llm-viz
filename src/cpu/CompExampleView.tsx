@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useEditorContext } from "./Editor";
 import s from "./CompExampleView.module.scss";
-import { IElfTextSection, listElfTextSections, readElfHeader } from "./ElfParser";
+import { listElfTextSections, readElfHeader } from "./ElfParser";
 import { IRomExeData } from "./comps/SimpleMemory";
 import { IExeComp } from "./CpuModel";
 import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
@@ -9,17 +9,13 @@ import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from ".
 import { ensureSigned32Bit } from "./comps/RiscvInsDecode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRotate } from "@fortawesome/free-solid-svg-icons";
+import { ICodeEntry } from "./library/CodeSuiteManager";
 
-interface IExampleEntry {
-    name: string;
-    elfSection: IElfTextSection;
-    expectFail: boolean;
-}
 
 export const CompExampleView: React.FC = () => {
     let { editorState, setEditorState, exeModel } = useEditorContext();
 
-    let [examples, setExamples] = useState<IExampleEntry[]>([]);
+    let [examples, setExamples] = useState<ICodeEntry[]>([]);
     let [reloadCntr, setReloadCntr] = useState(0);
 
     useEffect(() => {
@@ -55,7 +51,7 @@ export const CompExampleView: React.FC = () => {
 
     }, [reloadCntr]);
 
-    function handleEntryClick(example: IExampleEntry) {
+    function handleEntryClick(example: ICodeEntry) {
         loadEntryData(example);
         stepExecutionCombinatorial(exeModel);
         setEditorState(a => ({ ...a }));
@@ -74,7 +70,7 @@ export const CompExampleView: React.FC = () => {
         setEditorState(a => ({ ...a }));
     }
 
-    function loadEntryData(example: IExampleEntry) {
+    function loadEntryData(example: ICodeEntry) {
         let romComp = getRomComp();
         if (romComp) {
             let romArr = romComp.data.rom;

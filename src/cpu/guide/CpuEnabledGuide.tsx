@@ -5,12 +5,14 @@ import { Header } from '@/src/homepage/Header';
 import { NavSidebar } from './NavSidebar';
 import { useCreateGlobalKeyboardDocumentListener } from '@/src/utils/keyboard';
 import './guideStyle.css';
+import { SharedContextContext, useCreateSharedContext } from '../library/SharedContext';
 
 export const CpuEnabledGuide: React.FC<{
     dir: CPUDirectory;
     children?: React.ReactNode;
 }> = ({ dir, children }) => {
     useCreateGlobalKeyboardDocumentListener();
+    let sharedContext = useCreateSharedContext();
 
     let entry = useMemo(() => guideEntries.find(x => x.id === dir)!, [dir]);
 
@@ -19,7 +21,9 @@ export const CpuEnabledGuide: React.FC<{
         <div className='flex flex-grow items-start'>
             <NavSidebar className='w-3/12 bg-slate-100 min-h-full' activeEntry={dir} />
             <div className='guide-style w-9/12 flex flex-col py-2 mb-[10rem]'>
-                {children}
+                <SharedContextContext.Provider value={sharedContext}>
+                    {children}
+                </SharedContextContext.Provider>
             </div>
             <div className='w-3/12 bg-slate-100 min-h-full'>
                 &nbsp;

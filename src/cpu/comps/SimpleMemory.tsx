@@ -79,30 +79,63 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             return builder.build();
         },
         render: ({ comp, ctx, cvs, exeComp, styles }) => {
-            if (exeComp) {
-                for (let i = 0; i < 32; i++) {
-                    let x = comp.pos.x + 0.3;
-                    let y = comp.pos.y + 0.3 + i * styles.lineHeight;
-                    let word = exeComp.data.rom32View[i];
-                    let wordStr = '0x' + word.toString(16).padStart(8, '0');
-
-                    ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
-                    let width = ctx.measureText(wordStr).width;
-
-                    let isActive = exeComp.data.addr.value >>> 2 === i;
-                    if (isActive) {
-                        ctx.fillStyle = '#a55';
-                        // ctx.fillRect(x - 0.2, y - 0.2, width + 0.4, styles.lineHeight);
-                    }
-
-                    ctx.fillStyle = word === 0 ? '#0005' : '#000';
-                    ctx.textAlign = 'left';
-                    ctx.textBaseline = 'top';
-
-                    // ctx.fillText(wordStr, x, y);
-
-                }
+            if (!exeComp) {
+                return;
             }
+            let fontScale = 0.8;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+            ctx.clip();
+
+            ctx.font = makeCanvasFont(styles.fontSize * fontScale, FontType.Mono);
+            let widthPerChar = ctx.measureText('0').width;
+            let widthPerWord = widthPerChar * 3 * 4
+            let padLeft = 0.5;
+            let space = comp.size.x - padLeft * 2;
+            let xOffset = comp.pos.x + padLeft;
+            let yOffset = comp.pos.y + 0.5;
+            let rowHeight = styles.lineHeight * fontScale;
+
+            let numWordsPerRow = Math.floor(space / widthPerWord);
+            let numBytesPerRow = numWordsPerRow * 4;
+
+            let targetAddr = exeComp.data.addr.value & ~0b11;
+
+            let targetAddrRow = (targetAddr / numBytesPerRow) >>> 0;
+            let targetAddrCol = targetAddr % numBytesPerRow;
+            let targetAddrY = yOffset + targetAddrRow * rowHeight;
+            let targetAddrX = xOffset + targetAddrCol * widthPerChar * 3;
+
+            ctx.fillStyle = '#0005';
+            ctx.beginPath();
+            ctx.roundRect(targetAddrX - 0.3, targetAddrY - 0.2, widthPerChar * 11 + 0.6, rowHeight, 0.5);
+            ctx.fill();
+
+            for (let i = 0; i < 32; i++) {
+                let x = xOffset;
+                let y = yOffset + i * rowHeight;
+
+                let wordStr = '';
+                for (let j = 0; j < numBytesPerRow; j++) {
+                    let byte = exeComp.data.rom[i * numBytesPerRow + j];
+                    let parts = byte.toString(16).padStart(2, '0');
+                    wordStr += `${parts[0]}${parts[1]} `;
+                }
+
+                ctx.fillStyle = wordStr === '' ? '#0005' : '#000';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+
+                ctx.fillText(wordStr, x, y);
+            }
+
+            // let isActive = exeComp.data.addr.value >>> 2 === i;
+            // if (isActive) {
+                // ctx.fillRect(x - 0.2, y - 0.2, width + 0.4, styles.lineHeight);
+            // }
+
+            ctx.restore();
         },
         renderDom: ({ comp, exeComp, styles }) => {
             let args = comp.args;
@@ -111,7 +144,8 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             // left to right, top to bottom (ala hex editor)
             let addrRounded = exeComp ? exeComp.data.addr.value & ~0b11 : 0;
 
-            return exeComp ? renderData(comp, exeComp.data.rom, exeComp.data.updateCntr, { addr: addrRounded, numBytes: 4, value: 0 }, null) : null;
+            // return exeComp ? renderData(comp, exeComp.data.rom, exeComp.data.updateCntr, { addr: addrRounded, numBytes: 4, value: 0 }, null) : null;
+            return null;
 
         },
         reset: (exeComp, { hardReset }) => {
@@ -230,7 +264,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
         },
 
         renderDom: ({ comp, exeComp, styles }) => {
-            if (!exeComp) {
+            if (!exeComp || true) {
                 return null;
             }
             let data = exeComp.data;

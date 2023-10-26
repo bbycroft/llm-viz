@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import s from "./CpuCanvas.module.scss";
@@ -10,12 +10,10 @@ import { assignImm, getOrAddToMap, isNil, isNotNil } from "../utils/data";
 import { EditorContext, IEditorContext, IViewLayoutContext, ViewLayoutContext } from "./Editor";
 import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
-import { buildCompLibrary } from "./comps/builtins";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
 import { HoverDisplay } from "./HoverDisplay";
 import { renderWire } from "./WireRender";
-import { SchematicLibrary } from "./schematics/SchematicLibrary";
 import { SchematicLibraryView } from "./schematics/SchematicLibraryView";
 import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
@@ -25,6 +23,7 @@ import { drawGrid, makeCanvasFont } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix } from "./SubSchematics";
 import { computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
 import { MainToolbar } from "./toolbars/CpuToolbars";
+import { SharedContextContext, createSharedContext } from "./library/SharedContext";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -50,8 +49,9 @@ export const CpuCanvas: React.FC<{
     children?: React.ReactNode;
 }> = ({ schematicId, readonly, toolbars, children }) => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
+    let sharedContext = useContext(SharedContextContext);
     // let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
-    let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState());
+    let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState(sharedContext));
     let [, redraw] = useReducer((x) => x + 1, 0);
 
     let [isClient, setIsClient] = useState(false);
@@ -96,23 +96,22 @@ export const CpuCanvas: React.FC<{
 
     useEffect(() => {
         // setCtrlDown(false);
-        let schematicLibrary = new SchematicLibrary();
-        let compLibrary = buildCompLibrary();
-        schematicLibrary.populateSchematicLibrary(compLibrary);
+        let ctx = sharedContext ?? createSharedContext();
         setEditorState(a => {
             return assignImm(a, {
-                schematicLibrary,
-                compLibrary,
+                codeLibrary: ctx.codeLibrary,
+                schematicLibrary: ctx.schematicLibrary,
+                compLibrary: ctx.compLibrary,
                 snapshot: assignImm(a.snapshot, {
-                    comps: compLibrary.updateAllCompsFromDefs(a.snapshot.comps),
+                    comps: ctx.compLibrary.updateAllCompsFromDefs(a.snapshot.comps),
                 }),
                 needsZoomExtent: true,
             });
         });
-    }, []);
+    }, [sharedContext]);
 
     useEffect(() => {
-        if (editorState.activeSchematicId !== editorState.desiredSchematicId && editorState.desiredSchematicId) {
+        if (editorState.activeSchematicId !== editorState.desiredSchematicId && editorState.desiredSchematicId && editorState.schematicLibrary.localStorageSchematicsLoaded) {
             const schematic = editorState.schematicLibrary.getSchematic(editorState.desiredSchematicId);
 
             if (schematic) {
@@ -131,7 +130,7 @@ export const CpuCanvas: React.FC<{
             }
         }
 
-    }, [editorState.desiredSchematicId, editorState.schematicLibrary, editorState.activeSchematicId]);
+    }, [editorState.desiredSchematicId, editorState.schematicLibrary, editorState.activeSchematicId, editorState.schematicLibrary.localStorageSchematicsLoaded]);
 
     useResizeChangeHandler(cvsState?.canvas?.parentElement, redraw);
 

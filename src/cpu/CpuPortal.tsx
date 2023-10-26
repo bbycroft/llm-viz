@@ -9,11 +9,14 @@ export const CpuPortal: React.FC<{
     caption?: string;
     width?: number;
     height?: number;
-}> = ({ className, schematicId, caption, width = 60, height = 20 }) => {
+    children?: React.ReactNode;
+}> = ({ className, schematicId, caption, children, width = 60, height = 20 }) => {
 
     return <div className={clsx('self-center flex flex-col my-2')}>
         <div className={clsx(className, "bg-slate-50 flex flex-col shadow-md")} style={{ minWidth: `${width}rem`, minHeight: `${height}rem` }}>
-            <CpuCanvas schematicId={schematicId} readonly toolbars={[ToolbarTypes.PlayPause, ToolbarTypes.Viewport]} />
+            <CpuCanvas schematicId={schematicId} readonly toolbars={[ToolbarTypes.PlayPause, ToolbarTypes.Viewport]}>
+                {children}
+            </CpuCanvas>
         </div>
         <div className='flex flex-col justify-center items-center italic mt-2'>
             {caption}

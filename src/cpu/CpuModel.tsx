@@ -1,6 +1,7 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary, ICompDef } from "./comps/CompBuilder";
+import { CodeSuiteManager } from "./library/CodeSuiteManager";
 import { SchematicLibrary } from "./schematics/SchematicLibrary";
 
 /* All components & schematics and each version of them is represented by a separate ILibraryItem.
@@ -132,6 +133,7 @@ export interface IEditorState {
     // time to combine these!! Actually, let's use CompLibrary, since it's used in more places, & rename it
     compLibrary: CompLibrary;
     schematicLibrary: SchematicLibrary;
+    codeLibrary: CodeSuiteManager;
 
     selectRegion: ISelectRegion | null;
     hovered: IHitTest | null;
@@ -244,6 +246,7 @@ export interface IComp<A = any> {
     id: string;
     defId: string;
     name: string;
+    extId?: string; // an id that can be referenced "externally"
     pos: Vec3;
     size: Vec3;
     ports: ICompPort[];

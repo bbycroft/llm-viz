@@ -34,16 +34,21 @@ export class SchematicLibrary {
         romUsageSchematic,
     ];
 
+    localStorageSchematicsLoaded = false;
+
     constructor() {
     }
 
-    public populateSchematicLibrary(compLibrary: CompLibrary) {
+    public populateSchematicLibrary(compLibrary: CompLibrary, loadFromLocalStorage = true) {
         this.builtinSchematics.clear();
         this.customSchematics.clear();
 
         this.addLocalSchematics(compLibrary);
         this.addLocalSchematics2(compLibrary);
-        this.readFromLocalStorage(compLibrary);
+
+        if (loadFromLocalStorage) {
+            this.readFromLocalStorage(compLibrary);
+        }
 
         this.addSchematicsToCompLibrary(compLibrary);
 
@@ -122,6 +127,8 @@ export class SchematicLibrary {
 
             customSchematics.set(lsSchematic.id, this.lsSchematicToSchematicDef(lsSchematic, compLibrary))
         });
+
+        this.localStorageSchematicsLoaded = true;
     }
 
     private lsSchematicToSchematicDef(lsSchematic: ILSSchematic, compLibrary: CompLibrary): ISchematicDef {

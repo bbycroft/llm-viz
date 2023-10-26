@@ -4,6 +4,7 @@ import { CpuEnabledGuide, GuideSection, Ins, Para } from '@/src/cpu/guide/CpuEna
 import { SchematicView } from '@/src/cpu/guide/SchematicView';
 import { InstructionDetail, InstructionTable } from '@/src/cpu/guide/InstructionDetail';
 import { CpuPortal } from '@/src/cpu/CpuPortal';
+import { AutoLoadCode } from '@/src/cpu/guide/AutoLoadCode';
 
 const dir = CPUDirectory.RiscvBasic;
 
@@ -78,7 +79,9 @@ export default function Page() {
             we'll return the 32-bit (4 byte) value stored at that address. The blue highlight indicates that address.
         </Para>
 
-        <CpuPortal schematicId={"c-s1m3zs3x"} caption={"Fig 2: PC register looking up ROM contents"} height={30} width={70} />
+        <CpuPortal schematicId={"c-s1m3zs3x"} caption={"Fig 2: PC register looking up ROM contents"} height={30} width={70}>
+            <AutoLoadCode fileName={'blinky2.elf'} />
+        </CpuPortal>
 
         <Para>
             So as the PC advances, 4 bytes at a time, we get the next instruction from the ROM to execute. Currently,
@@ -91,12 +94,20 @@ export default function Page() {
             ISA, there are 32 such registers (numbered 0 to 31). We call this set of registers the <em>register file</em>.
         </Para>
 
-        <SchematicView schematicId={"01-reg-file"} caption={"Register File with input & 2 outputs"} />
+        <CpuPortal schematicId={"reg-file-demo"} caption={"Register File with input & 2 outputs"} height={60} width={70} />
 
         <Para>
             This particular register file has 1 input, and 2 outputs. That is, in a given cycle, we can read any two
             values simultaneously (including from the same register). We can also write to any single register, whose
-            value will be updated at the start of the next cycle. Give it a go!
+            value will be updated at the start of the next cycle. The one exception is the first register, <code>zero</code>: it always
+            outputs zero, and any writes to it are ignored. Give it a go!
+        </Para>
+
+        <Para>
+            Now with our register file in hand, and a way to fetch instructions, we can now take a look at the various instructions
+            in our <em>instruction set</em>. Each 32 bit instruction we fetch from the ROM has a specific meaning, which we need
+            to interpret, and act upon. The following sections will take us through the various instruction types, and what we need
+            to add to our computer to support them.
         </Para>
 
         </GuideSection>
@@ -119,8 +130,8 @@ export default function Page() {
         </ol>
 
         <Para>
-            That first bit of info, about it being an <code>add</code>, is actually split into to portions. The first of them indicates
-            that it's a register-register instruction (read from 2, write to 1), and then the second portion
+            That first bit of info, about it being an <code>add</code>, is actually split into two portions. The first of them indicates
+            that it's a register-register instruction (read from 2, write to 1, i.e. an R-Type instruction), and then the second portion
             indicates it's an add, as opposed to a subtract, shift, and, xor etc. Here's the complete breakdown of the instruction. The other thing to note is that each of the register
             values is 5 bits long, which allows us to choose between 2^5 = 32 values, i.e. the 32 registers.
         </Para>
@@ -162,7 +173,7 @@ export default function Page() {
             Now we have a working add instruction! When we step the clock, the instruction decoder tells the register file
             to read from the two source registers, and then write the result to the destination register. The add component does
             the actual computation, and the register file updates its internal state. When we encounter a dud instruction like
-            0x0000_0000, we don't do anything, and when we come to the add instruction, we do the appropriate action.
+            <code>0x0000_0000</code>, we don't do anything, and when we come to the add instruction, we do the appropriate action.
         </Para>
 
         <Para>
@@ -187,8 +198,10 @@ export default function Page() {
         </InstructionTable>
 
         <Para>
-            These 10 instructions can be defined with 4 bits (2^3 = 8: too small; 2^4 = 16: sufficient), so that's what is used in the instruction decoder. We also
-            pass a few extra bits to the ALU, which tell it whether to do anything at all, as well as whether
+            These 10 instructions can be defined with 4 bits (2^3 = 8: too small; 2^4 = 16: sufficient), so those 4 bits are passed to the ALU. The
+            4 bits are taken from the 3 "funct3" bits (in black), as well as the second bit in the instruction (also in black). The latter bit
+            differentiates between a couple of closely related operations: add vs subtract, and shift-right-logical vs shift-right-arithmetic.
+            We also pass a few extra bits to the ALU, which tell it whether to do anything at all, as well as whether
             it should produce a <em>branch</em> bit. Let's hook up the ALU, and see it in action:
         </Para>
 
@@ -244,6 +257,14 @@ export default function Page() {
         </Para>
 
         <Para>
+            Before we had 10 instructions, and now we only have 9. Compared to the R-type instructions, the I-type instructions lack
+            a <code>subtract</code> operation. This turns out to be fine, since we can just use the <code>addi</code> instruction with a negative immediate
+            value. However, we still need the 4th bit to differentiate between shift-right-logical and shift-right-arithmetic.
+            This turns out to be doable, since all the shift instructions only need a 5-bit immediate value (we're only operating on
+            32 bit values, so the maximum shift is 2^5 = 32), and we can use the instruction's bit-2 as before.
+        </Para>
+
+        <Para>
             So for R-type, the RHS comes from the register file, and for I-type, the RHS comes from the immediate value. Therefore
             we need to select between these two. To do that, we use a <em>mux</em> (multiplexer) component. This particular version
             is a 2-input, 32-bit mux, meaning it can select between two inputs, and output one of them, operating on the 32 values
@@ -261,7 +282,7 @@ export default function Page() {
 
         <Para>
             This program can now load several values into registers using the addi instruction, and then use the R-type instructions
-            to operate on them to produce a new value. Great, we're getting somewhere.
+            to operate on them to produce a new value. Great, we're making progress.
         </Para>
 
         </GuideSection>
@@ -270,7 +291,7 @@ export default function Page() {
 
         <Para>
             The next instruction type we'll support is the B-type (branching) instruction. This is the first time we'll be making
-            the PC register jump to something other than PC + 4. This instruction forms the basis of things like if/else statements
+            the PC register change to something other than PC + 4. This instruction forms the basis of things like if/else statements
             and for-loops. The instruction is a bit like the I-type instruction: it contains two register values and an immediate.
             However, the 2 registers represent two values to compare (i.e. reads), and the immediate is used as an address offset.
             Here's the breakdown:
@@ -341,11 +362,20 @@ export default function Page() {
 
         <SchematicView schematicId={"b-type"} caption={"Add result switching"} />
 
+        <Para>
+            These instructions can seem a bit odd at first, but they're rather powerful. Their basic use is to call into and return from functions.
+            How we do this is: executa a <code>jal</code> instruction with it's imm value set to an offset that is the start of the function, and set the dest
+            register of <code>PC + 4</code> to be the <code>ra</code>, or "return address" register (index = 1). The PC then starts executing the instructions.
+            When we want to
+            return to the calling code, we simply execute <code>jalr 0, ra, 0</code>, which jumps to the address stored in <code>ra</code>. Since <code>ra</code>
+            contained <code>PC + 4</code> when we first jumped, the return address is the instruction immediately after the initial <code>jal</code> instruction.
+        </Para>
+
         </GuideSection>
         <GuideSection title={"Upper-immediate instructions"}>
         <Para>
-            So far, we've only been able to load 12-bit values immediate values into registers. Typically this is done with
-            `addi rd 0 imm`, i.e. adding 0 to the immediate value. But what if we want to load a 32-bit value? We could do several
+            So far, we've only been able to load 12-bit values immediate values into registers. Typically this is done with <code>addi rd, 0, imm</code>,
+            i.e. adding 0 to the immediate value. But what if we want to load a 32-bit value? We could do several
             addi's & shifts, but RISCV provides instructions to set the remaining upper 20 bits:
         </Para>
 
@@ -362,7 +392,7 @@ export default function Page() {
 
         <Para>
             The second one, <Ins>auipc</Ins> (add upper immediate to PC), is essentially the same, except the LHS is set to
-            the PC. Luckily, we don't need an changes, as we already have the mux used to select between PC & register file
+            the PC. Luckily, we don't need any changes, as we already have the mux used to select between PC & register file
             for the LHS.
         </Para>
 

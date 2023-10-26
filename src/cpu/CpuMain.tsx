@@ -1,25 +1,23 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { KeyboardOrder, isKeyWithModifiers, useCreateGlobalKeyboardDocumentListener, useGlobalKeyboard } from '../utils/keyboard';
+import React, { useEffect } from 'react';
+import { useCreateGlobalKeyboardDocumentListener } from '../utils/keyboard';
 import { CpuCanvas } from './CpuCanvas';
 import s from './CpuMain.module.scss';
 import { Header } from '../homepage/Header';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faCheck, faRedo, faTimes, faUndo } from '@fortawesome/free-solid-svg-icons';
-import { IEditContext, IEditorState, IProgramState } from './CpuModel';
+import { faBars } from '@fortawesome/free-solid-svg-icons';
+import { IProgramState } from './CpuModel';
 import { CompLibrary } from './comps/CompBuilder';
 import { SchematicLibrary } from './schematics/SchematicLibrary';
-import { isNotNil } from '../utils/data';
-import { createCpuEditorState } from './ModelHelpers';
-import { IconProp } from '@fortawesome/fontawesome-svg-core';
-import { IBaseEvent } from '../utils/pointer';
-import { EditorContext, IEditorContext, useEditorContext } from './Editor';
-import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEditorContext } from './Editor';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useFunctionRef } from '../utils/hooks';
+import { SharedContextContext, useCreateSharedContext } from './library/SharedContext';
 
 export const CPUMain = () => {
     useCreateGlobalKeyboardDocumentListener();
+    let sharedContext = useCreateSharedContext();
     // let [schematicId, setSchematicId] = useState<string | null>(null);
     // let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState());
     // let [name, setName] = useState('1 Bit Adder');
@@ -47,9 +45,11 @@ export const CPUMain = () => {
             {/* </div> */}
         </Header>
         <div className={s.content}>
-            <CpuCanvas>
-                <QueryUpdater />
-            </CpuCanvas>
+            <SharedContextContext.Provider value={sharedContext}>
+                <CpuCanvas>
+                    <QueryUpdater />
+                </CpuCanvas>
+            </SharedContextContext.Provider>
         </div>
     </>;
 };

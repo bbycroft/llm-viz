@@ -2,6 +2,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { IEditSnapshot, IEditorState } from "./CpuModel";
 import { buildCompLibrary } from "./comps/builtins";
+import { ISharedContext, createSharedContext } from "./library/SharedContext";
 import { SchematicLibrary } from "./schematics/SchematicLibrary";
 
 
@@ -40,19 +41,17 @@ export function computeZoomExtentMatrix(modelBb: BoundingBox3d, viewBb: Bounding
     return mtx;
 }
 
-export function createCpuEditorState(): IEditorState {
-
-    let compLibrary = buildCompLibrary();
-    let schematicLibrary = new SchematicLibrary();
-
+export function createCpuEditorState(sharedContext: ISharedContext | null): IEditorState {
+    sharedContext ??= createSharedContext();
     let editSnapshot = constructEditSnapshot();
 
     return {
         snapshot: editSnapshot, // wiresFromLsState(constructEditSnapshot(), lsState, compLibrary),
         snapshotTemp: null,
         mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
-        compLibrary,
-        schematicLibrary,
+        compLibrary: sharedContext.compLibrary,
+        schematicLibrary: sharedContext.schematicLibrary,
+        codeLibrary: sharedContext.codeLibrary,
         desiredSchematicId: null,
         activeSchematicId: null,
         redoStack: [],
