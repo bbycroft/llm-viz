@@ -1,0 +1,18 @@
+{
+  "comment0": "This file is used as a registry to build the file that pulls in all the schematics.",
+  "comment1": "Managed by /cpu/api/save-schematic-to-file",
+  "schematics": [
+    {
+      "id": "pcCounter"
+    },
+    {
+      "id": "regFileDemo"
+    },
+    {
+      "id": "riscvBasic"
+    },
+    {
+      "id": "romUsage"
+    }
+  ]
+}

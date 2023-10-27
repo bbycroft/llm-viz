@@ -4,11 +4,9 @@ import { Vec3 } from "@/src/utils/vector";
 import { CompLibrary, ISubLayoutPort } from "../comps/CompBuilder";
 import { IEditSnapshot, PortType } from "../CpuModel";
 import { createInitialEditSnapshot, ILSState, wiresFromLsState, schematicToLsState, exportData } from "../ImportExport";
-import { regFileDemo, riscvBasicSchematic } from "./RiscvBasic";
 import { assignImm } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";
-import { pcCounterSchematic } from "./pcCounterSchematic";
-import { romUsageSchematic } from "./romUsageSchematic";
+import { schematicManifest } from "./SchematicManifest";
 
 export interface ILocalSchematic {
     id: string;
@@ -24,16 +22,6 @@ export class SchematicLibrary {
     builtinSchematics = new Map<string, ISchematicDef>();
     customSchematics = new Map<string, ISchematicDef>();
 
-    localSchematics: ILocalSchematic[] = [
-        riscvBasicSchematic,
-        regFileDemo,
-    ];
-
-    localSchematics2: ILSSchematic[] = [
-        pcCounterSchematic,
-        romUsageSchematic,
-    ];
-
     localStorageSchematicsLoaded = false;
 
     constructor() {
@@ -44,7 +32,6 @@ export class SchematicLibrary {
         this.customSchematics.clear();
 
         this.addLocalSchematics(compLibrary);
-        this.addLocalSchematics2(compLibrary);
 
         if (loadFromLocalStorage) {
             this.readFromLocalStorage(compLibrary);
@@ -65,33 +52,7 @@ export class SchematicLibrary {
     }
 
     public addLocalSchematics(compLibrary: CompLibrary) {
-        for (let schematic of this.localSchematics) {
-
-            let model: ILSState | undefined;
-            try {
-                model = JSON.parse(schematic.cpuStateStr!) as ILSState;
-
-            } catch (e) {
-                console.error(`Error parsing schematic ${schematic.id}/${schematic.name} ${e}`);
-                return;
-            }
-
-            if (!model) {
-                return;
-            }
-
-            this.builtinSchematics.set(schematic.id, {
-                id: schematic.id,
-                name: schematic.name,
-                model: wiresFromLsState(createInitialEditSnapshot(), model, compLibrary),
-                hasEdits: false,
-                schematicStr: "",
-            });
-        }
-    }
-
-    public addLocalSchematics2(compLibrary: CompLibrary) {
-        for (let lsSchematic of this.localSchematics2) {
+        for (let lsSchematic of schematicManifest) {
             this.builtinSchematics.set(lsSchematic.id, this.lsSchematicToSchematicDef(lsSchematic, compLibrary));
         }
     }
@@ -214,7 +175,7 @@ export class SchematicLibrary {
 
         let dataStr = exportData(editSnapshot);
 
-        let name = editSnapshot.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        let name = (editSnapshot.name || id).replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
         let nameToCamel = name.replace(/[_ ^]([a-z])/g, (g) => g[1].toUpperCase());
 
@@ -225,7 +186,7 @@ export const ${nameToCamel}Schematic: ILSSchematic = ${lsStr};
 export const ${nameToCamel}SchematicStr = \`${dataStr}\`;
 `;
 
-        await fetch(`/cpu/api/save-schematic-to-file?filename=${nameToCamel}Schematic.tsx`, {
+        await fetch(`/cpu/api/save-schematic-to-file?filename=${nameToCamel}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'text/plain',
