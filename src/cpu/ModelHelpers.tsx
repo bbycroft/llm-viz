@@ -1,15 +1,21 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { IEditSnapshot, IEditorState } from "./CpuModel";
-import { buildCompLibrary } from "./comps/builtins";
+import { compPortDefId } from "./comps/CompPort";
 import { ISharedContext, createSharedContext } from "./library/SharedContext";
-import { SchematicLibrary } from "./schematics/SchematicLibrary";
 
+export interface IBoundingBoxOptions {
+    excludePorts?: boolean;
+}
 
-export function computeModelBoundingBox(model: IEditSnapshot): BoundingBox3d {
+export function computeModelBoundingBox(model: IEditSnapshot, options?: IBoundingBoxOptions): BoundingBox3d {
     let modelBbb = new BoundingBox3d();
 
     for (let c of model.comps) {
+        if (options?.excludePorts && c.defId === compPortDefId) {
+            continue;
+        }
+
         modelBbb.addInPlace(c.pos);
         modelBbb.addInPlace(c.pos.add(c.size));
     }
@@ -18,7 +24,7 @@ export function computeModelBoundingBox(model: IEditSnapshot): BoundingBox3d {
             modelBbb.addInPlace(n.pos);
         }
     }
-    if (model.compBbox) {
+    if (model.compBbox && !options?.excludePorts) {
         modelBbb.combineInPlace(model.compBbox);
     }
 

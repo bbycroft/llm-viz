@@ -217,8 +217,8 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
             } else {
                 ctx.strokeStyle = '#000';
             }
-            ctx.lineWidth = (width - 1) * cvs.scale;
-            ctx.filter = 'blur(4px)';
+            ctx.lineWidth = width * cvs.scale;
+            ctx.filter = 'blur(3px)';
             ctx.moveTo(node0.pos.x, node0.pos.y);
             ctx.lineTo(node1.pos.x, node1.pos.y);
             ctx.stroke();

@@ -282,6 +282,7 @@ export enum PortType {
 export interface ISchematic {
     comps: IComp[];
     wires: IWireGraph[];
+    compBbox: BoundingBox3d;
 }
 
 export interface IEditSnapshot {

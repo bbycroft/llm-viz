@@ -82,6 +82,16 @@ export enum RectSide {
     Left,
 }
 
+export enum RectCorner {
+    TopLeft = 1,
+    TopRight = 2,
+    BottomRight = 4,
+    BottomLeft = 8,
+
+    IsLeft = TopLeft | BottomLeft,
+    IsTop = TopLeft | TopRight,
+}
+
 function createInsetGradient(ctx: CanvasRenderingContext2D, bb: BoundingBox3d, inset: number, colorOuter: string) {
     let w = bb.max.x - bb.min.x;
     let h = bb.max.y - bb.min.y;

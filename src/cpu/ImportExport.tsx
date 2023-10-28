@@ -241,7 +241,7 @@ export function importData(str: string): IImportResult {
 
     }
 
-    let schematic = { comps, wires };
+    let schematic: ISchematic = { comps, wires, compBbox: new BoundingBox3d() };
 
     let outStr = exportData(schematic);
 
@@ -256,7 +256,7 @@ export function importData(str: string): IImportResult {
     }
 
     if (!res.issues) {
-        res.schematic = { comps, wires };
+        res.schematic = schematic;
     }
 
     return res;

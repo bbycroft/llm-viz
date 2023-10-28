@@ -8,7 +8,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart } from "../utils/pointer";
 import { assignImm, getOrAddToMap, isNil, isNotNil } from "../utils/data";
 import { EditorContext, IEditorContext, IViewLayoutContext, ViewLayoutContext } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes } from "./CpuModel";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
@@ -24,6 +24,7 @@ import { computeSubLayoutMatrix } from "./SubSchematics";
 import { computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
 import { MainToolbar } from "./toolbars/CpuToolbars";
 import { SharedContextContext, createSharedContext } from "./library/SharedContext";
+import { CompBoundingBox } from "./CompBoundingBox";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -211,7 +212,7 @@ export const CpuCanvas: React.FC<{
     let singleElRef = editorState.snapshot.selected.length === 1 ? editorState.snapshot.selected[0] : null;
 
     function getCompDomElements(schematic: ISchematic, idPrefix: string) {
-        return schematic.comps
+        let comps = schematic.comps
             .map(comp => {
                 let def = editorState.compLibrary.getCompDef(comp.defId)!;
                 return (def.renderDom || def.subLayout) && cvsState ? {
@@ -250,7 +251,13 @@ export const CpuCanvas: React.FC<{
                     }) ?? null}
                     {subLayoutDom}
                 </React.Fragment>;
+
         });
+
+        return <>
+            {comps}
+            <CompBoundingBox  />
+        </>;
     }
 
     let compDivs = getCompDomElements(editorState.snapshotTemp ?? editorState.snapshot, '');
@@ -297,6 +304,7 @@ export const CpuCanvas: React.FC<{
 
 function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix = '') {
     let ctx = cvs.ctx;
+    let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
 
     drawGrid(editorState.mtx, ctx, cvs);
 
@@ -417,6 +425,8 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
     ctx.restore();
 
     renderSelectRegion(cvs, editorState, idPrefix);
+
+    renderComponentBoundingBox(cvs, editorState, snapshot, idPrefix);
 }
 
 
@@ -531,3 +541,18 @@ function renderCompPort(cvs: ICanvasState, editorState: IEditorState, comp: ICom
     }
 }
 
+function renderComponentBoundingBox(cvs: ICanvasState, editorState: IEditorState, layout: IEditSnapshot, idPrefix: string) {
+    let ctx = cvs.ctx;
+    ctx.save();
+
+    let bb = layout.compBbox;
+    let size = bb.size();
+    ctx.beginPath();
+    ctx.rect(bb.min.x, bb.min.y, size.x, size.y);
+
+    ctx.lineWidth = 1 * cvs.scale;
+    ctx.strokeStyle = "#000";
+    ctx.stroke();
+
+    ctx.restore();
+}

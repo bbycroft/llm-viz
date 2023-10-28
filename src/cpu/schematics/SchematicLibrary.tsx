@@ -7,6 +7,7 @@ import { createInitialEditSnapshot, ILSState, wiresFromLsState, schematicToLsSta
 import { assignImm } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";
 import { schematicManifest } from "./SchematicManifest";
+import { computeModelBoundingBox } from "../ModelHelpers";
 
 export interface ILocalSchematic {
     id: string;
@@ -99,6 +100,9 @@ export class SchematicLibrary {
         snapshot = wiresFromLsState(snapshot, lsSchematic.model, compLibrary);
         snapshot = addCompArgsToSnapshot(snapshot, compArgs);
         snapshot.name = lsSchematic.name;
+        // if (snapshot.compBbox.empty) {
+        //     snapshot.compBbox = computeModelBoundingBox(snapshot, { excludePorts: true });
+        // }
 
         return {
             id: lsSchematic.id,
@@ -148,12 +152,7 @@ export class SchematicLibrary {
         let schematic = this.customSchematics.get(id);
 
         if (schematic) {
-            let lsSchematic: ILSSchematic = {
-                id: schematic.id,
-                name: schematic.name,
-                model: schematicToLsState(schematic.model),
-                compArgs: compArgsToLsState(schematic.model),
-            };
+            let lsSchematic = editSnapshotToLsSchematic(id, schematic.model);
             // console.log('saving schematic', lsSchematic, 'based on snapshot', schematic.model);
             localStorage.setItem(this.schematicLocalStorageKey(schematic.id), JSON.stringify(lsSchematic));
         } else if (this.builtinSchematics.get(id)) {
@@ -164,12 +163,7 @@ export class SchematicLibrary {
     }
 
     async saveToFile(id: string, editSnapshot: IEditSnapshot) {
-        let lsSchematic: ILSSchematic = {
-            id: id,
-            name: editSnapshot.name,
-            model: schematicToLsState(editSnapshot),
-            compArgs: compArgsToLsState(editSnapshot),
-        };
+        let lsSchematic = editSnapshotToLsSchematic(id, editSnapshot);
 
         let lsStr = JSON.stringify(lsSchematic);
 
@@ -198,6 +192,15 @@ export const ${nameToCamel}SchematicStr = \`${dataStr}\`;
     private schematicLocalStorageKey(id: string) {
         return `schematic-${id}`;
     }
+}
+
+export function editSnapshotToLsSchematic(id: string, editSnapshot: IEditSnapshot): ILSSchematic {
+    return {
+        id: id,
+        name: editSnapshot.name,
+        model: schematicToLsState(editSnapshot),
+        compArgs: compArgsToLsState(editSnapshot),
+    };
 }
 
 export interface ILSSchematic {
