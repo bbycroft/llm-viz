@@ -20,11 +20,13 @@ import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
 import { drawGrid, makeCanvasFont } from "./CanvasRenderHelpers";
-import { computeSubLayoutMatrix } from "./SubSchematics";
+import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
 import { computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
 import { MainToolbar } from "./toolbars/CpuToolbars";
 import { SharedContextContext, createSharedContext } from "./library/SharedContext";
 import { CompBoundingBox } from "./CompBoundingBox";
+import { CompDetails } from "./CompDetails";
+import { Resizer } from "../utils/Resizer";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -158,6 +160,7 @@ export const CpuCanvas: React.FC<{
             ctx: el.getContext('2d')!,
             size: new Vec3(1, 1),
             scale: 1,
+            region: new BoundingBox3d(new Vec3(0, 0), new Vec3(1, 1)),
             tileCanvases: new Map(),
             mtx: AffineMat2d.identity(),
         } : null);
@@ -187,6 +190,7 @@ export const CpuCanvas: React.FC<{
         canvas.style.height = `${h}px`;
         cvsState.size.x = w;
         cvsState.size.y = h;
+        cvsState.region = new BoundingBox3d(new Vec3(0, 0), new Vec3(w, h));
         cvsState.scale = 1.0 / editorState.mtx.a;
         cvsState.mtx = editorState.mtx;
         let pr = window.devicePixelRatio;
@@ -228,14 +232,16 @@ export const CpuCanvas: React.FC<{
                 let compFullId = idPrefix + a.comp.id;
 
                 let subLayoutDom = null;
-                if (a.subLayout) {
-                    let subMtx = computeSubLayoutMatrix(a.comp, a.def, a.subLayout);
+                let subSchematic = getCompSubSchematic(editorState, a.comp);
+                if (a.subLayout || subSchematic) {
+                    let schematic = a.subLayout?.layout ?? subSchematic!;
+                    let subMtx = computeSubLayoutMatrix(a.comp, a.def, schematic);
 
                     subLayoutDom = <div
                         className={"absolute origin-top-left"}
                         style={{ transform: `matrix(${subMtx.toTransformParams().join(',')})` }}
                     >
-                        {getCompDomElements(a.subLayout.layout, idPrefix + a.comp.id + '|')}
+                        {getCompDomElements(schematic, idPrefix + a.comp.id + '|')}
                     </div>;
                 }
 
@@ -269,44 +275,66 @@ export const CpuCanvas: React.FC<{
     return <EditorContext.Provider value={ctx}>
         <ViewLayoutContext.Provider value={viewLayout}>
             {!readonly && <MainToolbar readonly={readonly} toolbars={toolbars} />}
-            <div className="relative touch-none flex-1 overflow-hidden">
-                <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
-                {cvsState && <CanvasEventHandler cvsState={cvsState}>
-                    <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
-                        <div
-                            className={"absolute origin-top-left"}
-                            style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
-                            {compDivs}
+            <Resizer className="flex-1 flex flex-row" id={"cpu-tools-right"} defaultFraction={0.9}>
+                <div className="relative touch-none flex-1 overflow-hidden">
+                    <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
+                    {cvsState && <CanvasEventHandler cvsState={cvsState}>
+                        <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
+                            <div
+                                className={"absolute origin-top-left"}
+                                style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
+                                {compDivs}
+                            </div>
+                            {editorState.transparentComps && <div className="absolute w-full h-full pointer-events-auto top-0 left-0" />}
                         </div>
-                        {editorState.transparentComps && <div className="absolute w-full h-full pointer-events-auto top-0 left-0" />}
+                    </CanvasEventHandler>}
+                    <div className={s.toolsLeftTop}>
+                        {!readonly && <>
+                            <CompLibraryView />
+                            <CompExampleView />
+                            <SchematicLibraryView />
+                        </>}
+                        {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
                     </div>
-                </CanvasEventHandler>}
-                <div className={s.toolsLeftTop}>
-                    {!readonly && <>
-                        <CompLibraryView />
-                        <CompExampleView />
-                        <SchematicLibraryView />
-                    </>}
-                    {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
+                    {readonly && <div className="absolute left-2 top-2 pointer-events-auto">
+                        <MainToolbar readonly={readonly} toolbars={toolbars} />
+                    </div>}
+                    <div className="cls_toolsTopRight absolute top-0 right-0">
+                        {!readonly && <CompLayoutToolbar />}
+                    </div>
+                    {editorState.compLibraryVisible && <LibraryBrowser />}
+                    {children}
                 </div>
-                {readonly && <div className="absolute left-2 top-2 pointer-events-auto">
-                    <MainToolbar readonly={readonly} toolbars={toolbars} />
-                </div>}
-                <div className="cls_toolsTopRight absolute top-0 right-0">
-                    {!readonly && <CompLayoutToolbar />}
+                <div className="flex-1 flex flex-col">
+                    <CompDetails />
                 </div>
-                {editorState.compLibraryVisible && <LibraryBrowser />}
-                {children}
-            </div>
+            </Resizer>
         </ViewLayoutContext.Provider>
     </EditorContext.Provider>;
 };
+
+function renderAxes(cvs: ICanvasState, editorState: IEditorState) {
+    let ctx = cvs.ctx;
+    ctx.save();
+    ctx.lineWidth = 4 * cvs.scale;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(4, 0);
+    ctx.strokeStyle = "#f00";
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 4);
+    ctx.strokeStyle = "#0f0";
+    ctx.stroke();
+    ctx.restore();
+}
 
 function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix = '') {
     let ctx = cvs.ctx;
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
 
-    drawGrid(editorState.mtx, ctx, cvs);
+    drawGrid(editorState.mtx, ctx, cvs, '#aaa', !!idPrefix);
 
     for (let wire of layout.wires) {
         let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(idPrefix + wire.id) ?? -1];
@@ -377,16 +405,25 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             renderCompPort(cvs, editorState, comp, node);
         }
 
-        if (compDef?.subLayout) {
+        let subSchematic = getCompSubSchematic(editorState, comp);
+        if (compDef && subSchematic) {
             // nested rendering!!!!
             ctx.save();
 
-            let subMtx = computeSubLayoutMatrix(comp, compDef, compDef.subLayout);
+            let subMtx = computeSubLayoutMatrix(comp, compDef, subSchematic);
 
             ctx.transform(...subMtx.toTransformParams());
-            let subCvs: ICanvasState = { ...cvs, mtx: subMtx, scale: cvs.scale / subMtx.a };
 
-            renderCpu(subCvs, editorState, compDef.subLayout.layout, exeSystem, idPrefix + comp.id + '|');
+            let innerMtx = cvs.mtx.mul(subMtx.inv());
+
+            let subCvs: ICanvasState = {
+                ...cvs,
+                mtx: cvs.mtx.mul(subMtx),
+                scale: cvs.scale / subMtx.a,
+                region: innerMtx.mulBb(new BoundingBox3d(comp.pos, comp.pos.add(comp.size))),
+            };
+
+            renderCpu(subCvs, editorState, subSchematic, exeSystem, idPrefix + comp.id + '|');
 
             ctx.restore();
         }
@@ -427,6 +464,8 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
     renderSelectRegion(cvs, editorState, idPrefix);
 
     renderComponentBoundingBox(cvs, editorState, snapshot, idPrefix);
+
+    // renderAxes(cvs, editorState);
 }
 
 

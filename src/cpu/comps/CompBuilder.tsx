@@ -184,7 +184,7 @@ export class CompLibrary {
         if (!compDef) {
             return;
         }
-        comp.name = compDef.name;
+        comp.name ??= compDef.name;
         comp.ports = compDef.ports instanceof Function ? compDef.ports(comp.args, compDef) : compDef.ports;
         comp.size = compDef.size;
         comp.hasSubSchematic = !!compDef.subLayout;

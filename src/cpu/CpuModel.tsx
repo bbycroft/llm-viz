@@ -168,6 +168,7 @@ export interface IHitTest {
 export interface ICanvasState {
     canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
+    region: BoundingBox3d;
     size: Vec3; // derived
     scale: number; // derived
     mtx: AffineMat2d; // derived
@@ -247,6 +248,7 @@ export interface IComp<A = any> {
     defId: string;
     name: string;
     extId?: string; // an id that can be referenced "externally"
+    subSchematicId?: string;
     pos: Vec3;
     size: Vec3;
     ports: ICompPort[];
@@ -294,6 +296,7 @@ export interface IEditSnapshot {
     nextWireId: number;
     comps: IComp[];
     wires: IWireGraph[];
+    parentCompDefId?: string;
 
     // custom component def
     compSize: Vec3;
@@ -303,11 +306,29 @@ export interface IEditSnapshot {
     subComps: Map<string, IEditSchematic>;
 }
 
+/**
+ * OK, how do we manage our components that are builtin, but we want to add schematics for?
+ * We want the multiple schematics to map to a builtin comp, and select the given schematic
+ * for a given comp. Mostly we want to edit the schematic from within a parent schematic, and then
+ * save it, ideally to that parent schematic (unless we want it to live on its own).
+ *
+ * Probably start with it living on its own. (since we can't save to the parent schematic yet)
+ * We'll have a field on the realized comp which says which schematic we're using underneath.
+ *
+ * So we click on a comp, and UI shows up to a) select from some pre-existing schematics, or b) create a new one.
+ * This will be on the RHS, and also have things like the extId of the component & other details.
+ *
+ * The schematic is tied to a particular comp, but sort of weakly, and it's clear that the comp ports
+ * are the source-of-truth. Probably have ability to disable/hide/ignore not-connected ports, which is defined by the
+ * presence of the port in the schematic.
+*/
+
 interface IEditSchematic {
     nextCompId: number;
     nextWireId: number;
     comps: IComp[];
     wires: IWireGraph[];
+    compBbox: BoundingBox3d;
 }
 
 export interface IMemoryMap {

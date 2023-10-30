@@ -28,6 +28,7 @@ export function editComp<A>(editCtx: IEditContext, end: boolean, comp: IComp<A>,
 
         let comp2 = layout.comps.find(a => a.id === comp.id) as IComp<A> | null;
         if (!comp2) {
+            console.log('unable to edit comp!!');
             return layout;
         }
 

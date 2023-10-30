@@ -15,10 +15,10 @@ export const StringEditor: React.FC<{
         update(true, ev.target.value);
     }
 
-    return <label className={clsx("", className)}>
+    return <label className={clsx("flex flex-row", className)}>
         <input
             type="text"
-            className={clsx("hover:outline-none focus:outline-none px-1 rounded h-8 text-lg w-full")}
+            className={clsx("hover:outline-none focus:outline-none px-1 rounded h-8 text-lg w-full bg-inherit")}
             value={value}
             onChange={onChange}
             onBlur={onBlur}

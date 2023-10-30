@@ -126,7 +126,7 @@ export const HoverDisplay: React.FC<{
             if (!comp || !def) {
                 break;
             }
-            let subMtx = computeSubLayoutMatrix(comp, def, def.subLayout!);
+            let subMtx = computeSubLayoutMatrix(comp, def, def.subLayout!.layout);
             mtx = mtx.mul(subMtx);
         }
 

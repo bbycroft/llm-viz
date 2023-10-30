@@ -287,6 +287,14 @@ export class BoundingBox3d {
         return this;
     }
 
+    clone(): BoundingBox3d {
+        let b = new BoundingBox3d();
+        b.min = this.min.clone();
+        b.max = this.max.clone();
+        b.empty = this.empty;
+        return b;
+    }
+
     toString(): string {
         return `BoundingBox3d(${this.min}, ${this.max})`;
     }

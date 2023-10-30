@@ -185,7 +185,7 @@ export const CompLayoutEditor: React.FC<{
         ctx.scale(pr, pr);
         ctx.transform(...mtx.toTransformParams());
 
-        drawGrid(mtx, ctx, { tileCanvases: bits.extraCanvases }, '#aaa');
+        // drawGrid(mtx, ctx, { tileCanvases: bits.extraCanvases }, '#aaa');
 
         ctx.restore();
 

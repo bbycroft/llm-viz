@@ -149,6 +149,7 @@ export function selectionToSchematic(editorState: IEditorState): ISchematic {
     }
 
     let snapshotPartial: ISchematic = {
+        compBbox: editorState.snapshot.compBbox,
         comps: editorState.snapshot.comps.filter(c => selectedCompIds.has(c.id)),
         wires: wires,
     };

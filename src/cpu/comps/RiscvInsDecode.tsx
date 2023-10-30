@@ -353,6 +353,7 @@ export function ensureUnsigned32Bit(x: number) {
 
 function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<ICompDataInsDecoder>) {
 
+    return;
 
     if (!exeComp) {
         return;

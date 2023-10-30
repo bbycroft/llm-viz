@@ -494,7 +494,7 @@ export const CanvasEventHandler: React.FC<{
                             // since still want to be able to select the component itself. Also should
                             // be related to zoom level
                             let def = editorState.compLibrary.getCompDef(comp.defId);
-                            let subMtx = mtx.mul(computeSubLayoutMatrix(comp, def!, def!.subLayout!));
+                            let subMtx = mtx.mul(computeSubLayoutMatrix(comp, def!, def!.subLayout!.layout));
                             let subSchematic = getCompSubSchematic(editorState, comp)!;
 
                             let subRef = getRefUnderCursor(editorState, ev, subSchematic, subMtx, idPrefix + comp.id + '|');

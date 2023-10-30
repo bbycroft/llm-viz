@@ -1,6 +1,6 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { getOrAddToMap, hasFlag } from "../utils/data";
-import { Vec3 } from "../utils/vector";
+import { BoundingBox3d, Vec3 } from "../utils/vector";
 
 
 export enum FontType {
@@ -26,13 +26,12 @@ export function makeCanvasFont(fontSize: number, fontType: FontType = FontType.D
 
 export interface ICanvasGridState {
     tileCanvases: Map<string, HTMLCanvasElement>;
+    region: BoundingBox3d;
 }
 
-export function drawGrid(mtx: AffineMat2d, ctx: CanvasRenderingContext2D, gridState: ICanvasGridState, fillStyle = '#aaa') {
-
-    let cvsSize = new Vec3(ctx.canvas.width, ctx.canvas.height);
-    let tl = mtx.mulVec3Inv(new Vec3());
-    let br = mtx.mulVec3Inv(cvsSize);
+export function drawGrid(mtx: AffineMat2d, ctx: CanvasRenderingContext2D, gridState: ICanvasGridState, fillStyle = '#aaa', special: boolean = false) {
+    let tl = mtx.mulVec3Inv(gridState.region.min);
+    let br = mtx.mulVec3Inv(gridState.region.max);
 
     // draw grid
 
