@@ -1,8 +1,8 @@
-import { subscribe } from "diagnostics_channel";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
-import { IComp, IEditorState, ISchematic } from "./CpuModel";
+import { IComp, IEditSnapshot, IEditorState, ISchematic } from "./CpuModel";
 import { ICompDef } from "./comps/CompBuilder";
+import { ISharedContext } from "./library/SharedContext";
 
 export function computeSubLayoutMatrix(comp: IComp, compDef: ICompDef<any>, subSchematic: ISchematic) {
     if (!subSchematic.comps) {
@@ -42,16 +42,26 @@ export function getCompSubSchematic(editorState: IEditorState, comp: IComp): ISc
 
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
 
-    let subComp = snapshot.subComps.get(comp.id);
-    if (subComp) {
-        return subComp;
+    return getCompSubSchematicForSnapshot(editorState.sharedContext, snapshot, comp);
+}
+
+export function getCompSubSchematicForSnapshot(sharedContext: ISharedContext, snapshot: IEditSnapshot, comp: IComp): ISchematic | null {
+    if (!comp.hasSubSchematic && !comp.subSchematicId) {
+        return null;
     }
 
     if (comp.subSchematicId) {
-        return editorState.schematicLibrary.getSchematic(comp.subSchematicId)?.model ?? null;
+        let editSchematic = snapshot.subComps.get(comp.subSchematicId);
+        if (editSchematic) {
+            return editSchematic;
+        }
+
+        let schemLibEntry = sharedContext.schematicLibrary.getSchematic(comp.subSchematicId);
+
+        return schemLibEntry?.model ?? null;
     }
 
-    let compDef = editorState.compLibrary.getCompDef(comp.defId);
+    let compDef = sharedContext.compLibrary.getCompDef(comp.defId);
     return compDef?.subLayout?.layout ?? null;
 }
 

@@ -2,6 +2,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary, ICompDef } from "./comps/CompBuilder";
 import { CodeSuiteManager } from "./library/CodeSuiteManager";
+import { ISharedContext } from "./library/SharedContext";
 import { SchematicLibrary } from "./schematics/SchematicLibrary";
 
 /* All components & schematics and each version of them is represented by a separate ILibraryItem.
@@ -131,6 +132,7 @@ export interface IEditorState {
     activeSchematicId: string | null;
 
     // time to combine these!! Actually, let's use CompLibrary, since it's used in more places, & rename it
+    sharedContext: ISharedContext;
     compLibrary: CompLibrary;
     schematicLibrary: SchematicLibrary;
     codeLibrary: CodeSuiteManager;
@@ -303,6 +305,9 @@ export interface IEditSnapshot {
     compPorts: ICompPort[];
     compBbox: BoundingBox3d;
 
+    // what's the key here?
+    // for builtins with "subSchematicId", want the key to be the same
+    // for custom components, also want this?
     subComps: Map<string, IEditSchematic>;
 }
 

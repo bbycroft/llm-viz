@@ -55,6 +55,7 @@ export function createCpuEditorState(sharedContext: ISharedContext | null): IEdi
         snapshot: editSnapshot, // wiresFromLsState(constructEditSnapshot(), lsState, compLibrary),
         snapshotTemp: null,
         mtx: AffineMat2d.multiply(AffineMat2d.scale1(10), AffineMat2d.translateVec(new Vec3(1920/2, 1080/2).round())),
+        sharedContext,
         compLibrary: sharedContext.compLibrary,
         schematicLibrary: sharedContext.schematicLibrary,
         codeLibrary: sharedContext.codeLibrary,

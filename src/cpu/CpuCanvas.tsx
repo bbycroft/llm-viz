@@ -102,6 +102,7 @@ export const CpuCanvas: React.FC<{
         let ctx = sharedContext ?? createSharedContext();
         setEditorState(a => {
             return assignImm(a, {
+                sharedContext: ctx,
                 codeLibrary: ctx.codeLibrary,
                 schematicLibrary: ctx.schematicLibrary,
                 compLibrary: ctx.compLibrary,
@@ -143,14 +144,14 @@ export const CpuCanvas: React.FC<{
         let prev = prevExeModel.current;
         let sameId = prev && prev.id === editorState.activeSchematicId;
 
-        let model = createExecutionModel(editorState.compLibrary, editorState.snapshot, prev && sameId ? prev.system : null);
+        let model = createExecutionModel(editorState.sharedContext, editorState.snapshot, prev && sameId ? prev.system : null);
 
         if (isClient) {
             stepExecutionCombinatorial(model);
         }
 
         return model;
-    }, [editorState.activeSchematicId, editorState.snapshot, editorState.compLibrary, isClient]);
+    }, [editorState.sharedContext, editorState.snapshot, editorState.activeSchematicId, isClient]);
 
     prevExeModel.current = { system: exeModel, id: editorState.activeSchematicId };
 
@@ -219,11 +220,10 @@ export const CpuCanvas: React.FC<{
         let comps = schematic.comps
             .map(comp => {
                 let def = editorState.compLibrary.getCompDef(comp.defId)!;
-                return (def.renderDom || def.subLayout) && cvsState ? {
+                return (def.renderDom || def.subLayout || comp.subSchematicId) && cvsState ? {
                     comp,
                     def,
                     renderDom: def.renderDom,
-                    subLayout: def.subLayout,
                 } : null;
             })
             .filter(isNotNil)
@@ -233,15 +233,14 @@ export const CpuCanvas: React.FC<{
 
                 let subLayoutDom = null;
                 let subSchematic = getCompSubSchematic(editorState, a.comp);
-                if (a.subLayout || subSchematic) {
-                    let schematic = a.subLayout?.layout ?? subSchematic!;
-                    let subMtx = computeSubLayoutMatrix(a.comp, a.def, schematic);
+                if (subSchematic) {
+                    let subMtx = computeSubLayoutMatrix(a.comp, a.def, subSchematic);
 
                     subLayoutDom = <div
                         className={"absolute origin-top-left"}
                         style={{ transform: `matrix(${subMtx.toTransformParams().join(',')})` }}
                     >
-                        {getCompDomElements(schematic, idPrefix + a.comp.id + '|')}
+                        {getCompDomElements(subSchematic, idPrefix + a.comp.id + '|')}
                     </div>;
                 }
 

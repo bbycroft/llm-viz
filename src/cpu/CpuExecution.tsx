@@ -1,7 +1,9 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
 import { compPortDefId, ICompPortConfig, ICompPortData } from "./comps/CompPort";
-import { PortType, IEditSnapshot, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir, IExePort, ISchematic, IComp } from "./CpuModel";
+import { PortType, IEditSnapshot, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir, IExePort, ISchematic, IComp, IEditorState } from "./CpuModel";
+import { ISharedContext } from "./library/SharedContext";
+import { getCompSubSchematic, getCompSubSchematicForSnapshot } from "./SubSchematics";
 
 /*
 
@@ -30,10 +32,10 @@ Having real trouble passing data between external & internal ports.
 
 */
 
-export function createExecutionModel(compLibrary: CompLibrary, displayModel: IEditSnapshot, existingSystem: IExeSystem | null): IExeSystem {
+export function createExecutionModel(sharedContext: ISharedContext, displayModel: IEditSnapshot, existingSystem: IExeSystem | null): IExeSystem {
 
     let exeSystem: IExeSystem = {
-        compLibrary,
+        compLibrary: sharedContext.compLibrary,
         comps: [],
         nets: [],
         executionSteps: [],
@@ -42,7 +44,7 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: IEd
         runArgs: { halt: false },
     };
 
-    populateExecutionModel(exeSystem, displayModel, '', existingSystem);
+    populateExecutionModel(sharedContext, displayModel, exeSystem, displayModel, '', existingSystem);
 
     let executionOrder = calcCompExecutionOrder(exeSystem.comps, exeSystem.nets);
 
@@ -55,8 +57,8 @@ export function createExecutionModel(compLibrary: CompLibrary, displayModel: IEd
     return exeSystem;
 }
 
-export function populateExecutionModel(exeSystem: IExeSystem, schematic: ISchematic, subTreePrefix: string, existingSystem: IExeSystem | null) {
-    let compLibrary = exeSystem.compLibrary;
+export function populateExecutionModel(sharedContext: ISharedContext, editSnapshot: IEditSnapshot, exeSystem: IExeSystem, schematic: ISchematic, subTreePrefix: string, existingSystem: IExeSystem | null) {
+    let compLibrary = sharedContext.compLibrary;
     // we build the subtree prefix as "id|subId|"
     let connectedWires = schematic.wires;
     let connectedComps = schematic.comps;
@@ -71,9 +73,10 @@ export function populateExecutionModel(exeSystem: IExeSystem, schematic: ISchema
 
     for (let comp of schematic.comps) {
         let def = compLibrary.getCompDef(comp.defId)!;
-        if (def.subLayout) {
+        let subSchematic = getCompSubSchematicForSnapshot(sharedContext, editSnapshot, comp);
+        if (subSchematic) {
             let prefix = subTreePrefix + comp.id + '|';
-            populateExecutionModel(exeSystem, def.subLayout.layout, prefix, existingSystem);
+            populateExecutionModel(sharedContext, editSnapshot, exeSystem, subSchematic, prefix, existingSystem);
         }
 
         let fullCompId = subTreePrefix + comp.id;
@@ -96,10 +99,10 @@ export function populateExecutionModel(exeSystem: IExeSystem, schematic: ISchema
         exeSystem.lookup.compIdToIdx.set(fullCompId, newCompIdx);
         exeSystem.comps.push(exeComp);
 
-        if (def.subLayout) {
+        if (subSchematic) {
             let prefix = subTreePrefix + comp.id + '|';
 
-            let innerSchematicPorts = def.subLayout.layout.comps.filter(a => a.defId === compPortDefId) as IComp<ICompPortConfig>[];
+            let innerSchematicPorts = subSchematic.comps.filter(a => a.defId === compPortDefId) as IComp<ICompPortConfig>[];
 
             let nestedComps = exeComp.ports.map(exePort => {
                 let port = exeComp.comp.ports[exePort.portIdx];
@@ -298,7 +301,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                 let port = comp.ports[portIdx];
                 let net = nets[port.netIdx];
                 if (!net) {
-                    console.log('comp', comp, 'port', port, 'has no net');
+                    // console.log('comp', comp, 'port', port, 'has no net');
                     continue;
                 }
                 let netPhaseCount = netNumPhases.get(port.netIdx)!;

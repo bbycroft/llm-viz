@@ -1,5 +1,5 @@
 import React from "react";
-import { hasFlag } from "../utils/data";
+import { hasFlag, isNotNil } from "../utils/data";
 import { Popup, PopupPos } from "../utils/Portal";
 import { Vec3 } from "../utils/vector";
 import { ensureSigned32Bit, ensureUnsigned32Bit, signExtend32Bit } from "./comps/RiscvInsDecode";
@@ -7,7 +7,7 @@ import { lookupPortInfo, netToString } from "./CpuExecution";
 import { ISchematic, IoDir, PortType, RefType } from "./CpuModel";
 import { useEditorContext } from "./Editor";
 import s from "./HoverDisplay.module.scss";
-import { computeSubLayoutMatrix } from "./SubSchematics";
+import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
 
 export const HoverDisplay: React.FC<{
     canvasEl: HTMLCanvasElement | null,
@@ -63,7 +63,8 @@ export const HoverDisplay: React.FC<{
 
         } else {
             let compIdx = exeModel.lookup.compIdToIdx.get(hovered.ref.id);
-            let comp = exeModel.comps[compIdx ?? -1];
+            let idxFound = isNotNil(compIdx);
+            let exeComp = exeModel.comps[compIdx ?? -1];
 
             let portElNode: React.ReactNode = null;
             let portIdStr: React.ReactNode = null;
@@ -105,14 +106,14 @@ export const HoverDisplay: React.FC<{
                 }
             }
 
-            if (comp) {
+            if (exeComp) {
                 content = <div>
-                    <div>{portElNode ?? comp.comp.name}</div>
-                    <div className={s.compId}>{comp.comp.id}/{comp.comp.defId}{portIdStr}</div>
+                    <div>{portElNode ?? exeComp.comp.name}</div>
+                    <div className={s.compId}>{exeComp.comp.id}/{exeComp.comp.defId}{portIdStr}</div>
                 </div>;
 
             } else {
-                content = <div>comp {hovered.ref.id} not found</div>;
+                content = <div>comp {hovered.ref.id} not found {idxFound ? `but has idx ${idxFound}` : 'and exeComp idx not found'}</div>;
             }
         }
 
@@ -126,8 +127,13 @@ export const HoverDisplay: React.FC<{
             if (!comp || !def) {
                 break;
             }
-            let subMtx = computeSubLayoutMatrix(comp, def, def.subLayout!.layout);
+            let subSchematic = getCompSubSchematic(editorState, comp);
+            if (!subSchematic) {
+                break;
+            }
+            let subMtx = computeSubLayoutMatrix(comp, def, subSchematic);
             mtx = mtx.mul(subMtx);
+            schematic = subSchematic;
         }
 
         let offset = new Vec3(20, 20);

@@ -274,6 +274,7 @@ export interface ILSComp {
     x: number;
     y: number;
     args?: any;
+    subSchematicId?: string;
 }
 
 export interface ILSGraphWireNode {
@@ -343,6 +344,7 @@ export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLi
 
         comp.id = c.id;
         comp.pos = new Vec3(c.x, c.y);
+        comp.subSchematicId = c.subSchematicId;
 
         return comp;
     });
@@ -373,6 +375,7 @@ export function schematicToLsState(layout: ISchematic): ILSState {
             x: c.pos.x,
             y: c.pos.y,
             args: c.args,
+            subSchematicId: c.subSchematicId,
         })),
     };
 }

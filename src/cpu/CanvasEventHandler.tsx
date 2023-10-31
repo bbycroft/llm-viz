@@ -487,20 +487,22 @@ export const CanvasEventHandler: React.FC<{
                 let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
                 if (bb.contains(mousePt)) {
 
-                    if (comp.hasSubSchematic && editorState.maskHover !== comp.id) {
+                    if ((comp.hasSubSchematic || comp.subSchematicId) && editorState.maskHover !== comp.id) {
                         let screenBb = mtx.mulBb(bb).shrinkInPlaceXY(20);
                         if (screenBb.contains(mousePtScreen)) {
                             // need some test of whether we can click through to the sub-schematic,
                             // since still want to be able to select the component itself. Also should
                             // be related to zoom level
                             let def = editorState.compLibrary.getCompDef(comp.defId);
-                            let subMtx = mtx.mul(computeSubLayoutMatrix(comp, def!, def!.subLayout!.layout));
                             let subSchematic = getCompSubSchematic(editorState, comp)!;
+                            if (subSchematic && def) {
+                                let subMtx = mtx.mul(computeSubLayoutMatrix(comp, def!, subSchematic));
 
-                            let subRef = getRefUnderCursor(editorState, ev, subSchematic, subMtx, idPrefix + comp.id + '|');
+                                let subRef = getRefUnderCursor(editorState, ev, subSchematic, subMtx, idPrefix + comp.id + '|');
 
-                            if (subRef) {
-                                refsUnderCursor.push(subRef);
+                                if (subRef) {
+                                    refsUnderCursor.push(subRef);
+                                }
                             }
                             continue;
                         }
