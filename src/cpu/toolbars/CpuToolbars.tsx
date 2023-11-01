@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { assignImm, isNotNil } from '../../utils/data';
 import { useGlobalKeyboard, KeyboardOrder, isKeyWithModifiers, Modifiers } from '../../utils/keyboard';
 import { IBaseEvent } from '../../utils/pointer';
-import { editLayout, redoAction, undoAction, useEditorContext } from '../Editor';
+import { editSnapshot, redoAction, undoAction, useEditorContext } from '../Editor';
 import clsx from 'clsx';
 import { Tooltip } from '../../utils/Tooltip';
 import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from '../CpuExecution';
@@ -58,7 +58,7 @@ export const MainToolbar: React.FC<{
     }
 
     function handleNameChange(ev: IBaseEvent, value: string, end: boolean) {
-        setEditorState(editLayout(end, a => assignImm(a, { name: value })));
+        setEditorState(editSnapshot(end, a => assignImm(a, { name: value })));
     }
 
     let undoAvailable = editorState.undoStack.length > 0;

@@ -1,6 +1,6 @@
 import { assignImm, getOrAddToMap, isNil } from "../utils/data";
 import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
-import { IWire, ISegment, IWireGraph, IWireGraphNode, IEditSnapshot, IElRef, RefType, IComp } from "./CpuModel";
+import { IWire, ISegment, IWireGraph, IWireGraphNode, IEditSnapshot, IElRef, RefType, IComp, ISchematic, IEditSchematic } from "./CpuModel";
 import { PortHandling } from "./Editor";
 
 export function moveSelectedComponents(layout: IEditSnapshot, delta: Vec3): IEditSnapshot {
@@ -94,7 +94,7 @@ export function moveSelectedComponents(layout: IEditSnapshot, delta: Vec3): IEdi
     });
 }
 
-export function updateWiresForComp(layout: IEditSnapshot, comp: IComp<any>, portHandling: PortHandling): IEditSnapshot {
+export function updateWiresForComp<T extends IEditSchematic>(layout: T, comp: IComp<any>, portHandling: PortHandling): T {
 
     if (portHandling === PortHandling.Move) {
 
@@ -102,7 +102,7 @@ export function updateWiresForComp(layout: IEditSnapshot, comp: IComp<any>, port
         // figure out the port's delta, based on the previous position of the wire node (and delta from wire node to new comp port)
         // run the dragNodes logic
 
-        return assignImm(layout, {
+        return assignImm<IEditSchematic>(layout, {
 
             wires: layout.wires.map(wire => {
                 let nodeIdsToMove = new Map<number, Vec3>();
@@ -134,8 +134,7 @@ export function updateWiresForComp(layout: IEditSnapshot, comp: IComp<any>, port
                 }
                 return wire;
             })
-        });
-
+        }) as T;
     }
 
     return layout;

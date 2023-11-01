@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { assignImm, StateSetter } from '../utils/data';
-import { IComp, IEditContext, IEditSnapshot, IEditorState, IExeSystem } from './CpuModel';
+import { assignImm, isNotNil, StateSetter } from '../utils/data';
+import { IComp, IEditContext, IEditSchematic, IEditSnapshot, IEditorState, IExeSystem, ISchematic } from './CpuModel';
 import { updateWiresForComp } from './Wire';
 import { AffineMat2d } from '../utils/AffineMat2d';
 import { Subscriptions } from '../utils/hooks';
+import { getCompSubSchematicForSnapshot, getParentCompsFromId } from './SubSchematics';
 
 export enum PortHandling {
     Detach, // e.g. for rotating a component, the wire will need to be manually re-attached
@@ -19,36 +20,87 @@ export function editCompConfig<A>(editCtx: IEditContext, end: boolean, comp: ICo
     return editComp(editCtx, end, comp, a => assignImm(a, { args: updateConfig(a.args) }), compEditArgs);
 }
 
+/*
+
+## Editing Sub-Schematics ##
+
+* We have a good system of refs, where we refer to a comp by its id and its parent comp ids
+* But then we need to edit those refs
+* We can find the comp, as well as extract the idPrefix
+* This runs into trouble when we're operating on a selection that is cross-schematic
+* Probably want some way to figure out the primary schematic, or disallow cross-schematic selections
+
+*/
+
 export function editComp<A>(editCtx: IEditContext, end: boolean, comp: IComp<A>, updateComp: (comp: IComp<A>) => IComp<A>, compEditArgs?: ICompEditArgs) {
-    return editLayout(end, (layout, state) => {
+    return editSubSnapshot(editCtx, end, (snapshot, state) => {
+        console.log(`editing comp ${comp.id} (idPrefix = ${editCtx.idPrefix})`);
 
         if (editCtx.idPrefix) {
-            return layout; // TODO
+            let parentComps = getParentCompsFromId(state, editCtx.idPrefix + comp.id);
+            let lastParent = parentComps[parentComps.length - 1];
+            let schematicId = lastParent.hasSubSchematic ? lastParent.defId : lastParent.subSchematicId;
+
+            let subSchematic = getCompSubSchematicForSnapshot(state.sharedContext, snapshot, lastParent);
+
+            if (!subSchematic || !schematicId) {
+                console.log(`failed to find schematic id of parent comp (idPrefix = ${editCtx.idPrefix}; comp.id = ${comp.id}), parents = `, parentComps);
+                return snapshot;
+            }
+
+            console.log(`updating comp.id = ${comp.id} in schematic ${schematicId} (idPrefix = ${editCtx.idPrefix})`);
+
+            let comp2 = subSchematic.comps.find(a => a.id === comp.id) as IComp<A> | null;
+            if (!comp2) {
+                console.log(`unable to find comp.id = ${comp.id} in schematic ${schematicId} (idPrefix = ${editCtx.idPrefix})`);
+                return snapshot;
+            }
+
+            let comp3 = updateComp(comp2);
+            if (comp3 === comp2) {
+                return snapshot;
+            }
+
+            let subSchematic2 = ensureEditSchematic(assignImm(subSchematic, { comps: subSchematic.comps.map(a => a.id === comp.id ? comp3! : a) }));
+            state.compLibrary.updateCompFromDef(comp3);
+            subSchematic2 = updateWiresForComp(subSchematic2, comp3, compEditArgs?.portHandling ?? PortHandling.Move);
+
+            let res = assignImm(snapshot, {
+                subSchematics: assignImm(snapshot.subSchematics, { [schematicId]:  subSchematic2 })
+            });
+
+            console.log('schematic:', subSchematic2);
+            console.log('res: ', res);
+
+            return res;
         }
 
-        let comp2 = layout.comps.find(a => a.id === comp.id) as IComp<A> | null;
+        let comp2 = snapshot.comps.find(a => a.id === comp.id) as IComp<A> | null;
         if (!comp2) {
             console.log('unable to edit comp!!');
-            return layout;
+            return snapshot;
         }
 
         let comp3 = updateComp(comp2);
         if (comp3 === comp2) {
-            return layout;
+            return snapshot;
         }
 
-        layout = assignImm(layout, { comps: layout.comps.map(a => a.id === comp.id ? comp3! : a) });
+        snapshot = assignImm(snapshot, { comps: snapshot.comps.map(a => a.id === comp.id ? comp3! : a) });
         state.compLibrary.updateCompFromDef(comp3);
 
-        layout = updateWiresForComp(layout, comp3, compEditArgs?.portHandling ?? PortHandling.Move);
+        snapshot = updateWiresForComp(snapshot, comp3, compEditArgs?.portHandling ?? PortHandling.Move);
 
-        return layout;
+        return snapshot;
     });
 }
 
-export function editLayout(end: boolean, updateLayout: (element: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
+export function editSubSnapshot(editCtx: IEditContext, end: boolean, updateSnapshot: (element: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
     return (state: IEditorState) => {
-        let newSnapshot = updateLayout(state.snapshot, state);
+
+        // TODO: get the subSchematicId from the editCtx, and update the subSchematic instead of the main schematic
+
+        let newSnapshot = updateSnapshot(state.snapshot, state);
 
         if (end) {
             if (newSnapshot === state.snapshot) {
@@ -69,12 +121,50 @@ export function editLayout(end: boolean, updateLayout: (element: IEditSnapshot, 
     };
 }
 
-export function editLayoutDirect(updateLayout: (element: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
+export function editSnapshot(end: boolean, updateSnapshot: (element: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
     return (state: IEditorState) => {
-        let changed = updateLayout(state.snapshot, state);
+        let newSnapshot = updateSnapshot(state.snapshot, state);
+
+        if (end) {
+            if (newSnapshot === state.snapshot) {
+                return assignImm(state, { snapshotTemp: null });
+            }
+
+            state = assignImm(state, {
+                snapshot: newSnapshot,
+                snapshotTemp: null,
+                undoStack: [...state.undoStack, state.snapshot],
+                redoStack: [],
+            });
+        } else {
+            state = assignImm(state, { snapshotTemp: newSnapshot });
+        }
+
+        return state;
+    };
+}
+
+export function editSnapshotDirect(updateSnapshot: (element: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
+    return (state: IEditorState) => {
+        let changed = updateSnapshot(state.snapshot, state);
         return assignImm(state, { snapshot: changed, snapshotTemp: null });
     };
 }
+
+export function ensureEditSchematic(schematic: ISchematic | IEditSchematic): IEditSchematic {
+    if (isEditSchematic(schematic)) {
+        return schematic;
+    }
+    return assignImm(schematic as IEditSchematic, {
+        nextCompId: schematic.comps.reduce((max, c) => Math.max(max, parseInt(c.id)), 0) + 1,
+        nextWireId: schematic.wires.reduce((max, c) => Math.max(max, parseInt(c.id)), 0) + 1,
+    });
+}
+
+export function isEditSchematic(schematic: ISchematic | IEditSchematic): schematic is IEditSchematic {
+    return isNotNil((schematic as IEditSchematic).nextCompId);
+}
+
 
 export function undoAction(state: IEditorState) {
     if (state.undoStack.length === 0) {

@@ -51,7 +51,7 @@ export function getCompSubSchematicForSnapshot(sharedContext: ISharedContext, sn
     }
 
     if (comp.subSchematicId) {
-        let editSchematic = snapshot.subComps.get(comp.subSchematicId);
+        let editSchematic = snapshot.subSchematics[comp.subSchematicId];
         if (editSchematic) {
             return editSchematic;
         }

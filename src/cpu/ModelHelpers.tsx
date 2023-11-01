@@ -89,6 +89,6 @@ export function constructEditSnapshot(): IEditSnapshot {
         compSize: new Vec3(0, 0),
         compBbox: new BoundingBox3d(),
 
-        subComps: new Map(),
+        subSchematics: {},
     };
 }

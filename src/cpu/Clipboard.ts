@@ -1,7 +1,7 @@
 import { StateSetter, getOrAddToMap } from "../utils/data";
 import { Vec3 } from "../utils/vector";
 import { IEditorState, RefType, IElRef, IWireGraph, ISchematic, IEditSnapshot } from "./CpuModel";
-import { editLayout } from "./Editor";
+import { editSnapshot } from "./Editor";
 import { ILSState, exportData, importData, schematicToLsState } from "./ImportExport";
 import { deleteSelection } from "./Selection";
 import { copyWireGraph, repackGraphIds, splitIntoIslands } from "./Wire";
@@ -10,7 +10,7 @@ import { CompLibrary } from "./comps/CompBuilder";
 export function cutSelection(ev: KeyboardEvent, editorState: IEditorState, setEditorState: StateSetter<IEditorState>) {
     let schematic = selectionToSchematic(editorState);
     writeToClipboard(exportData(schematic));
-    setEditorState(editLayout(true, deleteSelection));
+    setEditorState(editSnapshot(true, deleteSelection));
 }
 
 export function copySelection(ev: KeyboardEvent, editorState: IEditorState, setEditorState: StateSetter<IEditorState>) {
@@ -40,7 +40,7 @@ export function pasteSelection(ev: KeyboardEvent, editorState: IEditorState, set
             // maybe move the selection with the mouse, and require a click to place it?
             // e.g. say we want to duplicate vertically, and link things up automatically
 
-            setEditorState(editLayout(true, (layout, editorState) => {
+            setEditorState(editSnapshot(true, (layout, editorState) => {
                 return mergeInSchematic(layout, res.schematic!, editorState.compLibrary);
             }));
         }

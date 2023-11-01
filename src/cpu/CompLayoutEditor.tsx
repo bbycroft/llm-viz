@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import React, { memo, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { ViewLayoutContext, editLayout, editLayoutDirect, useEditorContext, useViewLayout } from './Editor';
+import { ViewLayoutContext, editSnapshot, editSnapshotDirect, useEditorContext, useViewLayout } from './Editor';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCaretRight, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { Gripper, ICompPortConfig, compPortDefId } from './comps/CompPort';
@@ -68,7 +68,7 @@ export const CompLayoutToolbar: React.FC<{
     function onCreateEditClicked(ev: React.MouseEvent) {
         setIsExpanded(a => !a);
         if (!hasComponent) {
-            setEditorState(editLayout(true, (snap, state) => {
+            setEditorState(editSnapshot(true, (snap, state) => {
                 return assignImm(snap, {
                     compSize: new Vec3(4, 4),
                 });
@@ -235,7 +235,7 @@ export const CompLayoutEditor: React.FC<{
         let newPorts = [...snapshot.compPorts, ...autogenPorts];
 
         if (autogenPorts.length > 0) {
-            setEditorState(editLayoutDirect((snap) => {
+            setEditorState(editSnapshotDirect((snap) => {
                 return assignImm(snap, { compPorts: newPorts });
             }));
         }
@@ -321,7 +321,7 @@ export const CompBoxEditor: React.FC<{
 
     function handleResize(end: boolean, pos: Vec3, size: Vec3) {
         setPos(end, pos);
-        setEditorState(editLayout(end, snap => {
+        setEditorState(editSnapshot(end, snap => {
             return resizeCompBox(snap, size);
             // return assignImm(snap, { compSize: size });
         }));
@@ -380,7 +380,7 @@ export const CompPortEditor: React.FC<{
         let delta = evToModel(ev).sub(evToModel(ds));
         let newPos = ds.data.add(delta);
         setDraggingPortIdx(end ? null : portIdx);
-        setEditorState(editLayout(end, snap => {
+        setEditorState(editSnapshot(end, snap => {
             return movePortToNewLocation(snap, portIdx, newPos);
         }));
         ev.stopPropagation();

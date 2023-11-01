@@ -1,5 +1,5 @@
 import React from "react";
-import { editLayout, useEditorContext } from "./Editor";
+import { editSnapshot, useEditorContext } from "./Editor";
 import s from "./CompLibraryView.module.scss";
 import { ICompDef } from "./comps/CompBuilder";
 import { assignImm } from "../utils/data";
@@ -15,7 +15,7 @@ export const CompLibraryView: React.FC = () => {
     let [, setDragStart] = useGlobalDrag<number>(function handleMove(ev, ds, end) {
         setEditorState(a => {
             if (a.dragCreateComp?.applyFunc) {
-                a = editLayout(end, a.dragCreateComp.applyFunc)(a);
+                a = editSnapshot(end, a.dragCreateComp.applyFunc)(a);
             }
             if (end) {
                 a = assignImm(a, { dragCreateComp: undefined });

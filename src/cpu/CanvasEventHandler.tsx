@@ -5,7 +5,7 @@ import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from 
 import { useCombinedMouseTouchDrag, useTouchEvents } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
 import { ICanvasState, IEditSnapshot, IEditorState, IElRef, IHitTest, ISchematic, ISegment, IWireGraph, RefType } from './CpuModel';
-import { editLayout, useEditorContext } from './Editor';
+import { editSnapshot, useEditorContext } from './Editor';
 import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString, wireUnlinkNodes, repackGraphIds, splitIntoIslands } from './Wire';
 import s from './CpuCanvas.module.scss';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
@@ -44,7 +44,7 @@ export const CanvasEventHandler: React.FC<{
         }
 
         if (ev.key === "Delete") {
-            setEditorState(editLayout(true, layout => {
+            setEditorState(editSnapshot(true, layout => {
 
                 let refStrs = new Set(layout.selected.map(s => refToString(s)));
                 function selectionHasRef(id: string, type: RefType) {
@@ -247,7 +247,7 @@ export const CanvasEventHandler: React.FC<{
 
     function handleSelectionDrag(end: boolean, origModelPos: Vec3, newModelPos: Vec3) {
 
-        setEditorState(editLayout(end, layout => {
+        setEditorState(editSnapshot(end, layout => {
             let deltaPos = newModelPos.sub(origModelPos);
             let snappedDelta = snapToGrid(deltaPos);
             return moveSelectedComponents(layout, snappedDelta);
@@ -255,7 +255,7 @@ export const CanvasEventHandler: React.FC<{
     }
 
     function handleWireCreateDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
-        setEditorState(editLayout(end, layout => {
+        setEditorState(editSnapshot(end, layout => {
             let startComp = layout.comps.find(c => c.id === ref.id);
             if (!startComp) {
                 console.log(`WARN: handleWireCreateDrag: comp '${ref.id}' not found`);
@@ -310,7 +310,7 @@ export const CanvasEventHandler: React.FC<{
             do a shorten + single extend in opposite direction, i.e. keep the elbow, rather than create a T junction
     */
     function handleWireExtendDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
-        setEditorState(editLayout(end, function handleWireExtendDrag(layout) {
+        setEditorState(editSnapshot(end, function handleWireExtendDrag(layout) {
             checkWires(editorState.snapshot.wires, 'handleWireExtendDrag (pre edit)');
             let wireIdx = editorState.snapshot.wires.findIndex(w => w.id === ref.id);
             if (wireIdx === -1) {
@@ -403,7 +403,7 @@ export const CanvasEventHandler: React.FC<{
 
     function handleWireDrag(end: boolean, ref: IElRef, origModelPos: Vec3, newModelPos: Vec3) {
 
-        setEditorState(editLayout(end, (layout, state) => {
+        setEditorState(editSnapshot(end, (layout, state) => {
             let wireIdx = state.snapshot.wires.findIndex(w => w.id === ref.id);
             if (wireIdx === -1) {
                 console.log(`WARN: handleWireDrag: wire ${ref.id} not found`)

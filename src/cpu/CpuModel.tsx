@@ -308,7 +308,7 @@ export interface IEditSnapshot {
     // what's the key here?
     // for builtins with "subSchematicId", want the key to be the same
     // for custom components, also want this?
-    subComps: Map<string, IEditSchematic>;
+    subSchematics: Record<string, IEditSchematic>;
 }
 
 /**
@@ -328,7 +328,7 @@ export interface IEditSnapshot {
  * presence of the port in the schematic.
 */
 
-interface IEditSchematic {
+export interface IEditSchematic {
     nextCompId: number;
     nextWireId: number;
     comps: IComp[];

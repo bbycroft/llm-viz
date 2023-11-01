@@ -3,11 +3,11 @@ import { iterLocalStorageEntries } from "@/src/utils/localstorage";
 import { Vec3 } from "@/src/utils/vector";
 import { CompLibrary, ISubLayoutPort } from "../comps/CompBuilder";
 import { IEditSnapshot, PortType } from "../CpuModel";
-import { createInitialEditSnapshot, ILSState, wiresFromLsState, schematicToLsState, exportData } from "../ImportExport";
+import { ILSState, wiresFromLsState, schematicToLsState, exportData } from "../ImportExport";
 import { assignImm } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";
 import { schematicManifest } from "./SchematicManifest";
-import { computeModelBoundingBox } from "../ModelHelpers";
+import { computeModelBoundingBox, constructEditSnapshot } from "../ModelHelpers";
 
 export interface ILocalSchematic {
     id: string;
@@ -96,7 +96,7 @@ export class SchematicLibrary {
     private lsSchematicToSchematicDef(lsSchematic: ILSSchematic, compLibrary: CompLibrary): ISchematicDef {
         let compArgs = compArgsFromLsState(lsSchematic.compArgs);
 
-        let snapshot = createInitialEditSnapshot();
+        let snapshot = constructEditSnapshot();
         snapshot = wiresFromLsState(snapshot, lsSchematic.model, compLibrary);
         snapshot = addCompArgsToSnapshot(snapshot, compArgs);
         snapshot.name = lsSchematic.name;
@@ -140,7 +140,7 @@ export class SchematicLibrary {
         let schematic: ISchematicDef = {
             id: id,
             name: name,
-            model: createInitialEditSnapshot(),
+            model: constructEditSnapshot(),
             hasEdits: false,
         };
         this.customSchematics.set(id, schematic);
