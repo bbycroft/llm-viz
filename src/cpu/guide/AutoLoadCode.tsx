@@ -23,7 +23,7 @@ export const AutoLoadCode: React.FC<{
                 return;
             }
 
-            let romComp = editorState.snapshot.comps.find(c => c.defId === 'core/mem/rom0');
+            let romComp = editorState.snapshot.mainSchematic.comps.find(c => c.defId === 'core/mem/rom0');
 
             if (romComp) {
                 let exeCompIdx = exeModel.lookup.compIdToIdx.get(romComp.id);
@@ -37,7 +37,7 @@ export const AutoLoadCode: React.FC<{
                 }
             }
         }
-    }, [exeModel, codeSuite, editorState.snapshot.comps, section]);
+    }, [exeModel, codeSuite, editorState.snapshot.mainSchematic.comps, section]);
 
     return null;
 }

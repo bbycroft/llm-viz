@@ -8,7 +8,7 @@ import { pluralize } from '../utils/text';
 import { assignImm, clamp, hasFlag, isNotNil, makeArray } from '../utils/data';
 import { Vec3 } from '../utils/vector';
 import { useResizeChangeHandler } from '../utils/layout';
-import { IComp, ICompPort, IEditSnapshot, PortType } from './CpuModel';
+import { IComp, ICompPort, IEditSchematic, IEditSnapshot, PortType } from './CpuModel';
 import { multiSortStableAsc } from '../utils/array';
 import { paletteTw } from './palette';
 import { AffineMat2d } from '../utils/AffineMat2d';
@@ -51,12 +51,13 @@ export const CompLayoutToolbar: React.FC<{
     let [isExpanded, setIsExpanded] = useState(false);
 
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
+    let schematic = snapshot.mainSchematic;
 
-    let hasComponent = snapshot.compSize.x > 0 && snapshot.compSize.y > 0;
+    let hasComponent = schematic.compSize.x > 0 && schematic.compSize.y > 0;
 
     let numPorts = useMemo(() => {
         let numPorts = 0;
-        for (let comp of editorState.snapshot.comps) {
+        for (let comp of editorState.snapshot.mainSchematic.comps) {
             if (comp.defId === compPortDefId) {
                 numPorts++;
             }
@@ -70,7 +71,9 @@ export const CompLayoutToolbar: React.FC<{
         if (!hasComponent) {
             setEditorState(editSnapshot(true, (snap, state) => {
                 return assignImm(snap, {
-                    compSize: new Vec3(4, 4),
+                    mainSchematic: assignImm(snap.mainSchematic, {
+                        compSize: new Vec3(4, 4),
+                    }),
                 });
             }));
         }
@@ -192,29 +195,30 @@ export const CompLayoutEditor: React.FC<{
     });
 
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
+    let schematic = snapshot.mainSchematic;
 
     let schematicPortComps = useMemo(() => {
-        let ports = snapshot.comps
+        let ports = schematic.comps
             .filter(a => a.defId === compPortDefId) as IComp<ICompPortConfig>[];
 
         ports = multiSortStableAsc(ports, [a => a.args.type]);
 
         return ports;
-    }, [snapshot.comps]);
+    }, [schematic.comps]);
 
     useEffect(() => {
-        let portIds = new Set(snapshot.compPorts.map(a => a.id));
+        let portIds = new Set(schematic.compPorts.map(a => a.id));
         let schematicPortIds = new Set(schematicPortComps.map(a => a.args.portId));
 
-        let schematicPortsToAdd = snapshot.compPorts.filter(a => !schematicPortIds.has(a.id));
+        let schematicPortsToAdd = schematic.compPorts.filter(a => !schematicPortIds.has(a.id));
         let portsToAdd = schematicPortComps.filter(a => !portIds.has(a.args.portId));
 
-        let currPortPoses = snapshot.compPorts.map(a => a.pos);
+        let currPortPoses = schematic.compPorts.map(a => a.pos);
 
         let autogenPorts: ICompPort[] = [];
         for (let schemPort of portsToAdd) {
             let targetPos: Vec3 | null = null;
-            for (let pos of iterPorts(snapshot.compSize)) {
+            for (let pos of iterPorts(schematic.compSize)) {
                 if (!currPortPoses.some(a => a.dist(pos) < 0.001)) {
                     targetPos = pos;
                     break;
@@ -232,15 +236,19 @@ export const CompLayoutEditor: React.FC<{
             }
         }
 
-        let newPorts = [...snapshot.compPorts, ...autogenPorts];
+        let newPorts = [...schematic.compPorts, ...autogenPorts];
 
         if (autogenPorts.length > 0) {
             setEditorState(editSnapshotDirect((snap) => {
-                return assignImm(snap, { compPorts: newPorts });
+                return assignImm(snap, {
+                    mainSchematic: assignImm(snap.mainSchematic, {
+                        compPorts: newPorts,
+                    }),
+                });
             }));
         }
 
-    }, [schematicPortComps, snapshot.compPorts, snapshot.compSize, setEditorState]);
+    }, [schematicPortComps, schematic.compPorts, schematic.compSize, setEditorState]);
 
     function handleCompPosChange(end: boolean, pos: Vec3) {
         setCompPos(pos);
@@ -253,15 +261,15 @@ export const CompLayoutEditor: React.FC<{
                 <canvas className='absolute w-full h-full' ref={setCanvasEl} />
                 <div className="overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none">
                     <div className="absolute origin-top-left" style={{ transform: `matrix(${mtx.toTransformParams().join(',')})` }}>
-                        <CompBoxEditor size={snapshot.compSize} pos={compPos} setPos={handleCompPosChange} />
-                        {snapshot.compPorts.map((port, i) => {
+                        <CompBoxEditor size={schematic.compSize} pos={compPos} setPos={handleCompPosChange} />
+                        {schematic.compPorts.map((port, i) => {
                             let portId = port.id;
                             let schematicComp = schematicPortComps.find(a => a.args.portId === portId) ?? null;
                             return <CompPortEditor
                                 key={i}
                                 portIdx={i}
                                 compPos={compPos}
-                                compSize={snapshot.compSize}
+                                compSize={schematic.compSize}
                                 schematicComp={schematicComp}
                                 port={port}
                                 draggingPortIdx={dragPortIdx}
@@ -322,8 +330,9 @@ export const CompBoxEditor: React.FC<{
     function handleResize(end: boolean, pos: Vec3, size: Vec3) {
         setPos(end, pos);
         setEditorState(editSnapshot(end, snap => {
-            return resizeCompBox(snap, size);
-            // return assignImm(snap, { compSize: size });
+            return assignImm(snap, {
+                mainSchematic: resizeCompBox(snap.mainSchematic, size),
+            });
         }));
     }
 
@@ -381,7 +390,9 @@ export const CompPortEditor: React.FC<{
         let newPos = ds.data.add(delta);
         setDraggingPortIdx(end ? null : portIdx);
         setEditorState(editSnapshot(end, snap => {
-            return movePortToNewLocation(snap, portIdx, newPos);
+            return assignImm(snap, {
+                mainSchematic: movePortToNewLocation(snap.mainSchematic, portIdx, newPos),
+            });
         }));
         ev.stopPropagation();
         ev.preventDefault();
@@ -429,7 +440,7 @@ export const CompPortEditor: React.FC<{
 
 });
 
-function resizeCompBox(snap: IEditSnapshot, newSize: Vec3): IEditSnapshot {
+function resizeCompBox(snap: IEditSchematic, newSize: Vec3): IEditSchematic {
     let compSize = snap.compSize;
 
     let newCompPorts = [...snap.compPorts];
@@ -579,7 +590,7 @@ function getPortsOnEdge(ports: ICompPort[], bestEdge: number, compSize: Vec3): I
     return portsOnEdge;
 }
 
-function movePortToNewLocation(snap: IEditSnapshot, portIdx: number, newPos: Vec3): IEditSnapshot {
+function movePortToNewLocation(snap: IEditSchematic, portIdx: number, newPos: Vec3): IEditSchematic {
 
     let compSize = snap.compSize;
     // note that newPos is not rounded, and will need to be in this function

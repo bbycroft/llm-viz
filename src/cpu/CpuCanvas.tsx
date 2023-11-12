@@ -46,11 +46,12 @@ So our sandbox needs a bit of work. To main goals:
 */
 
 export const CpuCanvas: React.FC<{
+    embedded?: boolean;
     readonly?: boolean;
     schematicId?: string;
     toolbars?: ToolbarTypes[],
     children?: React.ReactNode;
-}> = ({ schematicId, readonly, toolbars, children }) => {
+}> = ({ schematicId, readonly, embedded, toolbars, children }) => {
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
     let sharedContext = useContext(SharedContextContext);
     // let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
@@ -107,7 +108,9 @@ export const CpuCanvas: React.FC<{
                 schematicLibrary: ctx.schematicLibrary,
                 compLibrary: ctx.compLibrary,
                 snapshot: assignImm(a.snapshot, {
-                    comps: ctx.compLibrary.updateAllCompsFromDefs(a.snapshot.comps),
+                    mainSchematic: assignImm(a.snapshot.mainSchematic, {
+                        comps: ctx.compLibrary.updateAllCompsFromDefs(a.snapshot.mainSchematic.comps),
+                    }),
                 }),
                 needsZoomExtent: true,
             });
@@ -202,7 +205,7 @@ export const CpuCanvas: React.FC<{
 
         ctx.transform(...editorState.mtx.toTransformParams());
         ctx.save();
-        renderCpu(cvsState, editorState, editorState.snapshotTemp ?? editorState.snapshot, exeModel);
+        renderCpu(cvsState, editorState, (editorState.snapshotTemp ?? editorState.snapshot).mainSchematic, exeModel);
         // renderDragState(cvsState, editorState, dragStart, grabDirRef.current);
         ctx.restore();
 
@@ -234,7 +237,7 @@ export const CpuCanvas: React.FC<{
                 let subLayoutDom = null;
                 let subSchematic = getCompSubSchematic(editorState, a.comp);
                 if (subSchematic) {
-                    let subMtx = computeSubLayoutMatrix(a.comp, a.def, subSchematic);
+                    let subMtx = computeSubLayoutMatrix(a.comp, subSchematic);
 
                     subLayoutDom = <div
                         className={"absolute origin-top-left"}
@@ -265,7 +268,7 @@ export const CpuCanvas: React.FC<{
         </>;
     }
 
-    let compDivs = getCompDomElements(editorState.snapshotTemp ?? editorState.snapshot, '');
+    let compDivs = getCompDomElements((editorState.snapshotTemp ?? editorState.snapshot).mainSchematic, '');
 
     let viewLayout = useMemo<IViewLayoutContext>(() => {
         return { el: cvsState?.canvas ?? null!, mtx: editorState.mtx };
@@ -273,11 +276,11 @@ export const CpuCanvas: React.FC<{
 
     return <EditorContext.Provider value={ctx}>
         <ViewLayoutContext.Provider value={viewLayout}>
-            {!readonly && <MainToolbar readonly={readonly} toolbars={toolbars} />}
+            {!embedded && <MainToolbar readonly={readonly} toolbars={toolbars} />}
             <Resizer className="flex-1 flex flex-row" id={"cpu-tools-right"} defaultFraction={0.9}>
                 <div className="relative touch-none flex-1 overflow-hidden">
                     <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
-                    {cvsState && <CanvasEventHandler cvsState={cvsState}>
+                    {cvsState && <CanvasEventHandler cvsState={cvsState} embedded={embedded}>
                         <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
                             <div
                                 className={"absolute origin-top-left"}
@@ -288,14 +291,14 @@ export const CpuCanvas: React.FC<{
                         </div>
                     </CanvasEventHandler>}
                     <div className={s.toolsLeftTop}>
-                        {!readonly && <>
+                        {!embedded && <>
                             <CompLibraryView />
                             <CompExampleView />
                             <SchematicLibraryView />
                         </>}
                         {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
                     </div>
-                    {readonly && <div className="absolute left-2 top-2 pointer-events-auto">
+                    {embedded && <div className="absolute left-2 top-2 pointer-events-auto">
                         <MainToolbar readonly={readonly} toolbars={toolbars} />
                     </div>}
                     <div className="cls_toolsTopRight absolute top-0 right-0">
@@ -304,9 +307,9 @@ export const CpuCanvas: React.FC<{
                     {editorState.compLibraryVisible && <LibraryBrowser />}
                     {children}
                 </div>
-                <div className="flex-1 flex flex-col">
+                {!readonly && <div className="flex-1 flex flex-col">
                     <CompDetails />
-                </div>
+                </div>}
             </Resizer>
         </ViewLayoutContext.Provider>
     </EditorContext.Provider>;
@@ -409,7 +412,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             // nested rendering!!!!
             ctx.save();
 
-            let subMtx = computeSubLayoutMatrix(comp, compDef, subSchematic);
+            let subMtx = computeSubLayoutMatrix(comp, subSchematic);
 
             ctx.transform(...subMtx.toTransformParams());
 
@@ -488,6 +491,7 @@ function renderSelectRegion(cvs: ICanvasState, editorState: IEditorState, idPref
     ctx.restore();
 }
 
+/*
 function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart: IDragStart<ICanvasDragState> | null, dragDir: Vec3 | null) {
     let ctx = cvs.ctx;
     if (!dragStart || !dragStart.data.hovered) {
@@ -539,6 +543,7 @@ function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart
     }
 
 }
+*/
 
 function renderCompPort(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompPort) {
     let hoverRef = editorState.hovered?.ref;
@@ -583,7 +588,7 @@ function renderComponentBoundingBox(cvs: ICanvasState, editorState: IEditorState
     let ctx = cvs.ctx;
     ctx.save();
 
-    let bb = layout.compBbox;
+    let bb = layout.mainSchematic.compBbox;
     let size = bb.size();
     ctx.beginPath();
     ctx.rect(bb.min.x, bb.min.y, size.x, size.y);

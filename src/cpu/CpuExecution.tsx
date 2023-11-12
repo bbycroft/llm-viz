@@ -44,7 +44,7 @@ export function createExecutionModel(sharedContext: ISharedContext, displayModel
         runArgs: { halt: false },
     };
 
-    populateExecutionModel(sharedContext, displayModel, exeSystem, displayModel, '', existingSystem);
+    populateExecutionModel(sharedContext, displayModel, exeSystem, displayModel.mainSchematic, '', existingSystem);
 
     let executionOrder = calcCompExecutionOrder(exeSystem.comps, exeSystem.nets);
 

@@ -24,7 +24,7 @@ export const SchematicLibraryView: React.FC = () => {
                 schematic.mtx = editorState.mtx;
 
                 if (schematic.compArgs) {
-                    let libItem = createSchematicCompDef(schematic.id, schematic.name, schematic.model, schematic.compArgs);
+                    let libItem = createSchematicCompDef(schematic.id, schematic.name, schematic.model.mainSchematic, schematic.compArgs);
                     compLibrary.addLibraryItem(libItem);
                 }
             }

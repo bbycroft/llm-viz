@@ -1,28 +1,28 @@
 import { assignImm, getOrAddToMap, isNil } from "../utils/data";
 import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
-import { IWire, ISegment, IWireGraph, IWireGraphNode, IEditSnapshot, IElRef, RefType, IComp, ISchematic, IEditSchematic } from "./CpuModel";
+import { IWire, ISegment, IWireGraph, IWireGraphNode, IElRef, RefType, IComp, IEditSchematic } from "./CpuModel";
 import { PortHandling } from "./Editor";
 
-export function moveSelectedComponents(layout: IEditSnapshot, delta: Vec3): IEditSnapshot {
+export function moveSelectedComponents(schematic: IEditSchematic, selected: IElRef[], delta: Vec3): IEditSchematic {
     if (delta.dist(Vec3.zero) < EPSILON) {
-        return layout;
+        return schematic;
     }
 
-    checkWires(layout.wires, 'moveSelectedComponents (pre)');
+    checkWires(schematic.wires, 'moveSelectedComponents (pre)');
 
     let wireLookup = new Map<string, IWireGraph>();
-    for (let wire of layout.wires) {
+    for (let wire of schematic.wires) {
         wireLookup.set(wire.id, wire);
     }
 
     let compPorts = new Map<string, { pos: Vec3, ref: IElRef }>();
 
-    let selection = new Set(layout.selected.map(refToString));
+    let selection = new Set(selected.map(refToString));
     let compsToMove = new Set<string>();
     let wiresAndNodesToMove = new Map<string, Map<number, Vec3>>();
 
     // Create a map of all the comp ports
-    for (let comp of layout.comps) {
+    for (let comp of schematic.comps) {
         if (!selection.has(refToString({ type: RefType.Comp, id: comp.id }))) {
             continue;
         }
@@ -33,14 +33,14 @@ export function moveSelectedComponents(layout: IEditSnapshot, delta: Vec3): IEdi
         }
     }
 
-    for (let ref of layout.selected) {
+    for (let ref of selected) {
         if (ref.type === RefType.Comp) {
             compsToMove.add(ref.id);
         }
     }
 
     // figure out what nodes to move on each wire (by direct selection, or by being attached to a selected comp's port)
-    for (let wire of layout.wires) {
+    for (let wire of schematic.wires) {
         let nodeIdsToMove = new Map<number, Vec3>();
 
         for (let node of wire.nodes) {
@@ -58,7 +58,7 @@ export function moveSelectedComponents(layout: IEditSnapshot, delta: Vec3): IEdi
             }
         }
 
-        for (let ref of layout.selected) {
+        for (let ref of selected) {
             if (ref.type === RefType.WireSeg && ref.id === wire.id) {
                 let node0 = wire.nodes[ref.wireNode0Id!];
                 let node1 = wire.nodes[ref.wireNode1Id!];
@@ -77,14 +77,14 @@ export function moveSelectedComponents(layout: IEditSnapshot, delta: Vec3): IEdi
         wiresAndNodesToMove.set(wire.id, nodeIdsToMove);
     }
 
-    return assignImm(layout, {
-        comps: layout.comps.map(comp => {
+    return assignImm(schematic, {
+        comps: schematic.comps.map(comp => {
             if (compsToMove.has(comp.id)) {
                 return assignImm(comp, { pos: snapToGrid(comp.pos.add(delta)) });
             }
             return comp;
         }),
-        wires: layout.wires.map(wire => {
+        wires: schematic.wires.map(wire => {
             let nodeIdsToMove = wiresAndNodesToMove.get(wire.id);
             if (nodeIdsToMove) {
                 wire = dragNodes(wire, nodeIdsToMove);
@@ -318,7 +318,7 @@ export function dragSegment(wire: IWireGraph, node0Idx: number, node1Idx: number
     return assignImm(wire, { nodes: newNodes });
 }
 
-export function applyWires(layout: IEditSnapshot, wires: IWireGraph[], editIdx: number): IEditSnapshot {
+export function applyWires(layout: IEditSchematic, wires: IWireGraph[], editIdx: number): IEditSchematic {
 
     let [editedWires, newWires] = fixWires(layout, wires, editIdx);
     let nextWireId = layout.nextWireId;
@@ -362,7 +362,7 @@ export function copyWireGraph(wire: IWireGraph): IWireGraph {
     return { ...wire, nodes };
 }
 
-function createNodePosMap(layout: IEditSnapshot) {
+function createNodePosMap(layout: IEditSchematic) {
     let nodePosMap = new Map<string, { pos: Vec3, ref: IElRef }>();
     for (let comp of layout.comps) {
         for (let node of comp.ports) {
@@ -401,7 +401,7 @@ export function iterWireGraphSegments(graph: IWireGraph, cb: (node0: IWireGraphN
     1. wires that are touching each other get merged
     2. wires that have islands get split
 */
-export function fixWires(layout: IEditSnapshot, wires: IWireGraph[], editIdx: number): [editedWires: IWireGraph[], newWires: IWireGraph[]] {
+export function fixWires(layout: IEditSchematic, wires: IWireGraph[], editIdx: number): [editedWires: IWireGraph[], newWires: IWireGraph[]] {
     wires = [...wires];
     let editWire = wires[editIdx];
 

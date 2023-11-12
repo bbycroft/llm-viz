@@ -37,23 +37,26 @@ export const Resizer: React.FC<{
 
     let pct = (fraction * 100) + '%';
     let invPct = ((1 - fraction) * 100) + '%';
+    let hasBothChildren = firstChild && scndChild;
 
     return <div ref={setParentEl} className={clsx("relative flex", className, vertical ? 'flex-col' : 'flex-row')}>
-        <div className="flex flex-initial overflow-hidden" style={{ flexBasis: pct }}>
+        {firstChild && <div className="flex flex-initial overflow-hidden" style={{ flexBasis: hasBothChildren ? pct : '100%' }}>
             {firstChild}
-        </div>
-        <div className="flex flex-initial overflow-hidden" style={{ flexBasis: invPct }}>
+        </div>}
+        {scndChild && <div className="flex flex-initial overflow-hidden" style={{ flexBasis: hasBothChildren ? invPct : '100%' }}>
             {scndChild}
-        </div>
-        <div
-            ref={setSliderHitEl}
-            className={clsx("absolute", vertical ? "w-full cursor-ns-resize h-4" : "h-full cursor-ew-resize w-4")}
-            style={{ transform: `translate${vertical ? 'Y' : 'X'}(-50%)`, top: vertical ? pct : undefined, left: vertical ? undefined : pct }}
-            onMouseDown={handleMouseDown}>
-        </div>
-        <div
-            className={clsx("absolute bg-slate-200 pointer-events-none", vertical ? "w-full h-0 border-t" : "h-full w-0 border-l")}
-            style={{ transform: `translate${vertical ? 'Y' : 'X'}(-50%)`, top: vertical ? pct : undefined, left: vertical ? undefined : pct }}>
-        </div>
+        </div>}
+        {hasBothChildren && <>
+            <div
+                ref={setSliderHitEl}
+                className={clsx("absolute", vertical ? "w-full cursor-ns-resize h-4" : "h-full cursor-ew-resize w-4")}
+                style={{ transform: `translate${vertical ? 'Y' : 'X'}(-50%)`, top: vertical ? pct : undefined, left: vertical ? undefined : pct }}
+                onMouseDown={handleMouseDown}>
+            </div>
+            <div
+                className={clsx("absolute bg-slate-200 pointer-events-none", vertical ? "w-full h-0 border-t" : "h-full w-0 border-l")}
+                style={{ transform: `translate${vertical ? 'Y' : 'X'}(-50%)`, top: vertical ? pct : undefined, left: vertical ? undefined : pct }}>
+            </div>
+        </>}
     </div>;
 };

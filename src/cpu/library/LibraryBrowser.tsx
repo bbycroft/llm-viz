@@ -152,7 +152,7 @@ function schematicToLibraryItem(schematic: ISchematicDef, isBuiltin: boolean): I
     return {
         id: schematic.id,
         name: schematic.name,
-        schematic: schematic.model,
+        schematic: schematic.model.mainSchematic,
         // ports: schematic?.compArgs?.ports.map(p => ({ ...p })) ?? [],
         // size: schematic?.compArgs?.size ?? new Vec3(0, 0),
         // type: CompDefType.UserDefined,

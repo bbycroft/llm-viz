@@ -338,10 +338,12 @@ export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLi
     }
 
     return assignImm(layoutBase, {
-        nextWireId: maxWireId + 1,
-        nextCompId: maxCompId + 1,
-        wires: newWires,
-        comps: comps,
+        mainSchematic: assignImm(layoutBase.mainSchematic, {
+            nextWireId: maxWireId + 1,
+            nextCompId: maxCompId + 1,
+            wires: newWires,
+            comps: comps,
+        }),
     });
 }
 

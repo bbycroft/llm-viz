@@ -30,7 +30,7 @@ export const CompDetails: React.FC<{
 
     function handleInternalSchematicAddNew() {
         let newSchematic = editorState.schematicLibrary.addCustomSchematic('New Schematic')!;
-        newSchematic.model.parentCompDefId = singleComp!.defId;
+        newSchematic.model.mainSchematic.parentCompDefId = singleComp!.defId;
         // probably want to zoom into the new schematic??
         setEditorState(editComp({ idPrefix: "" }, true, singleComp!, comp => assignImm(comp, { subSchematicId: newSchematic.id })));
     }
@@ -58,7 +58,7 @@ export const CompDetails: React.FC<{
                     Add New
                 </button>}
                 {singleComp.subSchematicId && <EditKvp label={'Id'}><code>{singleComp.subSchematicId}</code></EditKvp>}
-                {subSchematic && <EditKvp label={'Name'}><code>{(subSchematic as IEditSnapshot)?.name}</code></EditKvp>}
+                {subSchematic && <EditKvp label={'Name'}><code>{subSchematic?.name}</code></EditKvp>}
             </div>
         </div>}
     </div>;

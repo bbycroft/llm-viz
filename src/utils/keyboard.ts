@@ -98,6 +98,14 @@ export interface IKeyboardEvent {
     metaKey: boolean;
 }
 
+export interface IModifiersEvent {
+    type: string;
+    altKey: boolean;
+    ctrlKey: boolean;
+    shiftKey: boolean;
+    metaKey: boolean;
+}
+
 export function isArrowKeyWithModifiers(ev: IKeyboardEvent, direction: "up" | "down" | "left" | "right", modifiers: Modifiers = Modifiers.None) {
     return (ev.key.toLowerCase() === direction || ev.key.toLowerCase() === `arrow${direction}`) && hasModifiers(ev, modifiers);
 }
@@ -106,7 +114,7 @@ export function isKeyWithModifiers(ev: IKeyboardEvent, key: string, modifiers: M
     return key.toLowerCase() === ev.key.toLowerCase() && hasModifiers(ev, modifiers);
 }
 
-export function hasModifiers(ev: IKeyboardEvent, modifiers: Modifiers) {
+export function hasModifiers(ev: IModifiersEvent, modifiers: Modifiers) {
     let modifiersActual = Modifiers.None;
     modifiersActual |= ev.altKey ? Modifiers.Alt : 0;
     modifiersActual |= ev.ctrlKey || ev.metaKey ? Modifiers.CtrlOrCmd : 0;

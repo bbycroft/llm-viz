@@ -1,8 +1,8 @@
-import { StateSetter, getOrAddToMap } from "../utils/data";
+import { StateSetter, assignImm, getOrAddToMap } from "../utils/data";
 import { Vec3 } from "../utils/vector";
-import { IEditorState, RefType, IElRef, IWireGraph, ISchematic, IEditSnapshot } from "./CpuModel";
-import { editSnapshot } from "./Editor";
-import { ILSState, exportData, importData, schematicToLsState } from "./ImportExport";
+import { IEditorState, RefType, IElRef, IWireGraph, ISchematic, IEditSchematic, IEditContext } from "./CpuModel";
+import { editSnapshot, updateSubSchematic } from "./Editor";
+import { exportData, importData, } from "./ImportExport";
 import { deleteSelection } from "./Selection";
 import { copyWireGraph, repackGraphIds, splitIntoIslands } from "./Wire";
 import { CompLibrary } from "./comps/CompBuilder";
@@ -40,16 +40,33 @@ export function pasteSelection(ev: KeyboardEvent, editorState: IEditorState, set
             // maybe move the selection with the mouse, and require a click to place it?
             // e.g. say we want to duplicate vertically, and link things up automatically
 
-            setEditorState(editSnapshot(true, (layout, editorState) => {
-                return mergeInSchematic(layout, res.schematic!, editorState.compLibrary);
+            let snapshot = editorState.snapshot;
+
+            // setEditorState(editSubSchematic({ idPrefix: snapshot.focusedIdPrefix ?? '' }, true, (schematic, editorState) => {
+            //     return mergeInSchematic(schematic, res.schematic!, editorState.compLibrary);
+            // }));
+
+            setEditorState(editSnapshot(true, (snapshot, editorState) => {
+
+                let editCtx: IEditContext = { idPrefix: snapshot.focusedIdPrefix ?? '' };
+                let newSelectionRefs: IElRef[] = [];
+                let newSnapshot = updateSubSchematic(editorState, editCtx, snapshot, (schematic) => {
+                    let [newSchematic, refs] = mergeInSchematic(schematic, res.schematic!, editorState.compLibrary);
+                    newSelectionRefs = refs;
+                    return newSchematic;
+                });
+
+                newSnapshot = assignImm(newSnapshot, { selected: newSelectionRefs });
+
+                return newSnapshot;
             }));
         }
     });
 }
 
-export function mergeInSchematic(snapshot: IEditSnapshot, schematic: ISchematic, compLibrary: CompLibrary): IEditSnapshot {
-    if (schematic.comps.length === 0 && schematic.wires.length === 0) {
-        return snapshot;
+export function mergeInSchematic(snapshot: IEditSchematic, srcSchematic: ISchematic, compLibrary: CompLibrary): [IEditSchematic, IElRef[]] {
+    if (srcSchematic.comps.length === 0 && srcSchematic.wires.length === 0) {
+        return [snapshot, []];
     }
     snapshot = { ...snapshot, comps: [...snapshot.comps], wires: [...snapshot.wires] };
 
@@ -58,7 +75,7 @@ export function mergeInSchematic(snapshot: IEditSnapshot, schematic: ISchematic,
 
     let delta = new Vec3(10, 10);
 
-    for (let comp of schematic.comps) {
+    for (let comp of srcSchematic.comps) {
         let id = '' + snapshot.nextCompId++;
 
         let newComp = compLibrary.create(comp.defId, comp.args);
@@ -70,7 +87,7 @@ export function mergeInSchematic(snapshot: IEditSnapshot, schematic: ISchematic,
         newSelectionRefs.push({ id, type: RefType.Comp });
     }
 
-    for (let wire of schematic.wires) {
+    for (let wire of srcSchematic.wires) {
         let wireCopy = copyWireGraph(wire);
         for (let node of wireCopy.nodes) {
             if (node.ref) {
@@ -90,9 +107,7 @@ export function mergeInSchematic(snapshot: IEditSnapshot, schematic: ISchematic,
         snapshot.wires.push({ ...wireCopy, id });
     }
 
-    snapshot.selected = newSelectionRefs;
-
-    return snapshot;
+    return [snapshot, newSelectionRefs];
 }
 
 export function writeToClipboard(text: string) {
@@ -117,7 +132,7 @@ export function selectionToSchematic(editorState: IEditorState): ISchematic {
 
     let wires: IWireGraph[] = [];
 
-    for (let wire of editorState.snapshot.wires) {
+    for (let wire of editorState.snapshot.mainSchematic.wires) {
         if (!selectedWireIds.has(wire.id)) {
             continue;
         }
@@ -149,8 +164,8 @@ export function selectionToSchematic(editorState: IEditorState): ISchematic {
     }
 
     let snapshotPartial: ISchematic = {
-        compBbox: editorState.snapshot.compBbox,
-        comps: editorState.snapshot.comps.filter(c => selectedCompIds.has(c.id)),
+        compBbox: editorState.snapshot.mainSchematic.compBbox,
+        comps: editorState.snapshot.mainSchematic.comps.filter(c => selectedCompIds.has(c.id)),
         wires: wires,
     };
 

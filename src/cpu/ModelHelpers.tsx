@@ -11,7 +11,7 @@ export interface IBoundingBoxOptions {
 export function computeModelBoundingBox(model: IEditSnapshot, options?: IBoundingBoxOptions): BoundingBox3d {
     let modelBbb = new BoundingBox3d();
 
-    for (let c of model.comps) {
+    for (let c of model.mainSchematic.comps) {
         if (options?.excludePorts && c.defId === compPortDefId) {
             continue;
         }
@@ -19,13 +19,13 @@ export function computeModelBoundingBox(model: IEditSnapshot, options?: IBoundin
         modelBbb.addInPlace(c.pos);
         modelBbb.addInPlace(c.pos.add(c.size));
     }
-    for (let w of model.wires) {
+    for (let w of model.mainSchematic.wires) {
         for (let n of w.nodes) {
             modelBbb.addInPlace(n.pos);
         }
     }
-    if (model.compBbox && !options?.excludePorts) {
-        modelBbb.combineInPlace(model.compBbox);
+    if (model.mainSchematic.compBbox && !options?.excludePorts) {
+        modelBbb.combineInPlace(model.mainSchematic.compBbox);
     }
 
     return modelBbb;
@@ -77,18 +77,21 @@ export function createCpuEditorState(sharedContext: ISharedContext | null): IEdi
 
 export function constructEditSnapshot(): IEditSnapshot {
     return {
+        focusedIdPrefix: "",
         selected: [],
-        name: "",
+        mainSchematic: {
+            id: "",
+            name: "",
 
-        nextWireId: 0,
-        nextCompId: 0,
-        wires: [],
-        comps: [],
+            nextWireId: 0,
+            nextCompId: 0,
+            wires: [],
+            comps: [],
 
-        compPorts: [],
-        compSize: new Vec3(0, 0),
-        compBbox: new BoundingBox3d(),
-
+            compPorts: [],
+            compSize: new Vec3(0, 0),
+            compBbox: new BoundingBox3d(),
+        },
         subSchematics: {},
     };
 }

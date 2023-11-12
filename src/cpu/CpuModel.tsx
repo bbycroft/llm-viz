@@ -290,24 +290,9 @@ export interface ISchematic {
 }
 
 export interface IEditSnapshot {
-    name: string;
+    focusedIdPrefix: string | null; // where pastes will go, etc, and should point to a subSchematic. null means the top-level, mainSchematic
     selected: IElRef[];
-
-    // schematic
-    nextCompId: number;
-    nextWireId: number;
-    comps: IComp[];
-    wires: IWireGraph[];
-    parentCompDefId?: string;
-
-    // custom component def
-    compSize: Vec3;
-    compPorts: ICompPort[];
-    compBbox: BoundingBox3d;
-
-    // what's the key here?
-    // for builtins with "subSchematicId", want the key to be the same
-    // for custom components, also want this?
+    mainSchematic: IEditSchematic;
     subSchematics: Record<string, IEditSchematic>;
 }
 
@@ -329,11 +314,23 @@ export interface IEditSnapshot {
 */
 
 export interface IEditSchematic {
-    nextCompId: number;
-    nextWireId: number;
+    id: string;
+    name: string;
     comps: IComp[];
     wires: IWireGraph[];
     compBbox: BoundingBox3d;
+
+    nextCompId: number;
+    nextWireId: number;
+
+    // this schematic uses a component from the compLibrary as its parent component
+    parentCompDefId?: string;
+
+    // -- or --
+
+    // this schematic has component definitions supplied explicitly
+    compSize: Vec3;
+    compPorts: ICompPort[];
 }
 
 export interface IMemoryMap {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { IViewLayoutContext, editSnapshot, useEditorContext, useViewLayout } from "./Editor";
+import { IViewLayoutContext, editMainSchematic, editSnapshot, useEditorContext, useViewLayout } from "./Editor";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { RectCorner, RectSide } from "./comps/SchematicComp";
 import clsx from "clsx";
@@ -12,11 +12,11 @@ export const CompBoundingBox: React.FC<{
 }> = () => {
     let { editorState, setEditorState } = useEditorContext();
     let viewLayout = useViewLayout();
-    let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
-    let compBb = snapshot.compBbox;
+    let schematic = (editorState.snapshotTemp ?? editorState.snapshot).mainSchematic;
+    let compBb = schematic.compBbox;
 
     function handleEdgeDrag(end: boolean, side: RectSide, dest: Vec3) {
-        setEditorState(editSnapshot(end, (layout) => {
+        setEditorState(editMainSchematic(end, (layout) => {
             let prev = layout.compBbox;
 
             let tl = prev.min.clone();
@@ -39,7 +39,7 @@ export const CompBoundingBox: React.FC<{
     }
 
     function handleCornerDrag(end: boolean, corner: RectCorner, dest: Vec3) {
-        setEditorState(editSnapshot(end, (layout) => {
+        setEditorState(editMainSchematic(end, (layout) => {
             let prev = layout.compBbox;
 
             let tl = prev.min.clone();

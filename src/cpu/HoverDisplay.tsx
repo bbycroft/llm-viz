@@ -4,7 +4,7 @@ import { Popup, PopupPos } from "../utils/Portal";
 import { Vec3 } from "../utils/vector";
 import { ensureSigned32Bit, ensureUnsigned32Bit, signExtend32Bit } from "./comps/RiscvInsDecode";
 import { lookupPortInfo, netToString } from "./CpuExecution";
-import { ISchematic, IoDir, PortType, RefType } from "./CpuModel";
+import { ISchematic as IEditSchematic, IoDir, PortType, RefType } from "./CpuModel";
 import { useEditorContext } from "./Editor";
 import s from "./HoverDisplay.module.scss";
 import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
@@ -118,7 +118,7 @@ export const HoverDisplay: React.FC<{
         }
 
         let mtx = editorState.mtx;
-        let schematic: ISchematic = editorState.snapshot;
+        let schematic: IEditSchematic = editorState.snapshot.mainSchematic;
 
         let subParts = hovered.ref.id.split('|');
         for (let i = 0; i < subParts.length - 1; i++) {
@@ -131,7 +131,7 @@ export const HoverDisplay: React.FC<{
             if (!subSchematic) {
                 break;
             }
-            let subMtx = computeSubLayoutMatrix(comp, def, subSchematic);
+            let subMtx = computeSubLayoutMatrix(comp, subSchematic);
             mtx = mtx.mul(subMtx);
             schematic = subSchematic;
         }

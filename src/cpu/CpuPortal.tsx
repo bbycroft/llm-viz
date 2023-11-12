@@ -14,7 +14,7 @@ export const CpuPortal: React.FC<{
 
     return <div className={clsx('self-center flex flex-col my-2')}>
         <div className={clsx(className, "bg-slate-50 flex flex-col shadow-md")} style={{ minWidth: `${width}rem`, minHeight: `${height}rem` }}>
-            <CpuCanvas schematicId={schematicId} readonly toolbars={[ToolbarTypes.PlayPause, ToolbarTypes.Viewport]}>
+            <CpuCanvas schematicId={schematicId} readonly embedded toolbars={[ToolbarTypes.PlayPause, ToolbarTypes.Viewport]}>
                 {children}
             </CpuCanvas>
         </div>

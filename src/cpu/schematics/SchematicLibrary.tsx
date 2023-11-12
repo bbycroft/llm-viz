@@ -2,12 +2,12 @@ import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { iterLocalStorageEntries } from "@/src/utils/localstorage";
 import { Vec3 } from "@/src/utils/vector";
 import { CompLibrary, ISubLayoutPort } from "../comps/CompBuilder";
-import { IEditSnapshot, PortType } from "../CpuModel";
+import { IEditSchematic, IEditSnapshot, PortType } from "../CpuModel";
 import { ILSState, wiresFromLsState, schematicToLsState, exportData } from "../ImportExport";
 import { assignImm } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";
 import { schematicManifest } from "./SchematicManifest";
-import { computeModelBoundingBox, constructEditSnapshot } from "../ModelHelpers";
+import { constructEditSnapshot } from "../ModelHelpers";
 
 export interface ILocalSchematic {
     id: string;
@@ -46,7 +46,7 @@ export class SchematicLibrary {
     public addSchematicsToCompLibrary(compLibrary: CompLibrary) {
         for (let schem of [...this.builtinSchematics.values(), ...this.customSchematics.values()]) {
             if (schem.compArgs) {
-                let libItem = createSchematicCompDef(schem.id, schem.name, schem.model, schem.compArgs);
+                let libItem = createSchematicCompDef(schem.id, schem.name, schem.model.mainSchematic, schem.compArgs);
                 compLibrary.addLibraryItem(libItem);
             }
         }
@@ -98,8 +98,9 @@ export class SchematicLibrary {
 
         let snapshot = constructEditSnapshot();
         snapshot = wiresFromLsState(snapshot, lsSchematic.model, compLibrary);
-        snapshot = addCompArgsToSnapshot(snapshot, compArgs);
-        snapshot.name = lsSchematic.name;
+        snapshot.mainSchematic = addCompArgsToSnapshot(snapshot.mainSchematic, compArgs);
+        snapshot.mainSchematic.id = lsSchematic.id;
+        snapshot.mainSchematic.name = lsSchematic.name;
         // if (snapshot.compBbox.empty) {
         //     snapshot.compBbox = computeModelBoundingBox(snapshot, { excludePorts: true });
         // }
@@ -116,8 +117,8 @@ export class SchematicLibrary {
 
     private resolveSchematicRefs(compLibrary: CompLibrary) {
         for (let schematic of this.customSchematics.values()) {
-            for (let i = 0; i < schematic.model.comps.length; i++) {
-                let comp = schematic.model.comps[i];
+            for (let i = 0; i < schematic.model.mainSchematic.comps.length; i++) {
+                let comp = schematic.model.mainSchematic.comps[i];
                 if (!comp.resolved) {
                     let newComp = compLibrary.create(comp.defId, comp.args);
                     newComp.id = comp.id;
@@ -127,7 +128,7 @@ export class SchematicLibrary {
                         continue;
                     }
 
-                    schematic.model.comps[i] = newComp;
+                    schematic.model.mainSchematic.comps[i] = newComp;
                 }
             }
         }
@@ -143,6 +144,7 @@ export class SchematicLibrary {
             model: constructEditSnapshot(),
             hasEdits: false,
         };
+        schematic.model.mainSchematic.id = id;
         this.customSchematics.set(id, schematic);
         this.saveToLocalStorage(schematic.id);
         return schematic;
@@ -167,9 +169,9 @@ export class SchematicLibrary {
 
         let lsStr = JSON.stringify(lsSchematic);
 
-        let dataStr = exportData(editSnapshot);
+        let dataStr = exportData(editSnapshot.mainSchematic);
 
-        let name = (editSnapshot.name || id).replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        let name = (editSnapshot.mainSchematic.name || id).replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
         let nameToCamel = name.replace(/[_ ^]([a-z])/g, (g) => g[1].toUpperCase());
 
@@ -197,8 +199,8 @@ export const ${nameToCamel}SchematicStr = \`${dataStr}\`;
 export function editSnapshotToLsSchematic(id: string, editSnapshot: IEditSnapshot): ILSSchematic {
     return {
         id: id,
-        name: editSnapshot.name,
-        model: schematicToLsState(editSnapshot),
+        name: editSnapshot.mainSchematic.name,
+        model: schematicToLsState(editSnapshot.mainSchematic),
         compArgs: compArgsToLsState(editSnapshot),
     };
 }
@@ -245,13 +247,14 @@ export interface ISchematicCompArgs {
 }
 
 function compArgsToLsState(snapshot: IEditSnapshot): ILSCompArgs | undefined {
-    if (snapshot.compSize.len() < 0.001) {
+    let schematic = snapshot.mainSchematic;
+    if (schematic.compSize.len() < 0.001) {
         return undefined;
     }
     return {
-        w: snapshot.compSize.x,
-        h: snapshot.compSize.y,
-        ports: snapshot.compPorts.map(p => ({
+        w: schematic.compSize.x,
+        h: schematic.compSize.y,
+        ports: schematic.compPorts.map(p => ({
             id: p.id,
             name: p.name,
             type: p.type,
@@ -279,12 +282,12 @@ function compArgsFromLsState(lsCompArgs?: ILSCompArgs): ISchematicCompArgs | nul
     };
 }
 
-function addCompArgsToSnapshot(snapshot: IEditSnapshot, compArgs: ISchematicCompArgs | null): IEditSnapshot {
+function addCompArgsToSnapshot(schematic: IEditSchematic, compArgs: ISchematicCompArgs | null): IEditSchematic {
     if (!compArgs) {
-        return snapshot;
+        return schematic;
     }
 
-    return assignImm(snapshot, {
+    return assignImm(schematic, {
         compSize: compArgs.size,
         compPorts: compArgs.ports,
     });
