@@ -45,7 +45,7 @@ The self-attention layer is made up of several heads, and we'll focus on one of 
     breakAfter();
     commentary(wt)`
 The first step is to produce three vectors for each of the ${c_dimRef('C', DimStyle.C)} columns from the ${c_blockRef('normalized input embedding matrix', block0.ln1.lnResid)}.
-These vectors are:
+These vectors are the Q, K, and V vectors:
 
 ${embedInline(<ul>
     <li>Q: <BlockText blk={head2.qBlock}>Query vector</BlockText></li>
@@ -55,7 +55,7 @@ ${embedInline(<ul>
 
 To produce one of these vectors, we perform a matrix-vector multiplication with a bias added. Each
 output cell is some linear combination of the input vector. E.g. for the ${c_blockRef('Q vectors', head2.qBlock)}, this is done with a dot product between
-a row of the ${c_blockRef('Q-weight matrix', head2.qWeightBlock)} and the ${c_blockRef('input', block0.ln1.lnResid)} column vector.`;
+a row of the ${c_blockRef('Q-weight matrix', head2.qWeightBlock)} and a column of the ${c_blockRef('input matrix', block0.ln1.lnResid)}.`;
     breakAfter();
 
     let t_focusQCol = afterTime(null, 1.0);
@@ -97,11 +97,11 @@ gives us a hint: "key" and "value" are reminiscent of a dictionary in software, 
 values. Then "query" is what we use to look up the value.
 
 ${embedInline(<div className='ml-4'>
-    <div className='text-sm mt-1 text-center italic'>Software analogy</div>
-    <div className='text-xs mt-1 mb-1 text-gray-600'>Lookup table:</div>
-    <div className='font-mono text-sm'>{'table = { "key0": "value0", "key1": "value1", ... }'}</div>
-    <div className='text-xs mt-1 mb-1 text-gray-600'>Query Process:</div>
-    <div className='font-mono text-sm'>{'table["key1"] => "value1"'}</div>
+    <div className='mt-1 text-center italic'>Software analogy</div>
+    <div className='text-sm mt-1 mb-1 text-gray-600'>Lookup table:</div>
+    <div className='font-mono'>{'table = { "key0": "value0", "key1": "value1", ... }'}</div>
+    <div className='text-sm mt-1 mb-1 text-gray-600'>Query Process:</div>
+    <div className='font-mono'>{'table["key1"] => "value1"'}</div>
 </div>)}
 
 In the case of self-attention, instead of returning a single entry, we return some weighted
@@ -115,31 +115,31 @@ ${embedInline((() => {
     let qCol = dimStyleColor(DimStyle.Aggregates);
 
     return <div className='ml-4'>
-        <div className='text-sm mt-1 text-center italic'>Self Attention</div>
-        <div className='text-xs mt-2 mb-1 text-gray-600'>Lookup table:</div>
-        <div className='font-mono text-sm flex items-center'>K:
+        <div className='mt-1 text-center italic'>Self Attention</div>
+        <div className='text-sm mt-2 mb-1 text-gray-600'>Lookup table:</div>
+        <div className='font-mono flex items-center'>K:
             <div className='mx-2 my-1'>{makeTextVector(keyCol)}</div>
             <div className='mx-2 my-1'>{makeTextVector(keyCol)}</div>
             <div className='mx-2 my-1'>{makeTextVector(keyCol)}</div>
         </div>
-        <div className='font-mono text-sm flex items-center'>V:
+        <div className='font-mono flex items-center'>V:
             <div className='mx-2 my-1'>{makeTextVector(valCol)}</div>
             <div className='mx-2 my-1'>{makeTextVector(valCol)}</div>
             <div className='mx-2 my-1'>{makeTextVector(valCol)}</div>
         </div>
-        <div className='text-xs mt-2 mb-1 text-gray-600'>Query Process:</div>
-        <div className='font-mono text-sm flex items-center'>
+        <div className='text-sm mt-2 mb-1 text-gray-600'>Query Process:</div>
+        <div className='font-mono flex items-center'>
             <div className='flex items-center'>Q: <div className='mx-2 my-1'>{makeTextVector(qCol)}</div></div>
         </div>
-        <div className='font-mono text-sm flex items-center -ml-2 mt-2'>
+        <div className='font-mono flex items-center -ml-2 mt-2'>
             <div className='flex items-center mx-2'>w0 = <div className='m-1'>{makeTextVector(qCol)}</div>.<div className='m-1'>{makeTextVector(keyCol)}</div></div>
             <div className='flex items-center mx-2'>w1 = <div className='m-1'>{makeTextVector(qCol)}</div>.<div className='m-1'>{makeTextVector(keyCol)}</div></div>
             <div className='flex items-center mx-2'>w2 = <div className='m-1'>{makeTextVector(qCol)}</div>.<div className='m-1'>{makeTextVector(keyCol)}</div></div>
         </div>
-        <div className='font-mono text-sm flex items-center my-2'>
+        <div className='font-mono flex items-center my-2'>
             [w0n, w1n, w2n] =&nbsp;<span className='italic'>normalization</span>([w0, w1, w2])
         </div>
-        <div className='font-mono text-sm flex items-center'>
+        <div className='font-mono flex items-center'>
             result =
             w0n * <div className='ml-2 mr-2 my-1'>{makeTextVector(valCol)}</div>&nbsp;+&nbsp;
             w1n * <div className='ml-2 mr-2 my-1'>{makeTextVector(valCol)}</div>&nbsp;+&nbsp;

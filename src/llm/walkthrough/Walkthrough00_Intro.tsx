@@ -290,6 +290,10 @@ export function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkD
     let blockPos = new Vec3().withSetAt(dim0, horizIdx).withSetAt(dim1, vertIdx); // new Vec3(horizIdx, vertIdx, 0);
     let pinPos = new Vec3(Math.floor(cx / 2), 0, 0);
 
+    if (blk === state.layout.residual0) {
+        pinPos = new Vec3(cx * 2, -2, 0);
+    }
+
     if (timer.t >= 1.0) {
         currIdx = lastIdx;
     }

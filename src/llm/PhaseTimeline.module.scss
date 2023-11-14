@@ -69,12 +69,13 @@
 .timelineBaseHoriz {
     position: relative;
     flex: 1;
-    background-color: rgba(0, 255, 0, 0.1);
+    // background-color: rgba(0, 255, 0, 0.1);
     display: flex;
     justify-content: center;
     align-items: center;
     flex-direction: row;
     cursor: pointer;
+    height: 14px;
     // pointer-events: none;
 }
 

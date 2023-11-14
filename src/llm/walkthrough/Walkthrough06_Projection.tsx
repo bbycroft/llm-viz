@@ -27,9 +27,9 @@ ${c_dimRef('t = 4', DimStyle.T)}, we go from 3 vectors of length ${c_dimRef('A =
 
     breakAfter();
 
-    let t_fadeOut = afterTime(null, 0.5, 0.3);
+    let t_fadeOut = afterTime(null, 1.0, 0.5);
     // let t_zoomToStack = afterTime(null, 1.0);
-    let t_stack = afterTime(null, 0.5);
+    let t_stack = afterTime(null, 1.0);
 
     breakAfter();
 
@@ -51,7 +51,7 @@ multiplication on a per-column basis, with a bias added.`;
 
 Now we have the output of the self-attention layer. Instead of passing this output directly to the
 next phase, we add it element-wise to the input embedding. This process, denoted by the green
-vertical arrow, is called the residual connection or residual pathway.
+vertical arrow, is called the _residual connection_ or _residual pathway_.
 `;
 
     breakAfter();

@@ -7,9 +7,10 @@ import { Mat4f } from "@/src/utils/matrix";
 import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
 import { commentary, DimStyle, IWalkthroughArgs, moveCameraTo, setInitialCamera } from "./WalkthroughTools";
+import { processUpTo, startProcessBefore } from "./Walkthrough00_Intro";
 
 export function walkthrough02_Embedding(args: IWalkthroughArgs) {
-    let { walkthrough: wt, state, tools: { c_str, c_blockRef, c_dimRef, afterTime, cleanup }, layout } = args;
+    let { walkthrough: wt, state, tools: { c_str, c_blockRef, c_dimRef, afterTime, cleanup, breakAfter }, layout } = args;
     let render = state.render;
 
     if (wt.phase !== Phase.Input_Detail_Embedding) {
@@ -19,53 +20,91 @@ export function walkthrough02_Embedding(args: IWalkthroughArgs) {
     setInitialCamera(state, new Vec3(15.654, 0.000, -80.905), new Vec3(287.000, 14.500, 3.199));
     wt.dimHighlightBlocks = [layout.idxObj, layout.tokEmbedObj, layout.posEmbedObj, layout.residual0];
 
-    let c0 = commentary(wt, null, 0)`
+    commentary(wt)`
 We saw previously how the tokens are mapped to a sequence of integers using a simple lookup table.
 These integers, the ${c_blockRef('_token indices_', state.layout.idxObj, DimStyle.TokenIdx)}, are the first and only time we see integers in the model.
-From here on out, we're using floats (decimal numbers).`;
+From here on out, we're using floats (decimal numbers).
 
-    let c1 = commentary(wt, null, 0)`
-At each position ${c_dimRef('_t_', DimStyle.T)} in the sequence, we use the token index as an index into the ${c_blockRef('_token embedding matrix_', state.layout.tokEmbedObj)} on the left.
-Here, the index selects the appropriate column of that matrix (note we're using 0-based indexing here, so the first column is at index 0).
-
-This produces a column vector of size ${c_dimRef('_C_ = 48', DimStyle.C)}, which we describe as the token embedding.
-
-The token embedding column vector is then added to the position embedding column vector, which is also of size ${c_dimRef('_C_ = 48', DimStyle.C)}.
-This position embedding is a particular column from the ${c_blockRef('_position embedding matrix_', state.layout.posEmbedObj)} on the right.
-This time, though, we simply take the column at index ${c_dimRef('_t_', DimStyle.T)}.
-
-Note that both of these position and token embeddings are learned during training (indicated by their blue color).
-
-Doing this for each of our tokens in the input sequence produces a matrix of size ${c_dimRef('_T_', DimStyle.T)} x ${c_dimRef('_C_', DimStyle.C)}.
-The ${c_dimRef('_T_', DimStyle.T)} stands for ${c_dimRef('_time_', DimStyle.T)}, i.e., you can think of tokens later in the sequence as later in time.
-The ${c_dimRef('_C_', DimStyle.C)} stands for ${c_dimRef('_channel_', DimStyle.C)}, but is also often referred to as "feature" or "dimension" or "embedding size".
-
-This matrix, which we'll refer to as the ${c_blockRef('_input embedding_', state.layout.residual0)} is now ready to be passed down through the model.
-This collection of ${c_dimRef('T', DimStyle.T)} columns each of length ${c_dimRef('C', DimStyle.C)} will become a familiar sight throughout this guide.
-`;
+Let's take a look at how the 4th token (index 3) is used to generate the 4th column vector of our ${c_blockRef('_input embedding_', state.layout.residual0)}.`;
+    breakAfter();
 
     let t_moveCamera = afterTime(null, 1.0);
     let t0_splitEmbedAnim = afterTime(null, 0.3);
-    let t1_fadeEmbedAnim = afterTime(null, 0.3);
 
+    breakAfter();
+
+    commentary(wt)`
+We use the token index (in this case ${c_str('B', DimStyle.Token)} = ${c_dimRef('1', DimStyle.TokenIdx)}) to select the 2nd column of the ${c_blockRef('_token embedding matrix_', state.layout.tokEmbedObj)} on the left.
+Note we're using 0-based indexing here, so the first column is at index 0.
+
+This produces a column vector of size ${c_dimRef('_C_ = 48', DimStyle.C)}, which we describe as the token embedding.
+    `;
+    breakAfter();
+
+    let t1_fadeEmbedAnim = afterTime(null, 0.3);
     let t2_highlightTokenEmbed = afterTime(null, 0.8);
-    let t3_moveTokenEmbed = afterTime(null, 0.8);
+
+    breakAfter();
+
+    commentary(wt)`
+And since we're looking at our token ${c_str('B', DimStyle.Token)} in the 4th _position_ (t = ${c_dimRef('3', DimStyle.T)}), we'll take the 4th column of the ${c_blockRef('_position embedding matrix_', state.layout.posEmbedObj)}.
+
+This also produces a column vector of size ${c_dimRef('_C_ = 48', DimStyle.C)}, which we describe as the position embedding.
+    `;
+    breakAfter();
+
     let t4_highlightPosEmbed = afterTime(null, 0.8);
+
+    breakAfter();
+
+    commentary(wt)`
+Note that both of these position and token embeddings are learned during training (indicated by their blue color).
+
+Now that we have these two column vectors, we simply add them together to produce another column vector of size ${c_dimRef('_C_ = 48', DimStyle.C)}.
+`;
+
+    breakAfter();
+
+    let t3_moveTokenEmbed = afterTime(null, 0.8);
     let t5_movePosEmbed = afterTime(null, 0.8);
     let t6_plusSymAnim = afterTime(null, 0.8);
     let t7_addAnim = afterTime(null, 0.8);
     let t8_placeAnim = afterTime(null, 0.8);
     let t9_cleanupInstant = afterTime(null, 0.0);
     let t10_fadeAnim = afterTime(null, 0.8);
+
+    breakAfter();
+
+    commentary(wt)`
+We now run this same process for all of the tokens in the input sequence, creating a set of vectors which incorporate both the token values and their positions.
+
+`;
+
+    breakAfter();
+
+    let t11_fillRest = afterTime(null, 5.0);
+
+    breakAfter();
+
+    commentary(wt)`
+Feel free to hover over individual cells on the ${c_blockRef('_input embedding_', state.layout.residual0)} matrix to see the computations and their sources.
+
+We see that running this process for all the tokens in the input sequence produces a matrix of size ${c_dimRef('_T_', DimStyle.T)} x ${c_dimRef('_C_', DimStyle.C)}.
+The ${c_dimRef('_T_', DimStyle.T)} stands for ${c_dimRef('_time_', DimStyle.T)}, i.e., you can think of tokens later in the sequence as later in time.
+The ${c_dimRef('_C_', DimStyle.C)} stands for ${c_dimRef('_channel_', DimStyle.C)}, but is also referred to as "feature" or "dimension" or "embedding size".
+
+This matrix, which we'll refer to as the ${c_blockRef('_input embedding_', state.layout.residual0)} is now ready to be passed down through the model.
+This collection of ${c_dimRef('T', DimStyle.T)} columns each of length ${c_dimRef('C', DimStyle.C)} will become a familiar sight throughout this guide.
+`;
+
     cleanup(t9_cleanupInstant, [t3_moveTokenEmbed, t5_movePosEmbed, t6_plusSymAnim, t7_addAnim, t8_placeAnim]);
     cleanup(t10_fadeAnim, [t0_splitEmbedAnim, t1_fadeEmbedAnim, t2_highlightTokenEmbed, t4_highlightPosEmbed]);
-    let t11_fillRest = afterTime(null, 1.0);
 
     moveCameraTo(state, t_moveCamera, new Vec3(7.6, 0, -33.1), new Vec3(290, 15.5, 0.8));
 
     let residCol: IBlkDef = null!;
     let exampleIdx = 3;
-    if (t0_splitEmbedAnim.t > 0.0) {
+    if ((t0_splitEmbedAnim.t > 0.0 || t10_fadeAnim.t > 0.0) && t11_fillRest.t === 0) {
         splitGrid(layout, layout.idxObj, Dim.X, exampleIdx + 0.5, t0_splitEmbedAnim.t * 4.0);
 
         layout.residual0.access!.disable = true;
@@ -181,5 +220,11 @@ This collection of ${c_dimRef('T', DimStyle.T)} columns each of length ${c_dimRe
         residCol.access!.disable = false;
     }
 
+    if (t11_fillRest.t > 0.0) {
+        layout.residual0.access!.disable = true;
+
+        let prevInfo = startProcessBefore(state, layout.residual0);
+        processUpTo(state, t11_fillRest, layout.residual0, prevInfo);
+    }
     // new Vec3(-6.9, 0, -36.5), new Vec3(281.5, 5.5, 0.8)
 }

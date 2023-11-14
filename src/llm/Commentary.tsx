@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactNode, isValidElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import s from './Commentary.module.scss';
 import { PhaseTimelineHoriz } from './PhaseTimeline';
 import { useProgramState } from './Sidebar';
@@ -335,6 +335,9 @@ export function walkthroughToParagraphs(wt: IWalkthrough, nodes: INode[]) {
 
             if (i < c.values.length) {
                 let val = c.values[i];
+                if (isValidElement(val)) {
+                    paraItems.push(<React.Fragment key={paraKeyId++}>{val}</React.Fragment>)
+                }
                 if (val.insertInline) {
                     paraItems.push(<React.Fragment key={paraKeyId++}>{val.insertInline}</React.Fragment>);
                 }

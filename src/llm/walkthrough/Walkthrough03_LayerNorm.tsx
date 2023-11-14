@@ -1,3 +1,4 @@
+import React from "react";
 import { findSubBlocks, splitGrid } from "../Annotations";
 import { drawDataFlow } from "../components/DataFlow";
 import { drawDependences } from "../Interaction";
@@ -30,8 +31,8 @@ operation that normalizes the values in each column of the matrix separately.`;
     breakAfter();
 
     let t_moveCamera = afterTime(null, 1.0);
-    let t_hideExtra = afterTime(null, 0.5);
-    let t_moveInputEmbed = afterTime(null, 0.5);
+    let t_hideExtra = afterTime(null, 1.0, 1.0);
+    let t_moveInputEmbed = afterTime(null, 1.0);
     let t_moveCameraClose = afterTime(null, 0.5);
 
     breakAfter();
@@ -56,10 +57,12 @@ we find both of these quantities (${c_blockRef('mean (\u03bc)', ln.lnAgg1)} & ${
     let t_calcMuAgg = afterTime(null, 0.5);
     let t_calcVarAgg = afterTime(null, 0.5);
 
+    // 1e-5 as 1x10^-5, but with superscript: 1x10<sup>-5</sup>
+
     breakAfter();
     commentary(wt)`
 The notation we use here is E[x] for the average and Var[x] for the variance (of the column of length ${c_dimRef('C', DimStyle.C)}). The
-variance is simply the standard deviation squared. The epsilon term (ε = 1e-5) is there to prevent division by zero.
+variance is simply the standard deviation squared. The epsilon term (ε = ${<>1&times;10<sup>-5</sup></>}) is there to prevent division by zero.
 
 We compute and store these values in our aggregation layer since we're applying them to all values in the column.
 

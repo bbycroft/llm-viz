@@ -387,11 +387,11 @@ export function dimStyleColor(style: DimStyle) {
         case DimStyle.n_vocab:
             return Vec4.fromHexColor('#7c3c8d'); // new Vec4(0.8, 0.6, 0.3, 1);
         case DimStyle.Intermediates:
-            return Colors.Intermediates;
+            return Vec4.fromHexColor('#00ad00');
         case DimStyle.Weights:
             return Colors.Weights;
         case DimStyle.Aggregates:
-            return Colors.Aggregates;
+            return Vec4.fromHexColor('#e3a300');
     }
     return new Vec4(0,0,0);
 }
