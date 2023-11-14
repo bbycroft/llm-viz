@@ -29,19 +29,24 @@ export const CanvasEventHandler: React.FC<{
         if (ev.key === "Control") {
             setCtrlDown(ev.type === "keydown");
         }
-        if (isKeyWithModifiers(ev, "o", Modifiers.None) && ev.type === "keydown") {
+
+        if (ev.type !== "keydown") {
+            return;
+        }
+
+        if (isKeyWithModifiers(ev, "o", Modifiers.None)) {
             setEditorState(a => assignImm(a, { showExeOrder: !a.showExeOrder }));
         }
-        if (isKeyWithModifiers(ev, "p", Modifiers.None) && ev.type === "keydown") {
+        if (isKeyWithModifiers(ev, "p", Modifiers.None)) {
             setEditorState(a => assignImm(a, { transparentComps: !a.transparentComps }));
         }
-        if (isKeyWithModifiers(ev, "x", Modifiers.CtrlOrCmd) && ev.type === "keydown") {
+        if (isKeyWithModifiers(ev, "x", Modifiers.CtrlOrCmd)) {
             cutSelection(ev, editorState, setEditorState);
         }
-        if (isKeyWithModifiers(ev, "c", Modifiers.CtrlOrCmd) && ev.type === "keydown") {
+        if (isKeyWithModifiers(ev, "c", Modifiers.CtrlOrCmd)) {
             copySelection(ev, editorState, setEditorState);
         }
-        if (isKeyWithModifiers(ev, "v", Modifiers.CtrlOrCmd) && ev.type === "keydown") {
+        if (isKeyWithModifiers(ev, "v", Modifiers.CtrlOrCmd)) {
             pasteSelection(ev, editorState, setEditorState);
         }
 

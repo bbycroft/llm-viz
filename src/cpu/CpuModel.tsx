@@ -287,6 +287,7 @@ export interface ISchematic {
     comps: IComp[];
     wires: IWireGraph[];
     compBbox: BoundingBox3d;
+    parentCompDefId?: string;
 }
 
 export interface IEditSnapshot {

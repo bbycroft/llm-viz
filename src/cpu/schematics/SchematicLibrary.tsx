@@ -200,6 +200,7 @@ export function editSnapshotToLsSchematic(id: string, editSnapshot: IEditSnapsho
     return {
         id: id,
         name: editSnapshot.mainSchematic.name,
+        // parentCompDefId: editSnapshot.mainSchematic.parentCompDefId,
         model: schematicToLsState(editSnapshot.mainSchematic),
         compArgs: compArgsToLsState(editSnapshot),
     };

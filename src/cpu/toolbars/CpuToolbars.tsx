@@ -140,7 +140,7 @@ const ToolbarNameEditor: React.FC<{
         setEditingName(null);
     }
 
-    useGlobalKeyboard(KeyboardOrder.Modal, ev => {
+    function handleKeyDown(ev: React.KeyboardEvent) {
         if (isEditingName) {
             if (isKeyWithModifiers(ev, 'Enter')) {
                 applyEditName(ev);
@@ -152,12 +152,21 @@ const ToolbarNameEditor: React.FC<{
                 ev.preventDefault();
             }
         }
-    });
+        ev.stopPropagation();
+    }
 
     return <>
         {!isEditingName && <div className='hover:bg-slate-300 bg-slate-100 my-1 px-2 py-1 rounded flex-1' onClick={() => setEditingName(value)}>{value}</div>}
         {isEditingName && <>
-            <input ref={setInputEl} type='text' className='bg-slate-300 px-2 py-1 mr-1 my-1 rounded focus:outline-none focus:border-slate-500 w-[16rem] max-w-[20rem] flex-shrink' value={editingName || ''} onChange={ev => setEditingName(ev.target.value)} />
+            <input
+                ref={setInputEl}
+                type='text'
+                className='bg-slate-300 px-2 py-1 mr-1 my-1 rounded focus:outline-none focus:border-slate-500 w-[16rem] max-w-[20rem] flex-shrink'
+                value={editingName || ''}
+                onChange={ev => setEditingName(ev.target.value)}
+                onKeyDown={handleKeyDown}
+                onKeyUp={ev => ev.stopPropagation()}
+            />
             <button className={"px-1 mx-1 hover:text-slate-200"} onClick={applyEditName}>
                 <FontAwesomeIcon icon={faCheck} />
             </button>

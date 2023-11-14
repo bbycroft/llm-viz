@@ -286,12 +286,14 @@ export interface ILSGraphWireNode {
 }
 
 export interface ILSState {
+    parentCompDefId?: string;
     wires: ILSGraphWire[];
     comps: ILSComp[];
 }
 
 export function hydrateFromLS(ls: Partial<ILSState> | undefined): ILSState {
     return {
+        parentCompDefId: ls?.parentCompDefId,
         wires: ls?.wires ?? [],
         comps: ls?.comps ?? [],
     };
@@ -341,6 +343,7 @@ export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLi
         mainSchematic: assignImm(layoutBase.mainSchematic, {
             nextWireId: maxWireId + 1,
             nextCompId: maxCompId + 1,
+            parentCompDefId: ls.parentCompDefId,
             wires: newWires,
             comps: comps,
         }),
