@@ -11,15 +11,16 @@ export const AutoLoadCode: React.FC<{
     fileName: string,
     section?: string;
 }> = ({ fileName, section }) => {
-    let { editorState, exeModel } = useEditorContext();
+    let { editorState, setEditorState, exeModel } = useEditorContext();
     let codeSuite = useGetCodeSuite(editorState.codeLibrary, fileName);
 
     useEffect(() => {
-        if (exeModel && codeSuite) {
+        if (exeModel && codeSuite && codeSuite.entries.length > 0 && editorState.snapshot.mainSchematic.comps.length > 0) {
 
             let entry = section ? codeSuite.entries.find(e => e.name === section) : codeSuite.entries[0];
 
             if (!entry) {
+                console.warn(`Could not find code entry ${section} in ${fileName}`);
                 return;
             }
 
@@ -34,10 +35,13 @@ export const AutoLoadCode: React.FC<{
                     romArr.set(entry.elfSection.arr);
                     romArr.fill(0, entry.elfSection.arr.length);
                     exeComp.data.updateCntr += 1;
+                    setEditorState(e => ({ ...e }));
                 }
+            } else {
+                console.log(editorState.snapshot.mainSchematic.comps);
             }
         }
-    }, [exeModel, codeSuite, editorState.snapshot.mainSchematic.comps, section]);
+    }, [setEditorState, exeModel, codeSuite, editorState.snapshot.mainSchematic.comps, section, fileName]);
 
     return null;
 }

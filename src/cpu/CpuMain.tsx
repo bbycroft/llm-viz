@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { useCreateGlobalKeyboardDocumentListener } from '../utils/keyboard';
 import { CpuCanvas } from './CpuCanvas';
 import s from './CpuMain.module.scss';
@@ -47,7 +47,9 @@ export const CPUMain = () => {
         <div className={s.content}>
             <SharedContextContext.Provider value={sharedContext}>
                 <CpuCanvas>
-                    <QueryUpdater />
+                    <Suspense fallback={<div />}>
+                        <QueryUpdater />
+                    </Suspense>
                 </CpuCanvas>
             </SharedContextContext.Provider>
         </div>

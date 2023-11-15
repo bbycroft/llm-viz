@@ -18,7 +18,7 @@ export default function RootLayout({
 
     return <html lang="en" className={s.html}>
         <head>
-            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&family=Merriweather:ital@0;1" />
+            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&family=Merriweather:ital@0;1&display=optional" />
         </head>
         <body className={s.body}>{children}</body>
     </html>;

@@ -73,6 +73,7 @@ export class CodeSuiteManager {
 
         suite.entries = examples;
         suite.loaded = true;
+        this.suites.set(suite.fileName, { ...suite });
         this.subs.notify();
     }
 }
