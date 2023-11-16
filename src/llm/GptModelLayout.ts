@@ -36,6 +36,7 @@ export interface IBlkDef {
     highlight: number; // 0 - 1 (0 = no highlight, 1 = full highlight)
     opacity: number; // 0 - 1 (0 = transparent, 1 = opaque)
     special: BlkSpecial;
+    transpose?: boolean; // transpose the process direction
     subs?: IBlkDef[]; // substitutes for this block (i.e. render these instead)
     offX?: number; // offset from the original block
     offY?: number;
@@ -159,6 +160,7 @@ interface IBlkDefArgs {
     deps?: IBlkDepArgs;
     small?: boolean;
     hidden?: boolean;
+    transpose?: boolean;
 }
 
 export interface IBlkLabel {
@@ -250,6 +252,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             highlight: 0.0,
             small: args.small ?? false,
             special: args.special ?? BlkSpecial.None,
+            transpose: args.transpose,
             idx: -1,
         };
     }
@@ -482,6 +485,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
                 deps: { dot: [[qBlock, 'yi'], [kBlock, 'xi']], lowerTri: true, dotLen: A, special: BlKDepSpecial.Attention },
                 dimX: DimStyle.T, dimY: DimStyle.T,
                 special: BlkSpecial.Attention,
+                transpose: true,
                 name: 'Attention Matrix',
             });
 
@@ -510,6 +514,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
                 deps: { add: [[attnMtx, 'xy'], [attnMtxAgg1, 'iy'], [attnMtxAgg2, 'iy']], lowerTri: true, special: BlKDepSpecial.Softmax },
                 dimX: DimStyle.T, dimY: DimStyle.T,
                 special: BlkSpecial.Attention,
+                transpose: true,
                 name: 'Attn Matrix Softmax',
             });
 
@@ -627,6 +632,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             deps: { dot: [[mlpFcWeight, 'xi'], [ln2.lnResid, 'yi']], dotLen: C, add: [[mlpFcBias, 'x']] },
             dimX: DimStyle.C4, dimY: DimStyle.T,
             name: 'MLP',
+            transpose: true,
         });
 
         y += T * cell + margin;
@@ -638,6 +644,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             deps: { add: [[mlpFc, 'xy']], special: BlKDepSpecial.Gelu },
             dimX: DimStyle.C4, dimY: DimStyle.T,
             name: 'MLP Activation',
+            transpose: true,
         });
 
         y += T * cell + margin;

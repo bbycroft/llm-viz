@@ -4,6 +4,10 @@ export function makeArray<T = number>(length: number, val?: T): T[] {
     return new Array(length).fill(val ?? 0);
 }
 
+export function makeArrayRange(length: number, min: number, max: number): number[] {
+    return new Array(length).fill(0).map((_, i) => min + i * (max - min) / (length - 1));
+}
+
 export function oneHotArray(length: number, index: number, val: number, defaultVal: number = 0.0): number[] {
     let arr = new Array(length).fill(defaultVal);
     arr[index] = val;

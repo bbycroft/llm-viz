@@ -273,7 +273,7 @@ export function processUpTo(state: IProgramState, timer: ITimeInfo, block: IBlkD
     // default, but switched for attention matrix
     let dim0 = Dim.X;
     let dim1 = Dim.Y;
-    if (blk.special === BlkSpecial.Attention) {
+    if (blk.transpose) {
         dim0 = Dim.Y;
         dim1 = Dim.X;
     }

@@ -642,7 +642,7 @@ export function drawAttention(args: IDataFlowArgs) {
 }
 
 export function drawGeluActivation(args: IDataFlowArgs) {
-    let { state, center, mtx } = args;
+    let { state, center, mtx, blk, destIdx } = args;
 
     // ugly
     // let fontOpts = { color: opColor, mtx, size: 16 };
@@ -693,6 +693,14 @@ export function drawGeluActivation(args: IDataFlowArgs) {
 
     let curveLineOpts = makeLineOpts({ color: Colors.Intermediates, mtx, thick: 3.5 });
     drawLineSegs(state.render.lineRender, pts, curveLineOpts);
+
+    let srcBlk = blk.deps!.add![0].src;
+    let srcVal = getBlockValueAtIdx(srcBlk, destIdx);
+
+    if (isNotNil(srcVal)) {
+        let destVal = geluX(srcVal);
+        drawCircle(state.render, new Vec3(mappingX(srcVal), mappingY(destVal)), 2, 1, Colors.Intermediates, mtx);
+    }
 
     let bb = new BoundingBox3d(tl, br);
 
