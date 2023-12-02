@@ -215,7 +215,7 @@ and sort them in alphabetical order, i.e. to "ABBBCC".`;
                 }
             }
 
-            state.display.lines.push(arr.map(a => a.toFixed(2).padStart(4)).join(', '));
+            // state.display.lines.push(arr.map(a => a.toFixed(2).padStart(4)).join(', '));
             state.display.tokenOutputColors = { color1: new Vec4(0,0,0,0), color2: Vec4.fromHexColor('#000', 1), mixes: arr };
         }
     }
