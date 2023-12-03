@@ -95,6 +95,8 @@ The ${c_dimRef('_C_', DimStyle.C)} stands for ${c_dimRef('_channel_', DimStyle.C
 
 This matrix, which we'll refer to as the ${c_blockRef('_input embedding_', state.layout.residual0)} is now ready to be passed down through the model.
 This collection of ${c_dimRef('T', DimStyle.T)} columns each of length ${c_dimRef('C', DimStyle.C)} will become a familiar sight throughout this guide.
+
+For this particular model, we are using a 48-element vector for the embeddings given that it's based on the initial gpt-nano configurations and is a number that the developers should decided on in advance.
 `;
 
     cleanup(t9_cleanupInstant, [t3_moveTokenEmbed, t5_movePosEmbed, t6_plusSymAnim, t7_addAnim, t8_placeAnim]);
