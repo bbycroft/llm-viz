@@ -40,7 +40,7 @@ operation that normalizes the values in each column of the matrix separately.`;
 Normalization is an important step in the training of deep neural networks, and it helps improve the
 stability of the model during training.
 
-We can regard each column separately, so let's focus on the 4rd column (${c_dimRef('t = 3', DimStyle.T)}) for now.`;
+We can regard each column separately, so let's focus on the 4th column (${c_dimRef('t = 3', DimStyle.T)}) for now.`;
 
     breakAfter();
     let t_focusColumn = afterTime(null, 0.5);

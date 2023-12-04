@@ -130,7 +130,7 @@ and sort them in alphabetical order, i.e. to "ABBBCC".`;
     breakAfter();
 
     let c5 = commentary(wt)`In the 3d view, the each green cell represents a number being processed, and each blue cell is a weight. ${embed(GreenBlueCells)}
-    Each number in the sequence first gets turned into a 48 element vector. This is called an _embedding_.`;
+    Each number in the sequence first gets turned into a 48 element vector (a size chosen for this particular model). This is called an _embedding_.`;
     breakAfter(c5);
 
     {
