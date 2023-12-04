@@ -20,7 +20,7 @@
 .timelineCaret {
     position: absolute;
     transform: translateY(-50%);
-    background-color: #888;
+    background-color: rgb(12, 111, 223);
     width: 10px;
     height: 10px;
     border-radius: 40px;
@@ -89,7 +89,7 @@
 .timelineCaretHoriz {
     position: absolute;
     transform: translateX(-50%);
-    background-color: #888;
+    background-color: rgb(12, 111, 223);
     width: 10px;
     height: 10px;
     border-radius: 40px;

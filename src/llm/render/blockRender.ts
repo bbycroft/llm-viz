@@ -8,7 +8,10 @@ import { modelViewUboText, UboBindings } from "./sharedRender";
 
 export type IBlockRender = ReturnType<typeof initBlockRender>;
 
-export function initBlockRender(ctx: IGLContext) {
+export function initBlockRender(ctx: IGLContext | null) {
+    if (!ctx) {
+        return null!;
+    }
     let gl = ctx.gl;
 
     let blockUboText = /*glsl*/`

@@ -197,6 +197,10 @@ export function LayerView() {
             className={s.canvas}
             ref={setCanvasEl}
         />
+        {canvasRender && !canvasRender.progState.render && <div className='absolute flex flex-col items-center w-full h-full justify-center'>
+            <div className='text-2xl'>This application requires a WebGL2 capable browser.</div>
+            <div className='text-lg mt-2'>Please try the latest version of Chrome or Firefox.</div>
+        </div>}
         {/* <div className={s.cursorFollow} style={{ top: pointPos.y, left: pointPos.x }} /> */}
         {canvasRender && <ProgramStateContext.Provider value={canvasRender.progState}>
             <CanvasEventSurface>
@@ -248,7 +252,7 @@ class CanvasRender {
     setData(data: ICanvasData) {
         this.canvasData = data;
 
-        if (data.dataAndModel && !this.progState.gptGpuModel) {
+        if (data.dataAndModel && !this.progState.gptGpuModel && this.progState.render) {
             this.progState.gptGpuModel = initModel(this.renderState, data.dataAndModel, 1);
             this.progState.native = data.dataAndModel.native;
             this.progState.wasmGptModel = constructModel(data.dataAndModel.model, data.dataAndModel.model.config, data.dataAndModel.native);
@@ -293,13 +297,13 @@ class CanvasRender {
 
         // we separate waitingForSync from dirty, so we don't have to render if we're only waiting for sync
         this.checkSyncObjects();
-        let prevSyncCount = this.progState.render.syncObjects.length;
+        let prevSyncCount = this.progState.render?.syncObjects.length ?? 0;
 
         if (wasDirty || this.isDirty) {
             this.render(time, dt);
         }
 
-        let newSyncCount = this.progState.render.syncObjects.length;
+        let newSyncCount = this.progState.render?.syncObjects.length ?? 0;
         if (newSyncCount !== prevSyncCount) {
             this.isWaitingForSync = true;
         }
@@ -308,6 +312,10 @@ class CanvasRender {
     }
 
     checkSyncObjects() {
+        if (!this.progState.render) {
+            return;
+        }
+
         let gl = this.renderState.gl;
         let objs = this.progState.render.syncObjects;
         let anyToRemove = false;
@@ -335,6 +343,10 @@ class CanvasRender {
     }
 
     render(time: number, dt: number) {
+        if (!this.progState.render) {
+            return;
+        }
+
         let canvasEl = this.renderState.canvasEl;
 
         if (this.canvasSizeDirty) {

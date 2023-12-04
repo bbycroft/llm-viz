@@ -41,11 +41,15 @@ export interface IRenderState {
     lastJsMs: number;
 }
 
-export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtlasData): IRenderState {
+export function initRender(canvasEl: HTMLCanvasElement, fontAtlasData: IFontAtlasData): IRenderState | null {
     // init shaders for various block types
 
     // console.clear();
     let gl = canvasEl.getContext("webgl2", { antialias: true })!;
+
+    if (!gl) {
+        return null;
+    }
 
     let ext: IGLContext['ext'] = {
         colorBufferFloat: gl.getExtension("EXT_color_buffer_float"),

@@ -146,7 +146,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
     return {
         native: null,
         wasmGptModel: null,
-        render,
+        render: render!,
         inWalkthrough: true,
         walkthrough,
         camera,
@@ -168,7 +168,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
             shape: gpt2ShapeSmall,
             offset: delta.mul(-5),
             modelCardOffset: delta.mul(-2.0),
-            blockRender: initBlockRender(render.ctx),
+            blockRender: initBlockRender(render?.ctx ?? null),
             camera: makeCamera(new Vec3(-65141.321, 0.000, -69843.439), new Vec3(224.459, 24.501, 1574.240)),
         }, {
             name: 'GPT-2 (XL)',
@@ -176,7 +176,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
             shape: gpt2ShapeLarge,
             offset: delta.mul(20),
             modelCardOffset: delta.mul(0.5),
-            blockRender: initBlockRender(render.ctx),
+            blockRender: initBlockRender(render?.ctx ?? null),
             camera: makeCamera(new Vec3(237902.688, 0.000, -47282.484), new Vec3(311.959, 23.501, 1382.449)),
         }, {
             name: 'GPT-3',
@@ -184,7 +184,7 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
             shape: gpt3Shape,
             offset: delta.mul(50.0),
             modelCardOffset: delta.mul(15.0),
-            blockRender: initBlockRender(render.ctx),
+            blockRender: initBlockRender(render?.ctx ?? null),
             camera: makeCamera(new Vec3(837678.163, 0.000, -485242.286), new Vec3(238.959, 10.501, 12583.939)),
         }],
         gptGpuModel: null,
@@ -222,6 +222,10 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
 
 export function runProgram(view: IRenderView, state: IProgramState) {
     let timer0 = performance.now();
+
+    if (!state.render) {
+        return;
+    }
 
     resetRenderBuffers(state.render);
     state.render.sharedRender.activePhase = RenderPhase.Opaque;

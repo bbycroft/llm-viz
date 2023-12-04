@@ -251,7 +251,6 @@ export const Commentary: React.FC = () => {
                 // parasEl.parentElement!.scrollTop = rangeInfo.start + delta;
                 prevPhase.current = wt.phase;
             } else if (wt.time > 0) {
-                console.log('scrollTo', rangeInfo.start + delta, `(${rangeInfo.start} + ${delta})`, 'where height is', guideLayout.height);
                 parasEl.parentElement!.scrollTo({ top: rangeInfo.start + delta, behavior: 'smooth' });
             }
         }

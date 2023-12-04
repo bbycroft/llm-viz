@@ -114,6 +114,10 @@ export const CanvasEventSurface: React.FC<{
         ev.stopPropagation();
     }
 
+    if (!progState.render) {
+        return null;
+    }
+
     return <div
         ref={setEventSurfaceEl}
         className={s.canvasEventSurface}
