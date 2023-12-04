@@ -10,7 +10,7 @@ which are otherwise a pain to share around.
 
 The main projects are:
 * LLM Visualization: 3D interactive model of a GPT-style LLM network running inference.
-* CPU Simulation: A 2D digital schematic editor with full a execution model, showcasing a simple
+* [WIP] CPU Simulation: A 2D digital schematic editor with full a execution model, showcasing a simple
   RISC-V based CPU
 
 ### LLM Visualization
@@ -25,7 +25,7 @@ of the letters A, B, and C. This is the demo example model from Andrej Karpathy'
 The renderer also supports visualizing arbitrary sized networks, and works with the smaller gpt2
 size, although the weights aren't downloaded (it's 100's of MBs).
 
-### CPU Simulation
+### CPU Simulation (WIP; not exposed yet!)
 
 This project runs 2D schematic digital circuits, with a fully fledged editor. The intent is to
 add a number of walkthroughs, showing things such as:
