@@ -78,7 +78,7 @@ We then project the vector back down to length ${c_dimRef('C', DimStyle.C)} with
     breakAfter();
 
 commentary(wt)`
-Like in the self-attention + projection section, we add the result of the MLP to it's input, element-wise.
+Like in the self-attention + projection section, we add the result of the MLP to its input, element-wise.
 `;
     breakAfter();
 
