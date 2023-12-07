@@ -18,6 +18,10 @@
     color: white;
     width: 100%;
     box-shadow: 0 0 12px 3px rgb(24 24 24);
+
+    @media (max-width: 600px) {
+        flex-direction: column;
+    }
 }
 
 .profilePic {
@@ -40,6 +44,12 @@
     flex-direction: column;
     justify-content: flex-start;
     margin-left: 4em;
+
+    @media (max-width: 600px) {
+        align-items: center;
+        margin-left: 0;
+        margin-top: 1em;
+    }
 }
 
 .name {
@@ -55,6 +65,9 @@
 }
 
 .links {
+    @media (max-width: 600px) {
+        align-self: stretch;
+    }
     display: flex;
     justify-content: space-between;
     a {
@@ -102,6 +115,10 @@
     width: 1200px;
     text-align: justify;
 
+    @media (max-width: 600px) {
+        max-width: 95%;
+    }
+
     p {
         margin: 10px;
     }
@@ -140,18 +157,36 @@
     max-width: 80%;
     width: 1200px;
 
+    @media (max-width: 600px) {
+        max-width: 95%;
+    }
+
     cursor: pointer;
     &:hover {
         background-color: rgba(#c7c7c7, 0.2);
     }
 }
 
+.cardImageWrapper {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    min-height: 200px;
+    position: relative;
+    border-right: 1px solid #ccc;
+}
+
 .cardImage {
     flex: 0 0 auto;
     width: 200px;
-    height: 200px;
+
+    @media (max-width: 500px) {
+        width: 140px;
+    }
+
+    min-height: 200px;
     position: relative;
-    border-right: 1px solid #ccc;
 
     img {
         position: absolute;

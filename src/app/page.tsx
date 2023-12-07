@@ -2,5 +2,8 @@ import React from 'react';
 import { HomePage } from '@/src/homepage/HomePage';
 
 export default function Page() {
-    return <HomePage />;
+    return <>
+        <HomePage />
+        <div id="portal-container"></div>
+    </>;
 }

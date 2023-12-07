@@ -1,11 +1,12 @@
 'use client';
 import { faGithub, faTwitter } from '@fortawesome/free-brands-svg-icons';
-import { faEnvelope } from '@fortawesome/free-solid-svg-icons';
+import { faCircleDollarToSlot, faEnvelope, faUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import s from './HomePage.module.scss';
+import { Tooltip } from '../utils/Tooltip';
 
 export const HomePage: React.FC = () => {
     let [emailText, setEmailText] = useState('');
@@ -22,6 +23,10 @@ export const HomePage: React.FC = () => {
         ev.preventDefault();
     }
 
+    function externalIcon() {
+        return <FontAwesomeIcon icon={faUpRightFromSquare} fontSize={10} className='ml-3 mr-1 relative top-[-1px]' />;
+    }
+
     return <div className={s.homePage}>
         <div className={s.headerSection}>
             <div className={s.profilePic}>
@@ -35,15 +40,26 @@ export const HomePage: React.FC = () => {
                     Software Engineer
                 </div>
                 <div className={s.links}>
-                    <a href="https://github.com/bbycroft" rel="noopener noreferrer" target="_blank">
-                        <FontAwesomeIcon icon={faGithub} />
-                    </a>
-                    <a href="https://twitter.com/brendanbycroft" rel="noopener noreferrer" target="_blank">
-                        <FontAwesomeIcon icon={faTwitter} />
-                    </a>
-                    <a onClick={showEmail} title="Click to Reveal">
-                        <FontAwesomeIcon icon={faEnvelope} />
-                    </a>
+                    <Tooltip tip={<>Github /bbycroft {externalIcon()}</>}>
+                        <a href="https://github.com/bbycroft" rel="noopener noreferrer" target="_blank">
+                            <FontAwesomeIcon icon={faGithub} />
+                        </a>
+                    </Tooltip>
+                    <Tooltip tip={<>Twitter @brendanbycroft {externalIcon()}</>}>
+                        <a href="https://twitter.com/brendanbycroft" rel="noopener noreferrer" target="_blank">
+                            <FontAwesomeIcon icon={faTwitter} />
+                        </a>
+                    </Tooltip>
+                    <Tooltip tip={`Click to ${emailText ? 'Hide' : 'Reveal'}`}>
+                        <a onClick={showEmail}>
+                            <FontAwesomeIcon icon={faEnvelope} />
+                        </a>
+                    </Tooltip>
+                    <Tooltip tip={<>Tip securely via Stripe {externalIcon()}</>}>
+                        <a href="https://donate.stripe.com/dR68yQbhxauue8E6oo" rel="noopener noreferrer" target="_blank">
+                            <FontAwesomeIcon icon={faCircleDollarToSlot} />
+                        </a>
+                    </Tooltip>
                 </div>
                 <div className={s.emailText}>{emailText}</div>
             </div>
@@ -52,8 +68,10 @@ export const HomePage: React.FC = () => {
         <div className={s.projectsSection}>
             <div className={s.sectionTitle}>Projects</div>
             <div className={s.projectCard} onClick={() => router.push('/llm')}>
-                <div className={s.cardImage}>
-                    <img src="/images/llm-viz-screenshot2.png" alt="LLM Visualization Screenshot" />
+                <div className={s.cardImageWrapper}>
+                    <div className={s.cardImage}>
+                        <img src="/images/llm-viz-screenshot2.png" alt="LLM Visualization Screenshot" />
+                    </div>
                 </div>
                 <div className={s.cardContent}>
                     <div className={s.cardTitle}>
