@@ -44,7 +44,7 @@ The self-attention layer is made up of several heads, and we'll focus on one of 
 
     breakAfter();
     commentary(wt)`
-The first step is to produce three vectors for each of the ${c_dimRef('C', DimStyle.C)} columns from the ${c_blockRef('normalized input embedding matrix', block0.ln1.lnResid)}.
+The first step is to produce three vectors for each of the ${c_dimRef('T', DimStyle.T)} columns from the ${c_blockRef('normalized input embedding matrix', block0.ln1.lnResid)}.
 These vectors are the Q, K, and V vectors:
 
 ${embedInline(<ul>

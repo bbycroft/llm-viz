@@ -1,10 +1,10 @@
-import { IBlockLayerLink, IGptModelLink, IGpuGptBlockLayer, IGpuGptModel, IGpuLayerNormLayer, ILayerNormLayerLink, IModelShape } from "./GptModel";
+import { IBlockLayerLink, IGptModelLink, ILayerNormLayerLink, IModelShape } from "./GptModel";
 import { isNil } from "@/src/utils/data";
 import { Mat4f } from "@/src/utils/matrix";
 import { Dim, Vec3 } from "@/src/utils/vector";
 import { IBufferTex } from "@/src/utils/renderPhases";
 import { dimProps } from "./Annotations";
-import { DimStyle, dimStyleColor } from "./walkthrough/WalkthroughTools";
+import { DimStyle } from "./walkthrough/WalkthroughTools";
 
 export interface IBlkDef {
     idx: number; // index in the layout.cubes array
@@ -197,8 +197,8 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
 
     // work our way downwards from the top
     // x is to the left and right
-    // y is coming out of the page
-    // z is going up, and the stack advances down from the top (at (0, 0, 0))
+    // y is positive going down, and the stack advances down from the top (at (0, 0, 0))
+    // z is coming out of the page
 
     // a single batch of the residual pathway goes down the x-z plane
     // weights & off-residual pathways are left & right of the residual pathway (i.e. along x)
