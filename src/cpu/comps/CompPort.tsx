@@ -2,7 +2,7 @@ import React, { memo } from "react";
 import { StateSetter, assignImm, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
 import { IComp, IEditContext, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
-import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { CompDefFlags, IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CheckboxMenuTitle, CompRectBase, ConfigMenu, MenuRow } from "./RenderHelpers";
 import { editComp, editCompConfig, useEditorContext, useViewLayout } from "../Editor";
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from "../displayTools/HexValueEditor";
@@ -68,6 +68,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         defId: 'comp/port',
         name: "Port",
         size: new Vec3(w, h),
+        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
         ports: (args, compDef) => {
 
             let internalPortDir = switchPortDir(args.type);

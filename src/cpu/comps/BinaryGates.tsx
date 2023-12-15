@@ -2,14 +2,16 @@ import React from "react";
 import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { Vec3 } from "@/src/utils/vector";
 import { IComp, IEditContext, IExeComp, IExePort, PortType } from "../CpuModel";
-import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { CompDefFlags, IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { CompRectBase } from "./RenderHelpers";
 import { assignImm } from "@/src/utils/data";
 import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
+import { createBitWidthMask, rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
 
 interface IBinGateConfig extends IBaseCompConfig {
     rotate: number; // 0, 1, 2, 3
+    bitWidth: number;
 }
 
 interface IBinGateData {
@@ -23,24 +25,6 @@ interface INotGateData {
     outPort: IExePort;
 }
 
-
-export function rotateAffineInt(r: number) {
-    switch (r) {
-        case 0: return new AffineMat2d(1, 0, 0, 1, 0, 0);
-        case 1: return new AffineMat2d(0, 1, -1, 0, 0, 0);
-        case 2: return new AffineMat2d(-1, 0, 0, -1, 0, 0);
-        case 3: return new AffineMat2d(0, -1, 1, 0, 0, 0);
-        default: return new AffineMat2d();
-    }
-}
-
-export function rotateAboutAffineInt(r: number, center: Vec3) {
-    return AffineMat2d.multiply(
-        AffineMat2d.translateVec(center),          // 3) translate back
-        rotateAffineInt(r),                        // 2) rotate
-        AffineMat2d.translateVec(center.mul(-1))); // 1) translate to origin
-}
-
 export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let w = 3;
@@ -51,17 +35,15 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         altDefIds: ['or'],
         name: "Or",
         size: new Vec3(w, h),
-        ports: [
-            { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: 1 },
-            { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: 1 },
-            { id: 'o', name: '', pos: new Vec3(w, 2), type: PortType.Out, width: 1 },
+        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        ports: (args) => [
+            { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
+            { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
+            { id: 'o', name: '', pos: new Vec3(w, 2), type: PortType.Out, width: args.bitWidth },
         ],
-        initConfig: () => ({ rotate: 0 }),
+        initConfig: () => ({ rotate: 0, bitWidth: 1 }),
         applyConfig(comp, args) {
-            let mat = rotateAboutAffineInt(args.rotate, rotateCenter);
-            comp.ports = comp.ports.map(p => {
-                return { ...p, pos: mat.mulVec3(p.pos) }
-            });
+            rotatePortsInPlace(comp, args.rotate, rotateCenter);
         },
         build: (builder) => {
             let data = builder.addData({
@@ -118,17 +100,15 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         altDefIds: ['xor'],
         name: "Xor",
         size: new Vec3(w, h),
-        ports: [
-            { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: 1 },
-            { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: 1 },
-            { id: 'o', name: '', pos: new Vec3(w, 2), type: PortType.Out, width: 1 },
+        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        ports: (args) => [
+            { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
+            { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
+            { id: 'o', name: '', pos: new Vec3(w, 2), type: PortType.Out, width: args.bitWidth },
         ],
-        initConfig: () => ({ rotate: 0 }),
+        initConfig: () => ({ rotate: 0, bitWidth: 1 }),
         applyConfig(comp, args) {
-            let mat = rotateAboutAffineInt(args.rotate, rotateCenter);
-            comp.ports = comp.ports.map(p => {
-                return { ...p, pos: mat.mulVec3(p.pos) }
-            });
+            rotatePortsInPlace(comp, args.rotate, rotateCenter);
         },
         build: (builder) => {
             let data = builder.addData({
@@ -191,17 +171,15 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         altDefIds: ['and'],
         name: "And",
         size: new Vec3(w, h),
-        ports: [
-            { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: 1 },
-            { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: 1 },
-            { id: 'o', name: '', pos: new Vec3(w, 2), type: PortType.Out, width: 1 },
+        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        ports: (args) => [
+            { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
+            { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
+            { id: 'o', name: '', pos: new Vec3(w, 2), type: PortType.Out, width: args.bitWidth },
         ],
-        initConfig: () => ({ rotate: 0 }),
+        initConfig: () => ({ rotate: 0, bitWidth: 1 }),
         applyConfig(comp, args) {
-            let mat = rotateAboutAffineInt(args.rotate, rotateCenter);
-            comp.ports = comp.ports.map(p => {
-                return { ...p, pos: mat.mulVec3(p.pos) }
-            });
+            rotatePortsInPlace(comp, args.rotate, rotateCenter);
         },
         build: (builder) => {
             let data = builder.addData({
@@ -258,23 +236,29 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
     let notW = 3;
     let notH = 4;
-    let notGate: ICompDef<INotGateData> = {
+    let notGate: ICompDef<INotGateData, IBinGateConfig> = {
         defId: 'gate/not',
         altDefIds: ['not'],
-        name: "NOT",
+        name: "Not",
         size: new Vec3(notW, notH),
-        ports: [
-            { id: 'i', name: '', pos: new Vec3(0, notH/2), type: PortType.In, width: 1 },
-            { id: 'o', name: '', pos: new Vec3(notW, notH/2), type: PortType.Out, width: 1 },
+        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        ports: (args) => [
+            { id: 'i', name: '', pos: new Vec3(0, notH/2), type: PortType.In, width: args.bitWidth },
+            { id: 'o', name: '', pos: new Vec3(notW, notH/2), type: PortType.Out, width: args.bitWidth },
         ],
+        applyConfig(comp, args) {
+            rotatePortsInPlace(comp, args.rotate, rotateCenter);
+        },
         build: (builder) => {
+            let mask = createBitWidthMask(builder.comp.args.bitWidth);
+
             let data = builder.addData({
                 inPort: builder.getPort('i'),
                 outPort: builder.getPort('o'),
             });
 
             builder.addPhase(({ data: { inPort, outPort } }) => {
-                outPort.value = !inPort.value ? 1 : 0;
+                outPort.value = (~inPort.value) & mask;
             }, [data.inPort], [data.outPort]);
 
             return builder.build();

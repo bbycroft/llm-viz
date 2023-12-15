@@ -138,11 +138,15 @@ export class SchematicLibrary {
                         continue;
                     }
 
-                    newComp.subSchematicId = this.internalSchematicLookup.get(comp.defId)?.[0];
-
                     schematic.model.mainSchematic.comps[i] = newComp;
                 }
 
+                if (!comp.subSchematicId) {
+                    let internalSchemIds = this.internalSchematicLookup.get(comp.defId);
+                    if ((internalSchemIds?.length ?? 0) > 0) {
+                        comp.subSchematicId = internalSchemIds![0];
+                    }
+                }
             }
         }
     }
