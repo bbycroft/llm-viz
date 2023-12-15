@@ -2,7 +2,7 @@ import { assert } from "console";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { IComp, IEditContext, IEditSchematic, IEditSnapshot, IEditorState, IElRef, ISchematic } from "./CpuModel";
-import { ICompDef } from "./comps/CompBuilder";
+import { IBaseCompConfig, ICompDef } from "./comps/CompBuilder";
 import { ISharedContext } from "./library/SharedContext";
 import { assignImm } from "../utils/data";
 
@@ -184,7 +184,7 @@ export function getParentCompsFromId(editorState: IEditorState, refId: string): 
     return parentComps;
 }
 
-export function getCompFromRef(editorState: IEditorState, refId: string): IComp | null {
+export function getCompFromRef(editorState: IEditorState, refId: string): IComp<IBaseCompConfig> | null {
     let parts = refId.split('|');
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
     let schematic: IEditSchematic = snapshot.mainSchematic;

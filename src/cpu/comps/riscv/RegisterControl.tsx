@@ -8,11 +8,11 @@ import { assignImm } from '@/src/utils/data';
 import { ICanvasState, IComp, IEditContext, IExeComp, IExePort, PortType } from '../../CpuModel';
 import { HexValueEditor, HexValueInputType } from '../../displayTools/HexValueEditor';
 import { useEditorContext, editCompConfig } from '../../Editor';
-import { ICompBuilderArgs, ICompDef } from '../CompBuilder';
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from '../CompBuilder';
 import { CompRectBase } from '../RenderHelpers';
 import { riscvInColor, riscvOutAColor, riscvOutBColor } from '../Registers';
 
-interface IRegFileCtrlConfig {
+interface IRegFileCtrlConfig extends IBaseCompConfig {
     inEnable: boolean;
     inReg: number;
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { editComp, useEditorContext } from "./Editor";
+import { editComp, editCompConfig, useEditorContext } from "./Editor";
 import { IEditSnapshot, RefType } from "./CpuModel";
 import { StringEditor } from "./displayTools/StringEditor";
 import { assignImm } from "../utils/data";
@@ -21,11 +21,11 @@ export const CompDetails: React.FC<{
     let compDef = singleComp ? editorState.compLibrary.getCompDef(singleComp.defId) : null;
 
     function handleNameUpdate(end: boolean, value: string) {
-        setEditorState(editComp({ idPrefix: "" }, end, singleComp!, comp => assignImm(comp, { name: value })));
+        setEditorState(editCompConfig({ idPrefix: "" }, end, singleComp!, comp => assignImm(comp, { name: value })));
     }
 
     function handleExtIdUpdate(end: boolean, value: string) {
-        setEditorState(editComp({ idPrefix: "" }, end, singleComp!, comp => assignImm(comp, { extId: value })));
+        setEditorState(editCompConfig({ idPrefix: "" }, end, singleComp!, comp => assignImm(comp, { extId: value })));
     }
 
     function handleInternalSchematicAddNew() {
@@ -44,8 +44,8 @@ export const CompDetails: React.FC<{
             <div className="mx-2">
                 <EditKvp label={'Id'}><code>{singleComp.id}</code></EditKvp>
                 <EditKvp label={'Def Id'}><code>{singleComp.defId}</code></EditKvp>
-                <EditKvp label={'Name'}><StringEditor className="bg-slate-100 rounded flex-1" value={singleComp.name} update={handleNameUpdate} /></EditKvp>
-                <EditKvp label={'Ext Id'}><StringEditor className="bg-slate-100 rounded font-mono flex-1" value={singleComp.extId ?? ''} update={handleExtIdUpdate} /></EditKvp>
+                <EditKvp label={'Name'}><StringEditor className="bg-slate-100 rounded flex-1" value={singleComp.args.name ?? singleComp.name} update={handleNameUpdate} /></EditKvp>
+                <EditKvp label={'Ext Id'}><StringEditor className="bg-slate-100 rounded font-mono flex-1" value={singleComp.args.extId ?? ''} update={handleExtIdUpdate} /></EditKvp>
                 <EditKvp label={'Pos'}>{`${singleComp.pos}`}</EditKvp>
                 <EditKvp label={'Size'}>{`${singleComp.size}`}</EditKvp>
             </div>

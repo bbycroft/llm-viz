@@ -1,7 +1,7 @@
 import React, { memo, useState } from 'react';
 import { Vec3 } from "@/src/utils/vector";
 import { IComp, IEditContext, IExeComp, IExePort, PortType } from "../CpuModel";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from '../Editor';
 import { assignImm } from '@/src/utils/data';
 import { CompRectBase, CompRectUnscaled, makeEditFunction, CheckboxMenuTitle, ConfigMenu, MenuRow } from './RenderHelpers';
@@ -10,7 +10,7 @@ import { HexValueEditor, HexValueInputType, clampToSignedWidth } from '../displa
 import { FontType, makeCanvasFont } from '../CanvasRenderHelpers';
 import { PortPlacement, PortResizer, portPlacementToPos } from './CompPort';
 
-interface IInputConfig {
+interface IInputConfig extends IBaseCompConfig {
     value: number;
     valueMode: HexValueInputType;
     bitWidth: number;
@@ -33,7 +33,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
 
     let w = 6;
     let h = 4;
-    let output: ICompDef<ICompDataOutput> = {
+    let output: ICompDef<ICompDataOutput, IInputConfig> = {
         defId: 'io/output0',
         altDefIds: ['output0'],
         name: "Output",

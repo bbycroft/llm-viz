@@ -21,9 +21,9 @@ export class CodeSuiteManager {
     public suites = new Map<string, ICodeSuite>();
 
     constructor() {
-        this.registerSuite('add_tests.elf', 'Test Suite');
         this.registerSuite('blinky.elf', 'Blinky');
         this.registerSuite('blinky2.elf', 'Blinky 2');
+        this.registerSuite('add_tests.elf', 'Test Suite');
     }
 
     public registerSuite(fileName: string, title: string) {

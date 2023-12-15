@@ -1,17 +1,20 @@
 import { Vec3 } from "@/src/utils/vector";
 import { IExePort, IExeComp, PortType, ICompRenderArgs, IExeRunArgs } from "../CpuModel";
 import { OpCode, Funct3Op, Funct3OpImm, Funct3Branch, Funct3LoadStore } from "../RiscvIsa";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import * as d3Color from 'd3-color';
 import { riscvRegNames } from "./Registers";
 import { isNotNil } from "@/src/utils/data";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 
+interface IRiscvInsDecodeConfig extends IBaseCompConfig {
+}
+
 export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let w = 40;
     let h = 20;
-    let alu: ICompDef<ICompDataInsDecoder> = {
+    let insDecode: ICompDef<ICompDataInsDecoder, IRiscvInsDecodeConfig> = {
         defId: 'riscv/insDecode0',
         altDefIds: ['insDecodeRiscv32_0'],
         name: "Instruction Decoder",
@@ -59,7 +62,7 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
         render: renderInsDecoder,
     };
 
-    return [alu];
+    return [insDecode];
 }
 
 export interface ICompDataInsDecoder {
@@ -353,7 +356,7 @@ export function ensureUnsigned32Bit(x: number) {
 
 function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<ICompDataInsDecoder>) {
 
-    return;
+    // return;
 
     if (!exeComp) {
         return;

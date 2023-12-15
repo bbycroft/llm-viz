@@ -54,7 +54,7 @@ Editing is either: editing directly, or within the scope of a tree of components
 
 */
 
-export interface ICompDef<T, A = any> {
+export interface ICompDef<T, A extends IBaseCompConfig = any> {
     defId: string;
     altDefIds?: string[]; // so we can safely rename things
     name: string;
@@ -86,6 +86,11 @@ export interface ICompDef<T, A = any> {
     // action to reset stateful components, typically to 0x00. Option for hard or soft reset. Soft reset is typically
     // equivalent to a power-down/restart (leaving ROM untouched), while a hard reset includes things like ROMs.
     reset?: (exeComp: IExeComp<T>, resetOpts: IResetOptions) => void;
+}
+
+export interface IBaseCompConfig {
+    name?: string;
+    extId?: string;
 }
 
 export enum CompDefType {
@@ -148,7 +153,7 @@ export class CompLibrary {
                 id: '',
                 defId,
                 name: '<unknown>',
-                args: cfg!,
+                args: cfg ?? {} as any,
                 ports: [],
                 pos: new Vec3(0, 0),
                 size: new Vec3(4, 4),
@@ -157,7 +162,7 @@ export class CompLibrary {
             };
         }
 
-        let args = compDef.initConfig ? compDef.initConfig({}) : null;
+        let args = compDef.initConfig ? compDef.initConfig({}) : {};
 
         if (args && cfg) {
             args = assignImm(args, cfg);
@@ -170,7 +175,7 @@ export class CompLibrary {
             ports: compDef.ports instanceof Function ? compDef.ports(args, compDef) : compDef.ports,
             pos: new Vec3(0, 0),
             size: compDef.size,
-            args,
+            args: args ?? {} as any,
             resolved: true,
             hasSubSchematic: !!compDef.subLayout,
         };

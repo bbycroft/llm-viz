@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Vec3 } from "@/src/utils/vector";
 import { IExePort, PortType, IComp, IoDir } from "../CpuModel";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
 import clsx from 'clsx';
@@ -18,11 +18,11 @@ export interface IRomExeData {
     updateCntr: number;
 }
 
-export interface IRomConfig {
+export interface IRomConfig extends IBaseCompConfig {
     octView: boolean;
 }
 
-export interface IRamConfig {
+export interface IRamConfig extends IBaseCompConfig {
     sizeBytes: number
 }
 
@@ -261,6 +261,66 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
         reset: (exeComp) => {
             exeComp.data.ram.fill(0);
             exeComp.data.updateCntr = 0;
+        },
+
+        render: ({ comp, ctx, cvs, exeComp, styles }) => {
+            if (!exeComp) {
+                return;
+            }
+            let fontScale = 0.8;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+            ctx.clip();
+
+            ctx.font = makeCanvasFont(styles.fontSize * fontScale, FontType.Mono);
+            let widthPerChar = ctx.measureText('0').width;
+            let widthPerWord = widthPerChar * 3 * 4
+            let padLeft = 0.5;
+            let space = comp.size.x - padLeft * 2;
+            let xOffset = comp.pos.x + padLeft;
+            let yOffset = comp.pos.y + 0.5;
+            let rowHeight = styles.lineHeight * fontScale;
+
+            let numWordsPerRow = Math.floor(space / widthPerWord);
+            let numBytesPerRow = numWordsPerRow * 4;
+
+            let targetAddr = exeComp.data.addr.value & ~0b11;
+
+            let targetAddrRow = (targetAddr / numBytesPerRow) >>> 0;
+            let targetAddrCol = targetAddr % numBytesPerRow;
+            let targetAddrY = yOffset + targetAddrRow * rowHeight;
+            let targetAddrX = xOffset + targetAddrCol * widthPerChar * 3;
+
+            ctx.fillStyle = '#0005';
+            ctx.beginPath();
+            ctx.roundRect(targetAddrX - 0.3, targetAddrY - 0.2, widthPerChar * 11 + 0.6, rowHeight, 0.5);
+            ctx.fill();
+
+            for (let i = 0; i < 32; i++) {
+                let x = xOffset;
+                let y = yOffset + i * rowHeight;
+
+                let wordStr = '';
+                for (let j = 0; j < numBytesPerRow; j++) {
+                    let byte = exeComp.data.ram[i * numBytesPerRow + j];
+                    let parts = byte.toString(16).padStart(2, '0');
+                    wordStr += `${parts[0]}${parts[1]} `;
+                }
+
+                ctx.fillStyle = wordStr === '' ? '#0005' : '#000';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+
+                ctx.fillText(wordStr, x, y);
+            }
+
+            // let isActive = exeComp.data.addr.value >>> 2 === i;
+            // if (isActive) {
+                // ctx.fillRect(x - 0.2, y - 0.2, width + 0.4, styles.lineHeight);
+            // }
+
+            ctx.restore();
         },
 
         renderDom: ({ comp, exeComp, styles }) => {

@@ -1,6 +1,6 @@
 import { Vec3 } from "@/src/utils/vector";
 import { PortType, IExeComp, IExePort, ICompRenderArgs } from "../CpuModel";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder"
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder"
 import { registerOpts, regValToStr } from "./RenderHelpers";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 
@@ -26,10 +26,16 @@ export interface ICompDataSingleReg {
     value: number;
 }
 
+interface IRegistersConfig extends IBaseCompConfig {
+}
+
+interface ISingleRegConfig extends IBaseCompConfig {
+}
+
 export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let w = 40;
-    let reg32: ICompDef<ICompDataRegFile> = {
+    let reg32: ICompDef<ICompDataRegFile, IRegistersConfig> = {
         defId: 'riscv/reg32',
         altDefIds: ['reg32Riscv'],
         name: "RISCV Registers",
@@ -69,7 +75,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         },
     };
 
-    let regSingle: ICompDef<ICompDataSingleReg> = {
+    let regSingle: ICompDef<ICompDataSingleReg, ISingleRegConfig> = {
         defId: 'flipflop/reg1',
         altDefIds: ['reg1'],
         name: "Register",

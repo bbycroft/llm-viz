@@ -2,13 +2,13 @@ import React from "react";
 import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { Vec3 } from "@/src/utils/vector";
 import { IComp, IEditContext, IExeComp, IExePort, PortType } from "../CpuModel";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { CompRectBase } from "./RenderHelpers";
 import { assignImm } from "@/src/utils/data";
 import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
 
-interface IBinGateConfig {
+interface IBinGateConfig extends IBaseCompConfig {
     rotate: number; // 0, 1, 2, 3
 }
 

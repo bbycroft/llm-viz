@@ -4,7 +4,7 @@ import { Vec3 } from "@/src/utils/vector";
 import { CompLibrary, ISubLayoutPort } from "../comps/CompBuilder";
 import { IEditSchematic, IEditSnapshot, PortType } from "../CpuModel";
 import { ILSState, wiresFromLsState, schematicToLsState, exportData } from "../ImportExport";
-import { assignImm } from "@/src/utils/data";
+import { assignImm, getOrAddToMap } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";
 import { schematicManifest } from "./SchematicManifest";
 import { constructEditSnapshot } from "../ModelHelpers";
@@ -22,6 +22,8 @@ export class SchematicLibrary {
 
     builtinSchematics = new Map<string, ISchematicDef>();
     customSchematics = new Map<string, ISchematicDef>();
+
+    internalSchematicLookup = new Map<string, string[]>();
 
     localStorageSchematicsLoaded = false;
 
@@ -101,6 +103,7 @@ export class SchematicLibrary {
         snapshot.mainSchematic = addCompArgsToSnapshot(snapshot.mainSchematic, compArgs);
         snapshot.mainSchematic.id = lsSchematic.id;
         snapshot.mainSchematic.name = lsSchematic.name;
+        snapshot.mainSchematic.parentCompDefId = lsSchematic.parentCompDefId;
         // if (snapshot.compBbox.empty) {
         //     snapshot.compBbox = computeModelBoundingBox(snapshot, { excludePorts: true });
         // }
@@ -116,7 +119,14 @@ export class SchematicLibrary {
     }
 
     private resolveSchematicRefs(compLibrary: CompLibrary) {
-        for (let schematic of this.customSchematics.values()) {
+        for (let schematic of [...this.builtinSchematics.values(), ...this.customSchematics.values()]) {
+            let parentCompDefId = schematic.model.mainSchematic.parentCompDefId;
+            if (parentCompDefId) {
+                getOrAddToMap(this.internalSchematicLookup, parentCompDefId, () => []).push(schematic.id);
+            }
+        }
+
+        for (let schematic of [...this.builtinSchematics.values(), ...this.customSchematics.values()]) {
             for (let i = 0; i < schematic.model.mainSchematic.comps.length; i++) {
                 let comp = schematic.model.mainSchematic.comps[i];
                 if (!comp.resolved) {
@@ -128,8 +138,11 @@ export class SchematicLibrary {
                         continue;
                     }
 
+                    newComp.subSchematicId = this.internalSchematicLookup.get(comp.defId)?.[0];
+
                     schematic.model.mainSchematic.comps[i] = newComp;
                 }
+
             }
         }
     }
@@ -200,7 +213,7 @@ export function editSnapshotToLsSchematic(id: string, editSnapshot: IEditSnapsho
     return {
         id: id,
         name: editSnapshot.mainSchematic.name,
-        // parentCompDefId: editSnapshot.mainSchematic.parentCompDefId,
+        parentCompDefId: editSnapshot.mainSchematic.parentCompDefId,
         model: schematicToLsState(editSnapshot.mainSchematic),
         compArgs: compArgsToLsState(editSnapshot),
     };
@@ -210,6 +223,7 @@ export interface ILSSchematic {
     id: string;
     name: string;
     model: ILSState;
+    parentCompDefId?: string;
     compArgs?: ILSCompArgs;
 }
 

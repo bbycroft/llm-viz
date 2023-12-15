@@ -1,6 +1,6 @@
 import { Vec3 } from "@/src/utils/vector";
 import { PortType, IExePort } from "../CpuModel";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 
 interface ICompDataMux {
     inSelPort: IExePort;
@@ -15,12 +15,17 @@ interface ICompDataAdder {
     outPort: IExePort;
 }
 
+interface IMuxConfig extends IBaseCompConfig {
+}
+
+interface IAdderConfig extends IBaseCompConfig {
+}
 
 export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let w = 2;
     let h = 6;
-    let mux2: ICompDef<ICompDataMux> = {
+    let mux2: ICompDef<ICompDataMux, IMuxConfig> = {
         defId: 'flow/mux2',
         altDefIds: ['mux2'],
         name: "Mux",
@@ -96,7 +101,7 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
     };
 
     let aH = 4;
-    let adder: ICompDef<ICompDataAdder> = {
+    let adder: ICompDef<ICompDataAdder, IAdderConfig> = {
         defId: 'math/adder',
         altDefIds: ['adder'],
         name: "+",
