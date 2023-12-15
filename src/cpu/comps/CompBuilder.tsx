@@ -60,6 +60,7 @@ export interface ICompDef<T, A extends IBaseCompConfig = any> {
     name: string;
     size: Vec3;
     type?: CompDefType; // defaults to BuiltIn
+    flags?: CompDefFlags;
     ports: ICompPort[] | ((args: A, compDef: ICompDef<T, A>) => ICompPort[]);
     subLayout?: ISubLayoutArgs;
 
@@ -86,6 +87,13 @@ export interface ICompDef<T, A extends IBaseCompConfig = any> {
     // action to reset stateful components, typically to 0x00. Option for hard or soft reset. Soft reset is typically
     // equivalent to a power-down/restart (leaving ROM untouched), while a hard reset includes things like ROMs.
     reset?: (exeComp: IExeComp<T>, resetOpts: IResetOptions) => void;
+}
+
+
+export enum CompDefFlags {
+    None = 0,
+    CanRotate = 1 << 0,
+    HasBitWidth
 }
 
 export interface IBaseCompConfig {

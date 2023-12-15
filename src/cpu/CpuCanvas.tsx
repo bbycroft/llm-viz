@@ -27,6 +27,7 @@ import { SharedContextContext, createSharedContext } from "./library/SharedConte
 import { CompBoundingBox } from "./CompBoundingBox";
 import { CompDetails } from "./CompDetails";
 import { Resizer } from "../utils/Resizer";
+import { SchematicDetails } from "./SchematicDetails";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -308,6 +309,7 @@ export const CpuCanvas: React.FC<{
                     {children}
                 </div>
                 {!readonly && <div className="flex-1 flex flex-col">
+                    <SchematicDetails />
                     <CompDetails />
                 </div>}
             </Resizer>
