@@ -357,14 +357,19 @@ export function schematicToLsState(layout: ISchematic): ILSState {
             .map(w => ({
                 nodes: w.nodes.map(n => ({ id: n.id, x: n.pos.x, y: n.pos.y, edges: n.edges, ref: n.ref })),
             })),
-        comps: layout.comps.map(c => ({
-            id: c.id,
-            defId: c.defId,
-            x: c.pos.x,
-            y: c.pos.y,
-            args: c.args,
-            subSchematicId: c.subSchematicId,
-        })),
+        comps: layout.comps.map(c => {
+
+            let args = Object.keys(c.args).length === 0 ? undefined : c.args;
+
+            return {
+                id: c.id,
+                defId: c.defId,
+                x: c.pos.x,
+                y: c.pos.y,
+                args: args,
+                subSchematicId: c.subSchematicId,
+            };
+        }),
     };
 }
 

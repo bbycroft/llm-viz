@@ -1,0 +1,73 @@
+
+Project #2: LLM Visualization
+
+So I created a web-page to visualize a small LLM, of the sort that's behind ChatGPT. Rendered in 3D, it shows all the steps to run a single token inference. (link in bio)
+
+<GIF of the visualization>
+
+It also contains a walkthrough/guide of the steps, as well as a few interactive elements to play with. Why, you ask? For what purpose did I put all the time & effort into this project?
+
+<GIF of walkthrough>
+
+There's a real advantage to unpacking a set of abstractions, flattening them out. Abstractions can be useful for terseness and management, but they can be a real blocker to seeing the big picture.
+
+With this, you can see the whole thing at once. You can see where the computation takes place, its complexity, and relative sizes of the tensors & weights.
+
+The model with all the animations is tiiny, to make it tractable. For comparison, I threw in a few of the larger models (GPT-2, GPT-3), render-only. And when you see what it takes to just produce a single value in a mat-mul, the sheer scale of these things becomes apparent.
+
+(Here's what goes into calculating a _single_ output value of a matrix-multiply)
+
+What about understanding what each layer does? Uhh, sorry, won't be much help. The project just came out of "Let's build a 3D viz!", so the scope is a bit limited. It's more: here's a way to learn & digest the algorithm, and perhaps think about how to optimize the process.
+
+As for what I got out of creating this: before I made it, I mostly knew how image convolution nets worked, but language-based models seemed kinda magical in comparison. Well, now I know them in a fair amount of detail!
+
+I also learnt a good amount of GL (dF/dx, fwidth, ubos, instancing), and animation approaches. So, uhh, even if no-one sees this, the project definitely has some value to me.
+
+Oh yeah, the link is here: https://bbycroft.net/llm/ Works best on desktop (sorry mobile). Left-click drag, right-click rotate, scroll to zoom. And hover over the tensor cells. Blue cells are weights/parameters, green cells are intermediate values. Each cell is a single number!
+
+Well, I hope you find it interesting. Let me know your thoughts! And if someone makes it through the walkthrough and finds it a little ~incomplete torwards the end I might even getting around to fix it (my attention has largely turned to other projects oops)
+
+Because no-one clicks links, I'll create some threads of the walkthrough. First up is the idea of tokens & embedding. <sub-link>
+
+
+
+
+
+------
+
+That's certainly been quite the response! 200k site visits, 1M X views, #1 on HN for a day or so, and plenty of very positive feedback. Here's a quick doc I put together with my sister a couple months ago, "setting expectations" I guess.
+
+A few acknowledgements: @karparthy's mingpt repo was vital to ensuring my GPT impl. was working correctly (plus his YT vids are great), @telmudic for that first QT that got me off the ground, and my sister for getting me to actually have a plan & set a release deadline.
+
+Maybe I'll get around to animating those last few pages, or fixing mobile, but no promises. I'll write a thread or two on how I actually wrote the app, because that's interesting to me.
+
+Oh yeah, I threw in a Stripe tip-jar on my website (to be clear, this is a hobby project & I have a full-time job). P.S. @stripe, @patio11, your onboarding process is smooth as silk.
+
+
+
+
+Here's a technical guide on how I wrote & structured some of the LLM Visualization. A few people have been asking about it, so I thought I'd write it up. Lots of code screenshots, so not for everyone.
+
+[QT the original thread]
+
+Some quick notes: * took me about 200 hours * written in Typescript with next.js, react for anything DOM related * all the 3D stuff is written directly against WEBGL2 * GPT algo itself run in WASM, written in Odin (thx @gingerbill!) * here are my client-side deps:
+
+Most of the logic is executed within an requestAnimationFrame (rAF) loop, within the top-level runProgram() function. The IProgramState has all the state hanging off of it, some cross-frame, and some generated per-frame. This JS logic all takes ~5ms.
+
+Of note, the block generation for the small LLM is run for every frame, and the code looks like this. Very terse, but there are ~50 unique blocks. There's info for how to look-up on-GPU texture-maps for the cell data, and the block's dep structure (for hover & anim).
+
+Here's some walkthrough code samples. First we have the commentary strings (template-strings handy!), interleaved with these t_<name> variables. These provide the sequencing for the animations. Below that, we have the logic for animating the blocks, making direct changes to them.
+
+We have a per-chapter value t, and when we create each t_<name> variable, it figures out its local t value from that, which ranges from 0 -> 1. These 0 -> 1 values are then used to drive the animations, typically via lerp functions.
+
+Block rendering: each block is single 3D cube. Drawing the individual cell value circles is done in-shader, querying float32 texture-maps. So the circles & the white grids are all done per-pixel in the fragment shader.
+
+But when we have the blocks hovered, and a row/column/cell is highlighted (+ other animation effects), we split the blocks into sub-blocks. That way they can take unique color/opacity as needed. With a bit of careful maths, the texture-map lookups remain consistent.
+
+The actual eval & population of the green-block values is done in WASM, written in Odin. It runs at init in a few ms (not optimized, eg uses naive matmul). We then pass that data to the GPU in texture-maps. The intro animation of the entire process is all done after-the-fact.
+
+Writing a 3D engine with text, lines, buffer/shader management etc was quite a lot of work, but the animated blocks certainly demanded it. Often navigating a framework is as much effort as Doing It Yourself.
+
+I did a bunch of mini-projects in this, for the fun. * The text layout code for the hover tooltips (2D tho, could have been DOM?) * Constructing & rendering the ribbons with beziers. * A mimalloc-inspired memory allocator. * The ToC diagram highlighting.
+
+So this was a really fun project, engineering-wise. Lots of experimenting with new techniques & approaches. Naturally this was 10x harder than I'd planned. I've got a new, unrelated one on the go, which is probably more ambitious, oops.

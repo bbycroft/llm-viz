@@ -58,7 +58,7 @@ export const SchematicLibraryView: React.FC = () => {
     let [nameEdit, setNameEdit] = useState<INameEditState | null>(null);
 
     function handleEditName(ev: React.MouseEvent, schematic: ISchematicDef) {
-        setNameEdit({ id: schematic.id, name: schematic.name, schematic });
+        setNameEdit({ id: schematic.id, name: schematic.model.mainSchematic.name, schematic });
     }
 
     function cancelEditName() {
@@ -67,7 +67,7 @@ export const SchematicLibraryView: React.FC = () => {
 
     function applyEditName() {
         if (nameEdit) {
-            nameEdit.schematic.name = nameEdit.name;
+            nameEdit.schematic.model.mainSchematic.name = nameEdit.name;
             schematicLib.saveToLocalStorage(nameEdit.id);
             setNameEdit(null);
         }
@@ -115,7 +115,7 @@ export const SchematicLibraryView: React.FC = () => {
                         <div
                             onMouseDown={ev => handleEntryClick(ev, schematic)}
                             className={s.name}
-                        >{schematic.name}</div>
+                        >{schematic.model.mainSchematic.name}</div>
                         <button className={s.btnIcon} onClick={ev => handleEditName(ev, schematic)}>
                             <FontAwesomeIcon icon={faPencil} />
                         </button>

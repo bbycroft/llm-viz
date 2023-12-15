@@ -1,7 +1,7 @@
 import { Vec3 } from "@/src/utils/vector";
 import { IExePort, IoDir, PortType } from "../CpuModel";
 import { Funct3LoadStore } from "../RiscvIsa";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { signExtend16Bit, signExtend8Bit } from "./RiscvInsDecode";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 
@@ -24,11 +24,17 @@ export interface ICompDataInsFetch {
     data: IExePort;
 }
 
+export interface IRiscvLoadStoreConfig extends IBaseCompConfig {
+}
+
+export interface IRiscvInsFetchConfig extends IBaseCompConfig {
+}
+
 export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let lsW = 24;
     let lsH = 12;
-    let defLs: ICompDef<ICompDataLoadStore> = {
+    let defLs: ICompDef<ICompDataLoadStore, IRiscvLoadStoreConfig> = {
         defId: 'riscv/loadStore0',
         altDefIds: ['riscvLoadStore'],
         name: "Load/Store",
@@ -129,7 +135,7 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
     };
 
-    let defIf: ICompDef<ICompDataInsFetch> = {
+    let defIf: ICompDef<ICompDataInsFetch, IRiscvInsFetchConfig> = {
         defId: 'riscv/insFetch0',
         altDefIds: ['riscvInsFetch'],
         name: "Instruction Fetch",

@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Vec3 } from "@/src/utils/vector";
 import { IComp, IExeComp, IExePort, IoDir, PortType } from "../../CpuModel";
-import { ICompBuilderArgs, ICompDef } from "../CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "../CompBuilder";
 import { CompRectBase } from "../RenderHelpers";
 import s from '../CompStyles.module.scss';
 import clsx from 'clsx';
@@ -19,7 +19,7 @@ interface ILedOutputData {
     value: number;
 }
 
-interface ILedOutputConfig {
+interface ILedOutputConfig extends IBaseCompConfig {
 }
 
 // need to make a list of registers we can read & write to

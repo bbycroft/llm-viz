@@ -1,7 +1,7 @@
 import React from "react";
 import { Vec3 } from "@/src/utils/vector";
 import { PortType, IExeComp, IExePort } from "../CpuModel";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { ensureSigned32Bit, ensureUnsigned32Bit, funct3BranchIcon, funct3OpIcon } from "./RiscvInsDecode";
 import s from './CompStyles.module.scss';
 import clsx from "clsx";
@@ -16,9 +16,12 @@ interface ICompDataAlu {
     branchPort: IExePort;
 }
 
+interface ICompAluConfig extends IBaseCompConfig {
+}
+
 export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let alu: ICompDef<ICompDataAlu> = {
+    let alu: ICompDef<ICompDataAlu, ICompAluConfig> = {
         defId: 'riscv/alu0',
         altDefIds: ['aluRiscv32_0'],
         name: "ALU",

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Vec3 } from "@/src/utils/vector";
 import { ICanvasState, IComp, IEditContext, IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
 import { editCompConfig, useEditorContext } from '../Editor';
@@ -21,7 +21,7 @@ interface ICompAddressMapper {
     addrMask: number;
 }
 
-interface IAddressMapperConfig {
+interface IAddressMapperConfig extends IBaseCompConfig {
     addrOffset: number;
     addrMask: number;
 }

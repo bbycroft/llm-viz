@@ -24,7 +24,14 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     let flowSegs = new Set<string>(); // the direction of flow is given by id0 -> id1 in "id0:id1"
     let flowNodes = new Set<number>();
     let segKey = (id0: number, id1: number) => `${id0}:${id1}`;
-    let inputNodeCount = 0;
+    // data coming into the wire
+    let activeInputNodeCount = 0;
+
+    // data going out of the wire
+    let activeOutputNodeCount = 0;
+
+    // check if the wire is actually connected to any comp inputs
+    let anyOutputNodes = false;
 
     if (exeNet) {
         isNonZero = exeNet.value !== 0;
@@ -81,6 +88,10 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
             if (hasFlag(binding.port.type, PortType.Out) && binding.exePort.ioDir !== IoDir.In && binding.exePort.dataUsed) {
                 outputNodeIds.push(binding.nodeId);
             }
+
+            if (hasFlag(binding.port.type, PortType.In)) {
+                anyOutputNodes = true;
+            }
         }
 
         // now walk the wire graph from the inputNodeIds to all the outputNodeIds (shortest paths)
@@ -122,7 +133,8 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
                 }
             }
         }
-        inputNodeCount = outputNodeIds.length;
+        activeInputNodeCount = outputNodeIds.length;
+        activeOutputNodeCount = inputNodeIds.length;
     }
 
     let width = isCtrl || exeNet?.width < 32 ? 1 : 3;
@@ -167,7 +179,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         return isSelected && selectedSegs.has(segKey(node0.id, node1.id));
     }
 
-    if (inputNodeCount > 1) {
+    if (activeInputNodeCount > 1) {
         ctx.save();
         iterWireGraphSegments(wire, (node0, node1) => {
             ctx.beginPath();
@@ -236,7 +248,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
         let isForwardFlow = flowSegs.has(segKey(node0.id, node1.id));
         let isBackwardFlow = flowSegs.has(segKey(node1.id, node0.id));
-        let isFlow = isForwardFlow || isBackwardFlow;
+        let isFlow = isForwardFlow || isBackwardFlow || !anyOutputNodes;
 
         // somehow will need to indicate flow direction (not yet)
 

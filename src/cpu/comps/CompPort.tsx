@@ -2,7 +2,7 @@ import React, { memo } from "react";
 import { StateSetter, assignImm, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
 import { IComp, IEditContext, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
-import { ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CheckboxMenuTitle, CompRectBase, ConfigMenu, MenuRow } from "./RenderHelpers";
 import { editComp, editCompConfig, useEditorContext, useViewLayout } from "../Editor";
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from "../displayTools/HexValueEditor";
@@ -24,7 +24,7 @@ export enum PortPlacement {
 }
 
 
-export interface ICompPortConfig {
+export interface ICompPortConfig extends IBaseCompConfig {
     portId: string;
     name: string;
     w: number;

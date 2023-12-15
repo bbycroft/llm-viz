@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useEditorContext } from "./Editor";
 import s from "./CompExampleView.module.scss";
 import { listElfTextSections, readElfHeader } from "./ElfParser";
@@ -8,65 +8,30 @@ import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
 import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from "./CpuExecution";
 import { ensureSigned32Bit } from "./comps/RiscvInsDecode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faRotate } from "@fortawesome/free-solid-svg-icons";
+import { faFileImport, faRotate } from "@fortawesome/free-solid-svg-icons";
 import { ICodeEntry } from "./library/CodeSuiteManager";
+import { SharedContextContext } from "./library/SharedContext";
+import { useSubscriptions } from "../utils/hooks";
+import clsx from "clsx";
 
 
 export const CompExampleView: React.FC = () => {
-    let { editorState, setEditorState, exeModel } = useEditorContext();
+    let { codeLibrary } = useContext(SharedContextContext)!;
+    let { setEditorState, exeModel } = useEditorContext();
+    useSubscriptions(codeLibrary.subs);
 
-    let [examples, setExamples] = useState<ICodeEntry[]>([]);
     let [reloadCntr, setReloadCntr] = useState(0);
 
     useEffect(() => {
-        let basePath = (process.env.BASE_URL ?? '') + '/riscv/examples/';
-
-        async function run() {
-            let fileName = 'add_tests.elf';
-            // let fileName = 'blinky2.elf';
-
-            let resp = await fetch(basePath + fileName);
-
-            if (resp.ok) {
-                let elfFile = new Uint8Array(await resp.arrayBuffer());
-
-                let header = readElfHeader(elfFile)!;
-                let sections = listElfTextSections(elfFile, header);
-
-                let examples = sections.map(section => {
-                    // name is '.text_add0', and we want 'add0'
-                    let name = section.name.slice(6) || section.name;
-                    return {
-                        name,
-                        elfSection: section,
-                        expectFail: name.startsWith('must_fail'),
-                    };
-                });
-
-                setExamples(examples);
-            }
+        for (let suite of codeLibrary.suites.values()) {
+            codeLibrary.getSuite(suite.fileName);
         }
-
-        run();
-
-    }, [reloadCntr]);
+    }, [codeLibrary]);
 
     function handleEntryClick(example: ICodeEntry) {
         loadEntryData(example);
+        resetExeModel(exeModel, { hardReset: false });
         stepExecutionCombinatorial(exeModel);
-        setEditorState(a => ({ ...a }));
-    }
-
-    function onStepClicked() {
-        // console.log('--- running execution (latching followed by steps) ---', exeModel);
-        if (!exeModel.runArgs.halt) {
-            stepExecutionLatch(exeModel);
-        }
-
-        if (!exeModel.runArgs.halt) {
-            stepExecutionCombinatorial(exeModel);
-        }
-
         setEditorState(a => ({ ...a }));
     }
 
@@ -80,6 +45,7 @@ export const CompExampleView: React.FC = () => {
         }
     }
 
+    /*
     function onRunAllTestsClicked() {
         console.log('Running all tests...');
         let startTime = performance.now();
@@ -177,6 +143,7 @@ export const CompExampleView: React.FC = () => {
             }
         }
     }
+    */
 
     function findCompByDefId(defId: string) {
         return exeModel.comps.find(comp => comp.comp.defId === defId);
@@ -192,13 +159,13 @@ export const CompExampleView: React.FC = () => {
         return findCompByDefId('core/mem/rom0') as IExeComp<IRomExeData> | undefined;
     }
 
-    function onResetClicked() {
-        resetExeModel(exeModel, { hardReset: false });
-        stepExecutionCombinatorial(exeModel);
-        setEditorState(a => ({ ...a }));
-    }
+    // function onResetClicked() {
+    //     resetExeModel(exeModel, { hardReset: false });
+    //     stepExecutionCombinatorial(exeModel);
+    //     setEditorState(a => ({ ...a }));
+    // }
 
-    return <div className={s.exampleView}>
+    return <div className={s.exampleView + " min-w-[200px]"}>
         <div className={s.header}>Examples
             <div className={s.reloadBtn} onClick={() => setReloadCntr(a => a + 1)}>
                 <FontAwesomeIcon icon={faRotate} />
@@ -206,24 +173,49 @@ export const CompExampleView: React.FC = () => {
         </div>
 
         <div className={s.body}>
-            {examples.map((example, idx) => {
+            {[...codeLibrary.suites.values()].map((suite, sidx) => {
 
-                return <div
-                    className={s.entry}
-                    onClick={() => handleEntryClick(example)}
-                    key={idx}
-                >{example.name}</div>;
+                let hasEntries = suite.entries.length > 0;
+                let firstEntry = suite.entries.length === 1 ? suite.entries[0] : null;
+
+                function playIcon() {
+                    return <div className="text-slate-200 group-hover:text-slate-300 ml-auto">
+                        <FontAwesomeIcon icon={faFileImport} />
+                    </div>;
+                }
+
+                return <div key={sidx} className="flex flex-col my-1">
+                    <div
+                        className={clsx("font-bold px-2", firstEntry && "cursor-pointer hover:bg-blue-300 group flex rounded", !firstEntry && "text-gray-500")}
+                        onClick={() => firstEntry && handleEntryClick(firstEntry)}
+                    >
+                        {suite.title}
+                        {firstEntry && playIcon()}
+                    </div>
+                    <div className="ml-1 flex flex-col">
+                        {!firstEntry && suite.entries.map((entry, eidx) => {
+                            return <div
+                                className="cursor-pointer hover:bg-blue-300 group flex rounded px-2"
+                                onClick={() => handleEntryClick(entry)}
+                                key={eidx}
+                            >
+                                {entry.name}
+                                {playIcon()}
+                            </div>;
+                        })}
+                    </div>
+                </div>;
             })}
         </div>
 
-        <div className={s.divider} />
+        {/* <div className={s.divider} /> */}
 
-        <div className={s.body}>
+        {/* <div className={s.body}>
             <button className={s.btn} disabled={exeModel.runArgs.halt} onClick={onStepClicked}>Step</button>
             <button className={s.btn} onClick={onResetClicked}>Reset</button>
             <button className={s.btn} onClick={onRunAllTestsClicked}>Run all</button>
             <button className={s.btn} onClick={runTestsQuickly}>Run all (slow)</button>
-        </div>
+        </div> */}
 
     </div>;
 };

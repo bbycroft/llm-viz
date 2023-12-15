@@ -1,21 +1,24 @@
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
 import { IComp, IExeComp, ILibraryItem, ISchematic } from "../CpuModel";
-import { ICompDef } from "./CompBuilder";
+import { IBaseCompConfig, ICompDef } from "./CompBuilder";
 import { ISchematicCompArgs } from "../schematics/SchematicLibrary";
 import * as d3Color from 'd3-color';
 import { clamp } from "@/src/utils/data";
 import React, { memo } from "react";
 import { CompRectBase, CompRectUnscaled } from "./RenderHelpers";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCodeBranch, faPencil, faFloppyDisk, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
+import { faCodeBranch, faFloppyDisk, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 
 export interface ISchematicCompData {
     // nothing
 }
 
+export interface ISchematicCompConfig extends IBaseCompConfig {
+}
+
 export function createSchematicCompDef(id: string, name: string, schematic: ISchematic, compArgs: ISchematicCompArgs): ILibraryItem {
 
-    let compDef: ICompDef<ISchematicCompData, {}> = {
+    let compDef: ICompDef<ISchematicCompData, ISchematicCompConfig> = {
         defId: id,
         name: name,
         ports: (args) => {
