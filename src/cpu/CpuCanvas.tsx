@@ -184,15 +184,21 @@ export const CpuCanvas: React.FC<{
             return;
         }
 
+        let swCanvasRenderStart = performance.now();
         let { canvas, ctx } = cvsState;
 
         let bcr = canvas.parentElement!.getBoundingClientRect();
         let w = bcr.width;
         let h = bcr.height;
-        canvas.width = Math.floor(w * window.devicePixelRatio);
-        canvas.height = Math.floor(h * window.devicePixelRatio);
-        canvas.style.width = `${w}px`;
-        canvas.style.height = `${h}px`;
+
+        let wS = Math.floor(w * window.devicePixelRatio);
+        let hS = Math.floor(h * window.devicePixelRatio);
+        if (canvas.width !== wS || canvas.height !== hS) {
+            canvas.width = wS;
+            canvas.height = hS;
+            canvas.style.width = `${w}px`;
+            canvas.style.height = `${h}px`;
+        }
         cvsState.size.x = w;
         cvsState.size.y = h;
         cvsState.region = new BoundingBox3d(new Vec3(0, 0), new Vec3(w, h));
@@ -210,6 +216,16 @@ export const CpuCanvas: React.FC<{
         // renderDragState(cvsState, editorState, dragStart, grabDirRef.current);
         ctx.restore();
 
+        ctx.restore();
+
+        ctx.save();
+        ctx.scale(pr, pr);
+        let swCanvasRender = performance.now() - swCanvasRenderStart;
+        ctx.font = makeCanvasFont(12);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = "#000";
+        ctx.fillText(`${swCanvasRender.toFixed(1)}ms`, w - 5, h - 5);
         ctx.restore();
     });
 
