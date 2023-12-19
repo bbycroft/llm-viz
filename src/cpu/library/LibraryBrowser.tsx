@@ -6,9 +6,8 @@ import { faPencil, faPlus, faTimes, IconDefinition } from "@fortawesome/free-sol
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import clsx from "clsx";
 import React, { ButtonHTMLAttributes, useLayoutEffect, useMemo, useState } from "react";
-import { ILibraryItem } from "../CpuModel";
+import { ILibraryItem, ISchematicDef } from "../CpuModel";
 import { useEditorContext } from "../Editor";
-import { ISchematicDef } from "../schematics/SchematicLibrary";
 import { pluralize } from "@/src/utils/text";
 import { Resizer } from "@/src/utils/Resizer";
 
@@ -152,7 +151,7 @@ function schematicToLibraryItem(schematic: ISchematicDef, isBuiltin: boolean): I
     return {
         id: schematic.id,
         name: schematic.name,
-        schematic: schematic.model.mainSchematic,
+        schematic: schematic.snapshot.mainSchematic,
         // ports: schematic?.compArgs?.ports.map(p => ({ ...p })) ?? [],
         // size: schematic?.compArgs?.size ?? new Vec3(0, 0),
         // type: CompDefType.UserDefined,

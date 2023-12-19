@@ -1,4 +1,4 @@
-import { ILSSchematic } from "./SchematicLibrary";
+import { ILSSchematic } from "../ImportExport";
 import { pcCounterSchematic } from "./pcCounterSchematic";
 import { regFileDemoSchematic } from "./regFileDemoSchematic";
 import { riscvBasicSchematic } from "./riscvBasicSchematic";

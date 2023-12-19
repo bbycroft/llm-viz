@@ -9,6 +9,7 @@ import { getCompFromRef, getCompSubSchematic } from "./SubSchematics";
 import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "../utils/keyboard";
 import { CompDefFlags } from "./comps/CompBuilder";
 import { HexValueEditor, HexValueInputType } from "./displayTools/HexValueEditor";
+import { ButtonStandard } from "./EditorControls";
 
 export const CompDetails: React.FC<{
 }> = ({  }) => {
@@ -37,7 +38,7 @@ export const CompDetails: React.FC<{
 
     function handleInternalSchematicAddNew() {
         let newSchematic = editorState.schematicLibrary.addCustomSchematic('New Schematic')!;
-        newSchematic.model.mainSchematic.parentCompDefId = singleComp!.defId;
+        newSchematic.snapshot.mainSchematic.parentCompDefId = singleComp!.defId;
         // probably want to zoom into the new schematic??
         setEditorState(editComp({ idPrefix: "" }, true, singleComp!, comp => assignImm(comp, { subSchematicId: newSchematic.id })));
     }
@@ -82,12 +83,10 @@ export const CompDetails: React.FC<{
             </div>
             <div className="m-2">
                 <div className="mb-2">Internal Schematic</div>
-                {!subSchematic && <button
-                    className="rounded border-gray-400 border border-solid py-1 px-2 hover:bg-slate-100"
-                    onClick={handleInternalSchematicAddNew}>
+                {!subSchematic && <ButtonStandard onClick={handleInternalSchematicAddNew}>
                     <FontAwesomeIcon icon={faPlus} className="mr-2" />
                     Add New
-                </button>}
+                </ButtonStandard>}
                 {singleComp.subSchematicId && <EditKvp label={'Id'}><code>{singleComp.subSchematicId}</code></EditKvp>}
                 {subSchematic && <EditKvp label={'Name'}><code>{subSchematic?.name}</code></EditKvp>}
             </div>

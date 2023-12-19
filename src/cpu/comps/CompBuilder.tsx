@@ -1,6 +1,6 @@
 import { isNil, hasFlag, assignImm } from "@/src/utils/data";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, IEditSnapshot, ILibraryItem, ISchematic } from "../CpuModel";
+import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, IEditSnapshot, ILibraryItem, ISchematic, ISubLayoutPort } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -122,13 +122,6 @@ export interface ISubLayoutArgs {
     ports: ISubLayoutPort[];
 }
 
-export interface ISubLayoutPort {
-    id: string;
-    name: string
-    type: PortType;
-    pos: Vec3;
-    width?: number;
-}
 
 export class CompLibrary {
     libraryLookup = new Map<string, ILibraryItem>();

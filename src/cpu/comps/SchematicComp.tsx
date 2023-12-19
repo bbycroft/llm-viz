@@ -1,7 +1,6 @@
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { IComp, IExeComp, ILibraryItem, ISchematic } from "../CpuModel";
+import { IComp, IExeComp, ILibraryItem, ISchematic, ISchematicCompArgs } from "../CpuModel";
 import { IBaseCompConfig, ICompDef } from "./CompBuilder";
-import { ISchematicCompArgs } from "../schematics/SchematicLibrary";
 import * as d3Color from 'd3-color';
 import { clamp } from "@/src/utils/data";
 import React, { memo } from "react";

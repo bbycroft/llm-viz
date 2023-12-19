@@ -3,9 +3,9 @@ import { faCheck, faPencil, faTimes, faTrash } from "@fortawesome/free-solid-svg
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useCallback, useEffect, useState } from "react";
 import { useEditorContext } from "../Editor";
-import { ISchematicDef } from "./SchematicLibrary";
 import s from "./SchematicLibraryView.module.scss";
 import { createSchematicCompDef } from "../comps/SchematicComp";
+import { ISchematicDef } from "../CpuModel";
 
 export const SchematicLibraryView: React.FC = () => {
     let { editorState, setEditorState } = useEditorContext();
@@ -18,13 +18,13 @@ export const SchematicLibraryView: React.FC = () => {
         if (schemId) {
             let schematic = schematicLib.getSchematic(schemId);
             if (schematic) {
-                schematic.model = editorState.snapshot;
+                schematic.snapshot = editorState.snapshot;
                 schematic.undoStack = editorState.undoStack;
                 schematic.redoStack = editorState.redoStack;
                 schematic.mtx = editorState.mtx;
 
                 if (schematic.compArgs) {
-                    let libItem = createSchematicCompDef(schematic.id, schematic.name, schematic.model.mainSchematic, schematic.compArgs);
+                    let libItem = createSchematicCompDef(schematic.id, schematic.name, schematic.snapshot.mainSchematic, schematic.compArgs);
                     compLibrary.addLibraryItem(libItem);
                 }
             }
@@ -58,7 +58,7 @@ export const SchematicLibraryView: React.FC = () => {
     let [nameEdit, setNameEdit] = useState<INameEditState | null>(null);
 
     function handleEditName(ev: React.MouseEvent, schematic: ISchematicDef) {
-        setNameEdit({ id: schematic.id, name: schematic.model.mainSchematic.name, schematic });
+        setNameEdit({ id: schematic.id, name: schematic.snapshot.mainSchematic.name, schematic });
     }
 
     function cancelEditName() {
@@ -67,7 +67,7 @@ export const SchematicLibraryView: React.FC = () => {
 
     function applyEditName() {
         if (nameEdit) {
-            nameEdit.schematic.model.mainSchematic.name = nameEdit.name;
+            nameEdit.schematic.snapshot.mainSchematic.name = nameEdit.name;
             schematicLib.saveToLocalStorage(nameEdit.id);
             setNameEdit(null);
         }
@@ -115,7 +115,7 @@ export const SchematicLibraryView: React.FC = () => {
                         <div
                             onMouseDown={ev => handleEntryClick(ev, schematic)}
                             className={s.name}
-                        >{schematic.model.mainSchematic.name}</div>
+                        >{schematic.snapshot.mainSchematic.name}</div>
                         <button className={s.btnIcon} onClick={ev => handleEditName(ev, schematic)}>
                             <FontAwesomeIcon icon={faPencil} />
                         </button>

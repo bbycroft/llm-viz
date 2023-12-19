@@ -1,7 +1,8 @@
 import { isNotNil, assignImm } from "../utils/data";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary } from "./comps/CompBuilder";
-import { IComp, IEditSnapshot, IElRef, ISchematic, IWireGraph, IWireGraphNode, RefType } from "./CpuModel";
+import { IComp, IEditSchematic, IEditSnapshot, IElRef, ISchematic, ISchematicCompArgs, ISchematicDef, IWireGraph, IWireGraphNode, PortType, RefType } from "./CpuModel";
+import { constructEditSnapshot } from "./ModelHelpers";
 import { checkWires } from "./Wire";
 
 // what's our format?
@@ -262,7 +263,35 @@ export function importData(str: string): IImportResult {
     return res;
 }
 
+export interface ILSSchematic {
+    id: string;
+    name: string;
+    model: ILSModel;
+    parentCompDefId?: string;
+    parentComp?: ILSComp;
+    compBbox?: ILSBbox;
+    compArgs?: ILSCompArgs;
+}
 
+export interface ILSModel {
+    wires: ILSGraphWire[];
+    comps: ILSComp[];
+}
+
+export interface ILSCompArgs {
+    w: number;
+    h: number;
+    ports: ILSCompPort[];
+}
+
+export interface ILSCompPort {
+    id: string;
+    name: string;
+    type: PortType;
+    x: number;
+    y: number;
+    width?: number;
+}
 
 export interface ILSGraphWire {
     nodes: ILSGraphWireNode[];
@@ -277,6 +306,13 @@ export interface ILSComp {
     subSchematicId?: string;
 }
 
+export interface ILSBbox {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+}
+
 export interface ILSGraphWireNode {
     id: number;
     x: number;
@@ -285,21 +321,101 @@ export interface ILSGraphWireNode {
     ref?: IElRef;
 }
 
-export interface ILSState {
-    parentCompDefId?: string;
-    wires: ILSGraphWire[];
-    comps: ILSComp[];
-}
 
-export function hydrateFromLS(ls: Partial<ILSState> | undefined): ILSState {
+
+export function lsSchematicToSchematicDef(lsSchematic: ILSSchematic, compLibrary: CompLibrary): ISchematicDef {
+    let compArgs = compArgsFromLsState(lsSchematic.compArgs);
+
+    let snapshot = constructEditSnapshot();
+    snapshot = wiresFromLsState(snapshot, lsSchematic.model, compLibrary);
+
+
+    snapshot.mainSchematic = addCompArgsToSnapshot(snapshot.mainSchematic, compArgs);
+    let schematic = snapshot.mainSchematic;
+
+    schematic.id = lsSchematic.id;
+    schematic.name = lsSchematic.name;
+    schematic.parentCompDefId = lsSchematic.parentCompDefId;
+    schematic.compBbox = lsSchematic.compBbox ? bboxFromLs(lsSchematic.compBbox) : new BoundingBox3d();
+
+    if (lsSchematic.parentCompDefId) {
+        schematic.parentComp = compLibrary.create(lsSchematic.parentCompDefId);
+    }
+
+    // if (snapshot.compBbox.empty) {
+    //     snapshot.compBbox = computeModelBoundingBox(snapshot, { excludePorts: true });
+    // }
+
     return {
-        parentCompDefId: ls?.parentCompDefId,
-        wires: ls?.wires ?? [],
-        comps: ls?.comps ?? [],
+        id: lsSchematic.id,
+        name: lsSchematic.name,
+        snapshot: snapshot,
+        compArgs: compArgs || undefined,
+        hasEdits: false,
+        schematicStr: "",
     };
 }
 
-export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLibrary: CompLibrary): IEditSnapshot {
+export function editSnapshotToLsSchematic(id: string, editSnapshot: IEditSnapshot): ILSSchematic {
+    let schematic = editSnapshot.mainSchematic;
+    return {
+        id: id,
+        name: schematic.name,
+        parentCompDefId: schematic.parentCompDefId,
+        parentComp: schematic.parentComp ? compToLs(schematic.parentComp) : undefined,
+        compArgs: compArgsToLsState(schematic),
+        compBbox: bboxToLs(schematic.compBbox),
+        model: schematicToLsState(schematic),
+    };
+}
+
+function compArgsToLsState(schematic: IEditSchematic): ILSCompArgs | undefined {
+    if (schematic.compSize.len() < 0.001) {
+        return undefined;
+    }
+    return {
+        w: schematic.compSize.x,
+        h: schematic.compSize.y,
+        ports: schematic.compPorts.map(p => ({
+            id: p.id,
+            name: p.name,
+            type: p.type,
+            x: p.pos.x,
+            y: p.pos.y,
+            width: p.width,
+        })),
+    };
+}
+
+function compArgsFromLsState(lsCompArgs?: ILSCompArgs): ISchematicCompArgs | null {
+    if (!lsCompArgs) {
+        return null;
+    }
+
+    return {
+        size: new Vec3(lsCompArgs.w, lsCompArgs.h),
+        ports: lsCompArgs.ports.map(p => ({
+            id: p.id,
+            name: p.name,
+            type: p.type,
+            pos: new Vec3(p.x, p.y),
+            width: p.width,
+        })),
+    };
+}
+
+function addCompArgsToSnapshot(schematic: IEditSchematic, compArgs: ISchematicCompArgs | null): IEditSchematic {
+    if (!compArgs) {
+        return schematic;
+    }
+
+    return assignImm(schematic, {
+        compSize: compArgs.size,
+        compPorts: compArgs.ports,
+    });
+}
+
+export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSModel, compLibrary: CompLibrary): IEditSnapshot {
 
     let wireIdx = 0;
     let newWires: IWireGraph[] = ls.wires.map(w => ({
@@ -324,15 +440,7 @@ export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLi
         lsCompLookup.set(c.id, c);
     }
 
-    let comps: IComp[] = ls.comps.map(c => {
-        let comp = compLibrary.create(c.defId, c.args);
-
-        comp.id = c.id;
-        comp.pos = new Vec3(c.x, c.y);
-        comp.subSchematicId = c.subSchematicId;
-
-        return comp;
-    });
+    let comps: IComp[] = ls.comps.map(c => compFromLs(compLibrary, c));
 
     let maxCompId = 0;
     for (let c of comps) {
@@ -343,33 +451,58 @@ export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSState, compLi
         mainSchematic: assignImm(layoutBase.mainSchematic, {
             nextWireId: maxWireId + 1,
             nextCompId: maxCompId + 1,
-            parentCompDefId: ls.parentCompDefId,
             wires: newWires,
             comps: comps,
         }),
     });
 }
 
-export function schematicToLsState(layout: ISchematic): ILSState {
+function compFromLs(compLibrary: CompLibrary, c: ILSComp): IComp {
+    let comp = compLibrary.create(c.defId, c.args);
+
+    comp.id = c.id;
+    comp.pos = new Vec3(c.x, c.y);
+    comp.subSchematicId = c.subSchematicId;
+
+    return comp;
+}
+
+function compToLs(c: IComp): ILSComp {
+    let args = Object.keys(c.args).length === 0 ? undefined : c.args;
+
+    return {
+        id: c.id,
+        defId: c.defId,
+        x: c.pos.x,
+        y: c.pos.y,
+        args: args,
+        subSchematicId: c.subSchematicId,
+    };
+}
+
+function bboxFromLs(bb: ILSBbox): BoundingBox3d {
+    return new BoundingBox3d(new Vec3(bb.minX, bb.minY), new Vec3(bb.maxX, bb.maxY));
+}
+
+function bboxToLs(bb: BoundingBox3d): ILSBbox {
+    return {
+        minX: bb.min.x,
+        minY: bb.min.y,
+        maxX: bb.max.x,
+        maxY: bb.max.y,
+    };
+}
+
+export function schematicToLsState(layout: ISchematic): ILSModel {
+
+
     return {
         wires: layout.wires
             .filter(w => w.nodes.length > 0)
             .map(w => ({
                 nodes: w.nodes.map(n => ({ id: n.id, x: n.pos.x, y: n.pos.y, edges: n.edges, ref: n.ref })),
             })),
-        comps: layout.comps.map(c => {
-
-            let args = Object.keys(c.args).length === 0 ? undefined : c.args;
-
-            return {
-                id: c.id,
-                defId: c.defId,
-                x: c.pos.x,
-                y: c.pos.y,
-                args: args,
-                subSchematicId: c.subSchematicId,
-            };
-        }),
+        comps: layout.comps.map(c => compToLs(c)),
     };
 }
 
