@@ -1,5 +1,3 @@
-import { IMemoryMap } from "./CpuModel";
-
 export interface IElfHeader {
     magic: Uint8Array;
     class: number;
@@ -122,6 +120,17 @@ function readString(elfFile: Uint8Array, offset: number): string {
     return str;
 }
 
+
+/* Not actually used currently! */
+export interface IMemoryMap {
+    romOffset: number;
+    ramOffset: number;
+    ioOffset: number;
+    ioSize: number;
+
+    rom: Uint8Array;
+    ram: Uint8Array;
+}
 
 export function readElfFileIntoMemory(elfFile: Uint8Array, memory: IMemoryMap) {
 

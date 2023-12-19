@@ -125,7 +125,7 @@ export const CpuCanvas: React.FC<{
             if (schematic) {
                 setEditorState(a => assignImm(a, {
                     activeSchematicId: schematic.id,
-                    snapshot: schematic.model,
+                    snapshot: schematic.snapshot,
                     undoStack: schematic.undoStack ?? [],
                     redoStack: schematic.redoStack ?? [],
                     mtx: schematic.mtx ?? new AffineMat2d(),
@@ -265,7 +265,7 @@ export const CpuCanvas: React.FC<{
 
         return <>
             {comps}
-            <CompBoundingBox  />
+            <CompBoundingBox />
         </>;
     }
 
@@ -469,7 +469,73 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
 
     renderComponentBoundingBox(cvs, editorState, snapshot, idPrefix);
 
+    if (snapshot.mainSchematic.parentComp) {
+        let mtx = computeSubLayoutMatrix(snapshot.mainSchematic.parentComp, snapshot.mainSchematic);
+
+        ctx.save();
+        ctx.globalAlpha = 0.5;
+        ctx.transform(...mtx.inv().toTransformParams());
+
+        renderParentComp(cvs, editorState, snapshot.mainSchematic.parentComp);
+
+        ctx.restore();
+    }
+
     // renderAxes(cvs, editorState);
+}
+
+function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IComp) {
+    let ctx = cvs.ctx;
+    let compDef = editorState.compLibrary.getCompDef(comp.defId);
+    let isValidExe = false;
+    ctx.save();
+
+    ctx.fillStyle = isValidExe ? palette.compBg : "#aaa";
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 1 * cvs.scale;
+
+    if (compDef?.renderAll !== true) {
+        ctx.beginPath();
+        ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    let compRenderArgs: ICompRenderArgs<any> = {
+        comp,
+        ctx,
+        cvs,
+        exeComp: null as any,
+        editCtx: { idPrefix: "" },
+        styles: {
+            fontSize: 1.6,
+            lineHeight: 2.0,
+            fillColor: "#aaa",
+            strokeColor: "#000",
+            lineWidth: 1 * cvs.scale,
+        },
+        isActive: false,
+    };
+
+    if (compDef?.render) {
+        compDef.render(compRenderArgs);
+    } else if (compDef?.renderDom) {
+        // handled elsewhere
+    } else {
+        let text = comp.name;
+        let textHeight = 3;
+        ctx.font = makeCanvasFont(textHeight / 4);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#000";
+        ctx.fillText(text, comp.pos.x + (comp.size.x) / 2, comp.pos.y + (comp.size.y) / 2);
+    }
+
+    for (let node of comp.ports) {
+        renderCompPort(cvs, editorState, comp, node);
+    }
+
+    ctx.restore();
 }
 
 

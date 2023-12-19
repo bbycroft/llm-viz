@@ -119,7 +119,7 @@ export function getCompSubSchematicForSnapshot(sharedContext: ISharedContext, sn
 
         let schemLibEntry = sharedContext.schematicLibrary.getSchematic(comp.subSchematicId);
 
-        return schemLibEntry?.model.mainSchematic ?? null;
+        return schemLibEntry?.snapshot.mainSchematic ?? null;
     }
 
     let compDef = sharedContext.compLibrary.getCompDef(comp.defId);

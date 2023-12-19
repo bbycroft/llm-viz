@@ -288,6 +288,7 @@ export interface ISchematic {
     wires: IWireGraph[];
     compBbox: BoundingBox3d;
     parentCompDefId?: string;
+    parentComp?: IComp;
 }
 
 export interface IEditSnapshot {
@@ -326,6 +327,7 @@ export interface IEditSchematic {
 
     // this schematic uses a component from the compLibrary as its parent component
     parentCompDefId?: string;
+    parentComp?: IComp; // with some args
 
     // -- or --
 
@@ -334,12 +336,31 @@ export interface IEditSchematic {
     compPorts: ICompPort[];
 }
 
-export interface IMemoryMap {
-    romOffset: number;
-    ramOffset: number;
-    ioOffset: number;
-    ioSize: number;
 
-    rom: Uint8Array;
-    ram: Uint8Array;
+
+export interface ISchematicDef {
+    id: string;
+    name: string;
+    snapshot: IEditSnapshot;
+    compArgs?: ISchematicCompArgs; // a schematic may get wrapped into a component
+
+    hasEdits: boolean;
+    // when we switch between models, want to keep as much state around as possible
+    undoStack?: IEditSnapshot[];
+    redoStack?: IEditSnapshot[];
+    mtx?: AffineMat2d;
+    schematicStr?: string; // for LS update detection
+}
+
+export interface ISchematicCompArgs {
+    size: Vec3;
+    ports: ISubLayoutPort[];
+}
+
+export interface ISubLayoutPort {
+    id: string;
+    name: string
+    type: PortType;
+    pos: Vec3;
+    width?: number;
 }
