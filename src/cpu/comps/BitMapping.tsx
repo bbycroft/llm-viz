@@ -54,14 +54,12 @@ export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
             return builder.build();
         },
-        renderAll: true,
-        render: ({ comp, ctx, cvs, exeComp }) => {
+        renderCanvasPath: ({ comp, ctx }) => {
             ctx.save();
 
             let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
             ctx.transform(...mtx.toTransformParams());
 
-            ctx.beginPath();
             // basic structure is a trapezoid, narrower on the right
             // slope passes through (1, 1) i.e. the select button, but doesn't need to be 45deg
             let slope = 0.7;
@@ -75,8 +73,6 @@ export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.lineTo(x + w, y + h);
             ctx.lineTo(x, y + h - slope);
             ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
 
             ctx.restore();
         },

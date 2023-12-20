@@ -686,6 +686,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
     } else if (opCode === OpCode.LUI) {
         let val = data.rhsImm.value;
         drawBitsAndText(12, 20, immColor, data.rhsImm.value.toString(), 'imm');
+        drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
         drawOpAndMessage('LUI', '', `load immediate as upper 20 bits into register`);
         drawMessage([
             { color: infoColor, text: 'load ' },

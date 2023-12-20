@@ -55,9 +55,7 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
             return builder.build();
         },
-        renderAll: true,
-        render: ({ comp, ctx, cvs, exeComp }) => {
-            ctx.beginPath();
+        renderCanvasPath: ({ comp, ctx }) => {
             // basic structure is a trapezoid, narrower on the right
             // slope passes through (1, 1) i.e. the select button, but doesn't need to be 45deg
             let slope = 0.9;
@@ -77,15 +75,15 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             ctx.lineTo(x + w, yBr);
             ctx.lineTo(x, yBl);
             ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-
+        },
+        render: ({ comp, ctx, cvs, exeComp }) => {
+            let x = comp.pos.x;
+            let y = comp.pos.y;
             let srcPos = comp.ports[exeComp?.data.inSelPort.value ? 2 : 1].pos;
             let destPos = comp.ports[3].pos;
             let xMid = comp.size.x / 2;
 
-            let dashScale = Math.min(cvs.scale, 0.03);
+            // let dashScale = Math.min(cvs.scale, 0.03);
             ctx.beginPath();
             ctx.moveTo(x + srcPos.x, y + srcPos.y);
             ctx.lineTo(x + xMid, y + srcPos.y);

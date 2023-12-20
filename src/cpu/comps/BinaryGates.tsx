@@ -58,14 +58,12 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
             return builder.build();
         },
-        renderAll: true,
-        render: ({ comp, ctx, cvs, exeComp }) => {
+        renderCanvasPath: ({ comp, ctx }) => {
             ctx.save();
 
             let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
             ctx.transform(...mtx.toTransformParams());
 
-            ctx.beginPath();
             // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
             let dx = 0.2;
             let x = comp.pos.x - dx;
@@ -83,16 +81,14 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.arcTo(x + 0.7, y + h / 2, x, y, h * 0.8);
 
             ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
             ctx.restore();
         },
-        renderDom: ({ comp, exeComp, editCtx, isActive }) => {
+        // renderDom: ({ comp, exeComp, editCtx, isActive }) => {
 
-            return <CompRectBase comp={comp} hideHover>
-                <BinGate editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} />
-            </CompRectBase>;
-        },
+        //     return <CompRectBase comp={comp} hideHover>
+        //         <BinGate editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} />
+        //     </CompRectBase>;
+        // },
     };
 
     let xorGate: ICompDef<IBinGateData, IBinGateConfig> = {
@@ -123,14 +119,12 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
             return builder.build();
         },
-        renderAll: true,
-        render: ({ comp, ctx, cvs, exeComp }) => {
+        renderCanvasPath: ({ comp, ctx }) => {
             ctx.save();
 
             let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
             ctx.transform(...mtx.toTransformParams());
 
-            ctx.beginPath();
             // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
             let dx = 0.2;
             let x = comp.pos.x - dx;
@@ -146,24 +140,25 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.arcTo(rightX - 1, y + h, x    , y + h, frontRad);
             ctx.lineTo(x, y + h);
             ctx.arcTo(x + 0.7, y + h / 2, x, y, h * 0.8);
+            ctx.moveTo(x, y);
 
-            ctx.closePath();
-
-            ctx.fill();
+            // ctx.fill();
 
             ctx.moveTo(x - 0.5, y + h);
             ctx.arcTo(x + 0.7 - 0.5, y + h / 2, x - 0.5, y, h * 0.8);
             ctx.lineTo(x - 0.5, y);
+            ctx.arcTo(x + 0.7 - 0.5, y + h / 2, x - 0.5, y + h, h * 0.8);
+            ctx.lineTo(x - 0.5, y + h);
 
-            ctx.stroke();
+            // ctx.stroke();
             ctx.restore();
         },
-        renderDom: ({ comp, exeComp, editCtx, isActive }) => {
+        // renderDom: ({ comp, exeComp, editCtx, isActive }) => {
 
-            return <CompRectBase comp={comp} hideHover>
-                <BinGate editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} />
-            </CompRectBase>;
-        },
+        //     return <CompRectBase comp={comp} hideHover>
+        //         <BinGate editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} />
+        //     </CompRectBase>;
+        // },
     };
 
     let andGate: ICompDef<IBinGateData, IBinGateConfig> = {
@@ -194,44 +189,33 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
             return builder.build();
         },
-        renderAll: true,
-        render: ({ comp, ctx, cvs, exeComp }) => {
+        renderCanvasPath: ({ comp, ctx, cvs, exeComp }) => {
             ctx.save();
 
             let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
             ctx.transform(...mtx.toTransformParams());
 
-            ctx.beginPath();
-            // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
             let dx = 0.0;
             let x = comp.pos.x - dx;
             let y = comp.pos.y + 0.5;
             let rightX = x + comp.size.x;
             let w = comp.size.x + dx;
             let h = comp.size.y - 1;
-            let frontRad = h * 0.9;
             ctx.moveTo(x, y);
             ctx.lineTo(x + w * 0.4, y);
             ctx.arc(rightX - h/2, y + h / 2, h / 2, -Math.PI / 2, Math.PI / 2);
-            // ctx.arcTo(rightX - 1, y    , x + w, y + h / 2, frontRad);
-            // ctx.lineTo(x + w, y + h / 2);
-
-            // ctx.arcTo(rightX - 1, y + h, x    , y + h, frontRad);
             ctx.lineTo(x, y + h);
             ctx.lineTo(x, y);
-            // ctx.arcTo(x + 0.7, y + h / 2, x, y, h * 0.8);
 
             ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
             ctx.restore();
         },
-        renderDom: ({ comp, exeComp, editCtx, isActive }) => {
+        // renderDom: ({ comp, exeComp, editCtx, isActive }) => {
 
-            return <CompRectBase comp={comp} hideHover>
-                <BinGate editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} />
-            </CompRectBase>;
-        },
+        //     return <CompRectBase comp={comp} hideHover>
+        //         <BinGate editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} />
+        //     </CompRectBase>;
+        // },
     };
 
     let notW = 3;
@@ -263,9 +247,12 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
             return builder.build();
         },
-        renderAll: true,
-        render: ({ comp, ctx, cvs, exeComp }) => {
-            ctx.beginPath();
+        renderCanvasPath: ({ comp, ctx }) => {
+            ctx.save();
+
+            let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
+            ctx.transform(...mtx.toTransformParams());
+
             let dy = 0.7;
             let dx = 0.5;
             let x = comp.pos.x;
@@ -281,8 +268,8 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.arc(rightX + dx/2, y + h / 2, dx/2, 0, Math.PI * 2);
             ctx.moveTo(rightX + dx*0.9, y + h / 2)
             ctx.arc(rightX + dx/2, y + h / 2, dx * (0.5 - 0.1), 0, Math.PI * 2);
-            ctx.fill("evenodd");
-            ctx.stroke();
+
+            ctx.restore();
         },
     };
 
