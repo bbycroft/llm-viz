@@ -33,7 +33,6 @@ export interface ICompPortConfig extends IBaseCompConfig {
     type: PortType;
     bitWidth: number;
     signed: boolean;
-    inputOverride: boolean;
     inputValueOverride: number;
     valueMode: HexValueInputType;
 }
@@ -102,7 +101,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                 port: builder.getPort('a'),
                 externalPort: builder.createExternalPort('_b', args.type, args.bitWidth),
                 externalPortBound: false,
-                value: isInput && args.inputOverride ? args.inputValueOverride : 0,
+                value: isInput ? args.inputValueOverride : 0,
             });
 
             if (isInput) {
@@ -127,21 +126,21 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             return builder.build();
         },
         renderAll: true,
-        render: ({ comp, ctx, cvs, exeComp }) => {
+        renderCanvasPath: ({ comp, ctx, cvs }) => {
             ctx.save();
 
-            let isInput = hasFlag(comp.args.type, PortType.In);
-            ctx.fillStyle = isInput ? palette.portInputBg : palette.portOutputBg;
-            ctx.beginPath();
+            // let isInput = hasFlag(comp.args.type, PortType.In);
+            // ctx.fillStyle = isInput ? palette.portInputBg : palette.portOutputBg;
             let p = comp.pos;
             let s = comp.size;
             ctx.roundRect(p.x, p.y, s.x, s.y, s.y / 2);
 
             ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
+        },
+        render: ({ comp, ctx, cvs }) => {
             let scale = Math.min(cvs.scale, 1/15);
+            let p = comp.pos;
+            let s = comp.size;
 
             ctx.fillStyle = 'black';
             ctx.font = makeCanvasFont(scale * 14);
@@ -186,7 +185,6 @@ const PortEditor: React.FC<{
 }> = memo(function PortEditor({ editCtx, comp, exeComp, isActive }) {
     let { setEditorState } = useEditorContext();
 
-    let editIsOverriden = makeEditFunction(setEditorState, editCtx, comp, (value: boolean) => ({ inputOverride: value }));
     let editBitWidth = makeEditFunction(setEditorState, editCtx, comp, (value: number) => ({ bitWidth: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, value, comp.args.signed) }));
     let editSigned = makeEditFunction(setEditorState, editCtx, comp, (value: boolean) => ({ signed: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, comp.args.bitWidth, value) }));
     let editPortType = makeEditFunction(setEditorState, editCtx, comp, (isInputPort: boolean, prev) => {
@@ -206,7 +204,6 @@ const PortEditor: React.FC<{
     }
 
     let isInput = hasFlag(comp.args.type, PortType.In);
-    let isInputOverride = comp.args.inputOverride;
     let isBound = exeComp?.data.externalPortBound ?? false;
 
     return <>
@@ -250,8 +247,7 @@ const PortEditor: React.FC<{
                         update={makeEditFunction(setEditorState, editCtx, comp, (value: string) => ({ portId: value }))}
                     />
                 </MenuRow>
-                <MenuRow title={<CheckboxMenuTitle title="Input" value={isInput} update={editPortType} />} />
-                <MenuRow title={<CheckboxMenuTitle title="Override Value" value={isInputOverride} update={editIsOverriden} />} disabled={!isInput}>
+                <MenuRow title={<CheckboxMenuTitle title="Input" value={isInput} update={editPortType} />}>
                     <HexValueEditor
                         inputType={comp.args.valueMode}
                         value={comp.args.inputValueOverride}

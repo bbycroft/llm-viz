@@ -170,7 +170,8 @@ function modelToScreen(viewLayout: IViewLayoutContext, modelPos: Vec3) {
 }
 
 function roundToHalfway(a: Vec3) {
-    return new Vec3(
-        Math.round(a.x - 0.5) + 0.5,
-        Math.round(a.y - 0.5) + 0.5);
+    return a.round();
+    // return new Vec3(
+    //     Math.round(a.x - 0.5) + 0.5,
+    //     Math.round(a.y - 0.5) + 0.5);
 }

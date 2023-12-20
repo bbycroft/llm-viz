@@ -381,15 +381,8 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
 
         let isValidExe = !!exeComp;
         ctx.fillStyle = isValidExe ? palette.compBg : "#aaa";
-        ctx.strokeStyle = isHover ? "#a00" : "#000";
-        ctx.lineWidth = 1 * cvs.scale;
-
-        if (compDef?.renderAll !== true) {
-            ctx.beginPath();
-            ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
-            ctx.fill();
-            ctx.stroke();
-        }
+        ctx.strokeStyle = isHover ? "#444" : "#000";
+        ctx.lineWidth = (isHover ? 2 : 1) * cvs.scale;
 
         let compRenderArgs: ICompRenderArgs<any> = {
             comp,
@@ -407,11 +400,38 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === compFullId,
         };
 
+        function drawPath() {
+            if (compDef?.renderCanvasPath) {
+                compDef.renderCanvasPath(compRenderArgs);
+            } else {
+                ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+            }
+        }
+
+        ctx.beginPath();
+
+        drawPath();
+
+        if (isHover) {
+            ctx.save();
+            // ctx.globalAlpha = 0.2;
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 2 * cvs.scale;
+            ctx.filter = "blur(2px)";
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        ctx.fill('evenodd');
+        ctx.stroke();
+
+
         if (compDef?.render) {
             compDef.render(compRenderArgs);
         } else if (compDef?.renderDom) {
             // handled elsewhere
         } else {
+            /*
             let text = comp.name;
             let textHeight = 3;
             ctx.font = makeCanvasFont(textHeight / 4);
@@ -419,6 +439,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             ctx.textBaseline = "middle";
             ctx.fillStyle = "#000";
             ctx.fillText(text, comp.pos.x + (comp.size.x) / 2, comp.pos.y + (comp.size.y) / 2);
+            */
         }
 
         for (let node of comp.ports) {
@@ -487,12 +508,19 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
 
     if (snapshot.mainSchematic.parentComp) {
         let mtx = computeSubLayoutMatrix(snapshot.mainSchematic.parentComp, snapshot.mainSchematic);
+        let subMtx = mtx.inv();
 
         ctx.save();
         ctx.globalAlpha = 0.5;
-        ctx.transform(...mtx.inv().toTransformParams());
+        ctx.transform(...subMtx.toTransformParams());
 
-        renderParentComp(cvs, editorState, snapshot.mainSchematic.parentComp);
+        let subCvs: ICanvasState = {
+            ...cvs,
+            mtx: cvs.mtx.mul(subMtx),
+            scale: cvs.scale / subMtx.a,
+        };
+
+        renderParentComp(subCvs, editorState, snapshot.mainSchematic.parentComp);
 
         ctx.restore();
     }
@@ -510,13 +538,6 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 1 * cvs.scale;
 
-    if (compDef?.renderAll !== true) {
-        ctx.beginPath();
-        ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
-        ctx.fill();
-        ctx.stroke();
-    }
-
     let compRenderArgs: ICompRenderArgs<any> = {
         comp,
         ctx,
@@ -533,19 +554,36 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
         isActive: false,
     };
 
-    if (compDef?.render) {
-        compDef.render(compRenderArgs);
-    } else if (compDef?.renderDom) {
-        // handled elsewhere
+
+    ctx.beginPath();
+
+    // the entire canvas
+    ctx.save();
+    ctx.transform(...cvs.mtx.inv().toTransformParams());
+    ctx.rect(cvs.region.min.x, cvs.region.min.y, cvs.region.size().x, cvs.region.size().y);
+    ctx.restore();
+
+    if (compDef?.renderCanvasPath) {
+        compDef.renderCanvasPath(compRenderArgs);
     } else {
-        let text = comp.name;
-        let textHeight = 3;
-        ctx.font = makeCanvasFont(textHeight / 4);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "#000";
-        ctx.fillText(text, comp.pos.x + (comp.size.x) / 2, comp.pos.y + (comp.size.y) / 2);
+        ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
     }
+    ctx.fill('evenodd');
+    ctx.stroke();
+
+    // if (compDef?.render) {
+    //     compDef.render(compRenderArgs);
+    // } else if (compDef?.renderDom) {
+    //     // handled elsewhere
+    // } else {
+    //     let text = comp.name;
+    //     let textHeight = 3;
+    //     ctx.font = makeCanvasFont(textHeight / 4);
+    //     ctx.textAlign = 'center';
+    //     ctx.textBaseline = "middle";
+    //     ctx.fillStyle = "#000";
+    //     ctx.fillText(text, comp.pos.x + (comp.size.x) / 2, comp.pos.y + (comp.size.y) / 2);
+    // }
 
     for (let node of comp.ports) {
         renderCompPort(cvs, editorState, comp, node);

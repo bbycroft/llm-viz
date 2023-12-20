@@ -102,14 +102,14 @@ export const HoverDisplay: React.FC<{
                     portElNode = <>
                         <span>&nbsp; Port {port.name} ({typeStr}) io:{portExe.ioEnabled ? '1' : '0'}, du:{portExe.dataUsed ? '1' : '0'}{dirStr} V:0x{portExe.value.toString(16)}</span>
                     </>;
-                    portIdStr = <span className={s.portId}>/{port.id}</span>;
+                    portIdStr = <span className={s.portId}> {port.id}</span>;
                 }
             }
 
             if (exeComp) {
                 content = <div>
                     <div>{portElNode ?? exeComp.comp.name}</div>
-                    <div className={s.compId}>{exeComp.comp.id}/{exeComp.comp.defId}{portIdStr}</div>
+                    <div className={s.compId}>{exeComp.comp.id} {exeComp.comp.defId}{portIdStr}</div>
                 </div>;
 
             } else {

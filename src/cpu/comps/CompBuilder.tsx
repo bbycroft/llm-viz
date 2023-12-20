@@ -81,6 +81,8 @@ export interface ICompDef<T, A extends IBaseCompConfig = any> {
     // Let render() handle all rendering; don't render a box/name
     renderAll?: boolean;
 
+    renderCanvasPath?: (args: ICompRenderArgs<T, A>) => void;
+
     // copy things like memory & registers (not ports) between IExeComp data's (during a regen of the exe model)
     copyStatefulData?: (src: T, dest: T) => void;
 
