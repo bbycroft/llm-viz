@@ -281,7 +281,6 @@ export const CpuCanvas: React.FC<{
 
         return <>
             {comps}
-            <CompBoundingBox />
         </>;
     }
 
@@ -294,8 +293,8 @@ export const CpuCanvas: React.FC<{
     return <EditorContext.Provider value={ctx}>
         <ViewLayoutContext.Provider value={viewLayout}>
             {!embedded && <MainToolbar readonly={readonly} toolbars={toolbars} />}
-            <Resizer className="flex-1 flex flex-row" id={"cpu-tools-right"} defaultFraction={0.9}>
-                <div className="relative touch-none flex-1 overflow-hidden">
+            <Resizer className="flex-1 flex flex-row" id={"cpu-tools-right"} defaultFraction={0.8}>
+                <div className="relative touch-none flex-1 overflow-hidden shadow-inner-lg">
                     <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
                     {cvsState && <CanvasEventHandler cvsState={cvsState} embedded={embedded}>
                         <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
@@ -303,6 +302,7 @@ export const CpuCanvas: React.FC<{
                                 className={"absolute origin-top-left"}
                                 style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
                                 {compDivs}
+                                <CompBoundingBox />
                             </div>
                             {editorState.transparentComps && <div className="absolute w-full h-full pointer-events-auto top-0 left-0" />}
                         </div>
@@ -324,7 +324,7 @@ export const CpuCanvas: React.FC<{
                     {editorState.compLibraryVisible && <LibraryBrowser />}
                     {children}
                 </div>
-                {!readonly && <div className="flex-1 flex flex-col">
+                {!readonly && <div className="flex-1 flex flex-col border-t">
                     <SchematicDetails />
                     <CompDetails />
                 </div>}
@@ -504,9 +504,11 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
 
     renderSelectRegion(cvs, editorState, idPrefix);
 
-    renderComponentBoundingBox(cvs, editorState, snapshot, idPrefix);
+    if (idPrefix === '') {
+        renderComponentBoundingBox(cvs, editorState, snapshot, idPrefix);
+    }
 
-    if (snapshot.mainSchematic.parentComp) {
+    if (snapshot.mainSchematic.parentComp && idPrefix === '') {
         let mtx = computeSubLayoutMatrix(snapshot.mainSchematic.parentComp, snapshot.mainSchematic);
         let subMtx = mtx.inv();
 

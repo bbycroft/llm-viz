@@ -125,9 +125,10 @@ export const CheckboxMenuTitle: React.FC<{
     title: React.ReactNode,
     value: boolean,
     update: (end: boolean, value: boolean) => void,
-}> = ({ title, value, update }) => {
+    className?: string,
+}> = ({ title, value, update, className }) => {
 
-    return <label className="text-sm flex items-center group cursor-pointer">
+    return <label className={clsx("text-sm flex items-center group cursor-pointer", className)}>
         <input type="checkbox" className="mr-2 relative group-hover:drop-shadow" checked={value} onChange={e => update(true, e.target.checked)} />
         {title}
     </label>;

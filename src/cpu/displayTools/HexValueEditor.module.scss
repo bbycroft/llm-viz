@@ -32,7 +32,6 @@
     color: inherit;
     padding: 0;
     border-radius: 4px;
-    pointer-events: auto;
     background-color: #fff3;
 
     &:hover:not(.readonly) {
@@ -51,9 +50,9 @@
         outline: none;
     }
 
-    &:focus:not(.readonly) {
-        background-color: #ffff;
-    }
+    // &:focus:not(.readonly) {
+    //     background-color: #ffff;
+    // }
 
     &.invalid {
         color: $color-red;

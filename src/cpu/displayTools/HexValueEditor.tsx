@@ -107,7 +107,7 @@ export const HexValueEditor: React.FC<{
 
     let textValid = isValid(text);
 
-    return <div className={clsx(s.hexValueEditor, className)}>
+    return <div className={clsx("w-full font-mono flex items-center", className)}>
         {!hidePrefix && <button className={s.prefix} onClick={handleInputModeChange}>
             {!fixedInputType && <FontAwesomeIcon icon={faAngleUp} />}
             {textPrefix || '\u00A0'}

@@ -364,7 +364,7 @@ export function editSnapshotToLsSchematic(id: string, editSnapshot: IEditSnapsho
         parentCompDefId: schematic.parentCompDefId,
         parentComp: schematic.parentComp ? compToLs(schematic.parentComp) : undefined,
         compArgs: compArgsToLsState(schematic),
-        compBbox: bboxToLs(schematic.compBbox),
+        compBbox: bboxToLs(schematic.compBbox) ?? undefined,
         model: schematicToLsState(schematic),
     };
 }
@@ -481,11 +481,15 @@ function compToLs(c: IComp): ILSComp {
 }
 
 function bboxFromLs(bb: ILSBbox): BoundingBox3d {
+    if (bb.minX === 0 && bb.minY === 0 && bb.maxX === 0 && bb.maxY === 0) {
+        return new BoundingBox3d();
+    }
+
     return new BoundingBox3d(new Vec3(bb.minX, bb.minY), new Vec3(bb.maxX, bb.maxY));
 }
 
-function bboxToLs(bb: BoundingBox3d): ILSBbox {
-    return {
+function bboxToLs(bb: BoundingBox3d): ILSBbox | null {
+    return bb.empty ? null : {
         minX: bb.min.x,
         minY: bb.min.y,
         maxX: bb.max.x,

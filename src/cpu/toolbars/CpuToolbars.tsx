@@ -57,15 +57,11 @@ export const MainToolbar: React.FC<{
         setEditorState(a => assignImm(a, { compLibraryVisible: !a.compLibraryVisible }));
     }
 
-    function handleNameChange(ev: IBaseEvent, value: string, end: boolean) {
-        setEditorState(editMainSchematic(end, a => assignImm(a, { name: value })));
-    }
-
     let undoAvailable = editorState.undoStack.length > 0;
     let redoAvailable = editorState.redoStack.length > 0;
 
     if (readonly) {
-        return <div className='top-1 left-1 h-12 bg-white drop-shadow-md flex'>
+        return <div className='top-1 left-1 h-12 bg-white flex'>
             {toolbars?.includes(ToolbarTypes.PlayPause) && <>
                 <StepperControls />
                 <ToolbarDivider />
@@ -77,7 +73,7 @@ export const MainToolbar: React.FC<{
         </div>;
     }
 
-    return <div className='h-12 bg-white drop-shadow-md flex'>
+    return <div className='h-12 bg-white flex'>
         <ToolbarButton icon={faFloppyDisk} onClick={save} tip={`Save (${modifiersToString('S', Modifiers.CtrlOrCmd)})`} />
         <ToolbarButton icon={faCodeFork} onClick={saveAs} notImpl tip={`Duplicate (${modifiersToString('S', Modifiers.CtrlOrCmd | Modifiers.Shift)})`} />
         <ToolbarButton icon={faFileArrowDown} onClick={saveToFile} tip={`Save To File`} />
@@ -102,13 +98,6 @@ export const MainToolbar: React.FC<{
         <ToolbarDivider />
 
         <ComponentAdder />
-
-        <ToolbarDivider />
-
-        <div className='min-w-[200px] h-full flex items-center'>
-            <div className='mr-2'>Name:</div>
-            <ToolbarNameEditor value={editorState.snapshot.mainSchematic.name} setValue={handleNameChange} />
-        </div>
     </div>;
 };
 

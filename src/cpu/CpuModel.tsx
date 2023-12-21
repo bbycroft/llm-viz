@@ -233,6 +233,12 @@ export interface ICompRenderArgs<T, A = any> {
     isActive: boolean;
 }
 
+export interface ICompOptsRenderArgs<T, A = any> {
+    editCtx: IEditContext;
+    comp: IComp<A>;
+    exeComp: IExeComp<T> | null;
+}
+
 export interface IEditContext {
     idPrefix: string;
 }

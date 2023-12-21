@@ -134,8 +134,6 @@ export const CanvasEventHandler: React.FC<{
         let selection = document.getSelection();
         selection?.removeAllRanges();
 
-        let delta = new Vec3(ev.clientX - ds.clientX, ev.clientY - ds.clientY);
-
         if (ds.data.isSelecting) {
             let endPos = evToModel(ev, ds.data.mtx);
             let startPos = ds.data.modelPos;
@@ -176,6 +174,7 @@ export const CanvasEventHandler: React.FC<{
             }));
 
         } else if (!ds.data.hovered) {
+            let delta = new Vec3(ev.clientX - ds.clientX, ev.clientY - ds.clientY);
             let newMtx = AffineMat2d.translateVec(delta).mul(ds.data.baseMtx);
             setEditorState(a => assignImm(a, { mtx: newMtx }));
         } else {

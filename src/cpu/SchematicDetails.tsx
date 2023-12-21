@@ -6,6 +6,7 @@ import { ButtonStandard } from "./EditorControls";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faExpand } from "@fortawesome/free-solid-svg-icons";
 import { computeModelBoundingBox } from "./ModelHelpers";
+import { EditKvp } from "./CompDetails";
 
 export const SchematicDetails: React.FC<{
 }> = ({  }) => {
@@ -40,20 +41,10 @@ export const SchematicDetails: React.FC<{
                 <EditKvp label={'Parent Def Id'}><code>{mainSchematic.parentCompDefId}</code></EditKvp>
             </div>
 
-            {mainSchematic.parentCompDefId && <ButtonStandard onClick={handleShowParentBoundary}>
+            {mainSchematic.parentCompDefId && <ButtonStandard onClick={handleShowParentBoundary} className="mx-2 my-1">
                 <FontAwesomeIcon icon={faExpand} className="mr-2" />
                 Reset Boundary
             </ButtonStandard>}
         </div>
-    </div>;
-};
-
-export const EditKvp: React.FC<{
-    label: string;
-    children?: React.ReactNode;
-}> = ({ label, children }) => {
-    return <div className="flex flex-row items-center my-1">
-        <div className="w-[6rem] mr-2">{label}</div>
-        <div className="flex-1">{children}</div>
     </div>;
 };

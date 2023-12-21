@@ -3,7 +3,7 @@ import { StateSetter, assignImm, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
 import { IComp, IEditContext, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
 import { CompDefFlags, IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { CheckboxMenuTitle, CompRectBase, ConfigMenu, MenuRow } from "./RenderHelpers";
+import { CheckboxMenuTitle, CompRectBase } from "./RenderHelpers";
 import { editComp, editCompConfig, useEditorContext, useViewLayout } from "../Editor";
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from "../displayTools/HexValueEditor";
 import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
@@ -12,9 +12,9 @@ import { faEllipsis, faEllipsisVertical } from "@fortawesome/free-solid-svg-icon
 import clsx from "clsx";
 import { IPointerEvent, useCombinedMouseTouchDrag } from "@/src/utils/pointer";
 import { StringEditor } from "../displayTools/StringEditor";
-import { palette } from "../palette";
 import { CursorDragOverlay } from "@/src/utils/CursorDragOverlay";
 import { makeCanvasFont } from "../CanvasRenderHelpers";
+import { EditKvp } from "../CompDetails";
 
 export enum PortPlacement {
     Right,
@@ -91,6 +91,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             inputValueOverride: 0,
         }),
         applyConfig(comp, args) {
+            comp.extId ??= args.portId;
             comp.size = new Vec3(args.w, args.h);
         },
         build: (builder) => {
@@ -153,6 +154,9 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         renderDom: ({ comp, exeComp, ctx, styles, isActive, editCtx }) => {
             return <PortEditor editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} />;
         },
+        renderOptions: ({ comp, exeComp, editCtx }) => {
+            return <PortOptions comp={comp} editCtx={editCtx} exeComp={exeComp} />;
+        },
     };
 
     return [compPort];
@@ -185,8 +189,52 @@ const PortEditor: React.FC<{
 }> = memo(function PortEditor({ editCtx, comp, exeComp, isActive }) {
     let { setEditorState } = useEditorContext();
 
-    let editBitWidth = makeEditFunction(setEditorState, editCtx, comp, (value: number) => ({ bitWidth: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, value, comp.args.signed) }));
-    let editSigned = makeEditFunction(setEditorState, editCtx, comp, (value: boolean) => ({ signed: value, inputValueOverride: clampToSignedWidth(comp.args.inputValueOverride ?? 0, comp.args.bitWidth, value) }));
+    function editValueOverride(end: boolean, value: number, valueMode: HexValueInputType) {
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { inputValueOverride: clampToSignedWidth(value, a.bitWidth, a.signed), valueMode })));
+    }
+
+    let isInput = hasFlag(comp.args.type, PortType.In);
+    let isBound = exeComp?.data.externalPortBound ?? false;
+
+    return <>
+        <CompRectBase comp={comp} hideHover={true}>
+            {isInput && <HexValueEditor
+                className={clsx("absolute inset-0 px-2")}
+                inputType={comp.args.valueMode}
+                value={isBound ? exeComp.data.value : comp.args.inputValueOverride}
+                update={editValueOverride}
+                minimalBackground
+                readonly={isBound}
+                inputClassName={clsx("text-center", isActive ? "pointer-events-auto" : "pointer-events-none")}
+                maxBits={comp.args.bitWidth}
+                padBits={comp.args.bitWidth}
+                signed={comp.args.signed}
+                hidePrefix
+            />}
+            {!isInput && <HexValueEditor
+                className={clsx("absolute inset-0 px-2")}
+                value={exeComp?.data.value ?? 0}
+                minimalBackground
+                inputClassName={clsx("text-center", isActive ? "pointer-events-auto" : "pointer-events-none")}
+                update={(end, _val, inputType) => editValueOverride(end, comp.args.inputValueOverride, inputType)}
+                inputType={comp.args.valueMode}
+                padBits={comp.args.bitWidth}
+                signed={comp.args.signed}
+                readonly
+                hidePrefix
+            />}
+        </CompRectBase>
+        {isActive && <PortResizer editCtx={editCtx} comp={comp} />}
+    </>;
+});
+
+const PortOptions: React.FC<{
+    editCtx: IEditContext,
+    comp: IComp<ICompPortConfig>,
+    exeComp: IExeComp<ICompPortData> | null,
+}> = memo(function PortOptions({ editCtx, exeComp, comp }) {
+    let { setEditorState } = useEditorContext();
+
     let editPortType = makeEditFunction(setEditorState, editCtx, comp, (isInputPort: boolean, prev) => {
             let type = prev.type;
             if (isInputPort) {
@@ -204,66 +252,29 @@ const PortEditor: React.FC<{
     }
 
     let isInput = hasFlag(comp.args.type, PortType.In);
-    let isBound = exeComp?.data.externalPortBound ?? false;
 
     return <>
-        <CompRectBase comp={comp} className={""} hideHover={true}>
-            {isInput && <HexValueEditor
-                className="absolute inset-0 px-2"
+        <EditKvp label={"Port Id"}>
+            <StringEditor
+                className="bg-slate-100 font-mono rounded flex-1"
+                value={comp.args.portId}
+                update={makeEditFunction(setEditorState, editCtx, comp, (value: string) => ({ portId: value }))}
+            />
+        </EditKvp>
+        <EditKvp label={"Is Input"}>
+            <CheckboxMenuTitle title="" value={isInput} update={editPortType} />
+        </EditKvp>
+        <EditKvp label={"Default"}>
+            <HexValueEditor
+                className="bg-slate-100 rounded flex-1"
                 inputType={comp.args.valueMode}
-                value={isBound ? exeComp.data.value : comp.args.inputValueOverride}
+                value={comp.args.inputValueOverride}
                 update={editValueOverride}
-                minimalBackground
-                readonly={isBound}
-                inputClassName="text-center"
                 maxBits={comp.args.bitWidth}
                 padBits={comp.args.bitWidth}
                 signed={comp.args.signed}
-                hidePrefix
-            />}
-            {!isInput && <HexValueEditor
-                className="absolute inset-0 px-2"
-                value={exeComp?.data.value ?? 0}
-                minimalBackground
-                inputClassName="text-center"
-                update={(end, _val, inputType) => editValueOverride(end, comp.args.inputValueOverride, inputType)}
-                inputType={comp.args.valueMode}
-                padBits={comp.args.bitWidth}
-                signed={comp.args.signed}
-                readonly
-                hidePrefix
-            />}
-            <ConfigMenu className={"absolute top-[12px] right-[12px]"}>
-                <MenuRow title={"Label"}>
-                    <StringEditor
-                        value={comp.args.name}
-                        update={makeEditFunction(setEditorState, editCtx, comp, (value: string) => ({ name: value }))}
-                    />
-                </MenuRow>
-                <MenuRow title={"Id"}>
-                    <StringEditor
-                        className="font-mono"
-                        value={comp.args.portId}
-                        update={makeEditFunction(setEditorState, editCtx, comp, (value: string) => ({ portId: value }))}
-                    />
-                </MenuRow>
-                <MenuRow title={<CheckboxMenuTitle title="Input" value={isInput} update={editPortType} />}>
-                    <HexValueEditor
-                        inputType={comp.args.valueMode}
-                        value={comp.args.inputValueOverride}
-                        update={editValueOverride}
-                        maxBits={comp.args.bitWidth}
-                        padBits={comp.args.bitWidth}
-                        signed={comp.args.signed}
-                    />
-                </MenuRow>
-                <MenuRow title={"Bit Width"}>
-                    <HexValueEditor inputType={HexValueInputType.Dec} hidePrefix value={comp.args.bitWidth} update={editBitWidth} />
-                </MenuRow>
-                <MenuRow title={<CheckboxMenuTitle title="Signed" value={comp.args.signed} update={editSigned} />} />
-            </ConfigMenu>
-        </CompRectBase>
-        {isActive && <PortResizer editCtx={editCtx} comp={comp} />}
+            />
+        </EditKvp>
     </>;
 });
 

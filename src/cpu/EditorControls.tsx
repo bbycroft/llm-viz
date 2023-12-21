@@ -51,7 +51,7 @@ export const ToolbarBtn: React.FC<ButtonHTMLAttributes<HTMLButtonElement>> = ({ 
 };
 
 export const ButtonStandard: React.FC<ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, className, ...props }) => {
-    return <button className="rounded border-gray-400 border border-solid py-1 px-3 hover:bg-slate-200" {...props}>
+    return <button className={clsx(className, "rounded border-gray-400 border border-solid py-1 px-3 hover:bg-slate-200")} {...props}>
         {children}
     </button>
 };
