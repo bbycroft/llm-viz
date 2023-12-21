@@ -56,3 +56,5 @@ export const paletteTw = {
     portInputBg: 'bg-teal-400',
     portOutputBg: 'bg-orange-400',
 };
+
+export const palleteColors = colors;

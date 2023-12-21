@@ -12,6 +12,7 @@ import { createLedOutputComps } from "./peripheral/LedOutputSimple";
 import { createRegFileCtrlComps } from "./riscv/RegisterControl";
 import { createCompIoComps } from "./CompPort";
 import { createBitMappingComps } from "./BitMapping";
+import { createBitExpanderComps } from "./BitExpander";
 
 export function buildCompLibrary() {
     let compLibrary = new CompLibrary();
@@ -32,6 +33,7 @@ export function buildCompLibrary() {
         ...createRegFileCtrlComps(args),
         ...createCompIoComps(args),
         ...createBitMappingComps(args),
+        ...createBitExpanderComps(args),
     ];
 
     for (let comp of comps) {

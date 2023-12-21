@@ -1,6 +1,6 @@
 import { isNil, hasFlag, assignImm } from "@/src/utils/data";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, IEditSnapshot, ILibraryItem, ISchematic, ISubLayoutPort } from "../CpuModel";
+import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, IEditSnapshot, ILibraryItem, ISchematic, ISubLayoutPort, ICompOptsRenderArgs } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -82,6 +82,8 @@ export interface ICompDef<T, A extends IBaseCompConfig = any> {
     renderAll?: boolean;
 
     renderCanvasPath?: (args: ICompRenderArgs<T, A>) => void;
+
+    renderOptions?: (args: ICompOptsRenderArgs<T, A>) => React.ReactNode;
 
     // copy things like memory & registers (not ports) between IExeComp data's (during a regen of the exe model)
     copyStatefulData?: (src: T, dest: T) => void;

@@ -140,7 +140,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.arcTo(rightX - 1, y + h, x    , y + h, frontRad);
             ctx.lineTo(x, y + h);
             ctx.arcTo(x + 0.7, y + h / 2, x, y, h * 0.8);
-            ctx.moveTo(x, y);
+            ctx.lineTo(x, y);
 
             // ctx.fill();
 

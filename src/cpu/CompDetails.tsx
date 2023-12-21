@@ -60,16 +60,19 @@ export const CompDetails: React.FC<{
         {numSelected === 1 && singleComp && compDef && <div>
             <div className="my-2 mx-2">Selected Component: <b>{singleComp.name}</b></div>
             <div className="mx-2">
-                <EditKvp label={'Id'}><code>{singleComp.id}</code></EditKvp>
-                <EditKvp label={'Def Id'}><code>{singleComp.defId}</code></EditKvp>
+                <EditKvp label={'Id'}>
+                    <span className="font-mono">
+                        <code>{singleComp.id}</code>, <code>{singleComp.defId}</code>, ({singleComp.pos.x},{singleComp.pos.y})
+                    </span>
+                </EditKvp>
+                {/* <EditKvp label={'Def Id'}></EditKvp> */}
                 <EditKvp label={'Name'}><StringEditor className="bg-slate-100 rounded flex-1" value={singleComp.args.name ?? singleComp.name} update={handleNameUpdate} /></EditKvp>
                 <EditKvp label={'Ext Id'}><StringEditor className="bg-slate-100 rounded font-mono flex-1" value={singleComp.args.extId ?? ''} update={handleExtIdUpdate} /></EditKvp>
-                <EditKvp label={'Pos'}>{`${singleComp.pos}`}</EditKvp>
-                <EditKvp label={'Size'}>{`${singleComp.size}`}</EditKvp>
+                {/* <EditKvp label={'Pos'}>{}</EditKvp> */}
 
                 {compDef.flags && hasFlag(compDef.flags, CompDefFlags.HasBitWidth) && <EditKvp label={'Bit Width'}>
                     <HexValueEditor
-                        className="text-lg"
+                        className="text-lg bg-slate-100 rounded"
                         inputType={HexValueInputType.Dec}
                         fixedInputType
                         hidePrefix
@@ -79,6 +82,8 @@ export const CompDetails: React.FC<{
                     />
 
                 </EditKvp>}
+
+                {compDef.renderOptions && compDef.renderOptions({ comp: singleComp, exeComp: null, editCtx: { idPrefix: "" } })}
 
             </div>
             <div className="m-2">
@@ -98,8 +103,8 @@ export const EditKvp: React.FC<{
     label: string;
     children?: React.ReactNode;
 }> = ({ label, children }) => {
-    return <div className="flex flex-row items-center my-1">
-        <div className="w-[5rem] mr-2">{label}</div>
+    return <div className="flex flex-row items-center my-2">
+        <div className="w-[6rem] mr-3 text-end text-gray-500">{label}</div>
         <div className="flex-1">{children}</div>
     </div>;
 };
