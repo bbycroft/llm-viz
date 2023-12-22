@@ -1,6 +1,7 @@
 import { Vec3 } from "@/src/utils/vector";
 import { PortType, IExePort } from "../CpuModel";
-import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { CompDefFlags, IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 
 interface ICompDataMux {
     inSelPort: IExePort;
@@ -16,6 +17,7 @@ interface ICompDataAdder {
 }
 
 interface IMuxConfig extends IBaseCompConfig {
+    bitWidth: number;
 }
 
 interface IAdderConfig extends IBaseCompConfig {
@@ -30,14 +32,18 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         altDefIds: ['mux2'],
         name: "Mux",
         size: new Vec3(w, h),
-        ports: [
+        flags: CompDefFlags.HasBitWidth,
+        ports: (args) => [
             { id: 'sel', name: 'S', pos: new Vec3(1, 1), type: PortType.In, width: 1 },
 
-            { id: 'a', name: '0', pos: new Vec3(0, 2), type: PortType.In, width: 32 },
-            { id: 'b', name: '1', pos: new Vec3(0, 4), type: PortType.In, width: 32 },
+            { id: 'a', name: '0', pos: new Vec3(0, 2), type: PortType.In, width: args.bitWidth },
+            { id: 'b', name: '1', pos: new Vec3(0, 4), type: PortType.In, width: args.bitWidth },
 
-            { id: 'out', name: 'Z', pos: new Vec3(w, 3), type: PortType.Out, width: 32 },
+            { id: 'out', name: 'Z', pos: new Vec3(w, 3), type: PortType.Out, width: args.bitWidth },
         ],
+        applyConfig: (comp, args) => {
+            args.bitWidth ??= 32;
+        },
         build: (builder) => {
             let data = builder.addData({
                 inSelPort: builder.getPort('sel'),
@@ -95,6 +101,11 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             ctx.stroke();
             ctx.setLineDash([]);
 
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = makeCanvasFont(1.0, FontType.Mono);
+            ctx.fillStyle = '#000';
+            ctx.fillText(comp.args.bitWidth.toString(), x + 1, y + 3);
         },
     };
 

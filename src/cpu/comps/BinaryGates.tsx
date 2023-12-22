@@ -230,6 +230,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             { id: 'i', name: '', pos: new Vec3(0, notH/2), type: PortType.In, width: args.bitWidth },
             { id: 'o', name: '', pos: new Vec3(notW, notH/2), type: PortType.Out, width: args.bitWidth },
         ],
+        initConfig: () => ({ rotate: 0, bitWidth: 1 }),
         applyConfig(comp, args) {
             rotatePortsInPlace(comp, args.rotate, rotateCenter);
         },

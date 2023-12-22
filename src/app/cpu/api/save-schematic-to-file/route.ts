@@ -63,7 +63,7 @@ interface IManifest {
 
 function updateManifestFile(manifest: IManifest, manifestTsFileName: string) {
 
-    let str = 'import { ILSSchematic } from "./SchematicLibrary";' + os.EOL;
+    let str = 'import { ILSSchematic } from "../ImportExport";' + os.EOL;
     for (let item of manifest.schematics) {
         str += `import { ${item.id}Schematic } from "./${item.id}Schematic";` + os.EOL;
     }

@@ -13,9 +13,12 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { palleteColors } from "../palette";
 import clsx from "clsx";
 import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { EditKvp } from "../CompDetails";
+import { ensureUnsigned32Bit } from "./RiscvInsDecode";
 
 interface IBitExpanderMultiConfig extends IBaseCompConfig {
     // rotate: number; // 0, 1, 2, 3
+    collapse: boolean; // (or expand)
     bitWidth: number; // input bit width
     bitRange: IBitRange[];
 }
@@ -29,8 +32,8 @@ interface IBitRange {
 }
 
 interface IBitExpanderMultiData {
-    inPort: IExePort;
-    outPorts: IExePort[];
+    singlePort: IExePort;
+    multiPorts: IExePort[];
 }
 
 export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[] {
@@ -66,11 +69,14 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             let width = computeWidth(args);
 
             let ports = [
-                { id: 'a', name: '', pos: new Vec3(width / 2, 0).round(), type: PortType.In, width: args.bitWidth },
+                { id: args.collapse ? 'o' : 'i', name: '', pos: new Vec3((width - 1) / 2, args.collapse ? 2 : 0).round(), type: args.collapse ? PortType.Out : PortType.In, width: args.bitWidth },
             ];
 
+            let multiPortType = args.collapse ? PortType.In : PortType.Out;
+            let multiPortPrefix = args.collapse ? 'i' : 'o';
+            let multiPortY = args.collapse ? 0 : 2;
+
             let offset = 1;
-            let outId = 0;
             for (let range of args.bitRange) {
                 let nBits = range.end - range.start + 1;
                 let width = rangeWidth(range);
@@ -80,10 +86,10 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                     let j = 0;
                     for (let i = range.start; i <= range.end; i++) {
                         let xPos = offset + i - range.start;
-                        ports.push({ id: `o_${range.id}_${j++}`, name: '', pos: new Vec3(xPos, 2), type: PortType.Out, width: 1 });
+                        ports.push({ id: `${multiPortPrefix}_${range.id}_${j++}`, name: '', pos: new Vec3(xPos, multiPortY), type: multiPortType, width: 1 });
                     }
                 } else {
-                    ports.push({ id: `o_${range.id}_0`, name: '', pos: new Vec3(center, 2).round(), type: PortType.Out, width: nBits });
+                    ports.push({ id: `${multiPortPrefix}_${range.id}_0`, name: '', pos: new Vec3(center, multiPortY).round(), type: multiPortType, width: nBits });
                 }
 
                 offset += width;
@@ -91,7 +97,11 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
 
             return ports;
         },
-        initConfig: () => ({ bitWidth: 32, bitRange: [{ start: 0, end: 31, individual: false, showBits: true, id: 0 }] }),
+        initConfig: () => ({
+            bitWidth: 32,
+            bitRange: [{ start: 0, end: 31, individual: false, showBits: true, id: 0 }],
+            collapse: false,
+        }),
         applyConfig(comp, args) {
             let maxId = Math.max(...args.bitRange.map(r => r.id ?? 0), 0) + 1;
             for (let range of args.bitRange) {
@@ -99,14 +109,17 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                     range.id = maxId++;
                 }
             }
+            args.collapse = !!args.collapse;
+
             let width = computeWidth(args);
             comp.size = new Vec3(width, initialH);
         },
         build: (builder) => {
+            let args = builder.comp.args;
 
             let data = builder.addData({
-                inPort: builder.getPort('a'),
-                outPorts: builder.ports.filter(p => p.type === PortType.Out),
+                singlePort: builder.getPort(args.collapse ? 'o' : 'i'),
+                multiPorts: builder.ports.filter(p => p.type === (args.collapse ? PortType.In : PortType.Out)),
             });
 
             let ports = builder.comp.args.bitRange.map(r => {
@@ -118,20 +131,39 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                 };
             });
 
-            builder.addPhase(({ data: { inPort, outPorts } }) => {
-                let inPortVal = inPort.value;
-                let outPortIdx = 0;
-                for (let port of ports) {
-                    if (port.individual) {
-                        for (let i = port.end; i >= port.start; i--) {
-                            outPorts[outPortIdx++].value = (inPortVal >> i) & 1;
+            if (args.collapse) {
+                builder.addPhase(({ data: { singlePort, multiPorts } }) => {
+                    let outPortVal = 0;
+                    let inPortIdx = 0;
+                    for (let port of ports) {
+                        if (port.individual) {
+                            for (let i = port.end; i >= port.start; i--) {
+                                outPortVal |= (multiPorts[inPortIdx++].value & 1) << i;
+                            }
+                        } else {
+                            let portVal = multiPorts[inPortIdx++].value;
+                            outPortVal |= (portVal & port.mask) << port.start;
                         }
-                    } else {
-                        outPorts[outPortIdx++].value = (inPortVal >> port.start) & port.mask;
                     }
-                }
-                // outPort.value = inPort.value ? mask : 0;
-            }, [data.inPort], data.outPorts);
+                    singlePort.value = ensureUnsigned32Bit(outPortVal);
+                }, data.multiPorts, [data.singlePort]);
+            } else {
+
+                builder.addPhase(({ data: { singlePort, multiPorts } }) => {
+                    let inPortVal = singlePort.value;
+                    let outPortIdx = 0;
+                    for (let port of ports) {
+                        if (port.individual) {
+                            for (let i = port.end; i >= port.start; i--) {
+                                multiPorts[outPortIdx++].value = (inPortVal >>> i) & 1;
+                            }
+                        } else {
+                            multiPorts[outPortIdx++].value = ensureUnsigned32Bit((inPortVal >>> port.start) & port.mask);
+                        }
+                    }
+                }, [data.singlePort], data.multiPorts);
+
+            }
 
             return builder.build();
         },
@@ -145,15 +177,24 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             let y = comp.pos.y;
             let w = comp.size.x;
             let h = comp.size.y;
-            let midX = x + w / 2;
 
-            ctx.moveTo(x, y + slope);
-            ctx.lineTo(x + 1, y);
-            ctx.lineTo(x + w - 1, y);
-            ctx.lineTo(x + w, y + slope);
-            ctx.lineTo(x + w, y + h);
-            ctx.lineTo(x, y + h);
-            ctx.closePath();
+            if (comp.args.collapse) {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + w, y);
+                ctx.lineTo(x + w, y + h - slope);
+                ctx.lineTo(x + w - 1, y + h);
+                ctx.lineTo(x + 1, y + h);
+                ctx.lineTo(x, y + h - slope);
+                ctx.lineTo(x, y);
+            } else {
+                ctx.moveTo(x, y + slope);
+                ctx.lineTo(x + 1, y);
+                ctx.lineTo(x + w - 1, y);
+                ctx.lineTo(x + w, y + slope);
+                ctx.lineTo(x + w, y + h);
+                ctx.lineTo(x, y + h);
+                ctx.lineTo(x, y + slope);
+            }
 
             ctx.restore();
         },
@@ -166,17 +207,17 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             let singleW = ctx.measureText('0 ').width;
             let numCanvasFont = makeCanvasFont(1 / singleW, FontType.Mono);
 
-            let inValue = exeComp?.data.inPort.value ?? 0x00;
-            let allBits = [...inValue.toString(2).padStart(comp.args.bitWidth, '0')];
+            let fullValue = exeComp?.data.singlePort.value ?? 0x00;
+            let allBits = [...fullValue.toString(2).padStart(comp.args.bitWidth, '0')];
 
             let rangeDrawOffset = 0;
             let rangeId = 0;
-            let prevEnd = 0;
+            let prevEnd = -1;
 
             for (let range of comp.args.bitRange) {
 
-                let rangeStart = 32 - range.end - 1;
-                let rangeEnd = 32 - range.start - 1;
+                let rangeStart = comp.args.bitWidth - range.end - 1;
+                let rangeEnd = comp.args.bitWidth - range.start - 1;
 
                 let nBits = rangeEnd - rangeStart + 1;
                 let rangeW = rangeWidth(range);
@@ -204,7 +245,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
 
                 let lineXStart = comp.pos.x + rangeDrawOffset + 0.5;
 
-                if (prevEnd > 0) {
+                if (prevEnd >= 0) {
                     ctx.strokeStyle = '#777';
                     ctx.lineWidth = styles.lineWidth;
                     ctx.beginPath();
@@ -233,7 +274,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
 
 function getNextRangeId(ranges: IBitRange[]) {
     let maxId = Math.max(...ranges.map(r => r.id ?? 0), 0) + 1;
-    let potentialIds = new Set(makeArrayRange(maxId, 0, maxId - 1));
+    let potentialIds = new Set(makeArrayRange(maxId + 1, 0, maxId));
     ranges.forEach(r => potentialIds.delete(r.id));
     return potentialIds.values().next().value;
 }
@@ -262,58 +303,65 @@ const BitExpandMultiOptions: React.FC<{
         return assignImm(a, { bitRange });
     }));
 
-    return <div className="flex flex-col">
-        <div className="mb-1">Bit Ranges</div>
-        <div className="flelx flex-col items-center">
-            {comp.args.bitRange.map((range, i) => {
-                return <div key={i} className="flex bg-slate-100 py-2 px-2 items-center flex-auto">
-                    <div className={clsx("rounded-full w-2 h-2")} style={{ backgroundColor: rangeColors[i % 4] }} />
+    return <>
 
-                    <HexValueEditor
-                        className="w-[2rem] bg-slate-200 mx-2 rounded"
-                        inputClassName="text-center active:bg-slate-300"
-                        value={range.end}
-                        update={(end, v) => editBitRange(end, i, r => assignImm(r, { end: v }))}
-                        inputType={HexValueInputType.Dec}
-                        hidePrefix
-                        fixedInputType
-                        minimalBackground
-                    />
-                    {":"}
-                    <HexValueEditor
-                        className="w-[2rem] bg-slate-200 mx-2 rounded"
-                        inputClassName="text-center active:bg-slate-300"
-                        value={range.start}
-                        update={(end, v) => editBitRange(end, i, r => assignImm(r, { start: v }))}
-                        inputType={HexValueInputType.Dec}
-                        hidePrefix
-                        fixedInputType
-                        minimalBackground
-                    />
+        <EditKvp label="Collapse">
+            <CheckboxMenuTitle title="" value={comp.args.collapse} update={(end, v) => setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { collapse: v })))} />
+        </EditKvp>
 
-                    <CheckboxMenuTitle title="Show Bits" className="mx-2 text-base" value={range.showBits} update={(end, v) => editBitRange(end, i, r => assignImm(r, { showBits: v }))} />
-                    <CheckboxMenuTitle title="Individual" className="text-base" value={range.individual} update={(end, v) => editBitRange(end, i, r => assignImm(r, { individual: v }))} />
+        <div className="flex flex-col">
+            <div className="mb-1">Bit Ranges</div>
+            <div className="flelx flex-col items-center">
+                {comp.args.bitRange.map((range, i) => {
+                    return <div key={i} className="flex bg-slate-100 py-2 px-2 items-center flex-auto">
+                        <div className={clsx("rounded-full w-2 h-2")} style={{ backgroundColor: rangeColors[i % 4] }} />
 
-                    <ButtonStandard className="ml-auto" onClick={() => removeBitRange(i)}>
-                        <FontAwesomeIcon icon={faTrash} className="text-gray-600" />
-                    </ButtonStandard>
-                    <ButtonStandard className="ml-2" onClick={() => insertBitRange(i, { start: range.end, end: range.end, individual: false, showBits: true, id: getNextRangeId(comp.args.bitRange) })}>
-                        <FontAwesomeIcon icon={faPlus} className="text-gray-600" />
-                    </ButtonStandard>
+                        <HexValueEditor
+                            className="w-[2rem] bg-slate-200 mx-2 rounded"
+                            inputClassName="text-center active:bg-slate-300"
+                            value={range.end}
+                            update={(end, v) => editBitRange(end, i, r => assignImm(r, { end: v }))}
+                            inputType={HexValueInputType.Dec}
+                            hidePrefix
+                            fixedInputType
+                            minimalBackground
+                        />
+                        {":"}
+                        <HexValueEditor
+                            className="w-[2rem] bg-slate-200 mx-2 rounded"
+                            inputClassName="text-center active:bg-slate-300"
+                            value={range.start}
+                            update={(end, v) => editBitRange(end, i, r => assignImm(r, { start: v }))}
+                            inputType={HexValueInputType.Dec}
+                            hidePrefix
+                            fixedInputType
+                            minimalBackground
+                        />
 
-                    {range.id}
-                </div>;
-            })}
-            <div className="flex justify-center">
-                <ButtonStandard onClick={() => {
-                    let lastRange = comp.args.bitRange[comp.args.bitRange.length - 1];
-                    let start = Math.min((lastRange?.end ?? -1) + 1, comp.args.bitWidth - 1);
-                    let end = Math.min(start + 3, comp.args.bitWidth - 1);
-                    insertBitRange(comp.args.bitRange.length, { start, end, showBits: true, individual: false, id: getNextRangeId(comp.args.bitRange) });
-                }}>Add Range</ButtonStandard>
+                        <CheckboxMenuTitle title="Show Bits" className="mx-2 text-base" value={range.showBits} update={(end, v) => editBitRange(end, i, r => assignImm(r, { showBits: v }))} />
+                        <CheckboxMenuTitle title="Individual" className="text-base" value={range.individual} update={(end, v) => editBitRange(end, i, r => assignImm(r, { individual: v }))} />
+
+                        <ButtonStandard className="ml-auto" onClick={() => removeBitRange(i)}>
+                            <FontAwesomeIcon icon={faTrash} className="text-gray-600" />
+                        </ButtonStandard>
+                        <ButtonStandard className="ml-2" onClick={() => insertBitRange(i, { start: range.end, end: range.end, individual: false, showBits: true, id: getNextRangeId(comp.args.bitRange) })}>
+                            <FontAwesomeIcon icon={faPlus} className="text-gray-600" />
+                        </ButtonStandard>
+
+                        {range.id}
+                    </div>;
+                })}
+                <div className="flex justify-center">
+                    <ButtonStandard onClick={() => {
+                        let lastRange = comp.args.bitRange[comp.args.bitRange.length - 1];
+                        let start = Math.min((lastRange?.end ?? -1) + 1, comp.args.bitWidth - 1);
+                        let end = Math.min(start + 3, comp.args.bitWidth - 1);
+                        insertBitRange(comp.args.bitRange.length, { start, end, showBits: true, individual: false, id: getNextRangeId(comp.args.bitRange) });
+                    }}>Add Range</ButtonStandard>
+                </div>
             </div>
         </div>
-    </div>;
+    </>;
 };
 
 let rangeColors = [

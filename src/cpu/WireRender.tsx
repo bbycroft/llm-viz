@@ -137,7 +137,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         activeOutputNodeCount = inputNodeIds.length;
     }
 
-    let width = isCtrl || exeNet?.width < 32 ? 1 : 3;
+    let width = (isCtrl || exeNet?.width === 1) ? 1 : (exeNet?.width < 32 ? 2 : 4);
 
     let hoverRef = editorState.hovered?.ref;
     let isHover = (hoverRef?.type === RefType.WireSeg || hoverRef?.type === RefType.WireNode) && hoverRef.id === fullWireId;
