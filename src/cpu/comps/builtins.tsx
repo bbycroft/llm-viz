@@ -13,6 +13,8 @@ import { createRegFileCtrlComps } from "./riscv/RegisterControl";
 import { createCompIoComps } from "./CompPort";
 import { createBitMappingComps } from "./BitMapping";
 import { createBitExpanderComps } from "./BitExpander";
+import { createBitComparitorComps } from "./BitComparitor";
+import { createBinaryGateMultiComps } from "./BinaryGatesMulti";
 
 export function buildCompLibrary() {
     let compLibrary = new CompLibrary();
@@ -34,6 +36,8 @@ export function buildCompLibrary() {
         ...createCompIoComps(args),
         ...createBitMappingComps(args),
         ...createBitExpanderComps(args),
+        ...createBitComparitorComps(args),
+        ...createBinaryGateMultiComps(args),
     ];
 
     for (let comp of comps) {

@@ -32,7 +32,6 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
             { id: 'pcAddImm', name: 'PC+Imm', pos: new Vec3(7, h), type: PortType.Out | PortType.Addr, width: 32 },
             // { id: 'pcOutTristateCtrl', name: 'PC LHS', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
 
-            { id: 'pcBranchCtrl', name: 'PC Branch', pos: new Vec3(11, h), type: PortType.Out | PortType.Ctrl, width: 1 },
             { id: 'lhsSel', name: 'LHS Sel', pos: new Vec3(15, h), type: PortType.Out | PortType.Ctrl, width: 1 },
             { id: 'aluCtrl', name: 'ALU', pos: new Vec3(18, h), type: PortType.Out | PortType.Ctrl, width: 5 },
         ],
@@ -51,8 +50,6 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
                 pcAddImm: builder.getPort('pcAddImm'),
                 lhsSel: builder.getPort('lhsSel'),
                 rhsSel: builder.getPort('rhsSel'),
-
-                pcBranchCtrl: builder.getPort('pcBranchCtrl'),
             });
 
             builder.addPhase(insDecoderPhase0, [data.ins], [data.addrOffset, data.rhsImm, data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.lhsSel, data.rhsSel, data.pcAddImm]);
@@ -79,7 +76,6 @@ export interface ICompDataInsDecoder {
     pcAddImm: IExePort; // gets added to PC, overrides +4 for jumps
     lhsSel: IExePort; // 1-bit value, selects between PC & Reg A for LHS
     rhsSel: IExePort; // 1-bit value, selects between Reg B & Imm for RHS
-    pcBranchCtrl: IExePort; // 1-bit value, selects between PC + 4 and PC + imm
 }
 
 function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExeRunArgs) {
@@ -98,7 +94,6 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     data.pcAddImm.value = 0;
     data.rhsImm.value = 0;
     data.lhsSel.value = 1; // inverted
-    data.pcBranchCtrl.value = 0;
     data.aluCtrl.value = 0;
     data.loadStoreCtrl.value = 0;
     data.rhsSel.value = 1;
@@ -205,8 +200,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
         data.pcAddImm.value = signExtend12Bit(offsetRaw) << 1;
         // console.log('branch offset: ' + data.pcAddImm.value.toString(16), data.pcAddImm.value);
-        data.lhsSel.value = 1; // PC + offset => PC @TODO: not sure about this one, als a function of branch output
-        data.pcBranchCtrl.value = 0; // PC + offset => PC
+        // data.lhsSel.value = 1; // PC + offset => PC @TODO: not sure about this one, als a function of branch output
 
     } else if (opCode === OpCode.LOAD) {
         let offset = signExtend12Bit(ins >>> 20);

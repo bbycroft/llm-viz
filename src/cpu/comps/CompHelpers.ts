@@ -25,6 +25,9 @@ export function rotatePortsInPlace(comp: IComp<any>, r: number, center: Vec3) {
     comp.ports = comp.ports.map(p => {
         return { ...p, pos: mat.mulVec3(p.pos) }
     });
+    // if (r === 1 || r === 3) {
+    //     comp.size = new Vec3(comp.size.y, comp.size.x);
+    // }
 }
 
 export function createBitWidthMask(width: number) {
