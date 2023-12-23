@@ -1,15 +1,11 @@
 import React from "react";
-import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { Vec3 } from "@/src/utils/vector";
-import { IComp, IEditContext, IExeComp, IExePort, PortType } from "../CpuModel";
-import { CompDefFlags, IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { CompDefFlags, IComp, IEditContext, IExePort, PortType } from "../CpuModel";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from "../Editor";
-import { CompRectBase } from "./RenderHelpers";
 import { assignImm, clamp, makeArray } from "@/src/utils/data";
-import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
-import { createBitWidthMask, rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
+import { rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
 import { EditKvp } from "../CompDetails";
-import { StringEditor } from "../displayTools/StringEditor";
 import { HexValueEditor, HexValueInputType } from "../displayTools/HexValueEditor";
 
 interface IBinGateMultiConfig extends IBaseCompConfig {
@@ -37,7 +33,7 @@ export function createBinaryGateMultiComps(_args: ICompBuilderArgs): ICompDef<an
         defId: 'gate/or-multi',
         name: "Or Multi",
         size: new Vec3(w, h),
-        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 && args.numInPorts <= 4 ? CompDefFlags.IsAtomic : 0),
         ports: (args) => {
             let height = args.numInPorts + 1;
             let gapPoint = height;

@@ -1,10 +1,10 @@
 import { hasFlag, isNil } from "../utils/data";
 import { Vec3 } from "../utils/vector";
 import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
-import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortType, IWireGraphNode, IoDir } from "./CpuModel";
+import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortType, IWireGraphNode, IoDir, IParentCompInfo } from "./CpuModel";
 import { iterWireGraphSegments } from "./Wire";
 
-export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem, idPrefix: string) {
+export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem, idPrefix: string, parentCompInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;
 
     let isCtrl = false;
@@ -131,6 +131,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
                     flowNodes.add(prevId);
                     nodeId = prevId;
                 }
+                flowNodes.add(nodeId);
             }
         }
         activeInputNodeCount = outputNodeIds.length;
@@ -263,6 +264,36 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         ctx.lineTo(node1.pos.x, node1.pos.y);
         ctx.stroke();
     });
+
+    if (parentCompInfo) {
+        ctx.save();
+        ctx.lineWidth = width * cvs.scale;
+        // ctx.setLineDash([2 * cvs.scale, 2 * cvs.scale]);
+
+        for (let node of wire.nodes) {
+            if (node.ref?.type !== RefType.CompNode) {
+                continue;
+            }
+            let info = parentCompInfo.linkedCompPorts.get(node.ref.id);
+            if (!info) {
+                continue;
+            }
+
+            if (flowNodes.has(node.id)) {
+                ctx.strokeStyle = flowColor;
+            } else {
+                ctx.strokeStyle = noFlowColor;
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(node.pos.x, node.pos.y);
+            ctx.lineTo(info.innerPos.x, info.innerPos.y);
+            ctx.stroke();
+        }
+
+        ctx.stroke();
+        ctx.restore();
+    }
 
     function drawEndCircle(p: Vec3, isHover: boolean) {
         if (!isHover) {

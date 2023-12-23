@@ -1,6 +1,6 @@
 import { isNil, hasFlag, assignImm } from "@/src/utils/data";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, IEditSnapshot, ILibraryItem, ISchematic, ISubLayoutPort, ICompOptsRenderArgs } from "../CpuModel";
+import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, IEditSnapshot, ILibraryItem, ISchematic, ISubLayoutPort, ICompOptsRenderArgs, CompDefFlags } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -60,7 +60,7 @@ export interface ICompDef<T, A extends IBaseCompConfig = any> {
     name: string;
     size: Vec3;
     type?: CompDefType; // defaults to BuiltIn
-    flags?: CompDefFlags;
+    flags?: CompDefFlags | ((args: A, compDef: ICompDef<T, A>) => CompDefFlags);
     ports: ICompPort[] | ((args: A, compDef: ICompDef<T, A>) => ICompPort[]);
     subLayout?: ISubLayoutArgs;
 
@@ -91,13 +91,6 @@ export interface ICompDef<T, A extends IBaseCompConfig = any> {
     // action to reset stateful components, typically to 0x00. Option for hard or soft reset. Soft reset is typically
     // equivalent to a power-down/restart (leaving ROM untouched), while a hard reset includes things like ROMs.
     reset?: (exeComp: IExeComp<T>, resetOpts: IResetOptions) => void;
-}
-
-
-export enum CompDefFlags {
-    None = 0,
-    CanRotate = 1 << 0,
-    HasBitWidth
 }
 
 export interface IBaseCompConfig {
@@ -160,6 +153,7 @@ export class CompLibrary {
                 name: '<unknown>',
                 args: cfg ?? {} as any,
                 ports: [],
+                flags: CompDefFlags.None,
                 pos: new Vec3(0, 0),
                 size: new Vec3(4, 4),
                 resolved: false,
@@ -178,6 +172,7 @@ export class CompLibrary {
             defId: compDef.defId,
             name: compDef.name,
             ports: compDef.ports instanceof Function ? compDef.ports(args, compDef) : compDef.ports,
+            flags: compDef.flags instanceof Function ? compDef.flags(args, compDef) : compDef.flags ?? CompDefFlags.None,
             pos: new Vec3(0, 0),
             size: compDef.size,
             args: args ?? {} as any,
@@ -196,6 +191,7 @@ export class CompLibrary {
         }
         comp.name ??= compDef.name;
         comp.ports = compDef.ports instanceof Function ? compDef.ports(comp.args, compDef) : compDef.ports;
+        comp.flags = compDef.flags instanceof Function ? compDef.flags(comp.args, compDef) : compDef.flags ?? CompDefFlags.None;
         comp.size = compDef.size;
         comp.hasSubSchematic = !!compDef.subLayout;
         compDef.applyConfig?.(comp, comp.args);

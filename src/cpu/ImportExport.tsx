@@ -1,7 +1,7 @@
 import { isNotNil, assignImm } from "../utils/data";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary } from "./comps/CompBuilder";
-import { IComp, IEditSchematic, IEditSnapshot, IElRef, ISchematic, ISchematicCompArgs, ISchematicDef, IWireGraph, IWireGraphNode, PortType, RefType } from "./CpuModel";
+import { CompDefFlags, IComp, IEditSchematic, IEditSnapshot, IElRef, ISchematic, ISchematicCompArgs, ISchematicDef, IWireGraph, IWireGraphNode, PortType, RefType } from "./CpuModel";
 import { constructEditSnapshot } from "./ModelHelpers";
 import { checkWires } from "./Wire";
 
@@ -145,6 +145,7 @@ export function importData(str: string): IImportResult {
                 size: new Vec3(0, 0),
                 defId: type,
                 ports: [],
+                flags: CompDefFlags.None,
                 args: null,
                 resolved: false,
                 hasSubSchematic: false,

@@ -1,6 +1,6 @@
 import { Vec3 } from "@/src/utils/vector";
-import { PortType, IExePort } from "../CpuModel";
-import { CompDefFlags, IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { PortType, IExePort, CompDefFlags } from "../CpuModel";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 
 interface ICompDataMux {

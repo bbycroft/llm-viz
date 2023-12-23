@@ -6,9 +6,9 @@ import { BoundingBox3d, Vec3 } from "../utils/vector";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { IDragStart } from "../utils/pointer";
-import { assignImm, getOrAddToMap, isNil, isNotNil } from "../utils/data";
+import { assignImm, getOrAddToMap, hasFlag, isNil, isNotNil } from "../utils/data";
 import { EditorContext, IEditorContext, IViewLayoutContext, ViewLayoutContext } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot } from "./CpuModel";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, CompDefFlags, IParentCompInfo } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
@@ -21,13 +21,14 @@ import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
 import { drawGrid, makeCanvasFont } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
-import { computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
+import { compIsVisible, computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
 import { MainToolbar } from "./toolbars/CpuToolbars";
 import { SharedContextContext, createSharedContext } from "./library/SharedContext";
 import { CompBoundingBox } from "./CompBoundingBox";
 import { CompDetails } from "./CompDetails";
 import { Resizer } from "../utils/Resizer";
 import { SchematicDetails } from "./SchematicDetails";
+import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort";
 
 interface ICanvasDragState {
     mtx: AffineMat2d;
@@ -240,7 +241,7 @@ export const CpuCanvas: React.FC<{
         let comps = schematic.comps
             .map(comp => {
                 let def = editorState.compLibrary.getCompDef(comp.defId)!;
-                return (def.renderDom || def.subLayout || comp.subSchematicId) && cvsState ? {
+                return (def.renderDom || def.subLayout || comp.subSchematicId) && cvsState && compIsVisible(comp, idPrefix) ? {
                     comp,
                     def,
                     renderDom: def.renderDom,
@@ -350,7 +351,8 @@ function renderAxes(cvs: ICanvasState, editorState: IEditorState) {
     ctx.restore();
 }
 
-function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix = '') {
+
+function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix = '', parentInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
 
@@ -358,7 +360,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
 
     for (let wire of layout.wires) {
         let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(idPrefix + wire.id) ?? -1];
-        renderWire(cvs, editorState, wire, exeNet, exeSystem, idPrefix);
+        renderWire(cvs, editorState, wire, exeNet, exeSystem, idPrefix, parentInfo);
     }
 
     let compIdxToExeOrder = new Map<number, number[]>();
@@ -376,6 +378,10 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
         let exeCompIdx = exeSystem.lookup.compIdToIdx.get(compFullId) ?? -1;
         let exeComp = exeSystem.comps[exeCompIdx];
         let compDef = editorState.compLibrary.getCompDef(comp.defId);
+
+        if (!compIsVisible(comp, idPrefix)) {
+            continue;
+        }
 
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === compFullId;
 
@@ -464,7 +470,9 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
                 region: innerMtx.mulBb(new BoundingBox3d(comp.pos, comp.pos.add(comp.size))),
             };
 
-            renderCpu(subCvs, editorState, subSchematic, exeSystem, idPrefix + comp.id + '|');
+            let parentInfo = constructParentCompInfo(comp, subSchematic, subMtx);
+
+            renderCpu(subCvs, editorState, subSchematic, exeSystem, idPrefix + comp.id + '|', parentInfo);
 
             ctx.restore();
         }
@@ -528,6 +536,39 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
     }
 
     // renderAxes(cvs, editorState);
+}
+
+function constructParentCompInfo(parentComp: IComp, subSchematic: ISchematic, subMtx: AffineMat2d): IParentCompInfo {
+    let parentInfo: IParentCompInfo = {
+        comp: parentComp,
+        parentToInnerMtx: subMtx,
+        linkedCompPorts: new Map(),
+    };
+
+    let parentPortsById = new Map<string, ICompPort>(parentComp.ports.map(a => [a.id, a]));
+
+    for (let comp of subSchematic.comps) {
+        if (comp.defId !== compPortDefId) {
+            continue;
+        }
+        let args = comp.args as ICompPortConfig;
+
+        if (!hasFlag(args.flags, CompPortFlags.HiddenInParent) || !hasFlag(args.flags, CompPortFlags.NearParentPort)) {
+            continue;
+        }
+
+        let parentPort = parentPortsById.get(args.portId);
+
+        if (!parentPort) {
+            continue;
+        }
+
+        let innerPos = subMtx.mulVec3Inv(parentComp.pos.add(parentPort.pos));
+
+        parentInfo.linkedCompPorts.set(comp.id, { compPort: comp, port: parentPort, innerPos });
+    }
+
+    return parentInfo;
 }
 
 function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IComp) {
