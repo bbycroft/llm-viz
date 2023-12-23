@@ -1,7 +1,7 @@
 'use client';
 
 import clsx from "clsx";
-import React, { useLayoutEffect, useState } from "react";
+import React, { forwardRef, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { assignImm } from "./data";
 import s from './Portal.module.scss';
@@ -50,31 +50,40 @@ export const ModalWindow: React.FC<{
     </FullscreenOverlay>;
 }
 
+
 export enum PopupPos {
     TopLeft,
-    BottomLeft, // we position the popup below the target, and left-align it
+    BottomLeft,
 }
 
 export const Popup: React.FC<{
     targetEl: HTMLElement | null,
+    setPopupEl?: (el: HTMLDivElement | null) => void,
     placement: PopupPos,
+    matchTargetWidth?: boolean,
     children?: React.ReactNode,
     className?: string,
     closeBackdrop?: boolean,
     offsetX?: number,
     offsetY?: number,
     onClose?: () => void,
-}> = ({ targetEl, placement, children, className, closeBackdrop, onClose, offsetX, offsetY }) => {
-    let [popupEl, setPopupEl] = useState<HTMLElement | null>(null);
+}> = function Popup({ targetEl, placement, matchTargetWidth, children, className, closeBackdrop, onClose, offsetX, offsetY, setPopupEl }) {
+    let [popupElLocal, setPopupElLocal] = useState<HTMLDivElement | null>(null);
     let targetBcr = useWatchElementRect(targetEl, true);
-    let popupBcr = useWatchElementRect(popupEl); // we don't need position info for the popup (would cause an infinite loop)
+    let popupBcr = useWatchElementRect(popupElLocal); // we don't need position info for the popup (would cause an infinite loop)
+
+    function setPopupElLocal2(el: HTMLDivElement | null) {
+        setPopupElLocal(el);
+        setPopupEl?.(el);
+    }
 
     let pos = computeTransform(targetBcr, popupBcr, placement);
 
-    let el = <div ref={setPopupEl} className={clsx(s.popup, className)} style={{
+    let el = <div ref={setPopupElLocal2} className={clsx(s.popup, className)} style={{
         transform: `translate(${pos.x + (offsetX ?? 0)}px, ${pos.y + (offsetY ?? 0)}px)`,
         left: 0,
         top: 0,
+        width: matchTargetWidth ? targetBcr?.width : undefined,
     }}>
         {children}
     </div>;

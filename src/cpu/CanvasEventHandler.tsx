@@ -13,6 +13,7 @@ import { computeSubLayoutMatrix, editCtxFromRefId as editCtxFromElRef, getActive
 import { useFunctionRef } from '../utils/hooks';
 import { copySelection, cutSelection, pasteSelection } from './Clipboard';
 import { deleteSelection } from './Selection';
+import { compIsVisible } from './ModelHelpers';
 
 export const CanvasEventHandler: React.FC<{
     embedded?: boolean;
@@ -448,6 +449,9 @@ export const CanvasEventHandler: React.FC<{
 
         for (let i = comps.length - 1; i >= 0; i--) {
             let comp = comps[i];
+            if (!compIsVisible(comp, idPrefix)) {
+                continue;
+            }
             for (let node of comp.ports) {
                 let modelPos = comp.pos.add(node.pos);
                 let nodeScreenPos = modelToScreen(modelPos, mtx);
@@ -466,6 +470,11 @@ export const CanvasEventHandler: React.FC<{
         if (!showTransparentComponents) {
             for (let i = comps.length - 1; i >= 0; i--) {
                 let comp = comps[i];
+
+                if (!compIsVisible(comp, idPrefix)) {
+                    continue;
+                }
+
                 let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
                 if (bb.contains(mousePt)) {
 

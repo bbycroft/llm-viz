@@ -74,7 +74,7 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
     for (let comp of schematic.comps) {
         let def = compLibrary.getCompDef(comp.defId)!;
         let subSchematic = getCompSubSchematicForSnapshot(sharedContext, editSnapshot, comp);
-        if (subSchematic) {
+        if (subSchematic && !comp.subSchematicId) {
             let prefix = subTreePrefix + comp.id + '|';
             populateExecutionModel(sharedContext, editSnapshot, exeSystem, subSchematic, prefix, existingSystem);
         }

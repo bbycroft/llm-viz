@@ -1,12 +1,6 @@
-import React from "react";
-import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { Vec3 } from "@/src/utils/vector";
-import { IComp, IEditContext, IExeComp, IExePort, PortType } from "../CpuModel";
-import { CompDefFlags, IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { editCompConfig, useEditorContext } from "../Editor";
-import { CompRectBase } from "./RenderHelpers";
-import { assignImm } from "@/src/utils/data";
-import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
+import { CompDefFlags, IExePort, PortType } from "../CpuModel";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { createBitWidthMask, rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
 
 interface IBinGateConfig extends IBaseCompConfig {
@@ -35,7 +29,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         altDefIds: ['or'],
         name: "Or",
         size: new Vec3(w, h),
-        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
         ports: (args) => [
             { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
             { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
@@ -96,7 +90,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         altDefIds: ['xor'],
         name: "Xor",
         size: new Vec3(w, h),
-        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
         ports: (args) => [
             { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
             { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
@@ -166,7 +160,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         altDefIds: ['and'],
         name: "And",
         size: new Vec3(w, h),
-        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
         ports: (args) => [
             { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
             { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
@@ -225,7 +219,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         altDefIds: ['not'],
         name: "Not",
         size: new Vec3(notW, notH),
-        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
         ports: (args) => [
             { id: 'i', name: '', pos: new Vec3(0, notH/2), type: PortType.In, width: args.bitWidth },
             { id: 'o', name: '', pos: new Vec3(notW, notH/2), type: PortType.Out, width: args.bitWidth },
@@ -276,28 +270,3 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
     return [orGate, xorGate, andGate, notGate];
 }
-
-export const BinGate: React.FC<{
-    editCtx: IEditContext,
-    comp: IComp<IBinGateConfig>,
-    exeComp: IExeComp<IBinGateData>,
-    isActive: boolean,
-}> = ({ editCtx, comp, isActive }) => {
-    let { setEditorState } = useEditorContext();
-
-
-    useGlobalKeyboard(KeyboardOrder.Element, ev => {
-        if (isKeyWithModifiers(ev, 'r')) {
-            setEditorState(editCompConfig(editCtx, true, comp, a => assignImm(a, { rotate: (a.rotate + 1) % 4 })));
-            ev.preventDefault();
-            ev.stopPropagation();
-        }
-    }, { isActive });
-
-    function handleRotate() {
-        let newRotate = (comp.args.rotate + 1) % 4;
-        setEditorState(editCompConfig(editCtx, true, comp, a => assignImm(a, { rotate: newRotate })));
-    }
-
-    return <div className={""} onClick={handleRotate}></div>;
-};

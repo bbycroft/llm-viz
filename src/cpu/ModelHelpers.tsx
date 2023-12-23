@@ -1,7 +1,8 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
+import { hasFlag } from "../utils/data";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
-import { IEditSnapshot, IEditorState } from "./CpuModel";
-import { compPortDefId } from "./comps/CompPort";
+import { IComp, IEditSnapshot, IEditorState } from "./CpuModel";
+import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort";
 import { ISharedContext, createSharedContext } from "./library/SharedContext";
 
 export interface IBoundingBoxOptions {
@@ -94,4 +95,16 @@ export function constructEditSnapshot(): IEditSnapshot {
         },
         subSchematics: {},
     };
+}
+
+
+export function compIsVisible(comp: IComp, idPrefix: string) {
+    if (idPrefix && comp.defId === compPortDefId) {
+        let args = comp.args as ICompPortConfig;
+        if (hasFlag(args.flags, CompPortFlags.HiddenInParent)) {
+            return false;
+        }
+    }
+
+    return true;
 }

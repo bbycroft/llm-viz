@@ -1,13 +1,12 @@
 import React from "react";
 import { editComp, editCompConfig, useEditorContext } from "./Editor";
-import { IComp, IEditSnapshot, RefType } from "./CpuModel";
+import { CompDefFlags, IComp, RefType } from "./CpuModel";
 import { StringEditor } from "./displayTools/StringEditor";
 import { assignImm, hasFlag } from "../utils/data";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { getCompFromRef, getCompSubSchematic } from "./SubSchematics";
 import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "../utils/keyboard";
-import { CompDefFlags } from "./comps/CompBuilder";
 import { HexValueEditor, HexValueInputType } from "./displayTools/HexValueEditor";
 import { ButtonStandard } from "./EditorControls";
 
@@ -45,7 +44,7 @@ export const CompDetails: React.FC<{
 
     useGlobalKeyboard(KeyboardOrder.Element, ev => {
         if (singleComp && compDef) {
-            if (isKeyWithModifiers(ev, 'r') && compDef.flags && hasFlag(compDef.flags, CompDefFlags.CanRotate)) {
+            if (isKeyWithModifiers(ev, 'r') && singleComp.flags && hasFlag(singleComp.flags, CompDefFlags.CanRotate)) {
                 setEditorState(editCompConfig({ idPrefix: "" }, true, singleComp as IComp<{ rotate: number }>, a => assignImm(a, { rotate: (a.rotate + 1) % 4 })));
                 ev.preventDefault();
                 ev.stopPropagation();
@@ -54,6 +53,8 @@ export const CompDetails: React.FC<{
     }, { isActive: !!singleComp && !!compDef });
 
     let subSchematic = singleComp ? getCompSubSchematic(editorState, singleComp) : null;
+
+    let isAtomic = singleComp && hasFlag(singleComp.flags, CompDefFlags.IsAtomic);
 
     return <div className="flex flex-col flex-1">
         {numSelected === 0 && <div className="my-2 mx-2">No component selected</div>}
@@ -70,7 +71,7 @@ export const CompDetails: React.FC<{
                 <EditKvp label={'Ext Id'}><StringEditor className="bg-slate-100 rounded font-mono flex-1" value={singleComp.args.extId ?? ''} update={handleExtIdUpdate} /></EditKvp>
                 {/* <EditKvp label={'Pos'}>{}</EditKvp> */}
 
-                {compDef.flags && hasFlag(compDef.flags, CompDefFlags.HasBitWidth) && <EditKvp label={'Bit Width'}>
+                {singleComp.flags && hasFlag(singleComp.flags, CompDefFlags.HasBitWidth) && <EditKvp label={'Bit Width'}>
                     <HexValueEditor
                         className="text-lg bg-slate-100 rounded"
                         inputType={HexValueInputType.Dec}
@@ -86,7 +87,7 @@ export const CompDetails: React.FC<{
                 {compDef.renderOptions && compDef.renderOptions({ comp: singleComp, exeComp: null, editCtx: { idPrefix: "" } })}
 
             </div>
-            <div className="m-2">
+            {!isAtomic && <div className="m-2">
                 <div className="mb-2">Internal Schematic</div>
                 {!subSchematic && <ButtonStandard onClick={handleInternalSchematicAddNew}>
                     <FontAwesomeIcon icon={faPlus} className="mr-2" />
@@ -94,7 +95,7 @@ export const CompDetails: React.FC<{
                 </ButtonStandard>}
                 {singleComp.subSchematicId && <EditKvp label={'Id'}><code>{singleComp.subSchematicId}</code></EditKvp>}
                 {subSchematic && <EditKvp label={'Name'}><code>{subSchematic?.name}</code></EditKvp>}
-            </div>
+            </div>}
         </div>}
     </div>;
 };

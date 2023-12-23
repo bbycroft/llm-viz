@@ -1,6 +1,7 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary, ICompDef } from "./comps/CompBuilder";
+import { ICompPortConfig } from "./comps/CompPort";
 import { CodeSuiteManager } from "./library/CodeSuiteManager";
 import { ISharedContext } from "./library/SharedContext";
 import { SchematicLibrary } from "./schematics/SchematicLibrary";
@@ -251,6 +252,13 @@ export interface IRenderStyles {
     fillColor: string;
 }
 
+export enum CompDefFlags {
+    None = 0,
+    CanRotate = 1 << 0,
+    HasBitWidth = 1 << 1,
+    IsAtomic = 1 << 2, // can't have any internal schematic (1 bit basic gates; comp-ports etc)
+}
+
 export interface IComp<A = any> {
     id: string;
     defId: string;
@@ -261,6 +269,7 @@ export interface IComp<A = any> {
     size: Vec3;
     ports: ICompPort[];
     args: A;
+    flags: CompDefFlags;
     resolved: boolean;
     hasSubSchematic: boolean;
 }
@@ -369,4 +378,10 @@ export interface ISubLayoutPort {
     type: PortType;
     pos: Vec3;
     width?: number;
+}
+
+export interface IParentCompInfo {
+    parentToInnerMtx: AffineMat2d;
+    comp: IComp;
+    linkedCompPorts: Map<string, { compPort: IComp<ICompPortConfig>, port: ICompPort, innerPos: Vec3 }>;
 }

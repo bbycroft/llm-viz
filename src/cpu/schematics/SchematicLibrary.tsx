@@ -64,7 +64,7 @@ export class SchematicLibrary {
     }
 
     public getSchematic(id: string): ISchematicDef | undefined {
-        return this.builtinSchematics.get(id) || this.customSchematics.get(id);
+        return this.customSchematics.get(id) || this.builtinSchematics.get(id);
     }
 
     private readFromLocalStorage(compLibrary: CompLibrary) {

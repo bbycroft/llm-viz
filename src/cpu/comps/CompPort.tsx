@@ -1,8 +1,8 @@
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import { StateSetter, assignImm, hasFlag } from "@/src/utils/data";
 import { Vec3 } from "@/src/utils/vector";
-import { IComp, IEditContext, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
-import { CompDefFlags, IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { CompDefFlags, IComp, IEditContext, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CheckboxMenuTitle, CompRectBase } from "./RenderHelpers";
 import { editComp, editCompConfig, useEditorContext, useViewLayout } from "../Editor";
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from "../displayTools/HexValueEditor";
@@ -15,6 +15,8 @@ import { StringEditor } from "../displayTools/StringEditor";
 import { CursorDragOverlay } from "@/src/utils/CursorDragOverlay";
 import { makeCanvasFont } from "../CanvasRenderHelpers";
 import { EditKvp } from "../CompDetails";
+import { SelectEditor } from "../displayTools/SelectEditor";
+import { BooleanEditor } from "../displayTools/BooleanEditor";
 
 export enum PortPlacement {
     Right,
@@ -23,12 +25,19 @@ export enum PortPlacement {
     Top,
 }
 
+export enum CompPortFlags {
+    None = 0,
+    HiddenInParent = 1 << 0, // hide when rendering inside the component
+    NearParentPort = 1 << 1, // the port's location matches the parent's location at least roughly, and we'll draw a line between them
+    MoveWithParentPort = 1 << 2, // when the parent (or the parent-port itself) is moved, the port moves with it
+}
 
 export interface ICompPortConfig extends IBaseCompConfig {
     portId: string;
     name: string;
     w: number;
     h: number;
+    flags: CompPortFlags;
     portPos: PortPlacement;
     type: PortType;
     bitWidth: number;
@@ -67,7 +76,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         defId: 'comp/port',
         name: "Port",
         size: new Vec3(w, h),
-        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | CompDefFlags.IsAtomic,
         ports: (args, compDef) => {
 
             let internalPortDir = switchPortDir(args.type);
@@ -86,12 +95,13 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             portPos: PortPlacement.Right,
             bitWidth: 1,
             signed: false,
+            flags: CompPortFlags.None,
             valueMode: HexValueInputType.Dec,
             inputOverride: false,
             inputValueOverride: 0,
         }),
         applyConfig(comp, args) {
-            comp.extId ??= args.portId;
+            args.flags ??= CompPortFlags.None;
             comp.size = new Vec3(args.w, args.h);
         },
         build: (builder) => {
@@ -233,7 +243,9 @@ const PortOptions: React.FC<{
     comp: IComp<ICompPortConfig>,
     exeComp: IExeComp<ICompPortData> | null,
 }> = memo(function PortOptions({ editCtx, exeComp, comp }) {
-    let { setEditorState } = useEditorContext();
+    let { editorState, setEditorState } = useEditorContext();
+
+    let snapshot = editorState.snapshot;
 
     let editPortType = makeEditFunction(setEditorState, editCtx, comp, (isInputPort: boolean, prev) => {
             let type = prev.type;
@@ -251,16 +263,61 @@ const PortOptions: React.FC<{
         setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { inputValueOverride: clampToSignedWidth(value, a.bitWidth, a.signed), valueMode })));
     }
 
+    function editCompPortFlag(end: boolean, flag: CompPortFlags, value: boolean) {
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, {
+            flags: value ? a.flags | flag : a.flags & ~flag,
+        })));
+    }
+
     let isInput = hasFlag(comp.args.type, PortType.In);
 
+    let parentComp = snapshot.mainSchematic.parentComp;
+    let parentPorts = parentComp?.ports ?? snapshot.mainSchematic.compPorts;
+
+    let existingCompPorts = useMemo(() => {
+        return snapshot.mainSchematic.comps
+            .filter(c => c.defId === compPortDefId && c.id !== comp.id);
+    }, [snapshot.mainSchematic.comps, comp.id]);
+
+    interface IPortOption {
+        value: string;
+        label: React.ReactNode;
+        alreadyUsed: boolean;
+    }
+
+    let portOptions: IPortOption[] = useMemo(() => {
+        let existingPortIds = new Set(existingCompPorts.filter(c => !!c.args.portId).map(c => c.args.portId));
+
+        return parentPorts.map(p => {
+            return {
+                value: p.id,
+                label: <><span className="mr-4">{p.name}</span> (<span className="font-mono">{p.id}</span>)</>,
+                alreadyUsed: p.id !== comp.args.portId && !existingPortIds.has(p.id),
+            };
+        });
+    }, [parentPorts, existingCompPorts, comp.args.portId]);
+
+
     return <>
+        <div className="border-t mx-8" />
         <EditKvp label={"Port Id"}>
-            <StringEditor
-                className="bg-slate-100 font-mono rounded flex-1"
+            <SelectEditor
+                className="bg-slate-100 rounded flex-1"
+                options={portOptions}
+                allowCustom
+                allowEmpty
+                placeholder="Select Port..."
                 value={comp.args.portId}
                 update={makeEditFunction(setEditorState, editCtx, comp, (value: string) => ({ portId: value }))}
             />
         </EditKvp>
+        <EditKvp label={"Hidden"}>
+            <BooleanEditor value={hasFlag(comp.args.flags, CompPortFlags.HiddenInParent)} update={(end, v) => editCompPortFlag(end, CompPortFlags.HiddenInParent, v)}/>
+        </EditKvp>
+        <EditKvp label={"Near Parent"}>
+            <BooleanEditor value={hasFlag(comp.args.flags, CompPortFlags.NearParentPort)} update={(end, v) => editCompPortFlag(end, CompPortFlags.NearParentPort, v)}/>
+        </EditKvp>
+        <div className="border-t mx-8" />
         <EditKvp label={"Is Input"}>
             <CheckboxMenuTitle title="" value={isInput} update={editPortType} />
         </EditKvp>

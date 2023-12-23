@@ -1,6 +1,6 @@
 import { Vec3 } from "@/src/utils/vector";
-import { IExePort, PortType } from "../CpuModel";
-import { CompDefFlags, IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
+import { CompDefFlags, IExePort, PortType } from "../CpuModel";
+import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { createBitWidthMask, rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
 
 interface IBitExpanderConfig extends IBaseCompConfig {

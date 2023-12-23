@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect } from "react";
 import { useFunctionRef } from "./hooks";
+import { multiSortStableAsc } from "./array";
 
 export enum KeyboardOrder {
     MainPage = 0,
     Element = 1,
     Modal = 2,
+    Popup = 3,
 }
 
 export interface IKeyHandler {
@@ -30,7 +32,7 @@ export class KeyboardManager {
     }
 
     handleKey = (ev: KeyboardEvent) => {
-        let handlersSorted = this.handlers.sort((a, b) => a.order - b.order);
+        let handlersSorted = multiSortStableAsc(this.handlers, [a => a.order]);
 
         let propagationStopped = false;
         let oldStopPropagation = ev.stopPropagation;
