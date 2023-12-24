@@ -350,11 +350,15 @@ export function ensureUnsigned32Bit(x: number) {
 
 function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<ICompDataInsDecoder>) {
 
-    // return;
-
     if (!exeComp) {
         return;
     }
+
+    ctx.save();
+    ctx.translate(comp.pos.x, comp.pos.y);
+    ctx.scale(0.3, 0.3);
+    ctx.translate(-comp.pos.x, -comp.pos.y);
+    ctx.translate(17, 44);
 
     let data = exeComp.data;
     let ins = data.ins.value;
@@ -703,6 +707,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
     ctx.fillStyle = '#777';
     ctx.textAlign = 'left';
     ctx.fillText(strRemain, leftX, lineY(1));
+    ctx.restore();
 }
 
 function regFormatted(reg: number) {

@@ -3,7 +3,7 @@ import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary } from "./comps/CompBuilder";
 import { CompDefFlags, IComp, IEditSchematic, IEditSnapshot, IElRef, ISchematic, ISchematicCompArgs, ISchematicDef, IWireGraph, IWireGraphNode, PortType, RefType } from "./CpuModel";
 import { constructEditSnapshot } from "./ModelHelpers";
-import { checkWires } from "./Wire";
+import { checkWires, fixWire } from "./Wire";
 
 // what's our format?
 // plain text format, with # comments
@@ -433,6 +433,8 @@ export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSModel, compLi
     for (let w of newWires) {
         maxWireId = Math.max(maxWireId, parseInt(w.id));
     }
+
+    newWires = newWires.map(w => fixWire(w)).filter(a => a.nodes.length > 0);
 
     checkWires(newWires, 'wiresFromLsState');
 

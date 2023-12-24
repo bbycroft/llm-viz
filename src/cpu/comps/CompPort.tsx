@@ -119,6 +119,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                 builder.addPhase(({ data }) => {
                     if (data.externalPortBound) {
                         data.value = data.externalPort.value;
+                        data.externalPort.ioEnabled = true;
                     }
                     data.port.value = data.value;
                     data.port.ioEnabled = true;
@@ -129,6 +130,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                     data.value = data.port.value;
                     if (data.externalPortBound) {
                         data.externalPort.value = data.value;
+                        data.externalPort.ioEnabled = true;
                     }
                     data.port.ioEnabled = true;
                 }, [data.port], [data.externalPort]);

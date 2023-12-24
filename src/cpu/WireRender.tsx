@@ -331,13 +331,13 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
             ctx.fill();
         }
 
-        if (isSelected) {
+        if (isSelected && false) {
             ctx.fillStyle = '#666';
             ctx.font = makeCanvasFont(18 * cvs.scale, FontType.Mono);
-            ctx.textBaseline = 'bottom';
-            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'right';
             for (let node of wire.nodes) {
-                ctx.fillText(node.id.toString(), node.pos.x + 0.1, node.pos.y - 0.1);
+                ctx.fillText(node.id.toString(), node.pos.x - 0.1, node.pos.y + 0.1);
             }
 
         }

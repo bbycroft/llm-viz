@@ -87,7 +87,7 @@ export const SchematicLibraryView: React.FC = () => {
 
     return <div className={s.libraryView}>
         <div className={s.header}>Schematics</div>
-        <div className={s.body}>
+        <div className={s.body + " overflow-y-auto"}>
             {[...schematicLib.builtinSchematics].map(([id, schematic], idx) => {
                 return <div
                     className={s.entry}
@@ -134,9 +134,11 @@ export const SchematicLibraryView: React.FC = () => {
                     </>}
                 </div>;
             })}
+        </div>
 
-            <div className={s.divider} />
+        <div className={s.divider} />
 
+        <div>
             <button className={s.btn} onClick={handleAddNew}>Add new</button>
         </div>
     </div>;

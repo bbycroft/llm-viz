@@ -74,7 +74,7 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
     for (let comp of schematic.comps) {
         let def = compLibrary.getCompDef(comp.defId)!;
         let subSchematic = getCompSubSchematicForSnapshot(sharedContext, editSnapshot, comp);
-        if (subSchematic && !comp.subSchematicId) {
+        if (subSchematic) {
             let prefix = subTreePrefix + comp.id + '|';
             populateExecutionModel(sharedContext, editSnapshot, exeSystem, subSchematic, prefix, existingSystem);
         }
@@ -149,23 +149,42 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
             let bindOutPort = true;
 
             if (nestedPortComps) {
+                /*
+                    When going into a sub-schematic, we find the CompPort comp in the sub-schematic,
+                    and bind our wire to that CompPort's hidden 'externalPort'.
+
+                    This means there are two potential ports to bind to: the parent comp port, and
+                    the inner CompPort externalPort.
+
+                    For input ports (data flowing into the parent component), we bind to both.
+                    For output ports (data flowing out of the parent component), we bind to one or
+                    the other.
+
+                    The choice for output ports depends on whether we want to take from the sub-schematic
+                    (required if there's only a sub-schematic).
+                    If the parent component has both a sub-schematic and code, we can choose. Generally
+                    we prefer to take from code, as that's faster.
+                */
                 let nestedExeComp = nestedPortComps[portIdx];
                 if (nestedExeComp) {
                     nestedExeComp.data.externalPortBound = true;
 
-                    let nestedPort = nestedExeComp.ports[1];
-                    nestedPort.netIdx = netIdx;
+                    var compDef = exeSystem.compLibrary.getCompDef(exeComp.comp.defId)!;
+                    let bindSubSchematicOutPort = !!compDef.subLayout;
+
+                    let nestedExternalPort = nestedExeComp.ports[1];
+                    nestedExternalPort.netIdx = netIdx;
                     let portRef: IExePortRef = {
                         comp: nestedExeComp.comp,
                         portIdx: 1,
                         exeComp: nestedExeComp,
-                        exePort: nestedPort,
+                        exePort: nestedExternalPort,
                         valid: true,
                     }
                     if (hasFlag(exePort.type, PortType.In)) {
                         dests.push(portRef);
                     }
-                    if (hasFlag(exePort.type, PortType.Out)) {
+                    if (bindSubSchematicOutPort && hasFlag(exePort.type, PortType.Out)) {
                         srcs.push(portRef);
                         bindOutPort = false;
                     }
