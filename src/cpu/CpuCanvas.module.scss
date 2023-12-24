@@ -23,10 +23,12 @@
 .toolsLeftTop {
     position: absolute;
     top: 0;
+    bottom: 0;
     left: 0;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    margin-bottom: 20px;
     // width: 240px;
 }
 

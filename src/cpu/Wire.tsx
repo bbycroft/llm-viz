@@ -181,6 +181,9 @@ export function dragNodes(wire: IWireGraph, nodesToMove: Map<number, Vec3>) {
     // if we're moving right, we start from the leftmost seg, and vice versa
     // we need to pick a dog-leg height, so choose the smallest one
     // then increase that height for subsequent segments
+
+    checkWires([wire], 'dragNodes (pre)');
+
     wire = copyWireGraph(wire);
 
     let initialNodes = new Set(nodesToMove.keys());
@@ -208,8 +211,10 @@ export function dragNodes(wire: IWireGraph, nodesToMove: Map<number, Vec3>) {
 
             // find all nodes colinear with this segment
             let anyPinnedNodes = false;
+            let allColinearIds: number[] = [];
             iterColinearNodes(wire, node1Idx, dir, node => {
                 let moveAmt = nodesToMove.get(node.id);
+                allColinearIds.push(node.id);
 
                 if (isPinnedNode(node.id)) {
                     anyPinnedNodes = true;
@@ -235,6 +240,7 @@ export function dragNodes(wire: IWireGraph, nodesToMove: Map<number, Vec3>) {
                     wireUnlinkNodes(node0, node1);
                     wireLinkNodes(node0, newNode);
                     wireLinkNodes(newNode, node1);
+                    // addNewNodeToWire(wire, newNode);
                     wire.nodes.push(newNode);
                 }
             }
@@ -247,7 +253,50 @@ export function dragNodes(wire: IWireGraph, nodesToMove: Map<number, Vec3>) {
          });
     }
 
+    wire = fixWire(wire);
+
+    checkWires([wire], 'dragNodes (post)');
+
     return wire;
+}
+
+function addNewNodeToWire(wire: IWireGraph, newNode: IWireGraphNode) {
+    // detect duplicates
+    let nodeLocs = new Map<string, IWireGraphNode[]>();
+    for (let node of wire.nodes) {
+        getOrAddToMap(nodeLocs, `${node.pos.x},${node.pos.y}`, () => []).push(node);
+    }
+
+    let newNodeKey = `${newNode.pos.x},${newNode.pos.y}`;
+
+    let existing = nodeLocs.get(newNodeKey);
+    if (existing) {
+        let firstNode = existing[0];
+
+        for (let node1Idx of [...newNode.edges]) {
+            wireUnlinkNodes(newNode, wire.nodes[node1Idx]);
+            wireLinkNodes(firstNode, wire.nodes[node1Idx]);
+        }
+    } else {
+        wire.nodes.push(newNode);
+    }
+
+
+    // Clean up any duplicate nodes
+    // for (let sharedNodes of nodeLocs.values()) {
+    //     if (sharedNodes.length > 1) {
+    //         let allOutEdges = new Set(sharedNodes.flatMap(n => n.edges));
+    //         for (let node0 of sharedNodes) {
+    //             for (let node1Idx of node0.edges) {
+    //                 wireUnlinkNodes(node0, wire.nodes[node1Idx]);
+    //             }
+    //             allOutEdges.delete(node0.id);
+    //         }
+    //         for (let outNode of allOutEdges) {
+    //             wireLinkNodes(newNode, wire.nodes[outNode]);
+    //         }
+    //     }
+    // }
 }
 
 export function iterColinearNodes(wire: IWireGraph, nodeIdx: number, dir: Vec3, cb: (node: IWireGraphNode) => void) {
@@ -354,6 +403,18 @@ export function checkWires(wires: IWireGraph[], name: string) {
                 console.log(`CHECK [${name}]: Wire ${wire.id} has unidirectional edge ${node0.id} -> ${node1.id}`);
             }
         }
+
+        let nodeLocs = new Map<string, IWireGraphNode[]>();
+        for (let node0 of wire.nodes) {
+            getOrAddToMap(nodeLocs, `${node0.pos.x},${node0.pos.y}`, () => []).push(node0);
+        }
+
+        for (let [key, arr] of nodeLocs.entries()) {
+            if (arr.length > 1) {
+                console.log(`CHECK [${name}]: Wire ${wire.id} has multiple nodes at ${key}: ${arr.map(a => a.id).join(', ')}`);
+            }
+        }
+
     }
 }
 
@@ -706,7 +767,22 @@ export function fixWire(wireGraph: IWireGraph) {
     return graph;
 }
 
+export function fixWireGraph(wireGraph: IWireGraph) {
+    // things to fix:
+    //  - duplicate nodes
+    //  - dangling edges
+    //  - unused/empty nodes
+    //  - nodes-on-edges (should split the edge)
+
+    // colinearity ?? not neccesarily
+
+}
+
 export function wireLinkNodes(node0: IWireGraphNode, node1: IWireGraphNode) {
+    if (node0.id === node1.id) {
+        return;
+    }
+
     if (!node0.edges.includes(node1.id)) {
         node0.edges.push(node1.id);
     }
