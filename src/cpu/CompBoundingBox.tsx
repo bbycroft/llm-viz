@@ -10,7 +10,7 @@ import { CursorDragOverlay } from "../utils/CursorDragOverlay";
 export const CompBoundingBox: React.FC<{
 
 }> = () => {
-    let { editorState, setEditorState } = useEditorContext();
+    let [editorState, setEditorState] = useEditorContext();
     let viewLayout = useViewLayout();
     let schematic = (editorState.snapshotTemp ?? editorState.snapshot).mainSchematic;
     let compBb = schematic.compBbox;

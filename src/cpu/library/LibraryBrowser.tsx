@@ -165,7 +165,7 @@ function schematicToLibraryItem(schematic: ISchematicDef, isBuiltin: boolean): I
 
 export const LibraryBrowser: React.FC<{}> = () => {
 
-    let { editorState, setEditorState } = useEditorContext();
+    let [editorState, setEditorState] = useEditorContext();
     let [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
     let [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 

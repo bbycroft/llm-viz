@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import React, { SetStateAction, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
-import { IDragStart } from "../utils/pointer";
-import { assignImm, getOrAddToMap, hasFlag, isNil, isNotNil } from "../utils/data";
-import { EditorContext, IEditorContext, IViewLayoutContext, ViewLayoutContext } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IHitTest, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, CompDefFlags, IParentCompInfo } from "./CpuModel";
+import { applySetter, assignImm, getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
+import { IEditorContext, IViewLayoutContext, MyStoreContext, ViewLayoutContext, useCreateStoreState } from "./Editor";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, IParentCompInfo } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
@@ -30,23 +29,6 @@ import { Resizer } from "../utils/Resizer";
 import { SchematicDetails } from "./SchematicDetails";
 import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort";
 
-interface ICanvasDragState {
-    mtx: AffineMat2d;
-    hovered: IHitTest | null;
-    modelPos: Vec3;
-}
-
-/**
-
-So our sandbox needs a bit of work. To main goals:
-
-* be able to load a small inset schematic, as in the guides
-* show a rich editor for editing/browsing the schematics
-
-* So need a "load this" api
-
-*/
-
 export const CpuCanvas: React.FC<{
     embedded?: boolean;
     readonly?: boolean;
@@ -57,7 +39,10 @@ export const CpuCanvas: React.FC<{
     let [cvsState, setCvsState] = useState<ICanvasState | null>(null);
     let sharedContext = useContext(SharedContextContext);
     // let [lsState, setLsState] = useLocalStorageState("cpu-layout", hydrateFromLS);
-    let [editorState, setEditorState] = useState<IEditorState>(() => createCpuEditorState(sharedContext));
+    let [editorState, setEditorState, editorStore] = useCreateStoreState<IEditorState>(() => {
+        return createCpuEditorState(sharedContext);
+    });
+
     let [, redraw] = useReducer((x) => x + 1, 0);
 
     let [isClient, setIsClient] = useState(false);
@@ -80,25 +65,6 @@ export const CpuCanvas: React.FC<{
         }
     }, [schematicId]);
 
-    useLayoutEffect(() => {
-        if (cvsState) {
-            let bcr = cvsState.canvas.getBoundingClientRect();
-            setEditorState(a => {
-                // goal: zoom-extent so the canvas fits the entire schematic
-                if (!a.needsZoomExtent) {
-                    return a;
-                }
-                let bb = computeModelBoundingBox(a.snapshot);
-
-                if (bb.empty) {
-                    bb = new BoundingBox3d(new Vec3(0, 0), new Vec3(20, 20));
-                }
-
-                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(readonly ? 0 : 330, readonly ? 50 : 0), new Vec3(bcr.width, bcr.height)), 0.05);
-                return assignImm(a, { mtx, needsZoomExtent: false });
-            });
-        }
-    }, [cvsState, editorState.needsZoomExtent, readonly]);
 
     useEffect(() => {
         // setCtrlDown(false);
@@ -138,8 +104,28 @@ export const CpuCanvas: React.FC<{
                 }));
             }
         }
-
     }, [editorState.desiredSchematicId, editorState.schematicLibrary, editorState.activeSchematicId, editorState.schematicLibrary.localStorageSchematicsLoaded]);
+
+    useLayoutEffect(() => {
+        if (cvsState && editorState.activeSchematicId) {
+            let bcr = cvsState.canvas.getBoundingClientRect();
+            setEditorState(a => {
+                // goal: zoom-extent so the canvas fits the entire schematic
+                if (!a.needsZoomExtent) {
+                    return a;
+                }
+                let bb = computeModelBoundingBox(a.snapshot);
+
+                if (bb.empty) {
+                    bb = new BoundingBox3d(new Vec3(0, 0), new Vec3(20, 20));
+                }
+
+                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(readonly ? 0 : 330, readonly ? 50 : 0), new Vec3(bcr.width, bcr.height)), 0.05);
+                return assignImm(a, { mtx, needsZoomExtent: false });
+            });
+        }
+    }, [cvsState, editorState.needsZoomExtent, readonly, editorState.activeSchematicId]);
+
 
     useResizeChangeHandler(cvsState?.canvas?.parentElement, redraw);
 
@@ -159,6 +145,14 @@ export const CpuCanvas: React.FC<{
     }, [editorState.sharedContext, editorState.snapshot, editorState.activeSchematicId, isClient]);
 
     prevExeModel.current = { system: exeModel, id: editorState.activeSchematicId };
+
+    useEffect(() => {
+
+        setEditorState(a => assignImm(a, {
+            exeModel,
+            exeModelUpdateCntr: a.exeModelUpdateCntr + 1,
+        }));
+    }, [exeModel, setEditorState]);
 
     let setCanvasEl = useCallback((el: HTMLCanvasElement | null) => {
         setCvsState(el ? {
@@ -231,11 +225,13 @@ export const CpuCanvas: React.FC<{
     });
 
 
-    let ctx: IEditorContext = useMemo(() => {
-        return { editorState, setEditorState, cvsState, exeModel };
-    }, [editorState, setEditorState, cvsState, exeModel]);
+    // let ctx: IEditorContext = useMemo(() => {
+    //     return { editorState, setEditorState, exeModel };
+    // }, [editorState, setEditorState, exeModel]);
 
     let singleElRef = editorState.snapshot.selected.length === 1 ? editorState.snapshot.selected[0] : null;
+
+    let numEls = 0;
 
     function getCompDomElements(schematic: ISchematic, idPrefix: string) {
         let comps = schematic.comps
@@ -251,6 +247,7 @@ export const CpuCanvas: React.FC<{
             .map(a => {
                 cvsState!.mtx = editorState.mtx;
                 let compFullId = idPrefix + a.comp.id;
+                numEls += 1;
 
                 let subLayoutDom = null;
                 let subSchematic = getCompSubSchematic(editorState, a.comp);
@@ -287,11 +284,13 @@ export const CpuCanvas: React.FC<{
 
     let compDivs = getCompDomElements((editorState.snapshotTemp ?? editorState.snapshot).mainSchematic, '');
 
+    // console.log('numEls = ', numEls);
+
     let viewLayout = useMemo<IViewLayoutContext>(() => {
         return { el: cvsState?.canvas ?? null!, mtx: editorState.mtx };
     }, [cvsState, editorState.mtx]);
 
-    return <EditorContext.Provider value={ctx}>
+    return <MyStoreContext.Provider value={editorStore}>
         <ViewLayoutContext.Provider value={viewLayout}>
             {!embedded && <MainToolbar readonly={readonly} toolbars={toolbars} />}
             <Resizer className="flex-1 flex flex-row" id={"cpu-tools-right"} defaultFraction={0.8}>
@@ -331,7 +330,7 @@ export const CpuCanvas: React.FC<{
                 </div>}
             </Resizer>
         </ViewLayoutContext.Provider>
-    </EditorContext.Provider>;
+    </MyStoreContext.Provider>;
 };
 
 function renderAxes(cvs: ICanvasState, editorState: IEditorState) {
@@ -350,7 +349,6 @@ function renderAxes(cvs: ICanvasState, editorState: IEditorState) {
     ctx.stroke();
     ctx.restore();
 }
-
 
 function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix = '', parentInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;

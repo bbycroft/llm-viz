@@ -12,12 +12,13 @@ import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
 export const HoverDisplay: React.FC<{
     canvasEl: HTMLCanvasElement | null,
 }> = ({ canvasEl }) => {
-    let { editorState, exeModel, setEditorState } = useEditorContext();
+    let [editorState] = useEditorContext();
+    let exeModel = editorState.exeModel;
 
     let hovered = editorState.hovered;
 
     let x: React.ReactNode = null;
-    if (hovered) {
+    if (hovered && exeModel) {
         let content: React.ReactNode = null;
 
         if (hovered.ref.type === RefType.WireSeg || hovered.ref.type === RefType.WireNode) {

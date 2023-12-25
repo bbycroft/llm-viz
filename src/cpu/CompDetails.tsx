@@ -12,9 +12,7 @@ import { ButtonStandard } from "./EditorControls";
 
 export const CompDetails: React.FC<{
 }> = ({  }) => {
-
-    let editCtx = useEditorContext();
-    let { editorState, setEditorState } = editCtx;
+    let [editorState, setEditorState] = useEditorContext();
 
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
     let numSelected = snapshot.selected.length;

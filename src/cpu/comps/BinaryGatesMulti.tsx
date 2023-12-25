@@ -110,7 +110,7 @@ const BinGateMultiOptions: React.FC<{
     editCtx: IEditContext,
     comp: IComp<IBinGateMultiConfig>,
 }> = ({ editCtx, comp }) => {
-    let { setEditorState } = useEditorContext();
+    let [, setEditorState] = useEditorContext();
 
     return <>
     <EditKvp label="Num Inputs">

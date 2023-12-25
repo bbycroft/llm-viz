@@ -10,9 +10,7 @@ import { EditKvp } from "./CompDetails";
 
 export const SchematicDetails: React.FC<{
 }> = ({  }) => {
-
-    let editCtx = useEditorContext();
-    let { editorState, setEditorState } = editCtx;
+    let [editorState, setEditorState] = useEditorContext();
 
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
     let mainSchematic = snapshot.mainSchematic;

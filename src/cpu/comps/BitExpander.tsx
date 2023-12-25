@@ -283,7 +283,7 @@ const BitExpandMultiOptions: React.FC<{
     editCtx: IEditContext;
     comp: IComp<IBitExpanderMultiConfig>;
 }> = ({ editCtx, comp }) => {
-    let { setEditorState } = useEditorContext();
+    let [, setEditorState] = useEditorContext();
 
     let insertBitRange = (index: number, range: IBitRange) => setEditorState(editCompConfig(editCtx, true, comp, a => {
         let bitRange = [...a.bitRange];

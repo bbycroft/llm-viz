@@ -1,14 +1,14 @@
 import { assignImm } from "@/src/utils/data";
 import { faCheck, faPencil, faTimes, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { useEditorContext } from "../Editor";
 import s from "./SchematicLibraryView.module.scss";
 import { createSchematicCompDef } from "../comps/SchematicComp";
 import { ISchematicDef } from "../CpuModel";
 
-export const SchematicLibraryView: React.FC = () => {
-    let { editorState, setEditorState } = useEditorContext();
+export const SchematicLibraryView: React.FC = memo(() => {
+    let [editorState, setEditorState] = useEditorContext();
 
     let compLibrary = editorState.compLibrary;
     let schematicLib = editorState.schematicLibrary;
@@ -142,4 +142,4 @@ export const SchematicLibraryView: React.FC = () => {
             <button className={s.btn} onClick={handleAddNew}>Add new</button>
         </div>
     </div>;
-};
+});

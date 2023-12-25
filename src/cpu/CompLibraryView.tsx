@@ -6,9 +6,7 @@ import { assignImm } from "../utils/data";
 import { useGlobalDrag } from "../utils/pointer";
 
 export const CompLibraryView: React.FC = () => {
-    let { editorState, setEditorState } = useEditorContext();
-
-    let { compLibrary } = editorState;
+    let [{ compLibrary }, setEditorState] = useEditorContext();
 
     let compDefs = [...new Set([...compLibrary.libraryLookup.values()])];
 
@@ -26,7 +24,7 @@ export const CompLibraryView: React.FC = () => {
 
     function handleMouseDown(ev: React.MouseEvent, compDef: ICompDef<any>) {
 
-        let newComp = editorState.compLibrary.create(compDef.defId)!;
+        let newComp = compLibrary.create(compDef.defId)!;
 
         setEditorState(a => assignImm(a, {
             dragCreateComp: { compOrig: newComp },

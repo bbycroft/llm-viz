@@ -11,8 +11,9 @@ export const AutoLoadCode: React.FC<{
     fileName: string,
     section?: string;
 }> = ({ fileName, section }) => {
-    let { editorState, setEditorState, exeModel } = useEditorContext();
+    let [editorState, setEditorState] = useEditorContext();
     let codeSuite = useGetCodeSuite(editorState.codeLibrary, fileName);
+    let exeModel = editorState.exeModel;
 
     useEffect(() => {
         if (exeModel && codeSuite && codeSuite.entries.length > 0 && editorState.snapshot.mainSchematic.comps.length > 0) {

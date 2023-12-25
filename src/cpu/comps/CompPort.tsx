@@ -199,7 +199,7 @@ const PortEditor: React.FC<{
     exeComp: IExeComp<ICompPortData>,
     isActive: boolean,
 }> = memo(function PortEditor({ editCtx, comp, exeComp, isActive }) {
-    let { setEditorState } = useEditorContext();
+    let [, setEditorState] = useEditorContext();
 
     function editValueOverride(end: boolean, value: number, valueMode: HexValueInputType) {
         setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { inputValueOverride: clampToSignedWidth(value, a.bitWidth, a.signed), valueMode })));
@@ -245,7 +245,7 @@ const PortOptions: React.FC<{
     comp: IComp<ICompPortConfig>,
     exeComp: IExeComp<ICompPortData> | null,
 }> = memo(function PortOptions({ editCtx, exeComp, comp }) {
-    let { editorState, setEditorState } = useEditorContext();
+    let [editorState, setEditorState] = useEditorContext();
 
     let snapshot = editorState.snapshot;
 
@@ -342,7 +342,7 @@ export const PortResizer: React.FC<{
     comp: IComp<{ w: number, h: number, portPos: PortPlacement }>,
 }> = memo(function PortResizer({ editCtx, comp }) {
 
-    let { editorState, setEditorState } = useEditorContext();
+    let [editorState, setEditorState] = useEditorContext();
 
     useGlobalKeyboard(KeyboardOrder.Element, ev => {
         if (isKeyWithModifiers(ev, 'r')) {

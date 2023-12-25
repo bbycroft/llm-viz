@@ -404,16 +404,16 @@ export function checkWires(wires: IWireGraph[], name: string) {
             }
         }
 
-        let nodeLocs = new Map<string, IWireGraphNode[]>();
-        for (let node0 of wire.nodes) {
-            getOrAddToMap(nodeLocs, `${node0.pos.x},${node0.pos.y}`, () => []).push(node0);
-        }
+        // let nodeLocs = new Map<string, IWireGraphNode[]>();
+        // for (let node0 of wire.nodes) {
+        //     getOrAddToMap(nodeLocs, `${node0.pos.x},${node0.pos.y}`, () => []).push(node0);
+        // }
 
-        for (let [key, arr] of nodeLocs.entries()) {
-            if (arr.length > 1) {
-                console.log(`CHECK [${name}]: Wire ${wire.id} has multiple nodes at ${key}: ${arr.map(a => a.id).join(', ')}`);
-            }
-        }
+        // for (let [key, arr] of nodeLocs.entries()) {
+        //     if (arr.length > 1) {
+        //         console.log(`CHECK [${name}]: Wire ${wire.id} has multiple nodes at ${key}: ${arr.map(a => a.id).join(', ')}`);
+        //     }
+        // }
 
     }
 }

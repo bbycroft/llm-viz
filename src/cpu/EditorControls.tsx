@@ -8,7 +8,7 @@ import { redoAction, undoAction, useEditorContext } from "./Editor";
 import s from './EditorControls.module.scss';
 
 export const CpuEditorToolbar: React.FC<{}> = () => {
-    let { editorState, setEditorState } = useEditorContext();
+    let [editorState, setEditorState] = useEditorContext();
 
     useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
         if (isKeyWithModifiers(ev, 'z', Modifiers.CtrlOrCmd)) {

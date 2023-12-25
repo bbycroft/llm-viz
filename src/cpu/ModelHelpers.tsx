@@ -60,6 +60,8 @@ export function createCpuEditorState(sharedContext: ISharedContext | null): IEdi
         compLibrary: sharedContext.compLibrary,
         schematicLibrary: sharedContext.schematicLibrary,
         codeLibrary: sharedContext.codeLibrary,
+        exeModel: null,
+        exeModelUpdateCntr: 0,
         desiredSchematicId: null,
         activeSchematicId: null,
         redoStack: [],

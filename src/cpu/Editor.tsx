@@ -3,7 +3,7 @@ import { assignImm, isNotNil, StateSetter } from '../utils/data';
 import { IComp, IEditContext, IEditSchematic, IEditSnapshot, IEditorState, IExeSystem, ISchematic } from './CpuModel';
 import { updateWiresForComp } from './Wire';
 import { AffineMat2d } from '../utils/AffineMat2d';
-import { Subscriptions } from '../utils/hooks';
+import { Subscriptions, useSubscriptions } from '../utils/hooks';
 import { getCompSubSchematicForPrefix } from './SubSchematics';
 
 export enum PortHandling {
@@ -171,21 +171,18 @@ export function redoAction(state: IEditorState) {
     });
 }
 
-export const EditorContext = createContext<IEditorContext | null>(null);
-
 export interface IEditorContext {
     editorState: IEditorState;
-    exeModel: IExeSystem;
     setEditorState: StateSetter<IEditorState>;
 }
 
-export function useEditorContext() {
-    const ctx = useContext(EditorContext);
-    if (!ctx) {
-        throw new Error('EditorContext not found');
-    }
-    return ctx;
+export function useCreateStoreState<T>(initial: () => T): [T, StateSetter<T>, MyStore<T>] {
+    let [store] = useState(() => new MyStore<T>(initial()));
+    useSubscriptions(store.subs);
+
+    return [store.value, store.setValue, store];
 }
+
 
 export interface IViewLayoutContext {
     el: HTMLElement;
@@ -202,20 +199,21 @@ export class MyStore<T> {
     subs: Subscriptions = new Subscriptions();
     constructor(public value: T) {
     }
-    setValue(value: T) {
-        this.value = value;
-        this.subs.notify();
+    setValue = (value: T | ((a : T) => T)) => {
+        let prevValue = this.value;
+        this.value = value instanceof Function ? value(this.value) : value;
+        if (this.value !== prevValue) {
+            this.subs.notify();
+        }
     }
 }
-
-export const MyStoreContext = createContext<MyStore<IEditorState>>(new MyStore<IEditorState>(null!));
 
 type ObjPartial<T> = {
     [P in keyof T]?: T[P] | ObjPartial<T[P]>;
 };
 
 type ObjSubSplit<T> = {
-    [P in keyof T]?: ObjPartial<T[P]> | true;
+    [P in keyof T]?: ObjSubSplit<T[P]> | true;
 };
 
 function makeProxyObject<T extends Record<string, any>>(val: T, usages: ObjPartial<T>, subSplits: ObjSubSplit<T> | true): T {
@@ -232,7 +230,7 @@ function makeProxyObject<T extends Record<string, any>>(val: T, usages: ObjParti
                         subUsage = usages[key] = {};
                     }
 
-                    return makeProxyObject(target[key], subSplit, subUsage as ObjPartial<any>);
+                    return makeProxyObject(target[key], subUsage as ObjPartial<any>, subSplit);
                 }
             }
 
@@ -247,33 +245,48 @@ function makeProxyObject<T extends Record<string, any>>(val: T, usages: ObjParti
 }
 
 function areEqual<T extends Record<string, any>>(obj: T, usages: ObjPartial<T>, subSplits: ObjSubSplit<T> | true): boolean {
-    if (subSplits !== true) {
-        for (let prop of Object.keys(usages)) {
-            let key = prop as keyof T;
+    for (let prop of Object.keys(usages)) {
+        let key = prop as keyof T;
+
+        let deepField = false;
+        if (subSplits !== true) {
             let subSplit = subSplits[key];
 
             if (subSplit) {
                 if (!areEqual(obj[key], usages[key]!, subSplit)) {
                     return false;
                 }
-            } else if (obj[key] !== usages[key]) {
-                return false;
+                deepField = true;
             }
+        }
+
+        if (!deepField && obj[key] !== usages[key]) {
+            return false;
         }
     }
     return true;
 }
 
-export function useHighPerfEditorContext() {
+export const MyStoreContext = createContext<MyStore<IEditorState>>(new MyStore<IEditorState>(null!));
+
+// Items with sub-objects or true values will be proxied, and each of their sub-fields will be watched independently
+const editorCtxSubSplits: ObjSubSplit<IEditorState> = {
+    snapshot: {
+        mainSchematic: true,
+    },
+};
+
+export function useEditorContext(subSplitOverride?: ObjSubSplit<IEditorState> | true): readonly [IEditorState, StateSetter<IEditorState>, MyStore<IEditorState>] {
     let storeCtx = useContext(MyStoreContext);
     let visitedItemsRef = useRef<ObjPartial<IEditorState>>({});
     let [srcValue, setSrcValue] = useState(storeCtx.value);
 
-    let subSplits = useMemo<ObjSubSplit<IEditorState>>(() => ({ }), []);
+    let subSplits = subSplitOverride ?? editorCtxSubSplits;
 
     useEffect(() => {
         function updateFn() {
-            if (!areEqual(storeCtx.value, visitedItemsRef.current, subSplits)) {
+            let isEq = areEqual(storeCtx.value, visitedItemsRef.current, subSplits);
+            if (!isEq) {
                 setSrcValue(storeCtx.value);
             }
         }
@@ -281,5 +294,7 @@ export function useHighPerfEditorContext() {
     }, [storeCtx, subSplits]);
 
     visitedItemsRef.current = {};
-    return makeProxyObject(srcValue, visitedItemsRef.current, subSplits);
+    let proxyObj = makeProxyObject(srcValue, visitedItemsRef.current, subSplits);
+
+    return [proxyObj, storeCtx.setValue, storeCtx] as const;
 }

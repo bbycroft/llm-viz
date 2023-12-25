@@ -80,7 +80,7 @@ export const RegFileCtrl: React.FC<{
     exeComp: IExeComp<IRegFileCtrlData>,
 }> = ({ editCtx, comp, exeComp }) => {
 
-    let { setEditorState } = useEditorContext();
+    let [, setEditorState] = useEditorContext();
 
     function editAddrOffset(end: boolean, enabled: boolean, value: number) {
         setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { inReg: value, inEnable: enabled })));

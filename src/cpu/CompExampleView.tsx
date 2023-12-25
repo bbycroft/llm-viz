@@ -1,12 +1,10 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { memo, useContext, useEffect, useState } from "react";
 import { useEditorContext } from "./Editor";
 import s from "./CompExampleView.module.scss";
-import { listElfTextSections, readElfHeader } from "./ElfParser";
 import { IRomExeData } from "./comps/SimpleMemory";
 import { IExeComp } from "./CpuModel";
 import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
-import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from "./CpuExecution";
-import { ensureSigned32Bit } from "./comps/RiscvInsDecode";
+import { resetExeModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileImport, faRotate } from "@fortawesome/free-solid-svg-icons";
 import { ICodeEntry } from "./library/CodeSuiteManager";
@@ -14,10 +12,9 @@ import { SharedContextContext } from "./library/SharedContext";
 import { useSubscriptions } from "../utils/hooks";
 import clsx from "clsx";
 
-
-export const CompExampleView: React.FC = () => {
+export const CompExampleView: React.FC = memo(() => {
     let { codeLibrary } = useContext(SharedContextContext)!;
-    let { setEditorState, exeModel } = useEditorContext();
+    let [{ exeModel }, setEditorState] = useEditorContext();
     useSubscriptions(codeLibrary.subs);
 
     let [reloadCntr, setReloadCntr] = useState(0);
@@ -29,10 +26,12 @@ export const CompExampleView: React.FC = () => {
     }, [codeLibrary]);
 
     function handleEntryClick(example: ICodeEntry) {
-        loadEntryData(example);
-        resetExeModel(exeModel, { hardReset: false });
-        stepExecutionCombinatorial(exeModel);
-        setEditorState(a => ({ ...a }));
+        if (exeModel) {
+            loadEntryData(example);
+            resetExeModel(exeModel, { hardReset: false });
+            stepExecutionCombinatorial(exeModel);
+            setEditorState(a => ({ ...a }));
+        }
     }
 
     function loadEntryData(example: ICodeEntry) {
@@ -146,7 +145,7 @@ export const CompExampleView: React.FC = () => {
     */
 
     function findCompByDefId(defId: string) {
-        return exeModel.comps.find(comp => comp.comp.defId === defId);
+        return exeModel?.comps.find(comp => comp.comp.defId === defId);
     }
 
     function getPcComp() {
@@ -218,4 +217,4 @@ export const CompExampleView: React.FC = () => {
         </div> */}
 
     </div>;
-};
+});
