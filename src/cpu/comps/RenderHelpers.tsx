@@ -30,7 +30,7 @@ export const CompRectBase: React.FC<{
     className?: string,
     children?: React.ReactNode,
 }> = memo(function CompRectBase({ comp, className, children, hideHover }) {
-    let { setEditorState } = useEditorContext();
+    let [, setEditorState] = useEditorContext();
 
     function handleHover(isHover: boolean) {
         if (!hideHover) {
@@ -73,8 +73,7 @@ export const CompRectUnscaled: React.FC<{
     children?: React.ReactNode,
 }> = memo(function CompRectUnscaled({ comp, hideHover, children }) {
     let viewLayout = useViewLayout();
-
-    let { setEditorState } = useEditorContext();
+    let [, setEditorState] = useEditorContext();
 
     function handleHover(isHover: boolean) {
         if (!hideHover) {

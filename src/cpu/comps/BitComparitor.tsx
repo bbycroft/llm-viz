@@ -98,7 +98,7 @@ const BitComparitorOptions: React.FC<{
     editCtx: IEditContext;
     comp: IComp<IBitComparitorConfig>;
 }> = ({ editCtx, comp }) => {
-    let { setEditorState } = useEditorContext();
+    let [, setEditorState] = useEditorContext();
 
     return <>
         <EditKvp label="Match">

@@ -23,8 +23,7 @@ export const CanvasEventHandler: React.FC<{
 
     let [ctrlDown, setCtrlDown] = useState(false);
     let [canvasWrapEl, setCanvasWrapEl] = useState<HTMLDivElement | null>(null);
-    let { editorState, setEditorState } = useEditorContext();
-
+    let [editorState, setEditorState] = useEditorContext();
 
     useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
         if (ev.key === "Control") {

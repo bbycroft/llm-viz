@@ -166,7 +166,7 @@ export const Addressing: React.FC<{
     exeComp: IExeComp<ICompAddressMapper>,
 }> = ({ editCtx, comp, exeComp }) => {
 
-    let { setEditorState } = useEditorContext();
+    let [, setEditorState] = useEditorContext();
 
     function editAddrOffset(end: boolean, value: number) {
         setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { addrOffset: value })));

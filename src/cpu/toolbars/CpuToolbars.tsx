@@ -1,12 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { faBook, faCheck, faChevronRight, faClockRotateLeft, faCodeFork, faExpand, faFileArrowDown, faFloppyDisk, faForward, faForwardFast, faForwardStep, faPause, faPlay, faPowerOff, faRedo, faRotateLeft, faSortNumericUp, faTimes, faUndo } from '@fortawesome/free-solid-svg-icons';
+import React, { memo, useEffect, useRef, useState } from 'react';
+import { faBook, faCheck, faChevronRight, faClockRotateLeft, faCodeFork, faExpand, faFileArrowDown, faFloppyDisk, faForward, faForwardFast, faPause, faPlay, faPowerOff, faRedo, faTimes, faUndo } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { assignImm, isNotNil } from '../../utils/data';
 import { useGlobalKeyboard, KeyboardOrder, isKeyWithModifiers, Modifiers } from '../../utils/keyboard';
 import { IBaseEvent } from '../../utils/pointer';
-import { editMainSchematic, editSnapshot, redoAction, undoAction, useEditorContext } from '../Editor';
-import clsx from 'clsx';
-import { Tooltip } from '../../utils/Tooltip';
+import { redoAction, undoAction, useEditorContext } from '../Editor';
 import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from '../CpuExecution';
 import { modifiersToString } from '../Keymap';
 import { ComponentAdder } from '../ComponentAdder';
@@ -17,8 +15,8 @@ import { ToolbarTypes } from '../CpuModel';
 export const MainToolbar: React.FC<{
     readonly?: boolean,
     toolbars?: ToolbarTypes[],
-}> = ({ readonly, toolbars }) => {
-    let { editorState, setEditorState } = useEditorContext();
+}> = memo(({ readonly, toolbars }) => {
+    let [editorState, setEditorState] = useEditorContext();
 
     useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
         if (isKeyWithModifiers(ev, 'z', Modifiers.CtrlOrCmd)) {
@@ -99,7 +97,7 @@ export const MainToolbar: React.FC<{
 
         <ComponentAdder />
     </div>;
-};
+});
 
 
 
@@ -170,7 +168,8 @@ const ToolbarNameEditor: React.FC<{
 export const StepperControls: React.FC<{
 
 }> = () => {
-    let { editorState, setEditorState, exeModel } = useEditorContext();
+    let [editorState, setEditorState] = useEditorContext();
+    let exeModel = editorState.exeModel;
 
     useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
         if (isKeyWithModifiers(ev, ' ', Modifiers.None)) {
@@ -182,27 +181,33 @@ export const StepperControls: React.FC<{
     });
 
     function resetHard() {
-        resetExeModel(exeModel, { hardReset: true });
-        stepExecutionCombinatorial(exeModel);
-        setEditorState(a => ({ ...a }));
+        if (exeModel) {
+            resetExeModel(exeModel, { hardReset: true });
+            stepExecutionCombinatorial(exeModel);
+            setEditorState(a => ({ ...a }));
+        }
     }
 
     function resetSoft() {
-        resetExeModel(exeModel, { hardReset: false });
-        stepExecutionCombinatorial(exeModel);
-        setEditorState(a => ({ ...a }));
+        if (exeModel) {
+            resetExeModel(exeModel, { hardReset: false });
+            stepExecutionCombinatorial(exeModel);
+            setEditorState(a => ({ ...a }));
+        }
     }
 
     function step() {
-        if (!exeModel.runArgs.halt) {
-            stepExecutionLatch(exeModel);
-        }
+        if (exeModel) {
+            if (!exeModel.runArgs.halt) {
+                stepExecutionLatch(exeModel);
+            }
 
-        if (!exeModel.runArgs.halt) {
-            stepExecutionCombinatorial(exeModel);
-        }
+            if (!exeModel.runArgs.halt) {
+                stepExecutionCombinatorial(exeModel);
+            }
 
-        setEditorState(a => ({ ...a }));
+            setEditorState(a => ({ ...a }));
+        }
     }
 
     let isPlaying = isNotNil(editorState.stepSpeed);
@@ -211,6 +216,10 @@ export const StepperControls: React.FC<{
     let animFrameEnabled = isPlaying && !intervalEnabled;
 
     function stepOrStop() {
+        if (!exeModel) {
+            return;
+        }
+
         if (exeModel.runArgs.halt) {
             setEditorState(a => assignImm(a, { stepSpeed: undefined }));
             return false;
@@ -270,7 +279,7 @@ export const StepperControls: React.FC<{
         setEditorState(a => assignImm(a, { stepSpeed: undefined }));
     }
 
-    let halted = exeModel.runArgs.halt && !isPlaying;
+    let halted = !!exeModel && exeModel.runArgs.halt && !isPlaying;
 
     return <>
         <ToolbarButton icon={faPowerOff} disabled={false} onClick={resetHard} tip={"Hard reset: clear all memory"} />
@@ -285,9 +294,10 @@ export const StepperControls: React.FC<{
 const ViewportControls: React.FC<{
 
 }> = () => {
-    let { editorState, setEditorState, exeModel } = useEditorContext();
+    let [editorState, setEditorState] = useEditorContext();
 
     function handleExpand() {
+        console.log('expand');
         setEditorState(a => assignImm(a, { needsZoomExtent: true }));
     }
 

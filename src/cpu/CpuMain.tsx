@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense, memo, useEffect } from 'react';
 import { useCreateGlobalKeyboardDocumentListener } from '../utils/keyboard';
 import { CpuCanvas } from './CpuCanvas';
 import s from './CpuMain.module.scss';
@@ -57,10 +57,10 @@ export const CPUMain = () => {
 };
 
 const QueryUpdater: React.FC<{
-}> = () => {
+}> = memo(() => {
     let router = useRouter();
     let searchParams = useSearchParams();
-    let { editorState, setEditorState } = useEditorContext();
+    let [editorState, setEditorState] = useEditorContext();
 
     let schematicId = searchParams.get('schematicId');
 
@@ -84,7 +84,7 @@ const QueryUpdater: React.FC<{
     }, [schematicId, setEditorState]);
 
     return null;
-};
+});
 
 function updateQuery(searchParams: URLSearchParams, changes: Record<string, string | null>) {
     let params = new URLSearchParams(searchParams.toString());

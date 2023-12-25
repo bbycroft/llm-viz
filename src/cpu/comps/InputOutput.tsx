@@ -129,7 +129,7 @@ export const InputEditor: React.FC<{
     comp: IComp<IInputConfig>,
     exeComp: IExeComp<ICompDataInput>, styles: any,
 }> = memo(function InputEditor({ editCtx, comp, isActive }) {
-    let { setEditorState } = useEditorContext();
+    let [, setEditorState] = useEditorContext();
 
     let editBitWidth = makeEditFunction(setEditorState, editCtx, comp, (value: number) => ({ bitWidth: value }));
     let editSigned = makeEditFunction(setEditorState, editCtx, comp, (value: boolean) => ({

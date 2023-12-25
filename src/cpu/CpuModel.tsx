@@ -132,11 +132,13 @@ export interface IEditorState {
     desiredSchematicId: string | null;
     activeSchematicId: string | null;
 
-    // time to combine these!! Actually, let's use CompLibrary, since it's used in more places, & rename it
     sharedContext: ISharedContext;
     compLibrary: CompLibrary;
     schematicLibrary: SchematicLibrary;
     codeLibrary: CodeSuiteManager;
+
+    exeModel: IExeSystem | null;
+    exeModelUpdateCntr: number;
 
     selectRegion: ISelectRegion | null;
     hovered: IHitTest | null;
