@@ -8,6 +8,7 @@ import { ISchematic as IEditSchematic, IoDir, PortType, RefType } from "./CpuMod
 import { useEditorContext } from "./Editor";
 import s from "./HoverDisplay.module.scss";
 import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
+import { pluralize } from "../utils/text";
 
 export const HoverDisplay: React.FC<{
     canvasEl: HTMLCanvasElement | null,
@@ -47,6 +48,8 @@ export const HoverDisplay: React.FC<{
                         <span className={s.numVal}>{ensureSigned32Bit(net.value).toString().padStart(2, '0')}</span>
                         &nbsp;
                         <span className={s.hexVal}>0x{ensureUnsigned32Bit(net.value).toString(16).padStart(net.width >>> 2, '0')}</span>
+                        &nbsp;
+                        <span className={s.bitWidth}>{' '} {net.width} {pluralize('bit', net.width)}</span>
                     </div>;
                 }
 

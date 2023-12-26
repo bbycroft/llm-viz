@@ -67,6 +67,7 @@ export function portPlacementToPos(portPos: PortPlacement, w: number, h: number)
 }
 
 export const compPortDefId = 'core/comp/port';
+export const compPortExternalPortId = '_b';
 
 export function createCompIoComps(args: ICompBuilderArgs) {
 
@@ -84,6 +85,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
 
             return [
                 { id: 'a', name: '', pos, type: internalPortDir, width: args.bitWidth },
+                { id: compPortExternalPortId, name: '', pos: new Vec3(NaN, NaN), type: args.type | PortType.Hidden, width: args.bitWidth },
             ];
         },
         initConfig: () => ({
@@ -110,7 +112,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
 
             let data = builder.addData({
                 port: builder.getPort('a'),
-                externalPort: builder.createExternalPort('_b', args.type, args.bitWidth),
+                externalPort: builder.getPort(compPortExternalPortId),
                 externalPortBound: false,
                 value: isInput ? args.inputValueOverride : 0,
             });
@@ -332,6 +334,24 @@ const PortOptions: React.FC<{
                 signed={comp.args.signed}
             />
         </EditKvp>
+        <div className="border-t mx-8" />
+        {exeComp && <div className="flex flex-col">
+            <div>Ports</div>
+            <div className="flex flex-col">
+                {exeComp.ports.map((p, id) => {
+                    let port = comp.ports[p.portIdx];
+                    return <div className="mx-2 my-1">
+                        <div>Port <span className="font-mono">{port.id}</span>{port.name && <> ({port.name})</>}
+                            &nbsp;
+                            {hasFlag(port.type, PortType.In) ? 'IN' : '' }
+                            {hasFlag(port.type, PortType.Out) ? 'OUT' : '' }
+                            {hasFlag(port.type, PortType.Tristate) ? 'TRI' : '' }
+                            </div>
+                        <div className="ml-4 font-mono">io:{p.ioEnabled ? '1' : '0'}, du:{p.dataUsed ? '1' : '0'}, V:0x{p.value.toString(16)}</div>
+                    </div>;
+                })}
+            </div>
+        </div>}
     </>;
 });
 

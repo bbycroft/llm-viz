@@ -3,6 +3,7 @@ import { Vec3 } from "../utils/vector";
 import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
 import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortType, IWireGraphNode, IoDir, IParentCompInfo } from "./CpuModel";
 import { iterWireGraphSegments } from "./Wire";
+import { ICompPortConfig, compPortDefId, compPortExternalPortId } from "./comps/CompPort";
 
 export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem, idPrefix: string, parentCompInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;
@@ -48,7 +49,21 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
                 continue;
             }
 
-            portBindings.set(key(comp.id, port.id), {
+            let compId = exeComp.comp.id;
+            let portId = port.id;
+
+            // need to get the external port from the comp
+            if (comp.defId === compPortDefId && port.id === compPortExternalPortId) {
+                portId = (comp.args as ICompPortConfig).portId;
+                let compFullId = exeComp.compFullId;
+                let lastIdx = compFullId.lastIndexOf('|');
+                let firstIdx = compFullId.lastIndexOf('|', lastIdx - 1);
+                compId = compFullId.substring(firstIdx + 1, lastIdx);
+            }
+
+            // Note that the key here is what the wire reports as connecting to, not necessarily the actual port/comp objects.
+            // In the case of going to internal ports, the comp/port objects are the internal CompPort, but the wire ref is the external port.
+            portBindings.set(key(compId, portId), {
                 comp: comp,
                 port: comp.ports[exePort.portIdx],
                 exePort: exePort,
@@ -122,6 +137,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
             for (let outputNodeId of outputNodeIds) {
                 let nodeId = outputNodeId;
+                flowNodes.add(nodeId);
                 while (nodeId !== inputNodeId) {
                     let prevId = prevNodeId.get(nodeId);
                     if (prevId === undefined) {
@@ -131,7 +147,6 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
                     flowNodes.add(prevId);
                     nodeId = prevId;
                 }
-                flowNodes.add(nodeId);
             }
         }
         activeInputNodeCount = outputNodeIds.length;
