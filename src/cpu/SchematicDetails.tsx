@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faExpand } from "@fortawesome/free-solid-svg-icons";
 import { computeModelBoundingBox } from "./ModelHelpers";
 import { EditKvp } from "./CompDetails";
+import { adjustWiresToPorts } from "./Wire";
 
 export const SchematicDetails: React.FC<{
 }> = ({  }) => {
@@ -30,6 +31,12 @@ export const SchematicDetails: React.FC<{
         }));
     }
 
+    function handleFixWires() {
+        setEditorState(editMainSchematic(true, (schematic, state, snapshot) => {
+            return adjustWiresToPorts(schematic, snapshot.selected);
+        }));
+    }
+
     return <div className="flex flex-col border-b pb-1">
         <div>
             <div className="mt-2 mb-2 mx-2">Schematic: <b>{mainSchematic.name}</b></div>
@@ -43,6 +50,10 @@ export const SchematicDetails: React.FC<{
                 <FontAwesomeIcon icon={faExpand} className="mr-2" />
                 Reset Boundary
             </ButtonStandard>}
+
+            <ButtonStandard onClick={handleFixWires} className="mx-2 my-1">
+                Fix Wires
+            </ButtonStandard>
         </div>
     </div>;
 };

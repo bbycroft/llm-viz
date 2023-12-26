@@ -17,7 +17,7 @@ export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
     let w = 1;
     let h = 2;
-    let rotateCenter = new Vec3(1, 1);
+    let baseSize = new Vec3(w, h);
     let bitExpander: ICompDef<IBitExpanderData, IBitExpanderConfig> = {
         defId: 'bits/expand',
         name: "Bit Expand",
@@ -31,7 +31,7 @@ export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
         initConfig: () => ({ rotate: 0, bitWidth: 32 }),
         applyConfig(comp, args) {
-            rotatePortsInPlace(comp, args.rotate, rotateCenter);
+            rotatePortsInPlace(comp, args.rotate, baseSize);
         },
         build: (builder) => {
             let mask = createBitWidthMask(builder.comp.args.bitWidth);
@@ -49,17 +49,18 @@ export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
         renderCanvasPath: ({ comp, ctx }) => {
             ctx.save();
+            ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
+            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
             // basic structure is a trapezoid, narrower on the right
             // slope passes through (1, 1) i.e. the select button, but doesn't need to be 45deg
             let slope = 0.7;
-            let x = comp.pos.x;
-            let y = comp.pos.y;
-            let w = comp.size.x;
-            let h = comp.size.y;
+            let x = 0; // comp.pos.x;
+            let y = 0; //comp.pos.y;
+            let w = baseSize.x;
+            let h = baseSize.y;
 
             ctx.moveTo(x, y + slope);
             ctx.lineTo(x + w, y);

@@ -1,6 +1,7 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { getOrAddToMap, hasFlag } from "../utils/data";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
+import { ICanvasState, IComp } from "./CpuModel";
 
 
 export enum FontType {
@@ -66,3 +67,58 @@ export function drawGrid(mtx: AffineMat2d, ctx: CanvasRenderingContext2D, gridSt
     drawGridAtScale(1);
 }
 
+
+export function shouldRenderComp(comp: IComp, cvs: ICanvasState): readonly [renderComp: boolean, renderPorts: boolean, renderSubSchematic: boolean] {
+    let tl = cvs.mtx.mulVec3(comp.pos);
+    let br = cvs.mtx.mulVec3(comp.pos.add(comp.size));
+
+    let compBbLocal = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
+    let compBb = new BoundingBox3d(tl, br);
+
+    if (!compBb.intersects(new BoundingBox3d(new Vec3(), cvs.size))) {
+        return [false, false, false];
+    }
+
+    let size = br.sub(tl);
+    let area = size.x * size.y;
+
+    let pxPerGrid = 1 / cvs.scale;
+
+    let renderPorts = pxPerGrid > 4 || area > 50 * 50;
+    let renderSubSchematic = pxPerGrid > 10 && area > 150 * 150;
+
+    return [true, renderPorts, renderSubSchematic];
+}
+
+
+export function shouldRenderSubSchematic(comp: IComp, cvs: ICanvasState) {
+
+    // based on width/height of the component in viewport
+    // and also whether the comp is actually visible in the viewport
+
+    let tl = cvs.mtx.mulVec3(comp.pos);
+    let br = cvs.mtx.mulVec3(comp.pos.add(comp.size));
+    let size = br.sub(tl);
+    let area = size.x * size.y;
+
+    let pxPerGrid = 1 / cvs.scale;
+
+    if (pxPerGrid < 10) {
+        return false;
+    }
+
+
+    if (area < 150 * 150) {
+        return false;
+    }
+
+    let compBb = new BoundingBox3d(tl, br);
+
+    let viewBb = cvs.region;
+
+    if (!compBb.intersects(viewBb)) {
+        return false;
+    }
+
+    return true;
+}
