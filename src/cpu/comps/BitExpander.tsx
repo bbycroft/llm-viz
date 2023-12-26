@@ -17,7 +17,7 @@ import { EditKvp } from "../CompDetails";
 import { ensureUnsigned32Bit } from "./RiscvInsDecode";
 
 interface IBitExpanderMultiConfig extends IBaseCompConfig {
-    // rotate: number; // 0, 1, 2, 3
+    rotate: number; // 0, 1, 2, 3
     collapse: boolean; // (or expand)
     bitWidth: number; // input bit width
     bitRange: IBitRange[];
@@ -101,6 +101,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             bitWidth: 32,
             bitRange: [{ start: 0, end: 31, individual: false, showBits: true, id: 0 }],
             collapse: false,
+            rotate: 0,
         }),
         applyConfig(comp, args) {
             let maxId = Math.max(...args.bitRange.map(r => r.id ?? 0), 0) + 1;
@@ -110,6 +111,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                 }
             }
             args.collapse = !!args.collapse;
+            args.rotate ??= 0;
 
             let width = computeWidth(args);
             comp.size = new Vec3(width, initialH);

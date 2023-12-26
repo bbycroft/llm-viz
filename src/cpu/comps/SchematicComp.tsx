@@ -59,7 +59,7 @@ export function createSchematicCompDef(id: string, name: string, schematic: ISch
             ctx.restore();
         },
         renderDom: ({ comp, exeComp, isActive }) => {
-            return <SchematicComp comp={comp} exeComp={exeComp} isActive={isActive} compDef={compDef} />;
+            return isActive ? <SchematicComp comp={comp} exeComp={exeComp} isActive={isActive} compDef={compDef} /> : null;
         },
 
         subLayout: {
