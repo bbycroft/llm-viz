@@ -177,6 +177,7 @@ export interface ICanvasState {
     size: Vec3; // derived
     scale: number; // derived
     mtx: AffineMat2d; // derived
+    // mtxLocal: AffineMat2d; // derived
     tileCanvases: Map<string, HTMLCanvasElement>;
 }
 

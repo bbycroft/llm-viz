@@ -14,6 +14,8 @@ import { useFunctionRef } from '../utils/hooks';
 import { copySelection, cutSelection, pasteSelection } from './Clipboard';
 import { deleteSelection } from './Selection';
 import { compIsVisible } from './ModelHelpers';
+import { shouldRenderComp } from './CanvasRenderHelpers';
+import { multiSortStableAsc } from '../utils/array';
 
 export const CanvasEventHandler: React.FC<{
     embedded?: boolean;
@@ -176,7 +178,10 @@ export const CanvasEventHandler: React.FC<{
         } else if (!ds.data.hovered) {
             let delta = new Vec3(ev.clientX - ds.clientX, ev.clientY - ds.clientY);
             let newMtx = AffineMat2d.translateVec(delta).mul(ds.data.baseMtx);
-            setEditorState(a => assignImm(a, { mtx: newMtx }));
+            setEditorState(a => assignImm(a, {
+                dragCreateComp: undefined,
+                mtx: newMtx,
+            }));
         } else {
             let mtx = ds.data.mtx;
             let hoveredRef = ds.data.hovered.ref;
@@ -209,6 +214,7 @@ export const CanvasEventHandler: React.FC<{
             }));
         } else {
             setEditorState(a => assignImm(a, {
+                dragCreateComp: undefined,
                 snapshot: assignImm(a.snapshot, {
                     selected: [],
                 }),
@@ -456,7 +462,7 @@ export const CanvasEventHandler: React.FC<{
                 let nodeScreenPos = modelToScreen(modelPos, mtx);
                 let modelDist = modelPos.dist(mousePt);
                 let screenDist = nodeScreenPos.dist(mousePtScreen);
-                if (screenDist < 10 || modelDist < 0.2) {
+                if (screenDist < 10) {
                     refsUnderCursor.push({
                         ref: { type: RefType.CompNode, id: idPrefix + comp.id, compNodeId: node.id },
                         distPx: screenDist,
@@ -473,6 +479,10 @@ export const CanvasEventHandler: React.FC<{
                 if (!compIsVisible(comp, idPrefix)) {
                     continue;
                 }
+
+                // let [compVisible, compPortsVisible, subSchematicVisible] = shouldRenderComp(comp, cvs);
+
+
 
                 let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
                 if (bb.contains(mousePt)) {
@@ -545,7 +555,20 @@ export const CanvasEventHandler: React.FC<{
             }
         }
 
-        return refsUnderCursor[0] ?? null;
+        let sorted = multiSortStableAsc(refsUnderCursor, [
+            a => {
+                switch (a.ref.type) {
+                    case RefType.CompNode: return 0;
+                    case RefType.Comp: return 1;
+                    case RefType.WireNode: return 2;
+                    case RefType.WireSeg: return 3;
+                    default: return 4;
+                }
+            },
+            a => a.distPx,
+        ]);
+
+        return sorted[0] ?? null;
     }
 
     function handleMouseMove(ev: React.MouseEvent) {

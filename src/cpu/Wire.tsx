@@ -3,6 +3,63 @@ import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from ".
 import { IWire, ISegment, IWireGraph, IWireGraphNode, IElRef, RefType, IComp, IEditSchematic } from "./CpuModel";
 import { PortHandling } from "./Editor";
 
+export function adjustWiresToPorts(schematic: IEditSchematic, compRefs: IElRef[]): IEditSchematic {
+
+    let wireLookup = new Map<string, IWireGraph>();
+    for (let wire of schematic.wires) {
+        wireLookup.set(wire.id, wire);
+    }
+
+    let compPorts = new Map<string, { pos: Vec3, ref: IElRef }>();
+
+    let selection = new Set(compRefs.map(refToString));
+    let wiresAndNodesToMove = new Map<string, Map<number, Vec3>>();
+
+    // Create a map of all the comp ports
+    for (let comp of schematic.comps) {
+        if (!selection.has(refToString({ type: RefType.Comp, id: comp.id }))) {
+            continue;
+        }
+        for (let port of comp.ports ?? []) {
+            let pos = comp.pos.add(port.pos);
+            let ref: IElRef = { type: RefType.CompNode, id: comp.id, compNodeId: port.id };
+            compPorts.set(refToString(ref), { pos, ref });
+        }
+    }
+
+    // Find any wires that are touching a selected comp port
+    // And check whether the wire node is in the same spot as the port
+    // If not, move the wire node to the port
+    for (let wire of schematic.wires) {
+        let nodeIdsToMove = new Map<number, Vec3>();
+
+        for (let node of wire.nodes) {
+            if (node.ref) {
+                let refStr = refToString(node.ref);
+                let compPortInfo = compPorts.get(refStr);
+                if (compPortInfo) {
+                    if (compPortInfo.pos.dist(node.pos) > EPSILON) {
+                        nodeIdsToMove.set(node.id, compPortInfo.pos.sub(node.pos));
+                    }
+                }
+            }
+        }
+
+        wiresAndNodesToMove.set(wire.id, nodeIdsToMove);
+    }
+
+    return assignImm(schematic, {
+        wires: schematic.wires.map(wire => {
+            let nodeIdsToMove = wiresAndNodesToMove.get(wire.id);
+            if (nodeIdsToMove) {
+                wire = dragNodes(wire, nodeIdsToMove);
+            }
+            return wire;
+        }),
+    });
+
+}
+
 export function moveSelectedComponents(schematic: IEditSchematic, selected: IElRef[], delta: Vec3): IEditSchematic {
     if (delta.dist(Vec3.zero) < EPSILON) {
         return schematic;

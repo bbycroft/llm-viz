@@ -18,7 +18,7 @@ import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
-import { drawGrid, makeCanvasFont } from "./CanvasRenderHelpers";
+import { drawGrid, makeCanvasFont, shouldRenderComp, shouldRenderSubSchematic } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
 import { compIsVisible, computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
 import { MainToolbar } from "./toolbars/CpuToolbars";
@@ -201,6 +201,7 @@ export const CpuCanvas: React.FC<{
         cvsState.mtx = editorState.mtx;
         let pr = window.devicePixelRatio;
 
+        ctx.reset();
         ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.scale(pr, pr);
@@ -381,6 +382,12 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             continue;
         }
 
+        let [compVisible, compPortsVisible, subSchematicVisible] = shouldRenderComp(comp, cvs);
+
+        if (!compVisible) {
+            continue;
+        }
+
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === compFullId;
 
         let isValidExe = !!exeComp;
@@ -397,12 +404,14 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             styles: {
                 fontSize: 1.6,
                 lineHeight: 2.0,
-                fillColor: isValidExe ? "#8a8" : "#aaa",
+                fillColor: isValidExe ? palette.compBg : "#aaa",
                 strokeColor: isHover ? "#a00" : "#000",
                 lineWidth: 1 * cvs.scale,
             },
             isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === compFullId,
         };
+
+        let subSchematic = getCompSubSchematic(editorState, comp);
 
         function drawPath() {
             if (compDef?.renderCanvasPath) {
@@ -412,11 +421,9 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             }
         }
 
-        ctx.beginPath();
-
-        drawPath();
-
         if (isHover) {
+            ctx.beginPath();
+            drawPath();
             ctx.save();
             // ctx.globalAlpha = 0.2;
             ctx.strokeStyle = "#000";
@@ -426,34 +433,59 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             ctx.restore();
         }
 
-        ctx.fill('evenodd');
-        ctx.stroke();
-
-
-        if (compDef?.render) {
-            compDef.render(compRenderArgs);
-        } else if (compDef?.renderDom) {
-            // handled elsewhere
-        } else {
-            /*
-            let text = comp.name;
-            let textHeight = 3;
-            ctx.font = makeCanvasFont(textHeight / 4);
-            ctx.textAlign = 'center';
-            ctx.textBaseline = "middle";
-            ctx.fillStyle = "#000";
-            ctx.fillText(text, comp.pos.x + (comp.size.x) / 2, comp.pos.y + (comp.size.y) / 2);
-            */
-        }
-
-        for (let node of comp.ports) {
-            renderCompPort(cvs, editorState, comp, node);
-        }
-
-        let subSchematic = getCompSubSchematic(editorState, comp);
-        if (compDef && subSchematic) {
-            // nested rendering!!!!
+        if (subSchematic && subSchematicVisible) {
+            ctx.beginPath();
+            drawPath();
             ctx.save();
+            ctx.fillStyle = "#fff";
+            ctx.fill('evenodd');
+            ctx.clip('evenodd');
+
+            ctx.filter = "blur(4px)";
+            ctx.lineWidth = 8 * cvs.scale;
+            ctx.strokeStyle = compRenderArgs.styles.fillColor;
+            ctx.stroke(); // stroke the inside
+
+            ctx.restore();
+
+            ctx.stroke(); // stroke the outline
+
+        } else {
+            ctx.beginPath();
+            drawPath();
+            ctx.fill('evenodd');
+            ctx.stroke();
+        }
+
+        if (compPortsVisible) {
+            if (compDef?.render) {
+                compDef.render(compRenderArgs);
+            } else if (compDef?.renderDom) {
+                // handled elsewhere
+            } else {
+                /*
+                let text = comp.name;
+                let textHeight = 3;
+                ctx.font = makeCanvasFont(textHeight / 4);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#000";
+                ctx.fillText(text, comp.pos.x + (comp.size.x) / 2, comp.pos.y + (comp.size.y) / 2);
+                */
+            }
+
+            for (let node of comp.ports) {
+                renderCompPort(cvs, editorState, comp, node);
+            }
+        }
+
+        if (subSchematicVisible && compDef && subSchematic) {
+            // nested rendering!!!!
+
+            ctx.save();
+            ctx.beginPath();
+            drawPath();
+            ctx.clip('evenodd');
 
             let subMtx = computeSubLayoutMatrix(comp, subSchematic);
 

@@ -34,7 +34,8 @@ export function createSchematicCompDef(id: string, name: string, schematic: ISch
             return builder.build();
         },
 
-        renderAll: true,
+        // renderAll: true,
+        /*
         render: ({ comp, exeComp, ctx, cvs }) => {
 
             let fillStyle = ctx.fillStyle;
@@ -57,7 +58,7 @@ export function createSchematicCompDef(id: string, name: string, schematic: ISch
             ctx.stroke();
 
             ctx.restore();
-        },
+        }, */
         renderDom: ({ comp, exeComp, isActive }) => {
             return isActive ? <SchematicComp comp={comp} exeComp={exeComp} isActive={isActive} compDef={compDef} /> : null;
         },

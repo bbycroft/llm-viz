@@ -21,23 +21,23 @@ interface INotGateData {
 
 export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let w = 3;
-    let h = 4;
-    let rotateCenter = new Vec3(1, 2);
+    let wOrig = 3;
+    let hOrig = 4;
+    let baseSize = new Vec3(wOrig, hOrig);
     let orGate: ICompDef<IBinGateData, IBinGateConfig> = {
         defId: 'gate/or',
         altDefIds: ['or'],
         name: "Or",
-        size: new Vec3(w, h),
+        size: new Vec3(wOrig, hOrig),
         flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
         ports: (args) => [
             { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
             { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
-            { id: 'o', name: '', pos: new Vec3(w, 2), type: PortType.Out, width: args.bitWidth },
+            { id: 'o', name: '', pos: new Vec3(wOrig, 2), type: PortType.Out, width: args.bitWidth },
         ],
         initConfig: () => ({ rotate: 0, bitWidth: 1 }),
         applyConfig(comp, args) {
-            rotatePortsInPlace(comp, args.rotate, rotateCenter);
+            rotatePortsInPlace(comp, args.rotate, baseSize);
         },
         build: (builder) => {
             let data = builder.addData({
@@ -54,17 +54,18 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
         renderCanvasPath: ({ comp, ctx }) => {
             ctx.save();
+            ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
+            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
             // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
             let dx = 0.2;
-            let x = comp.pos.x - dx;
-            let y = comp.pos.y + 0.5;
-            let rightX = x + comp.size.x;
-            let w = comp.size.x + dx;
-            let h = comp.size.y - 1;
+            let x = -dx;
+            let y = 0.5;
+            let rightX = x + wOrig;
+            let w = wOrig + dx;
+            let h = hOrig - 1;
             let frontRad = h * 0.9;
             ctx.moveTo(x, y);
             ctx.arcTo(rightX - 1, y    , x + w, y + h / 2, frontRad);
@@ -89,16 +90,16 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         defId: 'gate/xor',
         altDefIds: ['xor'],
         name: "Xor",
-        size: new Vec3(w, h),
+        size: new Vec3(wOrig, hOrig),
         flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
         ports: (args) => [
             { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
             { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
-            { id: 'o', name: '', pos: new Vec3(w, 2), type: PortType.Out, width: args.bitWidth },
+            { id: 'o', name: '', pos: new Vec3(wOrig, 2), type: PortType.Out, width: args.bitWidth },
         ],
         initConfig: () => ({ rotate: 0, bitWidth: 1 }),
         applyConfig(comp, args) {
-            rotatePortsInPlace(comp, args.rotate, rotateCenter);
+            rotatePortsInPlace(comp, args.rotate, baseSize);
         },
         build: (builder) => {
             let data = builder.addData({
@@ -115,17 +116,18 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
         renderCanvasPath: ({ comp, ctx }) => {
             ctx.save();
+            ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
+            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
             // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
             let dx = 0.2;
-            let x = comp.pos.x - dx;
-            let y = comp.pos.y + 0.5;
-            let rightX = x + comp.size.x;
-            let w = comp.size.x + dx;
-            let h = comp.size.y - 1;
+            let x = -dx;
+            let y = 0.5;
+            let rightX = x + wOrig;
+            let w = wOrig + dx;
+            let h = hOrig - 1;
             let frontRad = h * 0.9;
             ctx.moveTo(x, y);
             ctx.arcTo(rightX - 1, y    , x + w, y + h / 2, frontRad);
@@ -159,16 +161,16 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         defId: 'gate/and',
         altDefIds: ['and'],
         name: "And",
-        size: new Vec3(w, h),
+        size: new Vec3(wOrig, hOrig),
         flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
         ports: (args) => [
             { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
             { id: 'b', name: '', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
-            { id: 'o', name: '', pos: new Vec3(w, 2), type: PortType.Out, width: args.bitWidth },
+            { id: 'o', name: '', pos: new Vec3(wOrig, 2), type: PortType.Out, width: args.bitWidth },
         ],
         initConfig: () => ({ rotate: 0, bitWidth: 1 }),
         applyConfig(comp, args) {
-            rotatePortsInPlace(comp, args.rotate, rotateCenter);
+            rotatePortsInPlace(comp, args.rotate, baseSize);
         },
         build: (builder) => {
             let data = builder.addData({
@@ -185,16 +187,17 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
         renderCanvasPath: ({ comp, ctx, cvs, exeComp }) => {
             ctx.save();
+            ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
+            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
             let dx = 0.0;
-            let x = comp.pos.x - dx;
-            let y = comp.pos.y + 0.5;
-            let rightX = x + comp.size.x;
-            let w = comp.size.x + dx;
-            let h = comp.size.y - 1;
+            let x = -dx;
+            let y = 0.5;
+            let rightX = x + wOrig;
+            let w = wOrig + dx;
+            let h = hOrig - 1;
             ctx.moveTo(x, y);
             ctx.lineTo(x + w * 0.4, y);
             ctx.arc(rightX - h/2, y + h / 2, h / 2, -Math.PI / 2, Math.PI / 2);
@@ -226,7 +229,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         ],
         initConfig: () => ({ rotate: 0, bitWidth: 1 }),
         applyConfig(comp, args) {
-            rotatePortsInPlace(comp, args.rotate, rotateCenter);
+            rotatePortsInPlace(comp, args.rotate, baseSize);
         },
         build: (builder) => {
             let mask = createBitWidthMask(builder.comp.args.bitWidth);
@@ -244,17 +247,18 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
         renderCanvasPath: ({ comp, ctx }) => {
             ctx.save();
+            ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, comp.pos.add(rotateCenter));
+            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
             let dy = 0.7;
             let dx = 0.5;
-            let x = comp.pos.x;
-            let y = comp.pos.y + dy;
-            let rightX = x + comp.size.x - dx;
-            let w = comp.size.x;
-            let h = comp.size.y - dy * 2;
+            let x = 0.0;
+            let y = dy;
+            let rightX = x + wOrig - dx;
+            let w = wOrig;
+            let h = hOrig - dy * 2;
             ctx.moveTo(x, y);
             ctx.lineTo(rightX, y + h / 2);
             ctx.lineTo(x, y + h);
