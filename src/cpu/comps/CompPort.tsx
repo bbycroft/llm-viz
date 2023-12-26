@@ -147,8 +147,6 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             let p = comp.pos;
             let s = comp.size;
             ctx.roundRect(p.x, p.y, s.x, s.y, s.y / 2);
-
-            ctx.closePath();
         },
         render: ({ comp, ctx, cvs }) => {
             let scale = Math.min(cvs.scale, 1/15);
