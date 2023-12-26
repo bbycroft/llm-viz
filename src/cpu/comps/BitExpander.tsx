@@ -140,14 +140,18 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                     for (let port of ports) {
                         if (port.individual) {
                             for (let i = port.end; i >= port.start; i--) {
-                                outPortVal |= (multiPorts[inPortIdx++].value & 1) << i;
+                                let mPort = multiPorts[inPortIdx++];
+                                mPort.ioEnabled = true;
+                                outPortVal |= (mPort.value & 1) << i;
                             }
                         } else {
-                            let portVal = multiPorts[inPortIdx++].value;
-                            outPortVal |= (portVal & port.mask) << port.start;
+                            let mPort = multiPorts[inPortIdx++];
+                            mPort.ioEnabled = true;
+                            outPortVal |= (mPort.value & port.mask) << port.start;
                         }
                     }
                     singlePort.value = ensureUnsigned32Bit(outPortVal);
+                    singlePort.ioEnabled = true;
                 }, data.multiPorts, [data.singlePort]);
             } else {
 

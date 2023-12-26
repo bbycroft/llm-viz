@@ -1,6 +1,6 @@
 import React from "react";
 import { editComp, editCompConfig, useEditorContext } from "./Editor";
-import { CompDefFlags, IComp, RefType } from "./CpuModel";
+import { CompDefFlags, IComp, IElRef, IExeComp, IExeSystem, RefType } from "./CpuModel";
 import { StringEditor } from "./displayTools/StringEditor";
 import { assignImm, hasFlag } from "../utils/data";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -9,6 +9,11 @@ import { getCompFromRef, getCompSubSchematic } from "./SubSchematics";
 import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "../utils/keyboard";
 import { HexValueEditor, HexValueInputType } from "./displayTools/HexValueEditor";
 import { ButtonStandard } from "./EditorControls";
+
+function getExeComp(exeModel: IExeSystem, compRef: IElRef): IExeComp | null {
+    let idx = exeModel.lookup.compIdToIdx.get(compRef.id);
+    return exeModel.comps[idx ?? -1] ?? null;
+}
 
 export const CompDetails: React.FC<{
 }> = ({  }) => {
@@ -20,6 +25,7 @@ export const CompDetails: React.FC<{
     let singleCompRef = numSelected === 1 && snapshot.selected[0].type === RefType.Comp ? snapshot.selected[0] : null;
     let singleComp = singleCompRef ? getCompFromRef(editorState, singleCompRef.id) : null;
     let compDef = singleComp ? editorState.compLibrary.getCompDef(singleComp.defId) : null;
+    let exeComp = singleCompRef && editorState.exeModel ? getExeComp(editorState.exeModel, singleCompRef) : null;
 
     function handleNameUpdate(end: boolean, value: string) {
         setEditorState(editCompConfig({ idPrefix: "" }, end, singleComp!, comp => assignImm(comp, { name: value })));
@@ -82,7 +88,7 @@ export const CompDetails: React.FC<{
 
                 </EditKvp>}
 
-                {compDef.renderOptions && compDef.renderOptions({ comp: singleComp, exeComp: null, editCtx: { idPrefix: "" } })}
+                {compDef.renderOptions && compDef.renderOptions({ comp: singleComp, exeComp: exeComp, editCtx: { idPrefix: "" } })}
 
             </div>
             {!isAtomic && <div className="m-2">

@@ -1,15 +1,9 @@
-import { assignImm, getOrAddToMap, isNil } from "../utils/data";
+import { assignImm, getOrAddToMap, hasFlag, isNil } from "../utils/data";
 import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
-import { IWire, ISegment, IWireGraph, IWireGraphNode, IElRef, RefType, IComp, IEditSchematic } from "./CpuModel";
+import { IWire, ISegment, IWireGraph, IWireGraphNode, IElRef, RefType, IComp, IEditSchematic, PortType } from "./CpuModel";
 import { PortHandling } from "./Editor";
 
 export function adjustWiresToPorts(schematic: IEditSchematic, compRefs: IElRef[]): IEditSchematic {
-
-    let wireLookup = new Map<string, IWireGraph>();
-    for (let wire of schematic.wires) {
-        wireLookup.set(wire.id, wire);
-    }
-
     let compPorts = new Map<string, { pos: Vec3, ref: IElRef }>();
 
     let selection = new Set(compRefs.map(refToString));
@@ -27,7 +21,7 @@ export function adjustWiresToPorts(schematic: IEditSchematic, compRefs: IElRef[]
         }
     }
 
-    // Find any wires that are touching a selected comp port
+    // Find any wires that are bound to a selected comp port
     // And check whether the wire node is in the same spot as the port
     // If not, move the wire node to the port
     for (let wire of schematic.wires) {
@@ -54,6 +48,47 @@ export function adjustWiresToPorts(schematic: IEditSchematic, compRefs: IElRef[]
             if (nodeIdsToMove) {
                 wire = dragNodes(wire, nodeIdsToMove);
             }
+            return wire;
+        }),
+    });
+
+}
+
+
+export function rebindWiresToPorts(schematic: IEditSchematic, compRefs: IElRef[]): IEditSchematic {
+    let compPortLocs = new Map<string, { pos: Vec3, ref: IElRef }>();
+
+    let selection = new Set(compRefs.map(refToString));
+
+    // Create a map of all the comp ports
+    for (let comp of schematic.comps) {
+        if (!selection.has(refToString({ type: RefType.Comp, id: comp.id }))) {
+            continue;
+        }
+        for (let port of comp.ports ?? []) {
+            if (!hasFlag(port.type, PortType.Hidden)) {
+                let pos = comp.pos.add(port.pos);
+                let ref: IElRef = { type: RefType.CompNode, id: comp.id, compNodeId: port.id };
+                compPortLocs.set(vecToPosStr(pos), { pos, ref });
+            }
+        }
+    }
+
+    // Find any wires that are touching a comp port on a selected comp
+    return assignImm(schematic, {
+        wires: schematic.wires.map(wire => {
+
+            wire.nodes = wire.nodes.map(node => {
+                let ref = node.ref;
+                let posStr = vecToPosStr(node.pos);
+                if (ref?.type === RefType.CompNode && selection.has(refToString({ type: RefType.Comp, id: ref.id }))) {
+                    ref = undefined;
+                }
+                if (compPortLocs.has(posStr)) {
+                    ref = compPortLocs.get(posStr)!.ref;
+                }
+                return assignImm(node, { ref });
+            });
             return wire;
         }),
     });
@@ -478,6 +513,10 @@ export function checkWires(wires: IWireGraph[], name: string) {
 export function copyWireGraph(wire: IWireGraph): IWireGraph {
     let nodes = wire.nodes.map(n => ({ ...n, edges: n.edges.slice() }));
     return { ...wire, nodes };
+}
+
+function vecToPosStr(v: Vec3) {
+    return `${v.x},${v.y}`;
 }
 
 function createNodePosMap(layout: IEditSchematic) {

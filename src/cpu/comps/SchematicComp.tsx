@@ -15,8 +15,6 @@ export interface ISchematicCompData {
 export interface ISchematicCompConfig extends IBaseCompConfig {
 }
 
-export const compPortDefId = 'core/comp/port';
-
 export function createSchematicCompDef(id: string, name: string, schematic: ISchematic, compArgs: ISchematicCompArgs): ILibraryItem {
 
     let compDef: ICompDef<ISchematicCompData, ISchematicCompConfig> = {

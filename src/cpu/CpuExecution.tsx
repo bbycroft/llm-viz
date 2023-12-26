@@ -555,7 +555,7 @@ export function netToString(net: IExeNet, exeComps: IExeComp[]) {
         let exePort = portRef.exePort;
         let tristateStr = hasFlag(exePort.type, PortType.Tristate) ? '(ts)' : '';
         let portId = comp.ports[portRef.portIdx]?.id ?? '??';
-        return `${exeComp.compFullId}.${portId}${tristateStr}`;
+        return `${exeComp.compFullId}:${portId}${tristateStr}`;
     };
 
     return `(${net.outputs.map(a => portStr(a)).join(', ')}) --> (${net.inputs.map(a => portStr(a)).join(', ')})`;

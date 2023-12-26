@@ -286,6 +286,8 @@ export interface ICompPort {
 }
 
 
+
+
 export enum PortType {
     None = 0,
     In = 1 << 0,
@@ -296,6 +298,8 @@ export enum PortType {
     Data = 1 << 3,
     Addr = 1 << 4,
     Ctrl = 1 << 5,
+
+    Hidden = 1 << 6,
 
     OutTri = Out | Tristate,
     InOutTri = In | Out | Tristate,

@@ -741,6 +741,10 @@ function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart
 */
 
 function renderCompPort(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompPort) {
+    if (hasFlag(node.type, PortType.Hidden)) {
+        return;
+    }
+
     let hoverRef = editorState.hovered?.ref;
     let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === node.id;
     let type = node.type ?? 0;
