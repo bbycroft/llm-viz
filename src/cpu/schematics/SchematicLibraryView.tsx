@@ -8,7 +8,7 @@ import { createSchematicCompDef } from "../comps/SchematicComp";
 import { ISchematicDef } from "../CpuModel";
 
 export const SchematicLibraryView: React.FC = memo(function SchematicLibraryView() {
-    let [editorState, setEditorState, editorStore] = useEditorContext();
+    let [editorState, setEditorState, editorStore] = useEditorContext({ });
 
     let compLibrary = editorState.compLibrary;
     let schematicLib = editorState.schematicLibrary;
@@ -19,6 +19,7 @@ export const SchematicLibraryView: React.FC = memo(function SchematicLibraryView
         if (schemId) {
             let schematic = schematicLib.getSchematic(schemId);
             if (schematic) {
+                console.log('updating schematic with id: ' + schemId);
                 schematic.snapshot = editorState.snapshot;
                 schematic.undoStack = fullEditorState.undoStack;
                 schematic.redoStack = fullEditorState.redoStack;

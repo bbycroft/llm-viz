@@ -1,5 +1,5 @@
 import React, { memo, useContext, useEffect, useState } from "react";
-import { useEditorContext } from "./Editor";
+import { notifyExeModelUpdated, useEditorContext } from "./Editor";
 import s from "./CompExampleView.module.scss";
 import { IRomExeData } from "./comps/SimpleMemory";
 import { IExeComp } from "./CpuModel";
@@ -30,7 +30,7 @@ export const CompExampleView: React.FC = memo(function CompExampleView() {
             loadEntryData(example);
             resetExeModel(exeModel, { hardReset: false });
             stepExecutionCombinatorial(exeModel);
-            setEditorState(a => ({ ...a }));
+            setEditorState(notifyExeModelUpdated);
         }
     }
 

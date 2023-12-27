@@ -162,6 +162,8 @@ export const CpuCanvas: React.FC<{
             region: new BoundingBox3d(new Vec3(0, 0), new Vec3(1, 1)),
             tileCanvases: new Map(),
             mtx: AffineMat2d.identity(),
+            t: 0,
+            rafHandle: 0,
         } : null);
     }, []);
 
@@ -173,7 +175,7 @@ export const CpuCanvas: React.FC<{
     //     // importData(strExport);
     // }, [editorState.snapshot, setLsState]);
 
-    useLayoutEffect(() => {
+    function renderAll(timestamp: number) {
         if (!cvsState) {
             return;
         }
@@ -222,8 +224,23 @@ export const CpuCanvas: React.FC<{
         ctx.fillStyle = "#000";
         ctx.fillText(`${swCanvasRender.toFixed(1)}ms`, w - 5, h - 5);
         ctx.restore();
+
+        cancelAnimationFrame(cvsState.rafHandle);
+        // cvsState.rafHandle = requestAnimationFrame(renderAll);
+    };
+
+    useLayoutEffect(() => {
+        cancelAnimationFrame(cvsState?.rafHandle ?? 0);
+        renderAll(performance.now());
     });
 
+    useEffect(() => {
+        if (cvsState) {
+            return () => {
+                cancelAnimationFrame(cvsState!.rafHandle);
+            };
+        }
+    }, [cvsState]);
 
     // let ctx: IEditorContext = useMemo(() => {
     //     return { editorState, setEditorState, exeModel };

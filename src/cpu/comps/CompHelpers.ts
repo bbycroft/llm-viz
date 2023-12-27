@@ -35,7 +35,7 @@ export function rotateAboutAffineInt(r: number, size: Vec3) {
         AffineMat2d.translateVec(center.mul(-1))); // 1) translate to origin
 }
 
-export function rotatePortsInPlace(comp: IComp<any>, r: number, center: Vec3) {
+export function rotatePortsInPlace(comp: IComp<any>, r: number, baseSize: Vec3) {
     // size: (width, height)
     // want to switch width and height if r is 1 or 3
 
