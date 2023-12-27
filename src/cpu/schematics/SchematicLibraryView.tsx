@@ -7,21 +7,22 @@ import s from "./SchematicLibraryView.module.scss";
 import { createSchematicCompDef } from "../comps/SchematicComp";
 import { ISchematicDef } from "../CpuModel";
 
-export const SchematicLibraryView: React.FC = memo(() => {
-    let [editorState, setEditorState] = useEditorContext();
+export const SchematicLibraryView: React.FC = memo(function SchematicLibraryView() {
+    let [editorState, setEditorState, editorStore] = useEditorContext();
 
     let compLibrary = editorState.compLibrary;
     let schematicLib = editorState.schematicLibrary;
 
     let saveFromState = useCallback(() => {
+        let fullEditorState = editorStore.value;
         let schemId = editorState.activeSchematicId;
         if (schemId) {
             let schematic = schematicLib.getSchematic(schemId);
             if (schematic) {
                 schematic.snapshot = editorState.snapshot;
-                schematic.undoStack = editorState.undoStack;
-                schematic.redoStack = editorState.redoStack;
-                schematic.mtx = editorState.mtx;
+                schematic.undoStack = fullEditorState.undoStack;
+                schematic.redoStack = fullEditorState.redoStack;
+                schematic.mtx = fullEditorState.mtx;
 
                 if (schematic.compArgs) {
                     let libItem = createSchematicCompDef(schematic.id, schematic.name, schematic.snapshot.mainSchematic, schematic.compArgs);
@@ -30,7 +31,7 @@ export const SchematicLibraryView: React.FC = memo(() => {
             }
             schematicLib.saveToLocalStorage(schemId);
         }
-    }, [editorState.activeSchematicId, editorState.snapshot, editorState.undoStack, editorState.redoStack, editorState.mtx, schematicLib, compLibrary]);
+    }, [schematicLib, compLibrary, editorStore, editorState.activeSchematicId, editorState.snapshot]);
 
     function loadIntoEditor(schematic: ISchematicDef) {
         setEditorState(() => {

@@ -63,7 +63,7 @@ export const CpuCanvas: React.FC<{
         if (schematicId) {
             setEditorState(a => assignImm(a, { desiredSchematicId: schematicId ?? null }));
         }
-    }, [schematicId]);
+    }, [setEditorState, schematicId]);
 
 
     useEffect(() => {
@@ -83,7 +83,7 @@ export const CpuCanvas: React.FC<{
                 needsZoomExtent: true,
             });
         });
-    }, [sharedContext]);
+    }, [setEditorState, sharedContext]);
 
     useEffect(() => {
         if (editorState.activeSchematicId !== editorState.desiredSchematicId && editorState.desiredSchematicId && editorState.schematicLibrary.localStorageSchematicsLoaded) {
@@ -104,7 +104,7 @@ export const CpuCanvas: React.FC<{
                 }));
             }
         }
-    }, [editorState.desiredSchematicId, editorState.schematicLibrary, editorState.activeSchematicId, editorState.schematicLibrary.localStorageSchematicsLoaded]);
+    }, [setEditorState, editorState.desiredSchematicId, editorState.schematicLibrary, editorState.activeSchematicId, editorState.schematicLibrary.localStorageSchematicsLoaded]);
 
     useLayoutEffect(() => {
         if (cvsState && editorState.activeSchematicId) {
@@ -124,8 +124,7 @@ export const CpuCanvas: React.FC<{
                 return assignImm(a, { mtx, needsZoomExtent: false });
             });
         }
-    }, [cvsState, editorState.needsZoomExtent, readonly, editorState.activeSchematicId]);
-
+    }, [setEditorState, cvsState, editorState.needsZoomExtent, readonly, editorState.activeSchematicId]);
 
     useResizeChangeHandler(cvsState?.canvas?.parentElement, redraw);
 

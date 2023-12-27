@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { assignImm, isNotNil } from '../../utils/data';
 import { useGlobalKeyboard, KeyboardOrder, isKeyWithModifiers, Modifiers } from '../../utils/keyboard';
 import { IBaseEvent } from '../../utils/pointer';
-import { redoAction, undoAction, useEditorContext } from '../Editor';
+import { notifyExeModelUpdated, redoAction, undoAction, useEditorContext } from '../Editor';
 import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from '../CpuExecution';
 import { modifiersToString } from '../Keymap';
 import { ComponentAdder } from '../ComponentAdder';
@@ -15,7 +15,7 @@ import { ToolbarTypes } from '../CpuModel';
 export const MainToolbar: React.FC<{
     readonly?: boolean,
     toolbars?: ToolbarTypes[],
-}> = memo(({ readonly, toolbars }) => {
+}> = memo(function MainToolbar({ readonly, toolbars }) {
     let [editorState, setEditorState] = useEditorContext();
 
     useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
@@ -170,6 +170,7 @@ export const StepperControls: React.FC<{
 }> = () => {
     let [editorState, setEditorState] = useEditorContext();
     let exeModel = editorState.exeModel;
+    editorState.exeModelUpdateCntr;
 
     useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
         if (isKeyWithModifiers(ev, ' ', Modifiers.None)) {
@@ -184,7 +185,7 @@ export const StepperControls: React.FC<{
         if (exeModel) {
             resetExeModel(exeModel, { hardReset: true });
             stepExecutionCombinatorial(exeModel);
-            setEditorState(a => ({ ...a }));
+            setEditorState(notifyExeModelUpdated);
         }
     }
 
@@ -192,7 +193,7 @@ export const StepperControls: React.FC<{
         if (exeModel) {
             resetExeModel(exeModel, { hardReset: false });
             stepExecutionCombinatorial(exeModel);
-            setEditorState(a => ({ ...a }));
+            setEditorState(notifyExeModelUpdated);
         }
     }
 
@@ -206,7 +207,7 @@ export const StepperControls: React.FC<{
                 stepExecutionCombinatorial(exeModel);
             }
 
-            setEditorState(a => ({ ...a }));
+            setEditorState(notifyExeModelUpdated);
         }
     }
 
@@ -221,7 +222,7 @@ export const StepperControls: React.FC<{
         }
 
         if (exeModel.runArgs.halt) {
-            setEditorState(a => assignImm(a, { stepSpeed: undefined }));
+            setEditorState(a => notifyExeModelUpdated(assignImm(a, { stepSpeed: undefined })));
             return false;
         }
 
@@ -231,7 +232,7 @@ export const StepperControls: React.FC<{
 
         stepExecutionCombinatorial(exeModel);
 
-        setEditorState(a => ({ ...a }));
+        setEditorState(notifyExeModelUpdated);
 
         return !exeModel.runArgs.halt;
     }
@@ -279,7 +280,7 @@ export const StepperControls: React.FC<{
         setEditorState(a => assignImm(a, { stepSpeed: undefined }));
     }
 
-    let halted = !!exeModel && exeModel.runArgs.halt && !isPlaying;
+    let halted = !!exeModel && exeModel.runArgs.halt && !isPlaying && editorState.exeModelUpdateCntr > 0;
 
     return <>
         <ToolbarButton icon={faPowerOff} disabled={false} onClick={resetHard} tip={"Hard reset: clear all memory"} />
