@@ -28,21 +28,21 @@ interface IAddressMapperConfig extends IBaseCompConfig {
 
 export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let w = 10;
-    let h = 12;
+    let w = 8;
+    let h = 10;
     let addrMapper: ICompDef<ICompAddressMapper, IAddressMapperConfig> = {
         defId: 'bus/addrMap',
         altDefIds: ['addrMap'],
         name: "Address Map",
         size: new Vec3(w, h),
         ports: [
-            { id: 'busCtrl', name: 'Bus Ctrl', pos: new Vec3(0, 2), type: PortType.In | PortType.Ctrl, width: 4 },
-            { id: 'busAddr', name: 'Bus Addr', pos: new Vec3(0, 4), type: PortType.In | PortType.Addr, width: 32 },
-            { id: 'busData', name: 'Bus Data', pos: new Vec3(0, 6), type: PortType.In | PortType.Out | PortType.Tristate, width: 32 },
+            { id: 'busCtrl', name: 'Bus Ctrl', pos: new Vec3(0, 1), type: PortType.In | PortType.Ctrl, width: 4 },
+            { id: 'busAddr', name: 'Bus Addr', pos: new Vec3(0, 3), type: PortType.In | PortType.Addr, width: 32 },
+            { id: 'busData', name: 'Bus Data', pos: new Vec3(0, 5), type: PortType.In | PortType.Out | PortType.Tristate, width: 32 },
 
-            { id: 'localCtrl', name: 'Local Ctrl', pos: new Vec3(w, 2), type: PortType.Out | PortType.Ctrl, width: 4 },
-            { id: 'localAddr', name: 'Local Addr', pos: new Vec3(w, 4), type: PortType.Out | PortType.Addr, width: 32 },
-            { id: 'localData', name: 'Local Data', pos: new Vec3(w, 6), type: PortType.In | PortType.Out | PortType.Tristate, width: 32 },
+            { id: 'localCtrl', name: 'Ctrl', pos: new Vec3(w, 1), type: PortType.Out | PortType.Ctrl, width: 4 },
+            { id: 'localAddr', name: 'Addr', pos: new Vec3(w, 3), type: PortType.Out | PortType.Addr, width: 32 },
+            { id: 'localData', name: 'Data', pos: new Vec3(w, 5), type: PortType.In | PortType.Out | PortType.Tristate, width: 32 },
         ],
         initConfig: () => ({ addrOffset: 0x1_0000, addrMask: 0xffff }),
         build: (builder) => {
