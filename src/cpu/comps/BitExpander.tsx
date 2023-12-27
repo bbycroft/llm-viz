@@ -2,7 +2,7 @@ import React, { SetStateAction } from "react";
 import { Vec3 } from "@/src/utils/vector";
 import { CompDefFlags, IComp, IEditContext, IExePort, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { createBitWidthMask } from "./CompHelpers";
+import { createBitWidthMask, rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { applySetter, assignImm, isNil, makeArrayRange } from "@/src/utils/data";
@@ -29,6 +29,7 @@ interface IBitRange {
     end: number; // inclusive numbers
     showBits: boolean; // render bits in this range
     individual: boolean; // if true, each bit in this range is a separate output
+    stepsPerBit?: number; // if individual, how many steps per bit
 }
 
 interface IBitExpanderMultiData {
@@ -37,22 +38,25 @@ interface IBitExpanderMultiData {
 }
 
 export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[] {
-    let initialW = 4;
-    let initialH = 2;
+    let initialW = 2;
+    let initialH = 4;
 
-    function computeWidth(args: IBitExpanderMultiConfig) {
+    function computeHeight(args: IBitExpanderMultiConfig) {
         let width = 1;
         for (let range of args.bitRange) {
-            width += rangeWidth(range);
+            width += rangeHeight(range);
         }
 
         return Math.max(2, width);
     }
 
-    function rangeWidth(range: IBitRange) {
+    function rangeHeight(range: IBitRange) {
         let nBits = range.end - range.start + 1;
 
         if (range.individual || range.showBits) {
+            if (range.individual && range.stepsPerBit) {
+                return nBits * range.stepsPerBit;
+            }
             return nBits;
         }
 
@@ -64,35 +68,38 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
         defId: 'bits/expand-multi',
         name: "Bit Expand Multi",
         size: new Vec3(initialW, initialH),
-        flags: CompDefFlags.HasBitWidth,
+        flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate | CompDefFlags.IsAtomic,
         ports: (args) => {
-            let width = computeWidth(args);
+            let fullHeight = computeHeight(args);
 
             let ports = [
-                { id: args.collapse ? 'o' : 'i', name: '', pos: new Vec3((width - 1) / 2, args.collapse ? 2 : 0).round(), type: args.collapse ? PortType.Out : PortType.In, width: args.bitWidth },
+                { id: args.collapse ? 'o' : 'i', name: '', pos: new Vec3(0, (fullHeight - 1) / 2).round(), type: args.collapse ? PortType.Out : PortType.In, width: args.bitWidth },
             ];
+
+            let reverse = args.rotate === 1 || args.rotate === 2;
 
             let multiPortType = args.collapse ? PortType.In : PortType.Out;
             let multiPortPrefix = args.collapse ? 'i' : 'o';
-            let multiPortY = args.collapse ? 0 : 2;
+            let multiPortX = 2;
 
-            let offset = 1;
+            let offset = reverse ? fullHeight - 1 : 1;
             for (let range of args.bitRange) {
                 let nBits = range.end - range.start + 1;
-                let width = rangeWidth(range);
-                let center = offset + width / 2 - 1.0;
+                let rHeight = rangeHeight(range);
+                let center = offset + (rHeight / 2) * (reverse ? -1 : 1) + (reverse ? 0.5 : -1);
 
                 if (range.individual) {
                     let j = 0;
+                    let stepsPerBit = (range.stepsPerBit ?? 1) * (reverse ? -1 : 1);
                     for (let i = range.start; i <= range.end; i++) {
-                        let xPos = offset + i - range.start;
-                        ports.push({ id: `${multiPortPrefix}_${range.id}_${j++}`, name: '', pos: new Vec3(xPos, multiPortY), type: multiPortType, width: 1 });
+                        let yPos = offset + i * stepsPerBit - range.start * (reverse ? -1 : 1);
+                        ports.push({ id: `${multiPortPrefix}_${range.id}_${j++}`, name: '', pos: new Vec3(multiPortX, yPos), type: multiPortType, width: 1 });
                     }
                 } else {
-                    ports.push({ id: `${multiPortPrefix}_${range.id}_0`, name: '', pos: new Vec3(center, multiPortY).round(), type: multiPortType, width: nBits });
+                    ports.push({ id: `${multiPortPrefix}_${range.id}_0`, name: '', pos: new Vec3(multiPortX, center).round(), type: multiPortType, width: nBits });
                 }
 
-                offset += width;
+                offset += rHeight * (reverse ? -1 : 1);
             }
 
             return ports;
@@ -113,8 +120,12 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             args.collapse = !!args.collapse;
             args.rotate ??= 0;
 
-            let width = computeWidth(args);
-            comp.size = new Vec3(width, initialH);
+            let baseSize = new Vec3(initialW, computeHeight(args));
+            comp.size = baseSize;
+            // if (args.rotate === 1 || args.rotate === 3) {
+            //     comp.size = new Vec3(comp.size.y, comp.size.x);
+            // }
+            rotatePortsInPlace(comp, args.rotate, baseSize);
         },
         build: (builder) => {
             let args = builder.comp.args;
@@ -175,32 +186,26 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
         },
         renderCanvasPath({ comp, ctx }) {
             ctx.save();
+            ctx.translate(comp.pos.x, comp.pos.y);
+            let baseSize = new Vec3(initialW, computeHeight(comp.args));
+            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
+            ctx.transform(...mtx.toTransformParams());
 
             // basic structure is a trapezoid, narrower on the right
             // slope passes through (1, 1) i.e. the select button, but doesn't need to be 45deg
             let slope = 0.7;
-            let x = comp.pos.x;
-            let y = comp.pos.y;
-            let w = comp.size.x;
-            let h = comp.size.y;
+            let x = 0;
+            let y = 0;
+            let w = baseSize.x;
+            let h = baseSize.y;
 
-            if (comp.args.collapse) {
-                ctx.moveTo(x, y);
-                ctx.lineTo(x + w, y);
-                ctx.lineTo(x + w, y + h - slope);
-                ctx.lineTo(x + w - 1, y + h);
-                ctx.lineTo(x + 1, y + h);
-                ctx.lineTo(x, y + h - slope);
-                ctx.lineTo(x, y);
-            } else {
-                ctx.moveTo(x, y + slope);
-                ctx.lineTo(x + 1, y);
-                ctx.lineTo(x + w - 1, y);
-                ctx.lineTo(x + w, y + slope);
-                ctx.lineTo(x + w, y + h);
-                ctx.lineTo(x, y + h);
-                ctx.lineTo(x, y + slope);
-            }
+            ctx.moveTo(x + slope, y);
+            ctx.lineTo(x + w, y);
+            ctx.lineTo(x + w, y + h);
+            ctx.lineTo(x + slope, y + h);
+            ctx.lineTo(x, y + h - 1);
+            ctx.lineTo(x, y + 1);
+            ctx.closePath();
 
             ctx.restore();
         },
@@ -220,28 +225,34 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             let rangeId = 0;
             let prevEnd = -1;
 
+            let isVert = comp.args.rotate === 0 || comp.args.rotate === 2;
+
             for (let range of comp.args.bitRange) {
 
                 let rangeStart = comp.args.bitWidth - range.end - 1;
                 let rangeEnd = comp.args.bitWidth - range.start - 1;
 
                 let nBits = rangeEnd - rangeStart + 1;
-                let rangeW = rangeWidth(range);
+                let rangeW = rangeHeight(range);
 
                 ctx.font = numCanvasFont;
                 ctx.fillStyle = rangeColors[rangeId % 4];
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'bottom';
+                ctx.textAlign = isVert ? 'right' : 'center';
+                ctx.textBaseline = isVert ? 'middle' : 'bottom';
 
                 if (rangeW === nBits) {
-
-                    let nGroups = Math.ceil(rangeW / 4);
+                    let groupSize = isVert ? 1 : 4;
+                    let nGroups = Math.ceil(rangeW / groupSize);
                     for (let groupIdx = 0; groupIdx < nGroups; groupIdx++) {
-                        let startIdx = rangeStart + groupIdx * 4;
-                        let endIdx = Math.min(startIdx + 4, rangeEnd + 1);
+                        let startIdx = rangeStart + groupIdx * groupSize;
+                        let endIdx = Math.min(startIdx + groupSize, rangeEnd + 1);
                         let textBin = allBits.slice(startIdx, endIdx).join(' ');
-                        let centerOffset = groupIdx * 4 + (endIdx - startIdx) / 2 + 0.5;
-                        ctx.fillText(textBin, comp.pos.x + rangeDrawOffset + centerOffset, comp.pos.y + comp.size.y - 0.1);
+                        let centerOffset = groupIdx * groupSize + (endIdx - startIdx) / 2 + 0.5;
+                        if (isVert) {
+                            ctx.fillText(textBin, comp.pos.x + comp.size.x - 0.3, comp.pos.y + rangeDrawOffset + centerOffset);
+                        } else {
+                            ctx.fillText(textBin, comp.pos.x + rangeDrawOffset + centerOffset, comp.pos.y + comp.size.y - 0.1);
+                        }
                     }
                 } else {
                     let textBin = allBits.slice(rangeStart, rangeEnd + 1).join('');
@@ -249,24 +260,46 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                     ctx.fillText(text, comp.pos.x + rangeDrawOffset + rangeW / 2 + 0.5, comp.pos.y + comp.size.y - 0.1);
                 }
 
-                let lineXStart = comp.pos.x + rangeDrawOffset + 0.5;
+                if (isVert) {
+                    let lineYStart = comp.pos.y + rangeDrawOffset + 0.5;
 
-                if (prevEnd >= 0) {
-                    ctx.strokeStyle = '#777';
-                    ctx.lineWidth = styles.lineWidth;
-                    ctx.beginPath();
-                    ctx.moveTo(lineXStart, comp.pos.y + 0.4);
-                    ctx.lineTo(lineXStart, comp.pos.y + comp.size.y - 0.1);
-                    ctx.stroke();
+                    if (prevEnd >= 0) {
+                        ctx.strokeStyle = '#777';
+                        ctx.lineWidth = styles.lineWidth;
+                        ctx.beginPath();
+                        ctx.moveTo(comp.pos.x + 0.4, lineYStart);
+                        ctx.lineTo(comp.pos.x + comp.size.x - 0.1, lineYStart);
+                        ctx.stroke();
+                    }
+
+                    ctx.font = makeCanvasFont(0.6, FontType.Mono);
+                    ctx.fillStyle = '#777';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(range.end.toString(), comp.pos.x + 1.0, Math.round(lineYStart + 0.5));
+
+                    // ctx.textAlign = '';
+                    ctx.fillText(range.start.toString(), comp.pos.x + 1.0, Math.round(lineYStart + rangeW - 0.5));
+                } else {
+
+                    let lineXStart = comp.pos.x + rangeDrawOffset + 0.5;
+
+                    if (prevEnd >= 0) {
+                        ctx.strokeStyle = '#777';
+                        ctx.lineWidth = styles.lineWidth;
+                        ctx.beginPath();
+                        ctx.moveTo(lineXStart, comp.pos.y + 0.4);
+                        ctx.lineTo(lineXStart, comp.pos.y + comp.size.y - 0.1);
+                        ctx.stroke();
+                    }
+
+                    ctx.font = makeCanvasFont(0.6, FontType.Mono);
+                    ctx.fillStyle = '#777';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(range.end.toString(), Math.round(lineXStart + 0.5), comp.pos.y + 1.0);
+
+                    // ctx.textAlign = '';
+                    ctx.fillText(range.start.toString(), Math.round(lineXStart + rangeW - 0.5), comp.pos.y + 1.0);
                 }
-
-                ctx.font = makeCanvasFont(0.6, FontType.Mono);
-                ctx.fillStyle = '#777';
-                ctx.textAlign = 'center';
-                ctx.fillText(range.end.toString(), Math.round(lineXStart + 0.5), comp.pos.y + 1.0);
-
-                // ctx.textAlign = '';
-                ctx.fillText(range.start.toString(), Math.round(lineXStart + rangeW - 0.5), comp.pos.y + 1.0);
 
                 rangeId += 1;
                 rangeDrawOffset += rangeW;
@@ -346,6 +379,17 @@ const BitExpandMultiOptions: React.FC<{
 
                         <CheckboxMenuTitle title="Show Bits" className="mx-2 text-base" value={range.showBits} update={(end, v) => editBitRange(end, i, r => assignImm(r, { showBits: v }))} />
                         <CheckboxMenuTitle title="Individual" className="text-base" value={range.individual} update={(end, v) => editBitRange(end, i, r => assignImm(r, { individual: v }))} />
+
+                        {range.individual && <HexValueEditor
+                            className="w-[2rem] bg-slate-200 mx-2 rounded flex-shrink flex-grow-0"
+                            inputClassName="text-center active:bg-slate-300"
+                            value={range.stepsPerBit ?? 1}
+                            update={(end, v) => editBitRange(end, i, r => assignImm(r, { stepsPerBit: v }))}
+                            inputType={HexValueInputType.Dec}
+                            hidePrefix
+                            fixedInputType
+                            minimalBackground
+                        />}
 
                         <ButtonStandard className="ml-auto" onClick={() => removeBitRange(i)}>
                             <FontAwesomeIcon icon={faTrash} className="text-gray-600" />
