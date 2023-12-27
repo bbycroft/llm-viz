@@ -57,7 +57,7 @@ export const CPUMain = () => {
 };
 
 const QueryUpdater: React.FC<{
-}> = memo(() => {
+}> = memo(function QueryUpdater() {
     let router = useRouter();
     let searchParams = useSearchParams();
     let [editorState, setEditorState] = useEditorContext();

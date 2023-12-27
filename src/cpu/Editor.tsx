@@ -171,6 +171,10 @@ export function redoAction(state: IEditorState) {
     });
 }
 
+export function notifyExeModelUpdated(state: IEditorState) {
+    return assignImm(state, { exeModelUpdateCntr: state.exeModelUpdateCntr + 1 });
+}
+
 export interface IEditorContext {
     editorState: IEditorState;
     setEditorState: StateSetter<IEditorState>;

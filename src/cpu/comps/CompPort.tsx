@@ -340,7 +340,7 @@ const PortOptions: React.FC<{
             <div className="flex flex-col">
                 {exeComp.ports.map((p, id) => {
                     let port = comp.ports[p.portIdx];
-                    return <div className="mx-2 my-1">
+                    return <div className="mx-2 my-1" key={p.portIdx}>
                         <div>Port <span className="font-mono">{port.id}</span>{port.name && <> ({port.name})</>}
                             &nbsp;
                             {hasFlag(port.type, PortType.In) ? 'IN' : '' }

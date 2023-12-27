@@ -12,7 +12,7 @@ import { SharedContextContext } from "./library/SharedContext";
 import { useSubscriptions } from "../utils/hooks";
 import clsx from "clsx";
 
-export const CompExampleView: React.FC = memo(() => {
+export const CompExampleView: React.FC = memo(function CompExampleView() {
     let { codeLibrary } = useContext(SharedContextContext)!;
     let [{ exeModel }, setEditorState] = useEditorContext();
     useSubscriptions(codeLibrary.subs);
