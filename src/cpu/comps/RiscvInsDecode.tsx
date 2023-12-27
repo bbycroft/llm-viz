@@ -22,37 +22,31 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
         ports: [
             { id: 'ins', name: 'Ins', pos: new Vec3(0, 1), type: PortType.In | PortType.Data, width: 32 },
 
-            { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(w, 1), type: PortType.Out | PortType.Ctrl, width: 5 },
-            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(w, 2), type: PortType.Out | PortType.Addr, width: 32 },
-            { id: 'rhsImm', name: 'RHS Imm', pos: new Vec3(w, 6), type: PortType.Out | PortType.Data, width: 32 },
-            { id: 'rhsSel', name: 'RHS Sel', pos: new Vec3(w, 8), type: PortType.Out | PortType.Ctrl, width: 1 },
-
-            { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(1, h), type: PortType.Out | PortType.Ctrl, width: 1 },
             { id: 'regCtrl', name: 'Reg', pos: new Vec3(4, h), type: PortType.Out | PortType.Ctrl, width: 3 * 6 },
-            { id: 'pcAddImm', name: 'PC+Imm', pos: new Vec3(7, h), type: PortType.Out | PortType.Addr, width: 32 },
-            // { id: 'pcOutTristateCtrl', name: 'PC LHS', pos: new Vec3(5, h), type: PortDir.Out | PortDir.Ctrl, width: 1 },
+            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(18, h), type: PortType.Out | PortType.Ctrl, width: 5 },
+            { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(1, h), type: PortType.Out | PortType.Ctrl, width: 1 },
+            { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(w, 1), type: PortType.Out | PortType.Ctrl, width: 5 },
+
+            { id: 'imm', name: 'Imm', pos: new Vec3(w, 18), type: PortType.Out | PortType.Addr, width: 32 },
 
             { id: 'lhsSel', name: 'LHS Sel', pos: new Vec3(15, h), type: PortType.Out | PortType.Ctrl, width: 1 },
-            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(18, h), type: PortType.Out | PortType.Ctrl, width: 5 },
+            { id: 'rhsSel', name: 'RHS Sel', pos: new Vec3(w, 8), type: PortType.Out | PortType.Ctrl, width: 1 },
         ],
         build: (builder) => {
             let data = builder.addData({
                 ins: builder.getPort('ins'),
 
-                addrOffset: builder.getPort('addrOffset'),
-                rhsImm: builder.getPort('rhsImm'),
                 regCtrl: builder.getPort('regCtrl'),
                 loadStoreCtrl: builder.getPort('loadStoreCtrl'),
                 aluCtrl: builder.getPort('aluCtrl'),
-                // pcOutTristateCtrl: builder.getPort('pcOutTristateCtrl'),
                 pcRegMuxCtrl: builder.getPort('pcRegMuxCtrl'),
 
-                pcAddImm: builder.getPort('pcAddImm'),
+                imm: builder.getPort('imm'),
                 lhsSel: builder.getPort('lhsSel'),
                 rhsSel: builder.getPort('rhsSel'),
             });
 
-            builder.addPhase(insDecoderPhase0, [data.ins], [data.addrOffset, data.rhsImm, data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.lhsSel, data.rhsSel, data.pcAddImm]);
+            builder.addPhase(insDecoderPhase0, [data.ins], [data.regCtrl, data.loadStoreCtrl, data.aluCtrl, data.pcRegMuxCtrl, data.imm, data.lhsSel, data.rhsSel]);
 
             return builder.build(data);
         },
@@ -65,15 +59,14 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
 export interface ICompDataInsDecoder {
     ins: IExePort;
 
-    addrOffset: IExePort; // will get added to load/store address
-    rhsImm: IExePort; // set's the RHS with an immediate value
     regCtrl: IExePort; // 3x 6-bit values: [0: outA, 1: outB, 2: inA]
     loadStoreCtrl: IExePort; // controls load/store
     aluCtrl: IExePort; // controls ALU, 5-bit value: [0: enable, 1: isBranch, 2: funct3, 3: isSpecial]
     // pcOutTristateCtrl: IExePort; // 1-bit value, enables PC -> LHS
     pcRegMuxCtrl: IExePort; // 1-bit value, controls writes to (PC, REG), from (ALU out, PC + x), or swaps them
 
-    pcAddImm: IExePort; // gets added to PC, overrides +4 for jumps
+    imm: IExePort; // will get added to load/store address
+
     lhsSel: IExePort; // 1-bit value, selects between PC & Reg A for LHS
     rhsSel: IExePort; // 1-bit value, selects between Reg B & Imm for RHS
 }
@@ -91,8 +84,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     // 1: ALU out => REG, PC + x => PC
     // 0: ALU out => PC,  PC + x => REG
     data.pcRegMuxCtrl.value = 1;
-    data.pcAddImm.value = 0;
-    data.rhsImm.value = 0;
+    data.imm.value = 0;
     data.lhsSel.value = 1; // inverted
     data.aluCtrl.value = 0;
     data.loadStoreCtrl.value = 0;
@@ -139,10 +131,10 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
             setRegCtrl(true, rs2, 1); // reg[rs2] => RHS
             isArithShiftOrSub = ((ins >>> 30) & 0b1) === 0b1;
         } else if (funct3 === Funct3Op.SLLI || funct3 === Funct3Op.SRLI || funct3 === Funct3Op.SRAI) {
-            data.rhsImm.value = rs2;
+            data.imm.value = rs2;
             data.rhsSel.value = 0; // RHS Imm
         } else {
-            data.rhsImm.value = signExtend12Bit(ins >>> 20);
+            data.imm.value = signExtend12Bit(ins >>> 20);
             data.rhsSel.value = 0; // RHS Imm
         }
 
@@ -151,14 +143,14 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
         setRegCtrl(true, rd, 2); // ALU out => reg[rd]
 
     } else if (opCode === OpCode.LUI) {
-        data.rhsImm.value = signExtend20Bit(ins >>> 12) << 12;
+        data.imm.value = signExtend20Bit(ins >>> 12) << 12;
         data.rhsSel.value = 0; // RHS Imm
         setRegCtrl(true, 0x0, 0); // 0 => LHS
         setAluCtrl(true, false, Funct3Op.ADD, false);
         setRegCtrl(true, rd, 2); // ALU out => reg[rd]
 
     } else if (opCode === OpCode.AUIPC) {
-        data.rhsImm.value = signExtend20Bit(ins >>> 12) << 12;
+        data.imm.value = signExtend20Bit(ins >>> 12) << 12;
         data.rhsSel.value = 0; // RHS Imm
         data.lhsSel.value = 0; // PC -> LHS enabled
         setAluCtrl(true, false, Funct3Op.ADD, false);
@@ -171,7 +163,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
                         (((ins >>> 31) & 0x01) << 19);  // 1 byte
 
         data.lhsSel.value = 0; // PC -> LHS enabled
-        data.rhsImm.value = signExtend20Bit(offsetRaw) << 1;
+        data.imm.value = signExtend20Bit(offsetRaw) << 1;
         data.rhsSel.value = 0; // RHS Imm
         data.pcRegMuxCtrl.value = 0; // ALU out => PC; PC + 4 => REG
         setRegCtrl(true, rd, 2); // PC + 4 => reg[rd]
@@ -180,7 +172,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     } else if (opCode === OpCode.JALR) {
         let offset = signExtend12Bit(ins >>> 20);
         setRegCtrl(true, rs1, 0); // reg[rs1] => LHS
-        data.rhsImm.value = offset;
+        data.imm.value = offset;
         data.rhsSel.value = 0; // RHS Imm
         data.pcRegMuxCtrl.value = 0; // ALU out => PC; PC + 4 => REG
         setRegCtrl(true, rd, 2); // PC + 4 => reg[rd]
@@ -198,7 +190,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
                         (((ins >>>  7) & 0x01) << 10) | // 1 bits
                         (((ins >>> 31) & 0x01) << 11);  // 1 bits
 
-        data.pcAddImm.value = signExtend12Bit(offsetRaw) << 1;
+        data.imm.value = signExtend12Bit(offsetRaw) << 1;
         // console.log('branch offset: ' + data.pcAddImm.value.toString(16), data.pcAddImm.value);
         // data.lhsSel.value = 1; // PC + offset => PC @TODO: not sure about this one, als a function of branch output
 
@@ -218,7 +210,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
 
         // @TODO: implement LOAD signals
         setLoadStoreCtrl(true, true, funct3);
-        data.addrOffset.value = offset;
+        data.imm.value = offset;
         setRegCtrl(true, rs1, 0);
         setRegCtrl(true, 0, 1);
         setRegCtrl(true, rd, 2);
@@ -238,7 +230,7 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
         // }
 
         setLoadStoreCtrl(true, false, funct3 & 0b11);
-        data.addrOffset.value = offset;
+        data.imm.value = offset;
         setRegCtrl(true, rs1, 0);
         setRegCtrl(true, rs2, 1);
         setRegCtrl(true, 0, 2);
@@ -538,12 +530,12 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
             ], line3Height);
 
         } else if (opCode === OpCode.OPIMM) {
-            drawBitsAndText(20, 12, immColor, data.rhsImm.value.toString(), 'imm');
+            drawBitsAndText(20, 12, immColor, data.imm.value.toString(), 'imm');
             if (funct3 === Funct3OpImm.ADDI && rs1 === 0) {
                 drawOpAndMessage('LI', '', `load immediate into register (via OPIMM ADDI & zero reg)`);
                 drawMessage([
                     { color: infoColor, text: 'load immediate' },
-                    { color: immColor, text: ` ${ensureSigned32Bit(data.rhsImm.value)} ` },
+                    { color: immColor, text: ` ${ensureSigned32Bit(data.imm.value)} ` },
                     { color: infoColor, text: 'into ' },
                     { color: rdColor, text: regFormatted(rd) },
                 ], line3Height);
@@ -556,7 +548,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
                     { color: infoColor, text: ' to: ' },
                     { color: rs1Color, text: regFormatted(rs1) },
                     { color: func3Color, text: ' ' + funct3OpIcon[funct3] + ' ' },
-                    { color: immColor, text: `${ensureSigned32Bit(data.rhsImm.value)}` },
+                    { color: immColor, text: `${ensureSigned32Bit(data.imm.value)}` },
                 ], line3Height);
             }
             funct3Str = Funct3OpImm[funct3];
@@ -591,7 +583,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
             { color: '#000', text: 'PC + ' },
             ...buildBitsMessage(bitPattern, bitColorOffsets, immColor),
             { color: '#000', text: '0' },
-            { color: immColor, text: ` (${ensureSigned32Bit(data.pcAddImm.value)})` },
+            { color: immColor, text: ` (${ensureSigned32Bit(data.imm.value)})` },
         ], line4Height);
 
     } else if (opCode === OpCode.JAL) {
@@ -613,13 +605,13 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
             { color: infoColor, text: 'jump to ' },
             { color: '#000', text: 'PC + ' },
             ...buildBitsMessage(bitPattern, bitColorOffsets, immColor),
-            { color: immColor, text: ` (${ensureSigned32Bit(data.rhsImm.value)})` },
+            { color: immColor, text: ` (${ensureSigned32Bit(data.imm.value)})` },
         ], line4Height);
 
     } else if (opCode === OpCode.JALR) {
         drawBitsAndText(15, 5, rs1Color, rs1.toString(), 'rs1');
         drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
-        drawBitsAndText(20, 12, immColor, data.rhsImm.value.toString(), 'imm');
+        drawBitsAndText(20, 12, immColor, data.imm.value.toString(), 'imm');
 
         drawOpAndMessage('JALR', '', `jump to reg + imm (& store PC + 4 in register)`);
         drawMessage([
@@ -640,7 +632,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
         drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
         let funct3Str = Funct3LoadStore[funct3].replace('S', 'L');
         drawBitsAndText(12, 3, func3Color, funct3Str, 'funct3');
-        drawBitsAndText(20, 12, immColor, data.addrOffset.value.toString(), 'imm');
+        drawBitsAndText(20, 12, immColor, data.imm.value.toString(), 'imm');
 
         drawOpAndMessage('LOAD', funct3Str, `load from memory (reg + offset)`);
 
@@ -649,7 +641,7 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
             { color: rs1Color, text: regFormatted(rs1) },
             { color: infoColor, text: ' + ' },
             ...buildBitsMessage([20, 12], [0], immColor),
-            { color: immColor, text: ` (${ensureSigned32Bit(data.addrOffset.value)})` },
+            { color: immColor, text: ` (${ensureSigned32Bit(data.imm.value)})` },
         ], line3Height);
 
         drawMessage([
@@ -678,12 +670,12 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
             { color: rs1Color, text: regFormatted(rs1) },
             { color: infoColor, text: ' + ' },
             ...buildBitsMessage(bitPattern, bitColorOffsets, immColor),
-            { color: immColor, text: ` (${ensureSigned32Bit(data.addrOffset.value)})` },
+            { color: immColor, text: ` (${ensureSigned32Bit(data.imm.value)})` },
         ], line4Height);
 
     } else if (opCode === OpCode.LUI) {
-        let val = data.rhsImm.value;
-        drawBitsAndText(12, 20, immColor, data.rhsImm.value.toString(), 'imm');
+        let val = data.imm.value;
+        drawBitsAndText(12, 20, immColor, data.imm.value.toString(), 'imm');
         drawBitsAndText(7, 5, rdColor, rd.toString(), 'rd');
         drawOpAndMessage('LUI', '', `load immediate as upper 20 bits into register`);
         drawMessage([

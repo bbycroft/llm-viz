@@ -2,6 +2,7 @@ import { Vec3 } from "@/src/utils/vector";
 import { PortType, IExePort, CompDefFlags } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
+import { rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
 
 interface ICompDataMux {
     inSelPort: IExePort;
@@ -17,6 +18,7 @@ interface ICompDataAdder {
 }
 
 interface IMuxConfig extends IBaseCompConfig {
+    rotate: number; // 0, 1, 2, 3
     bitWidth: number;
 }
 
@@ -27,12 +29,13 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let w = 2;
     let h = 6;
+    let baseSize = new Vec3(w, h);
     let mux2: ICompDef<ICompDataMux, IMuxConfig> = {
         defId: 'flow/mux2',
         altDefIds: ['mux2'],
         name: "Mux",
-        size: new Vec3(w, h),
-        flags: CompDefFlags.HasBitWidth,
+        size: baseSize,
+        flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate,
         ports: (args) => [
             { id: 'sel', name: 'S', pos: new Vec3(1, 1), type: PortType.In, width: 1 },
 
@@ -42,6 +45,14 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'out', name: 'Z', pos: new Vec3(w, 3), type: PortType.Out, width: args.bitWidth },
         ],
         applyConfig: (comp, args) => {
+            rotatePortsInPlace(comp, args.rotate, baseSize);
+            if (args.rotate === 1 || args.rotate === 2) {
+                let portAPos = comp.ports[1].pos;
+                comp.ports[1].pos = comp.ports[2].pos;
+                comp.ports[2].pos = portAPos;
+            }
+
+            args.rotate ??= 0;
             args.bitWidth ??= 32;
         },
         build: (builder) => {
@@ -62,38 +73,58 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             return builder.build();
         },
         renderCanvasPath: ({ comp, ctx }) => {
+            ctx.save();
+
+            ctx.translate(comp.pos.x, comp.pos.y);
+            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
+            ctx.transform(...mtx.toTransformParams());
             // basic structure is a trapezoid, narrower on the right
             // slope passes through (1, 1) i.e. the select button, but doesn't need to be 45deg
             let slope = 0.9;
-            let x = comp.pos.x;
-            let y = comp.pos.y;
-            let w = comp.size.x;
-            let h = comp.size.y;
+            let w = baseSize.x;
+            let h = baseSize.y;
 
-            let yTl = y + 1 - slope * comp.size.x / 2;
-            let yTr = y + 1 + slope * comp.size.x / 2;
+            let yTl = 1 - slope * baseSize.x / 2;
+            let yTr = 1 + slope * baseSize.x / 2;
 
-            let yBl = y + h - 1 + slope * comp.size.x / 2;
-            let yBr = y + h - 1 - slope * comp.size.x / 2;
+            let yBl = h - 1 + slope * baseSize.x / 2;
+            let yBr = h - 1 - slope * baseSize.x / 2;
 
-            ctx.moveTo(x, yTl);
-            ctx.lineTo(x + w, yTr);
-            ctx.lineTo(x + w, yBr);
-            ctx.lineTo(x, yBl);
+            ctx.moveTo(0, yTl);
+            ctx.lineTo(0 + w, yTr);
+            ctx.lineTo(0 + w, yBr);
+            ctx.lineTo(0, yBl);
             ctx.closePath();
+
+            ctx.restore();
         },
         render: ({ comp, ctx, cvs, exeComp }) => {
-            let x = comp.pos.x;
-            let y = comp.pos.y;
+            ctx.save();
+
+            ctx.translate(comp.pos.x, comp.pos.y);
+
+            // let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
+            // ctx.transform(...mtx.toTransformParams());
+
+            let x = 0;
+            let y = 0;
+
             let srcPos = comp.ports[exeComp?.data.inSelPort.value ? 2 : 1].pos;
             let destPos = comp.ports[3].pos;
+
             let xMid = comp.size.x / 2;
+            let yMid = comp.size.y / 2;
 
             // let dashScale = Math.min(cvs.scale, 0.03);
             ctx.beginPath();
             ctx.moveTo(x + srcPos.x, y + srcPos.y);
-            ctx.lineTo(x + xMid, y + srcPos.y);
-            ctx.lineTo(x + xMid, y + destPos.y);
+            if (comp.args.rotate === 0 || comp.args.rotate === 2) {
+                ctx.lineTo(x + xMid, y + srcPos.y);
+                ctx.lineTo(x + xMid, y + destPos.y);
+            } else {
+                ctx.lineTo(x + srcPos.x, y + yMid);
+                ctx.lineTo(x + destPos.x, y + yMid);
+            }
             ctx.lineTo(x + destPos.x, y + destPos.y);
             // ctx.setLineDash([10 * dashScale, 10 * dashScale]);
             ctx.strokeStyle = 'red';
@@ -105,21 +136,24 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             ctx.textBaseline = 'middle';
             ctx.font = makeCanvasFont(1.0, FontType.Mono);
             ctx.fillStyle = '#000';
-            ctx.fillText(comp.args.bitWidth.toString(), x + 1, y + 3);
+            ctx.fillText(comp.args.bitWidth.toString(), xMid, yMid);
+
+            ctx.restore();
         },
     };
 
-    let aH = 4;
+    let aW = 4;
+    let aH = 6;
     let adder: ICompDef<ICompDataAdder, IAdderConfig> = {
         defId: 'math/adder',
         altDefIds: ['adder'],
         name: "+",
-        size: new Vec3(w, aH),
+        size: new Vec3(aW, aH),
         ports: [
-            { id: 'a', name: 'A', pos: new Vec3(0, 1), type: PortType.In, width: 32 },
-            { id: 'b', name: 'B', pos: new Vec3(0, 3), type: PortType.In, width: 32 },
+            { id: 'a', name: 'A', pos: new Vec3(0, 2), type: PortType.In, width: 32 },
+            { id: 'b', name: 'B', pos: new Vec3(0, 4), type: PortType.In, width: 32 },
 
-            { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortType.Out, width: 32 },
+            { id: 'out', name: 'O', pos: new Vec3(aW, 4), type: PortType.Out, width: 32 },
         ],
         build: (builder) => {
             let data = builder.addData({

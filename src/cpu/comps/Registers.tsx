@@ -39,7 +39,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         defId: 'riscv/reg32',
         altDefIds: ['reg32Riscv'],
         name: "RISCV Registers",
-        size: new Vec3(w, 66),
+        size: new Vec3(w, 34),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortType.In | PortType.Ctrl, width: 3 * 6 },
             { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortType.In, width: 32 },
@@ -79,10 +79,10 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         defId: 'flipflop/reg1',
         altDefIds: ['reg1'],
         name: "Register",
-        size: new Vec3(40, 6),
+        size: new Vec3(20, 4),
         ports: [
-            { id: 'in', name: 'I', pos: new Vec3(0, 3), type: PortType.In, width: 32 },
-            { id: 'out', name: 'O', pos: new Vec3(w, 3), type: PortType.Out, width: 32 },
+            { id: 'in', name: 'I', pos: new Vec3(0, 2), type: PortType.In, width: 32 },
+            { id: 'out', name: 'O', pos: new Vec3(20, 2), type: PortType.Out, width: 32 },
         ],
         build: (builder) => {
             let data = builder.addData({
@@ -173,10 +173,10 @@ function renderPc({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataSingl
     let padY = 0.8;
     let pcValue = exeComp?.data.value ?? 0;
 
-    let boxSize =  new Vec3(comp.size.x - 2 * padX, styles.lineHeight);
-    let boxOffset = new Vec3(padX, comp.size.y / 2 - boxSize.y / 2);
+    let boxSize = new Vec3(comp.size.x - 2 * padX, styles.lineHeight);
+    let boxOffset = new Vec3(padX, comp.size.y / 2 - boxSize.y / 2).add(comp.pos);
     ctx.beginPath();
-    ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);
+    ctx.rect(boxOffset.x, boxOffset.y, boxSize.x, boxSize.y);
     ctx.fillStyle = "#fff";
     ctx.strokeStyle = "#0004";
     ctx.fill();
@@ -186,20 +186,20 @@ function renderPc({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICompDataSingl
     ctx.textAlign = 'end';
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#000";
-    let xRight = comp.pos.x + boxOffset.x + boxSize.x - registerOpts.innerPadX;
-    let yMid = comp.pos.y + boxOffset.y + boxSize.y / 2;
+    let xRight = boxOffset.x + boxSize.x - registerOpts.innerPadX;
+    let yMid = boxOffset.y + boxSize.y / 2;
     let currText = regValToStr(pcValue);
     ctx.fillText(currText, xRight, yMid);
 
     ctx.textAlign = 'start';
     ctx.fillText('pc', comp.pos.x + padX + registerOpts.innerPadX, yMid);
 
-    let xNewRight = xRight - ctx.measureText(currText).width - padX * 3;
+    // let xNewRight = xRight - ctx.measureText(currText).width - padX * 3;
 
-    ctx.textAlign = 'end';
-    let newValStr = regValToStr(exeComp?.data.inPort.value ?? 0);
-    ctx.fillStyle = "#44c9";
-    ctx.fillText(newValStr, xNewRight, yMid);
+    // ctx.textAlign = 'end';
+    // let newValStr = regValToStr(exeComp?.data.inPort.value ?? 0);
+    // ctx.fillStyle = "#44c9";
+    // ctx.fillText(newValStr, xNewRight, yMid);
 }
 
 
@@ -218,11 +218,14 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
     for (let i = 0; i < 32; i++) {
         let regValue = exeComp?.data.file[i] ?? 0;
 
-        let boxSize = new Vec3(comp.size.x, lineHeight).sub(new Vec3(padX * 2));
-        let boxOffset = new Vec3(padX, padY + lineHeight * i);
+        let colIdx = (i / 16) | 0;
+        let rowIdx = i % 16;
+
+        let boxSize = new Vec3((comp.size.x - padX) / 2 - padX, lineHeight);
+        let boxOffset = new Vec3(comp.pos.x + padX + ((comp.size.x - padX) / 2) * colIdx, comp.pos.y + padY + lineHeight * rowIdx);
 
         ctx.beginPath();
-        ctx.rect(comp.pos.x + boxOffset.x, comp.pos.y + boxOffset.y, boxSize.x, boxSize.y);
+        ctx.rect(boxOffset.x, boxOffset.y, boxSize.x, boxSize.y);
         ctx.fillStyle = i === 0 ? "#ddd" : "#fff";
         ctx.strokeStyle = "#0004";
         ctx.fill();
@@ -232,7 +235,7 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
         let drawReadCircle = (xStart: number, xEnd: number, color: string) => {
             let r = 4 / 10;
             ctx.beginPath();
-            (ctx as any).roundRect(xStart, comp.pos.y + boxOffset.y + 0.2, xEnd - xStart, boxSize.y - 0.4, r);
+            (ctx as any).roundRect(xStart, boxOffset.y + 0.2, xEnd - xStart, boxSize.y - 0.4, r);
             ctx.fillStyle = color;
             ctx.fill();
         };
@@ -241,12 +244,12 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
         ctx.textAlign = 'end';
         ctx.textBaseline = "middle";
 
-        let yMid = comp.pos.y + padY + lineHeight * (i + 0.5);
+        let yMid = boxOffset.y + lineHeight * 0.5;
 
         let regCurrStr = regValToStr(regValue);
 
         let textWidth = ctx.measureText(regCurrStr).width;
-        let xRight = comp.pos.x + boxOffset.x + boxSize.x - registerOpts.innerPadX;
+        let xRight = boxOffset.x + boxSize.x - registerOpts.innerPadX;
         let xLeft = xRight - textWidth;
 
         let isARead = exeComp?.data.readAReg === i;
@@ -263,23 +266,24 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
         ctx.fillStyle = (i > 0 && regValue === 0) ? '#0007' : "#000";
         ctx.fillText(regCurrStr, xRight, yMid + 0.1);
 
+        let text = riscvRegNames[i];
+
         if (i > 0 && exeComp?.data.writeEnabled && i === exeComp.data.writeReg) {
 
-            let writeStr = regValToStr(exeComp.data.writeData);
-            let writeTextWidth = ctx.measureText(writeStr).width;
-            let xNewRight = xRight - textWidth - padX * 3;
+            let writeTextWidth = ctx.measureText(text).width;
+            // let xNewRight = xRight - textWidth - padX * 3;
 
-            drawReadCircle(xNewRight - writeTextWidth - 0.2, xNewRight + 0.2, riscvInColor);
+            drawReadCircle(boxOffset.x + 0.2, boxOffset.x + writeTextWidth + registerOpts.innerPadX + 0.2, riscvInColor);
 
-            ctx.textAlign = 'end';
-            ctx.fillStyle = "#883f";
-            ctx.fillText(writeStr, xNewRight, yMid);
+            // ctx.textAlign = 'end';
+            // ctx.fillStyle = "#883f";
+            // ctx.fillText(writeStr, xNewRight, yMid);
         }
 
         ctx.fillStyle = "#000";
-        let text = riscvRegNames[i];
         ctx.textAlign = 'start';
-        ctx.fillText(text, comp.pos.x + boxOffset.x + registerOpts.innerPadX, yMid);
+        ctx.fillText(text, boxOffset.x + registerOpts.innerPadX, yMid);
+
     }
 
     ctx.restore();

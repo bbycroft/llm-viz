@@ -41,7 +41,7 @@ export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         size: new Vec3(lsW, lsH),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 1), type: PortType.In, width: 5 },
-            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: PortType.In, width: 12 },
+            { id: 'addrOffset', name: 'Addr Offset', pos: new Vec3(0, 2), type: PortType.In, width: 32 },
             { id: 'addrBase', name: 'Addr Base', pos: new Vec3(5, lsH), type: PortType.In, width: 32 },
             { id: 'dataIn', name: 'Data In', pos: new Vec3(12, lsH), type: PortType.In, width: 32 },
             { id: 'dataOut', name: 'Data Out', pos: new Vec3(lsW, 6), type: PortType.OutTri, width: 32 },

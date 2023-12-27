@@ -179,6 +179,9 @@ export interface ICanvasState {
     mtx: AffineMat2d; // derived
     // mtxLocal: AffineMat2d; // derived
     tileCanvases: Map<string, HTMLCanvasElement>;
+
+    t: number;
+    rafHandle: number;
 }
 
 export enum ToolbarTypes {
