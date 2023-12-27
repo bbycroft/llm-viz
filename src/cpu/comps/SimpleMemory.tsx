@@ -169,9 +169,9 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
         name: "RAM",
         size: new Vec3(ramW, ramH),
         ports: [
-            { id: 'ctrl', name: 'Ctrl', pos: new Vec3(0, 2), type: PortType.In, width: 5 },
-            { id: 'addr', name: 'Addr', pos: new Vec3(0, 4), type: PortType.In, width: 32 },
-            { id: 'data', name: 'Data', pos: new Vec3(0, 6), type: PortType.Out | PortType.In | PortType.Tristate, width: 32 },
+            { id: 'ctrl', name: 'C', pos: new Vec3(0, 2), type: PortType.In, width: 5 },
+            { id: 'addr', name: 'A', pos: new Vec3(0, 4), type: PortType.In, width: 32 },
+            { id: 'data', name: 'D', pos: new Vec3(0, 6), type: PortType.Out | PortType.In | PortType.Tristate, width: 32 },
         ],
 
         build: (builder) => {

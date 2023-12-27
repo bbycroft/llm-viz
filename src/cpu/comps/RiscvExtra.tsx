@@ -32,7 +32,7 @@ export interface IRiscvInsFetchConfig extends IBaseCompConfig {
 
 export function createRiscvExtraComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let lsW = 24;
+    let lsW = 18;
     let lsH = 12;
     let defLs: ICompDef<ICompDataLoadStore, IRiscvLoadStoreConfig> = {
         defId: 'riscv/loadStore0',
