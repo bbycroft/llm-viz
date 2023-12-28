@@ -1,180 +1,35 @@
-import { clamp, hasFlag, isNil } from "../utils/data";
+import { clamp, isNil } from "../utils/data";
 import { Vec3 } from "../utils/vector";
 import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
-import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortType, IWireGraphNode, IoDir, IParentCompInfo } from "./CpuModel";
+import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, RefType, IWireGraphNode, IParentCompInfo } from "./CpuModel";
 import { iterWireGraphSegments } from "./Wire";
-import { ICompPortConfig, compPortDefId, compPortExternalPortId } from "./comps/CompPort";
 
 export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem, idPrefix: string, parentCompInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;
 
-    let isCtrl = false;
-    let isData = false;
-    let isAddr = false;
+    let {
+        width,
+        flowNodes,
+        flowSegs,
+        isHover,
+        isNonZero,
+        isSelected,
+        selectedNodes,
+        selectedSegs,
+        activeSrcNodeCount,
+        srcNodeCount,
+        destNodeCount,
+    } = editorState.wireRenderCache.lookupWire(editorState, idPrefix, wire);
+
     let fullWireId = idPrefix + wire.id;
 
-    interface IPortBinding {
-        comp: IComp;
-        port: ICompPort;
-        exePort: IExePort;
-        nodeId: number;
-    }
-
-    let isNonZero = false;
-    let portBindings = new Map<string, IPortBinding>();
-    let flowSegs = new Set<string>(); // the direction of flow is given by id0 -> id1 in "id0:id1"
-    let flowNodes = new Set<number>();
     let segKey = (id0: number, id1: number) => `${id0}:${id1}`;
-    // data coming into the wire
-    let activeInputNodeCount = 0;
-
-    // data going out of the wire
-    let activeOutputNodeCount = 0;
 
     // check if the wire is actually connected to any comp inputs
-    let anyOutputNodes = false;
-
-    if (exeNet) {
-        isNonZero = exeNet.value !== 0;
-
-        let key = (compId: string, portId: string) => `${compId}:${portId}`;
-
-        for (let exePortRef of [...exeNet.inputs, ...exeNet.outputs]) {
-            let exeComp = exePortRef.exeComp;
-            let exePort = exePortRef.exePort;
-            let comp = exeComp.comp;
-            let port = comp.ports[exePort.portIdx];
-
-            if (!port) {
-                continue;
-            }
-
-            let compId = exeComp.comp.id;
-            let portId = port.id;
-
-            // need to get the external port from the comp
-            if (comp.defId === compPortDefId && port.id === compPortExternalPortId) {
-                portId = (comp.args as ICompPortConfig).portId;
-                let compFullId = exeComp.compFullId;
-                let lastIdx = compFullId.lastIndexOf('|');
-                let firstIdx = compFullId.lastIndexOf('|', lastIdx - 1);
-                compId = compFullId.substring(firstIdx + 1, lastIdx);
-            }
-
-            // Note that the key here is what the wire reports as connecting to, not necessarily the actual port/comp objects.
-            // In the case of going to internal ports, the comp/port objects are the internal CompPort, but the wire ref is the external port.
-            portBindings.set(key(compId, portId), {
-                comp: comp,
-                port: comp.ports[exePort.portIdx],
-                exePort: exePort,
-                nodeId: -1,
-            });
-        }
-
-        let nodeIdToPortBinding = new Map<number, IPortBinding>();
-
-        for (let node of wire.nodes) {
-            if (node.ref?.type === RefType.CompNode) {
-                let portBinding = portBindings.get(key(node.ref.id, node.ref.compNodeId!));
-                if (portBinding) {
-                    let port = portBinding.port;
-                    if (hasFlag(port.type, PortType.Ctrl)) {
-                        isCtrl = true;
-                    }
-                    if (hasFlag(port.type, PortType.Data)) {
-                        isData = true;
-                    }
-                    if (hasFlag(port.type, PortType.Addr)) {
-                        isAddr = true;
-                    }
-                    nodeIdToPortBinding.set(node.id, portBinding);
-                    portBinding.nodeId = node.id;
-                }
-            }
-        }
-
-        let inputNodeIds: number[] = []; // should only be one active input! multiple imply some failure, and should probably be rendered specially in some way
-        let outputNodeIds: number[] = [];
-
-        for (let binding of nodeIdToPortBinding.values()) {
-            if (hasFlag(binding.port.type, PortType.In) && binding.exePort.ioDir !== IoDir.Out && binding.exePort.dataUsed) {
-                inputNodeIds.push(binding.nodeId);
-            }
-            if (hasFlag(binding.port.type, PortType.Out) && binding.exePort.ioDir !== IoDir.In && binding.exePort.dataUsed) {
-                outputNodeIds.push(binding.nodeId);
-            }
-
-            if (hasFlag(binding.port.type, PortType.In)) {
-                anyOutputNodes = true;
-            }
-        }
-
-        // now walk the wire graph from the inputNodeIds to all the outputNodeIds (shortest paths)
-        // and mark those segments as flow segments
-
-        for (let inputNodeId of inputNodeIds) {
-            let visited = new Set<number>();
-            let prevNodeId = new Map<number, number>();
-            let queue = [inputNodeId];
-
-            while (queue.length > 0) {
-                let nodeId = queue.shift()!;
-                if (visited.has(nodeId)) {
-                    continue;
-                }
-                visited.add(nodeId);
-
-                let node = wire.nodes[nodeId];
-                for (let nextNodeId of node.edges) {
-                    let node1 = wire.nodes[nextNodeId];
-                    if (visited.has(node1.id)) {
-                        continue;
-                    }
-                    prevNodeId.set(node1.id, nodeId);
-                    queue.push(node1.id);
-                }
-            }
-
-            for (let outputNodeId of outputNodeIds) {
-                let nodeId = outputNodeId;
-                flowNodes.add(nodeId);
-                while (nodeId !== inputNodeId) {
-                    let prevId = prevNodeId.get(nodeId);
-                    if (prevId === undefined) {
-                        break;
-                    }
-                    flowSegs.add(segKey(prevId, nodeId));
-                    flowNodes.add(prevId);
-                    nodeId = prevId;
-                }
-            }
-        }
-        activeInputNodeCount = outputNodeIds.length;
-        activeOutputNodeCount = inputNodeIds.length;
-    }
-
-    let width = (isCtrl || exeNet?.width === 1) ? 1 : (exeNet?.width < 32 ? 2 : 4);
+    let anySrcNodes = srcNodeCount > 0;
+    let anyDestNodes = destNodeCount > 0;
 
     let hoverRef = editorState.hovered?.ref;
-    let isHover = (hoverRef?.type === RefType.WireSeg || hoverRef?.type === RefType.WireNode) && hoverRef.id === fullWireId;
-
-    let isSelected = false;
-    let selectedNodes = new Set<number>();
-    let selectedSegs = new Set<string>();
-
-    for (let sel of editorState.snapshot.selected) {
-        if (!(sel.type === RefType.WireNode || sel.type === RefType.WireSeg) || sel.id !== fullWireId) {
-            continue;
-        }
-        isSelected = true;
-
-        if (sel.type === RefType.WireNode) {
-            selectedNodes.add(sel.wireNode0Id!);
-        }
-        if (sel.type === RefType.WireSeg) {
-            selectedSegs.add(segKey(sel.wireNode0Id!, sel.wireNode1Id!));
-        }
-    }
 
     // let oldScale = cvs.scale;
     // cvs.scale = Math.min(0.2, cvs.scale);
@@ -197,7 +52,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         return isSelected && selectedSegs.has(segKey(node0.id, node1.id));
     }
 
-    if (activeInputNodeCount > 1) {
+    if (activeSrcNodeCount > 1) {
         ctx.save();
         iterWireGraphSegments(wire, (node0, node1) => {
             ctx.beginPath();
@@ -266,7 +121,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
         let isForwardFlow = flowSegs.has(segKey(node0.id, node1.id));
         let isBackwardFlow = flowSegs.has(segKey(node1.id, node0.id));
-        let isFlow = isForwardFlow || isBackwardFlow || !anyOutputNodes;
+        let isFlow = isForwardFlow || isBackwardFlow || !anyDestNodes;
 
         // somehow will need to indicate flow direction (not yet)
 

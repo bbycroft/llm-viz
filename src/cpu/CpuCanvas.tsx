@@ -28,6 +28,7 @@ import { CompDetails } from "./CompDetails";
 import { Resizer } from "../utils/Resizer";
 import { SchematicDetails } from "./SchematicDetails";
 import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort";
+import { WireRenderCache } from "./WireRenderCache";
 
 export const CpuCanvas: React.FC<{
     embedded?: boolean;
@@ -75,6 +76,7 @@ export const CpuCanvas: React.FC<{
                 codeLibrary: ctx.codeLibrary,
                 schematicLibrary: ctx.schematicLibrary,
                 compLibrary: ctx.compLibrary,
+                wireRenderCache: new WireRenderCache(),
                 snapshot: assignImm(a.snapshot, {
                     mainSchematic: assignImm(a.snapshot.mainSchematic, {
                         comps: ctx.compLibrary.updateAllCompsFromDefs(a.snapshot.mainSchematic.comps),

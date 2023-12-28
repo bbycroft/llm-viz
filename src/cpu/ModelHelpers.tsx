@@ -2,6 +2,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { hasFlag } from "../utils/data";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { IComp, IEditSnapshot, IEditorState } from "./CpuModel";
+import { WireRenderCache } from "./WireRenderCache";
 import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort";
 import { ISharedContext, createSharedContext } from "./library/SharedContext";
 
@@ -60,6 +61,7 @@ export function createCpuEditorState(sharedContext: ISharedContext | null): IEdi
         compLibrary: sharedContext.compLibrary,
         schematicLibrary: sharedContext.schematicLibrary,
         codeLibrary: sharedContext.codeLibrary,
+        wireRenderCache: new WireRenderCache(),
         exeModel: null,
         exeModelUpdateCntr: 1,
         desiredSchematicId: null,
