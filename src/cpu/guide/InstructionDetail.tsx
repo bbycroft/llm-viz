@@ -34,7 +34,7 @@ export const InstructionDetail: React.FC<{
     let bitNodes = bitRangesToNodes(ins, mnemonic);
 
     return <div className={clsx('flex font-mono', wrap && 'bg-slate-200 px-4 py-2 m-4')}>
-        <div className='w-[10rem]'>
+        <div className='w-[15rem]'>
             <span className='pr-1'>{mnemonic.name.padEnd(5,'\u00a0')}</span>
             {ins.fields.map((field, i) => {
                 return <span key={i} className={clsx('px-1', bitRangeTypeColor(field.type))}>{field.name}</span>;

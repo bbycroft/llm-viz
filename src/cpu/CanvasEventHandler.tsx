@@ -137,7 +137,7 @@ export const CanvasEventHandler: React.FC<{
         selection?.removeAllRanges();
 
         if (ds.data.isSelecting) {
-            let endPos = evToModel(ev, ds.data.mtx);
+            let endPos = evToModel(ev, editorState.mtx);
             let startPos = ds.data.modelPos;
             let bb = new BoundingBox3d(startPos, endPos);
 
@@ -177,13 +177,13 @@ export const CanvasEventHandler: React.FC<{
 
         } else if (!ds.data.hovered) {
             let delta = new Vec3(ev.clientX - ds.clientX, ev.clientY - ds.clientY);
-            let newMtx = AffineMat2d.translateVec(delta).mul(ds.data.baseMtx);
+            let newMtx = AffineMat2d.multiply(AffineMat2d.translateVec(delta), ds.data.baseMtx);
             setEditorState(a => assignImm(a, {
                 dragCreateComp: undefined,
                 mtx: newMtx,
             }));
         } else {
-            let mtx = ds.data.mtx;
+            let mtx = editorState.mtx;
             let hoveredRef = ds.data.hovered.ref;
 
             if (hoveredRef.type === RefType.Comp) {
@@ -452,26 +452,6 @@ export const CanvasEventHandler: React.FC<{
 
         let refsUnderCursor: IHitTest[] = [];
 
-        for (let i = comps.length - 1; i >= 0; i--) {
-            let comp = comps[i];
-            if (!compIsVisible(comp, idPrefix)) {
-                continue;
-            }
-            for (let node of comp.ports) {
-                let modelPos = comp.pos.add(node.pos);
-                let nodeScreenPos = modelToScreen(modelPos, mtx);
-                let modelDist = modelPos.dist(mousePt);
-                let screenDist = nodeScreenPos.dist(mousePtScreen);
-                if (screenDist < 10) {
-                    refsUnderCursor.push({
-                        ref: { type: RefType.CompNode, id: idPrefix + comp.id, compNodeId: node.id },
-                        distPx: screenDist,
-                        modelPt: modelPos,
-                    });
-                }
-            }
-        }
-
         if (!showTransparentComponents) {
             for (let i = comps.length - 1; i >= 0; i--) {
                 let comp = comps[i];
@@ -480,14 +460,32 @@ export const CanvasEventHandler: React.FC<{
                     continue;
                 }
 
-                // let [compVisible, compPortsVisible, subSchematicVisible] = shouldRenderComp(comp, cvs);
+                let [compVisible, compPortsVisible, subSchematicVisible] = shouldRenderComp(comp, cvsState);
 
+                if (!compVisible) {
+                    continue;
+                }
 
+                if (compPortsVisible) {
+                    for (let node of comp.ports) {
+                        let modelPos = comp.pos.add(node.pos);
+                        let nodeScreenPos = modelToScreen(modelPos, mtx);
+                        let modelDist = modelPos.dist(mousePt);
+                        let screenDist = nodeScreenPos.dist(mousePtScreen);
+                        if (screenDist < 10) {
+                            refsUnderCursor.push({
+                                ref: { type: RefType.CompNode, id: idPrefix + comp.id, compNodeId: node.id },
+                                distPx: screenDist,
+                                modelPt: modelPos,
+                            });
+                        }
+                    }
+                }
 
                 let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
                 if (bb.contains(mousePt)) {
 
-                    if ((comp.hasSubSchematic || comp.subSchematicId) && editorState.maskHover !== comp.id) {
+                    if ((comp.hasSubSchematic || comp.subSchematicId) && editorState.maskHover !== comp.id && subSchematicVisible) {
                         let screenBb = mtx.mulBb(bb).shrinkInPlaceXY(20);
                         if (screenBb.contains(mousePtScreen)) {
                             // need some test of whether we can click through to the sub-schematic,
