@@ -29,8 +29,8 @@ interface IRegFileCtrlData extends IRegFileCtrlConfig {
 
 export function createRegFileCtrlComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let w = 10;
-    let h = 12;
+    let w = 12;
+    let h = 8;
     let regFileCtrl: ICompDef<IRegFileCtrlData, IRegFileCtrlConfig> = {
         defId: 'riscv/regFile0Input',
         altDefIds: ['riscvRegFile0Input'],
@@ -119,7 +119,7 @@ export const RegSelect: React.FC<{
         setValue(end, enabled, value);
     }
 
-    return <div className={s.regSelect}>
+    return <div className={s.regSelect + " mx-2 my-1"}>
         <label onDoubleClick={ev => ev.preventDefault()}>
             <div className={s.text} style={{ backgroundColor: color }}>{name}</div>
             <input type="checkbox" checked={enabled} onChange={ev => editEnabled(ev, true, ev.target.checked)} />
@@ -129,9 +129,11 @@ export const RegSelect: React.FC<{
             value={value}
             update={editValue}
             inputType={HexValueInputType.Dec}
+            inputClassName='px-1 bg-slate-200 bg-opacity-60 rounded'
             fixedInputType
             hidePrefix
-            minimalBackground
+            signed={false}
+            maxBits={5}
             padBits={5}
         />
     </div>;

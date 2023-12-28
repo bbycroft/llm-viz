@@ -179,7 +179,10 @@
 }
 
 .compRegFileCtrl {
-    justify-content: flex-start;
+    padding-top: 4px;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
 }
 
 .compBinGate {
@@ -201,7 +204,7 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    margin: 0px 8px 0;
+    // margin: 0px 8px 0;
     user-select: none;
 
     input[type="checkbox"] {
@@ -213,14 +216,14 @@
         // flex: 1 0 0;
         display: flex;
         align-items: center;
-        width: 70px;
+        width: 80px;
     }
 
     .text {
         flex: 1;
         margin-right: 8px;
         padding: 0 2px;
-        text-align: end;
+        text-align: center;
         cursor: pointer;
         border-radius: 6px;
     }

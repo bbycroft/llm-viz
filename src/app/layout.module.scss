@@ -1,8 +1,8 @@
 @import '@/styles/variables.scss';
 
 .html {
-    font-family: 'Merriweather', serif;
-    font-size: 14px;
+    font-family: serif;
+    font-size: 12px;
     width: 100%;
     height: 100%;
     margin: 0;
@@ -13,4 +13,5 @@
     height: 100%;
     display: flex;
     flex-direction: column;
+    font-size: 18px;
 }
