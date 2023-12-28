@@ -3,7 +3,7 @@ import React, { memo, useEffect, useLayoutEffect, useMemo, useReducer, useRef, u
 import { ViewLayoutContext, editSnapshot, editSnapshotDirect, useEditorContext, useViewLayout } from './Editor';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCaretRight, faPlus } from '@fortawesome/free-solid-svg-icons';
-import { Gripper, ICompPortConfig, compPortDefId } from './comps/CompPort';
+import { SideGripper, ICompPortConfig, compPortDefId } from './comps/CompPort';
 import { pluralize } from '../utils/text';
 import { assignImm, clamp, hasFlag, isNotNil, makeArray } from '../utils/data';
 import { Vec3 } from '../utils/vector';
@@ -355,7 +355,7 @@ export const CompBoxEditor: React.FC<{
             style={{ width: size.x * zoom, height: size.y * zoom, transform: `translate(${pos.x}px, ${pos.y}px) scale(${1/zoom})` }}
         >
             {makeArray(4).map((_, i) => {
-                return <Gripper key={i} gripPos={i} pos={pos} size={size} onResize={handleResize} />;
+                return <SideGripper key={i} gripPos={i} pos={pos} size={size} onResize={handleResize} />;
             })}
         </div>
         {/* <div

@@ -94,7 +94,7 @@ export default function Page() {
             ISA, there are 32 such registers (numbered 0 to 31). We call this set of registers the <em>register file</em>.
         </Para>
 
-        <CpuPortal schematicId={"reg-file-demo"} caption={"Register File with input & 2 outputs"} height={60} width={70} />
+        <CpuPortal schematicId={"reg-file-demo"} caption={"Register File with input & 2 outputs"} height={50} width={60} />
 
         <Para>
             This particular register file has 1 input, and 2 outputs. That is, in a given cycle, we can read any two

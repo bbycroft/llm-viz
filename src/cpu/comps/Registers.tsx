@@ -124,8 +124,6 @@ function regFilePhase0({ data }: IExeComp<ICompDataRegFile>) {
     let outAEnabled = ctrl & 0b1;
     let outBEnabled = (ctrl >> 6) & 0b1;
 
-    outAPort.ioEnabled = !!outAEnabled;
-    outBPort.ioEnabled = !!outBEnabled;
     outAPort.value = outAEnabled ? file[outBitsA] : 0;
     outBPort.value = outBEnabled ? file[outBitsB] : 0;
 

@@ -332,7 +332,7 @@ export const CpuCanvas: React.FC<{
                         </>}
                         {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
                     </div>
-                    {embedded && <div className="absolute left-2 top-2 pointer-events-auto">
+                    {embedded && <div className="absolute left-2 top-2 pointer-events-auto shadow">
                         <MainToolbar readonly={readonly} toolbars={toolbars} />
                     </div>}
                     <div className="cls_toolsTopRight absolute top-0 right-0">

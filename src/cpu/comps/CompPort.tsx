@@ -13,10 +13,11 @@ import clsx from "clsx";
 import { IPointerEvent, useCombinedMouseTouchDrag } from "@/src/utils/pointer";
 import { StringEditor } from "../displayTools/StringEditor";
 import { CursorDragOverlay } from "@/src/utils/CursorDragOverlay";
-import { makeCanvasFont } from "../CanvasRenderHelpers";
+import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 import { EditKvp } from "../CompDetails";
 import { SelectEditor } from "../displayTools/SelectEditor";
 import { BooleanEditor } from "../displayTools/BooleanEditor";
+import { RectCorner } from "./SchematicComp";
 
 export enum PortPlacement {
     Right,
@@ -140,7 +141,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
 
             return builder.build();
         },
-        renderAll: true,
+        // renderAll: true,
         renderCanvasPath: ({ comp, ctx, cvs }) => {
             ctx.save();
 
@@ -149,8 +150,11 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             let p = comp.pos;
             let s = comp.size;
             ctx.roundRect(p.x, p.y, s.x, s.y, s.y / 2);
+            ctx.restore();
         },
-        render: ({ comp, ctx, cvs }) => {
+        render: ({ comp, exeComp, ctx, cvs, styles }) => {
+            ctx.save();
+
             let scale = Math.min(cvs.scale, 1/15);
             let p = comp.pos;
             let s = comp.size;
@@ -161,10 +165,24 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             ctx.textBaseline = 'top';
             ctx.fillText(comp.args.name, p.x + s.x / 2, p.y + s.y + 0.3);
 
+            ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let value = exeComp?.data.value ?? 0;
+            let valueStr: string;
+            if (comp.args.valueMode === HexValueInputType.Bin) {
+                valueStr = value.toString(2).padStart(comp.args.bitWidth, '0');
+            } else if (comp.args.valueMode === HexValueInputType.Dec) {
+                valueStr = value.toString();
+            } else {
+                valueStr = '0x' + value.toString(16).padStart(Math.ceil(comp.args.bitWidth / 4), '0');
+            }
+            ctx.fillText(valueStr, p.x + s.x / 2, p.y + s.y / 2 + 0.1);
+
             ctx.restore();
         },
         renderDom: ({ comp, exeComp, ctx, styles, isActive, editCtx }) => {
-            return <PortEditor editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} />;
+            return isActive ? <PortEditor editCtx={editCtx} comp={comp} exeComp={exeComp} isActive={isActive} /> : null;
         },
         renderOptions: ({ comp, exeComp, editCtx }) => {
             return <PortOptions comp={comp} editCtx={editCtx} exeComp={exeComp} />;
@@ -209,7 +227,7 @@ const PortEditor: React.FC<{
     let isBound = exeComp?.data.externalPortBound ?? false;
 
     return <>
-        <CompRectBase comp={comp} hideHover={true}>
+        {/* <CompRectBase comp={comp} hideHover={true}>
             {isInput && <HexValueEditor
                 className={clsx("absolute inset-0 px-2")}
                 inputType={comp.args.valueMode}
@@ -235,7 +253,7 @@ const PortEditor: React.FC<{
                 readonly
                 hidePrefix
             />}
-        </CompRectBase>
+        </CompRectBase> */}
         {isActive && <PortResizer editCtx={editCtx} comp={comp} />}
     </>;
 });
@@ -362,14 +380,6 @@ export const PortResizer: React.FC<{
 
     let [editorState, setEditorState] = useEditorContext();
 
-    useGlobalKeyboard(KeyboardOrder.Element, ev => {
-        if (isKeyWithModifiers(ev, 'r')) {
-            setEditorState(editCompConfig(editCtx, true, comp, a => assignImm(a, { portPos: (a.portPos + 1) % 4 })));
-            ev.preventDefault();
-            ev.stopPropagation();
-        }
-    });
-
     let scale = editorState.mtx.a;
 
     function handleResize(end: boolean, pos: Vec3, size: Vec3) {
@@ -382,12 +392,13 @@ export const PortResizer: React.FC<{
 
     return <div className="absolute origin-top-left" style={{ transform: `translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`, width: comp.size.x * scale, height: comp.size.y * scale }}>
         {[...new Array(4)].map((_, idx) => {
-            return <Gripper key={idx} gripPos={idx} size={comp.size} pos={comp.pos} onResize={handleResize} centerY />;
+            // return <SideGripper key={idx} gripPos={idx} size={comp.size} pos={comp.pos} onResize={handleResize} centerY />;
+            return <CornerGripper key={idx} gripPos={1 << idx} size={comp.size} pos={comp.pos} onResize={handleResize} />;
         })}
     </div>;
 });
 
-export const Gripper: React.FC<{
+export const SideGripper: React.FC<{
     gripPos: PortPlacement,
     pos: Vec3,
     size: Vec3,
@@ -452,5 +463,70 @@ export const Gripper: React.FC<{
             <FontAwesomeIcon icon={isVertical ? faEllipsisVertical : faEllipsis} className="text-md text-white group-hover:text-gray-100" />
         </div>
         {dragStart && <CursorDragOverlay className={isVertical ? "cursor-ew-resize" : "cursor-ns-resize"} /> }
+    </div>;
+}
+
+
+export const CornerGripper: React.FC<{
+    gripPos: RectCorner,
+    pos: Vec3,
+    size: Vec3,
+    onResize: (end: boolean, pos: Vec3, size: Vec3) => void,
+}> = ({ gripPos, pos, size, onResize }) => {
+    let { mtx } = useViewLayout();
+    let [el, setEl] = React.useState<HTMLElement | null>(null);
+
+    function evToModel(ev: IPointerEvent) {
+        return mtx.mulVec3Inv(new Vec3(ev.clientX, ev.clientY));
+    }
+
+    let [dragStart, setDragStart] = useCombinedMouseTouchDrag(el, _ev => ({ size, pos }), (ev, ds, end) => {
+        let oldPos = ds.data.pos;
+        let oldSize = ds.data.size;
+        let delta = evToModel(ev).sub(evToModel(ds)).round();
+        let newPos = oldPos.clone();
+        let newSize = oldSize.clone();
+
+        if (hasFlag(RectCorner.IsLeft, gripPos)) {
+            newPos.x += delta.x;
+            newSize.x -= delta.x;
+        } else {
+            newSize.x += delta.x;
+        }
+
+        if (hasFlag(RectCorner.IsTop, gripPos)) {
+            newPos.y += delta.y;
+            newSize.y -= delta.y;
+        } else {
+            newSize.y += delta.y;
+        }
+
+        onResize(end, newPos, newSize);
+        ev.stopPropagation();
+        ev.preventDefault();
+    });
+
+    function handleMouseDown(ev: React.MouseEvent) {
+        setDragStart(ev);
+        ev.preventDefault();
+        ev.stopPropagation();
+    }
+
+    let isCrossDiag = hasFlag(RectCorner.IsLeft, gripPos) !== hasFlag(RectCorner.IsTop, gripPos);
+
+    let cursor = isCrossDiag ? "cursor-nesw-resize" : "cursor-nwse-resize";
+
+    let classNameHit = clsx("group absolute pointer-events-auto w-8 h-8 flex items-center justify-center", cursor);
+
+    let className = clsx(
+    );
+
+    return <div className={classNameHit} ref={setEl} onMouseDown={handleMouseDown} style={{
+        transform: 'translate(-50%, -50%)',
+        left: hasFlag(RectCorner.IsLeft, gripPos) ? '0' : '100%',
+        top: hasFlag(RectCorner.IsTop, gripPos) ? '0' : '100%',
+        }}>
+        <div className={"border-2 border-blue-400 group-hover:border-blue-600 bg-white rounded-xs h-4 w-4"} />
+        {dragStart && <CursorDragOverlay className={cursor} /> }
     </div>;
 }
