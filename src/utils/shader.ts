@@ -215,7 +215,7 @@ export interface IFloatBuffer {
 export function createFloatBuffer(gl: WebGL2RenderingContext, target: number, buf: WebGLBuffer, capacityEls: number, strideBytes: number, sharedRender: ISharedRender | null): IFloatBuffer {
     let numPhases = sharedRender?.numPhases || 1;
     if (target === gl.UNIFORM_BUFFER) {
-        let uboBlockOffsetAlign = gl.getParameter(gl.UNIFORM_BUFFER_OFFSET_ALIGNMENT);
+        let uboBlockOffsetAlign = Math.max(gl.getParameter(gl.UNIFORM_BUFFER_OFFSET_ALIGNMENT) ?? 0, 64);
         strideBytes = roundUpTo(strideBytes, uboBlockOffsetAlign);
     }
 
