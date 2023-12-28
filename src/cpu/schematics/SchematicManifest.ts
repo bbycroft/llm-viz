@@ -4,6 +4,8 @@ import { regFileDemoSchematic } from "./regFileDemoSchematic";
 import { riscvBasicSchematic } from "./riscvBasicSchematic";
 import { romUsageSchematic } from "./romUsageSchematic";
 import { insDecodeInternalSchematic } from "./insDecodeInternalSchematic";
+import { riscvBasicAddInsSchematic } from "./riscvBasicAddInsSchematic";
+import { riscvBasicInsDecodeOnlySchematic } from "./riscvBasicInsDecodeOnlySchematic";
 
 export const schematicManifest: ILSSchematic[] = [
     pcCounterSchematic,
@@ -11,5 +13,7 @@ export const schematicManifest: ILSSchematic[] = [
     riscvBasicSchematic,
     romUsageSchematic,
     insDecodeInternalSchematic,
+    riscvBasicAddInsSchematic,
+    riscvBasicInsDecodeOnlySchematic,
 ];
 

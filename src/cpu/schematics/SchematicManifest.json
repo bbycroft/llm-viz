@@ -16,6 +16,12 @@
     },
     {
       "id": "insDecodeInternal"
+    },
+    {
+      "id": "riscvBasicAddIns"
+    },
+    {
+      "id": "riscvBasicInsDecodeOnly"
     }
   ]
 }

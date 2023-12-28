@@ -198,7 +198,7 @@ export const CpuCanvas: React.FC<{
         cvsState.size.x = w;
         cvsState.size.y = h;
         cvsState.region = new BoundingBox3d(new Vec3(0, 0), new Vec3(w, h));
-        cvsState.scale = 1.0 / editorState.mtx.a;
+        cvsState.scale = scaleFromMtx(editorState.mtx);
         cvsState.mtx = editorState.mtx;
         let pr = window.devicePixelRatio;
 
@@ -349,6 +349,12 @@ export const CpuCanvas: React.FC<{
         </ViewLayoutContext.Provider>
     </MyStoreContext.Provider>;
 };
+
+function scaleFromMtx(mtx: AffineMat2d) {
+    // if we're zoomed out enough, wires/lines etc shrink
+    // but otherwise, they stay the same size independent of zoom
+    return Math.min(0.2, 1.0 / mtx.a);
+}
 
 function renderAxes(cvs: ICanvasState, editorState: IEditorState) {
     let ctx = cvs.ctx;
@@ -508,11 +514,12 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             ctx.transform(...subMtx.toTransformParams());
 
             let innerMtx = cvs.mtx.mul(subMtx.inv());
+            let newMtx = cvs.mtx.mul(subMtx);
 
             let subCvs: ICanvasState = {
                 ...cvs,
-                mtx: cvs.mtx.mul(subMtx),
-                scale: cvs.scale / subMtx.a,
+                mtx: newMtx,
+                scale: scaleFromMtx(newMtx),
                 region: innerMtx.mulBb(new BoundingBox3d(comp.pos, comp.pos.add(comp.size))),
             };
 
@@ -569,10 +576,11 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
         ctx.save();
         ctx.globalAlpha = 0.5;
         ctx.transform(...subMtx.toTransformParams());
+        let newMtx = cvs.mtx.mul(subMtx);
 
         let subCvs: ICanvasState = {
             ...cvs,
-            mtx: cvs.mtx.mul(subMtx),
+            mtx: newMtx,
             scale: cvs.scale / subMtx.a,
         };
 

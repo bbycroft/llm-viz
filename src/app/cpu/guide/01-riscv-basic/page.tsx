@@ -17,11 +17,31 @@ export default function Page() {
         <Para>
             In this guide we'll build a minimal RISC-V computer, building on a few pre-made components.
 
-        This will give you a basic understanding of how machine code (just an array of bytes) gets turned
-        into a working computer.
-        The RISC-V instruction set is a good first choice, as the design choices make it very simple to
-        implement.
+            This will give you a basic understanding of how machine code (just an array of bytes) gets turned
+            into a working computer.
+            The RISC-V instruction set is a good first choice, as the design choices make it very simple to
+            implement.
         </Para>
+        <Para>
+            Here's what we're going to build:
+        </Para>
+
+            <CpuPortal schematicId={"riscv-basic"} caption={"Fig 1: The completed basic implementation of RISC-V"} height={40} width={60}>
+                <AutoLoadCode fileName={'blinky2.elf'} />
+            </CpuPortal>
+
+        <Para>
+            A simple computer consists of several basic components, whose design & linkage we'll investigate in the rest of the article.
+        </Para>
+
+        <ol className='w-[80%] py-4'>
+            <li><b>ROM:</b> The <i>read only memory</i> that contains the program to run.</li>
+            <li><b>Registers:</b> A small set of 32-bit values that can be read from and written to</li>
+            <li><b>Program Counter:</b> A register that keeps track of which instruction to execute next</li>
+            <li><b>Instruction Decoder:</b> A component that takes an instruction, and figures out what to do with it</li>
+            <li><b>ALU:</b> A component that performs arithmetic & logic operations</li>
+        </ol>
+
         </GuideSection>
 
         <GuideSection title={"Instruction Set"}>
@@ -51,7 +71,7 @@ export default function Page() {
 
         <Para>
             When a CPU executes instructions, it does so one at a time, in order. To keep track
-            of which instruction we're executing, we use value called the <em>program counter</em> (PC).
+            of which instruction we're executing, we use a value called the <em>program counter</em> (PC).
             This is stored in a <em>register</em> as a 32 bit number.
         </Para>
         <Para>
@@ -94,7 +114,7 @@ export default function Page() {
             ISA, there are 32 such registers (numbered 0 to 31). We call this set of registers the <em>register file</em>.
         </Para>
 
-        <CpuPortal schematicId={"reg-file-demo"} caption={"Register File with input & 2 outputs"} height={50} width={60} />
+        <CpuPortal schematicId={"reg-file-demo"} caption={"Fig 3: Register File with 1 input & 2 outputs"} height={50} width={60} />
 
         <Para>
             This particular register file has 1 input, and 2 outputs. That is, in a given cycle, we can read any two
@@ -124,14 +144,14 @@ export default function Page() {
 
         <ol className='ml-8 my-4'>
             <li>1. The fact that we're doing an add instruction (as opposed to a subtract, or a jump, or a load from memory, etc)</li>
-            <li>2. The register number of the destination register (6)</li>
-            <li>3. The register number of the first source register (3)</li>
-            <li>4. The register number of the second source register (4)</li>
+            <li>2. The register number of the destination register (the value 6 in our example)</li>
+            <li>3. The register number of the first source register (the value 3 in our example)</li>
+            <li>4. The register number of the second source register (the value 4 in our example)</li>
         </ol>
 
         <Para>
             That first bit of info, about it being an <code>add</code>, is actually split into two portions. The first of them indicates
-            that it's a register-register instruction (read from 2, write to 1, i.e. an R-Type instruction), and then the second portion
+            that it's a register-register instruction (read from 2 registers, write to 1 register, i.e. an R-Type instruction), and then the second portion
             indicates it's an add, as opposed to a subtract, shift, and, xor etc. Here's the complete breakdown of the instruction. The other thing to note is that each of the register
             values is 5 bits long, which allows us to choose between 2^5 = 32 values, i.e. the 32 registers.
         </Para>
@@ -147,14 +167,15 @@ export default function Page() {
             address we've selected.
         </Para>
 
-        <SchematicView schematicId={"ins-decode-add"} caption={"Instruction Decoder hooked up to ROM (but not to registers or ALU)"} />
+        <CpuPortal schematicId={"c-pwhp6e2e"} caption={"Instruction Decoder hooked up to ROM"} width={60} height={30} />
 
         <Para>
             The instruction decode component outputs a whole suite of <em>control signals</em>, which are routed to the
-            various other components, telling them what to do. This component is also considered "combinatorial", meaning
+            various other components, telling them what to do.
+            {/* This component is also considered "combinatorial", meaning
             its outputs are wholy determined by its inputs, and don't depend on any internal state. In contrast,
             the register file is considered "sequential", because it has internal state (the values of the registers), and
-            also integrates with the clock signal.
+            also integrates with the clock signal. */}
         </Para>
 
         <Para>
@@ -167,7 +188,7 @@ export default function Page() {
             For now, we'll use an add component instead of a full ALU, and it will be always-on.
         </Para>
 
-        <SchematicView schematicId={"ins-decode-add"} caption={"Instruction Decoder hooked up register file, with simple add instruction"} />
+        <CpuPortal schematicId={"c-tas504jp"} caption={"Instruction Decoder hooked up register file, with simple add instruction"} width={60} height={50} />
 
         <Para>
             Now we have a working add instruction! When we step the clock, the instruction decoder tells the register file

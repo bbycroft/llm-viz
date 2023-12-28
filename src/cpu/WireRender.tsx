@@ -1,4 +1,4 @@
-import { hasFlag, isNil } from "../utils/data";
+import { clamp, hasFlag, isNil } from "../utils/data";
 import { Vec3 } from "../utils/vector";
 import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
 import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, IComp, ICompPort, IExePort, RefType, PortType, IWireGraphNode, IoDir, IParentCompInfo } from "./CpuModel";
@@ -176,6 +176,8 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         }
     }
 
+    // let oldScale = cvs.scale;
+    // cvs.scale = Math.min(0.2, cvs.scale);
     ctx.lineCap = "square";
     ctx.lineJoin = "round";
 
@@ -338,7 +340,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         if (isJunction) {
             let x = node.pos.x;
             let y = node.pos.y;
-            let r = Math.max(width, 2) * 1.7 * cvs.scale;
+            let r = clamp(width, 2, 3) * 1.6 * cvs.scale;
             ctx.beginPath();
             ctx.arc(x, y, r, 0, 2 * Math.PI);
             let isFlow = flowNodes.has(node.id);
@@ -378,4 +380,6 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
         }
     }
+
+    // cvs.scale = oldScale;
 }
