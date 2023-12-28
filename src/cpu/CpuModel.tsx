@@ -136,6 +136,7 @@ export interface IEditorState {
     compLibrary: CompLibrary;
     schematicLibrary: SchematicLibrary;
     codeLibrary: CodeSuiteManager;
+    wireRenderCache: IWireRenderCache;
 
     exeModel: IExeSystem | null;
     exeModelUpdateCntr: number;
@@ -182,6 +183,45 @@ export interface ICanvasState {
 
     t: number;
     rafHandle: number;
+}
+
+export interface IWireRenderCache {
+    lookupWire(editorState: IEditorState, idPrefix: string, wire: IWireGraph): IWireRenderInfo;
+}
+
+// Things that are calculated by traversing the graph, based on the exeModel
+// this is used in multiple places besides just rendering the wires themselves (requiring caching)
+// e.g. drawing extra wire segments at the comp-ports that match the style, or manually drawing wires
+// within other components, like a mux or wire expander (that aren't sub-schematics).
+export interface IWireRenderInfo {
+    isCtrl: boolean;
+    isData: boolean;
+    isAddr: boolean;
+
+    isNonZero: boolean;
+    portBindings: Map<string, IWirePortBinding>; // key is the "compId:portId", matching the ref id on the node (ids local to the schematic)
+    flowSegs: Set<string>; // the direction of flow is given by id0 -> id1 in "id0:id1"
+    flowNodes: Set<number>; // nodes that are part of the flow (key is node index)
+
+    width: number;
+
+    isHover: boolean;
+    isSelected: boolean;
+    selectedNodes: Set<number>; // key is node index
+    selectedSegs: Set<string>; // key is seg key ("id0:id1")
+
+    activeDestNodeCount: number;
+    activeSrcNodeCount: number;
+
+    destNodeCount: number;
+    srcNodeCount: number;
+}
+
+export interface IWirePortBinding {
+    comp: IComp;
+    port: ICompPort;
+    exePort: IExePort;
+    nodeId: number;
 }
 
 export enum ToolbarTypes {
