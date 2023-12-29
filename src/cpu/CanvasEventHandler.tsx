@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { AffineMat2d } from '../utils/AffineMat2d';
-import { assignImm, assignImmFull, clamp, getOrAddToMap } from '../utils/data';
+import { assignImm, assignImmFull, clamp, getOrAddToMap, isNil, isNotNil } from '../utils/data';
 import { hasModifiers, isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
 import { useCombinedMouseTouchDrag, useTouchEvents } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
@@ -10,7 +10,7 @@ import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, d
 import s from './CpuCanvas.module.scss';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 import { computeSubLayoutMatrix, editCtxFromRefId as editCtxFromElRef, getActiveSubSchematic, getCompFromRef, getCompSubSchematic, getMatrixForEditContext, getSchematicForRef, globalRefToLocal } from './SubSchematics';
-import { useFunctionRef } from '../utils/hooks';
+import { useFunctionRef, useRequestAnimationFrame } from '../utils/hooks';
 import { copySelection, cutSelection, pasteSelection } from './Clipboard';
 import { deleteSelection } from './Selection';
 import { compIsVisible } from './ModelHelpers';
@@ -423,23 +423,74 @@ export const CanvasEventHandler: React.FC<{
         }));
     }
 
+    const scalePowerBase = 1.0013;
+
     function handleWheel(ev: WheelEvent) {
-        setEditorState(a => {
-            let scale = a.mtx.a;
-            let newScale = clamp(scale * Math.pow(1.0013, -ev.deltaY), 0.01, 100000) / scale;
-
-            let modelPt = evToModel(ev, a.mtx);
-            let newMtx = AffineMat2d.multiply(
-                a.mtx,
-                AffineMat2d.translateVec(modelPt),
-                AffineMat2d.scale1(newScale),
-                AffineMat2d.translateVec(modelPt.mul(-1)));
-
-            return assignImm(a, { mtx: newMtx });
+        setEditorState(state => {
+            let scale = state.targetScale ?? state.mtx.a;
+            let newScale = clamp(scale * Math.pow(scalePowerBase, -ev.deltaY * 2), 0.01, 100000);
+            return assignImm(state, { targetScale: newScale, scaleModelPt: evToModel(ev, state.mtx) });
         });
         ev.stopPropagation();
         ev.preventDefault();
     }
+
+    let zoomBitsRef = useRef({
+        initial: null as (number | null),
+        target: null as (number | null),
+        t: 0,
+     });
+
+    useRequestAnimationFrame(isNotNil(editorState.targetScale), (dtSeconds) => {
+        if (isNil(editorState.targetScale)) {
+            return;
+        }
+        let bits = zoomBitsRef.current;
+        let target = editorState.targetScale!;
+        if (bits.target !== target) {
+            bits.initial = editorState.mtx.a;
+            bits.target = target;
+            bits.t = 0;
+        }
+
+        bits.t += dtSeconds / 0.08; // t goes from 0 to 1 in 80ms
+
+        let initial = bits.initial!;
+
+        let isComplete = bits.t >= 1.0;
+        if (isComplete) {
+            bits.initial = null;
+            bits.target = null;
+            bits.t = 0;
+        }
+
+        // target = initial * Math.pow(scalePowerBase, someValue)
+        // someValue = log(target / initial) / log(scalePowerBase)
+
+        const scalePowerBase = 1.0013;
+        let factor = Math.log(target / initial) / Math.log(scalePowerBase);
+        let scaleInterp = isComplete ? target : initial * Math.pow(scalePowerBase, factor * bits.t);
+
+        setEditorState(state => {
+            let scaleAmt = scaleInterp / state.mtx.a;
+
+            if (isNil(state.scaleModelPt)) {
+                return state;
+            }
+
+            let newMtx = AffineMat2d.multiply(
+                    state.mtx,
+                    AffineMat2d.translateVec(state.scaleModelPt!),
+                    AffineMat2d.scale1(scaleAmt),
+                    AffineMat2d.translateVec(state.scaleModelPt!.mul(-1)));
+
+            return assignImm(state, {
+                mtx: newMtx,
+                scaleModelPt: isComplete ? undefined : state.scaleModelPt,
+                targetScale: isComplete ? undefined : state.targetScale,
+            });
+        });
+    });
 
     function getRefUnderCursor(editorState: IEditorState, ev: React.MouseEvent, schematic?: ISchematic, mtx?: AffineMat2d, idPrefix: string = ''): IHitTest | null {
         mtx ??= editorState.mtx;

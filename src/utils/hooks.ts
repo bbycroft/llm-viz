@@ -8,17 +8,17 @@ export function useFunctionRef<T extends ((...args: any[]) => any) | undefined>(
     return ref;
 }
 
-export function useRequestAnimationFrame(active: boolean, cb: (dt: number) => void) {
+export function useRequestAnimationFrame(active: boolean, cb: (dtSeconds: number) => void) {
     let cbRef = useFunctionRef(cb);
     useEffect(() => {
         let stale = false;
         let handle: number;
-        let prevTime: number | undefined;
+        let prevTimeMs: number | undefined;
 
-        function loop(time: number) {
-            let dt = (prevTime === undefined ? 16 : (time - prevTime)) / 1000;
-            prevTime = time;
-            cbRef.current(dt);
+        function loop(timeMs: number) {
+            let dtSeconds = (prevTimeMs === undefined ? 16 : (timeMs - prevTimeMs)) / 1000;
+            prevTimeMs = timeMs;
+            cbRef.current(dtSeconds);
             if (!stale) {
                 handle = requestAnimationFrame(loop);
             }

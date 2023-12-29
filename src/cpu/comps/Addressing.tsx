@@ -152,8 +152,8 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.stroke();
             */
         },
-        renderDom: ({ comp, exeComp, editCtx }) => {
-            return <Addressing editCtx={editCtx} comp={comp} exeComp={exeComp} />;
+        renderDom: ({ comp, exeComp, editCtx, isActive }) => {
+            return isActive ? <Addressing editCtx={editCtx} comp={comp} exeComp={exeComp} /> : null;
         },
     };
 
