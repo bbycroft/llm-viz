@@ -122,6 +122,8 @@ export interface IProgramState {
 
 export interface IEditorState {
     mtx: AffineMat2d;
+    targetScale?: number;
+    scaleModelPt?: Vec3;
 
     snapshot: IEditSnapshot;
     snapshotTemp: IEditSnapshot | null;
