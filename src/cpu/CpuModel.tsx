@@ -189,6 +189,7 @@ export interface ICanvasState {
 
 export interface IWireRenderCache {
     lookupWire(editorState: IEditorState, idPrefix: string, wire: IWireGraph): IWireRenderInfo;
+    lookupCompPort(editorState: IEditorState, idPrefix: string, comp: IComp, portId: number): [wire: IWireRenderInfo, nodeId: number] | null;
 }
 
 // Things that are calculated by traversing the graph, based on the exeModel

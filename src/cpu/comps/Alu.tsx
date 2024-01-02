@@ -58,12 +58,12 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             let lhs = ensureSigned32Bit(inAPort.value);
             let rhs = ensureSigned32Bit(inBPort.value);
 
-            let isEnabled = (ctrl & 0b100000) !== 0;
-            let isBranch =  (ctrl & 0b010000) !== 0;
+            let isEnabled = (ctrl & 0b000001) !== 0;
+            let isBranch =  (ctrl & 0b000010) !== 0;
 
-            let funct3 = (ctrl >> 1) & 0b111;
+            let funct3 = (ctrl >> 2) & 0b111;
             let isInverted = funct3 & 0b1;
-            let isArithShiftOrSub = (ctrl & 0b1) !== 0;
+            let isArithShiftOrSub = ((ctrl >> 5) & 0b1) !== 0;
 
             // want to show the integer values of the inputs and outputs (unless doing unsigned op)
             let opStr = '';
@@ -132,10 +132,10 @@ BLTU  = 0b110, // branch less than unsigned
 BGEU  = 0b111, // branch greater than or equal unsigned
 
 -- ctrl bit pattern becomes (5 bits):
--- bit      5: ALU enabled
--- bit      4: 0 = arith, 1 = branch
--- bits [3:1]: = funct3
--- bit      0: sub/shift logical
+-- bit      0: ALU enabled
+-- bit      1: 0 = arith, 1 = branch
+-- bits [4:2]: = funct3
+-- bit      5: sub/shift logical
 */
 
 function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort } }: IExeComp<ICompDataAlu>) {
@@ -143,8 +143,8 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
     let lhs = ensureSigned32Bit(inAPort.value);
     let rhs = ensureSigned32Bit(inBPort.value);
 
-    let isEnabled = (ctrl & 0b100000) !== 0;
-    let isBranch =  (ctrl & 0b010000) !== 0;
+    let isEnabled = (ctrl & 0b000001) !== 0;
+    let isBranch =  (ctrl & 0b000010) !== 0;
 
     // console.log(`alu: ctrl=${ctrl.toString(2)} lhs=${lhs} rhs=${rhs} isEnabled=${isEnabled} isBranch=${isBranch}`, rhs);
 
@@ -159,7 +159,7 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
     }
 
     if (isBranch) {
-        let funct3 = (ctrl >> 1) & 0b111;
+        let funct3 = (ctrl >> 2) & 0b111;
         let isInverted = funct3 & 0b1;
         let opts = funct3 & 0b110;
         let res = false;
@@ -174,8 +174,8 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
         branchPort.ioEnabled = true;
         // console.log('alu: branch res=' + res + ' isInverted=' + isInverted + ' branchPort=' + branchPort.value);
     } else {
-        let funct3 = (ctrl >> 1) & 0b111;
-        let isArithShiftOrSub = (ctrl & 0b1) !== 0;
+        let funct3 = (ctrl >> 2) & 0b111;
+        let isArithShiftOrSub = ((ctrl >> 5) & 0b1) !== 0;
         let res = 0;
         switch (funct3) {
             case 0b000: res = isArithShiftOrSub ? lhs - rhs : lhs + rhs; break; // add/sub

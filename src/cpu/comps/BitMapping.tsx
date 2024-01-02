@@ -15,7 +15,7 @@ interface IBitExpanderData {
 
 export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let w = 1;
+    let w = 2;
     let h = 2;
     let baseSize = new Vec3(w, h);
     let bitExpander: ICompDef<IBitExpanderData, IBitExpanderConfig> = {
@@ -26,7 +26,7 @@ export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         ports: (args) => {
             return [
                 { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: 1 },
-                { id: 'b', name: '', pos: new Vec3(1, 1), type: PortType.Out, width: args.bitWidth },
+                { id: 'b', name: '', pos: new Vec3(2, 1), type: PortType.Out, width: args.bitWidth },
             ];
         },
         initConfig: () => ({ rotate: 0, bitWidth: 32 }),
@@ -57,9 +57,9 @@ export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             // basic structure is a trapezoid, narrower on the right
             // slope passes through (1, 1) i.e. the select button, but doesn't need to be 45deg
             let slope = 0.7;
-            let x = 0; // comp.pos.x;
+            let x = 0.5; // comp.pos.x;
             let y = 0; //comp.pos.y;
-            let w = baseSize.x;
+            let w = baseSize.x - 1.0;
             let h = baseSize.y;
 
             ctx.moveTo(x, y + slope);

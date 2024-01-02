@@ -26,7 +26,7 @@ interface INotGateData {
 
 export function createBinaryGateMultiComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let wOrig = 3;
+    let wOrig = 4;
     let hOrig = 4;
     let rotateCenter = new Vec3(3, 3);
     let orGate: ICompDef<IBinGateMultiData, IBinGateMultiConfig> = {
@@ -91,10 +91,10 @@ export function createBinaryGateMultiComps(_args: ICompBuilderArgs): ICompDef<an
 
             // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
             let dx = 0.2;
-            let x = -dx;
+            let x = 0.5 - dx;
             let y = 0.5;
-            let rightX = x + wOrig;
-            let w = wOrig + dx;
+            let rightX = x + wOrig - 1;
+            let w = wOrig + dx - 1;
             let h = height - 1;
             let frontRad = Math.min(2.0, height > 5 ? h * 0.5 : h * 0.9);
             let rightYOff = 0; // height > 5 ? h / 8 : 0;

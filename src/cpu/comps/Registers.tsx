@@ -39,7 +39,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         defId: 'riscv/reg32',
         altDefIds: ['reg32Riscv'],
         name: "RISCV Registers",
-        size: new Vec3(w, 34),
+        size: new Vec3(w, 25),
         ports: [
             { id: 'ctrl', name: 'Ctrl', pos: new Vec3(4, 0), type: PortType.In | PortType.Ctrl, width: 3 * 6 },
             { id: 'in', name: 'In', pos: new Vec3(0, 3), type: PortType.In, width: 32 },
@@ -220,7 +220,7 @@ function renderRegisterFile({ ctx, comp, exeComp, styles }: ICompRenderArgs<ICom
         let rowIdx = i % 16;
 
         let boxSize = new Vec3((comp.size.x - padX) / 2 - padX, lineHeight);
-        let boxOffset = new Vec3(comp.pos.x + padX + ((comp.size.x - padX) / 2) * colIdx, comp.pos.y + padY + lineHeight * rowIdx);
+        let boxOffset = new Vec3(comp.pos.x + padX + ((comp.size.x - padX) / 2) * colIdx, comp.pos.y + padY + lineHeight * rowIdx + 0.3);
 
         ctx.beginPath();
         ctx.rect(boxOffset.x, boxOffset.y, boxSize.x, boxSize.y);
