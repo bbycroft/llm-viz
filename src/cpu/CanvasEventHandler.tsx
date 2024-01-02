@@ -534,6 +534,7 @@ export const CanvasEventHandler: React.FC<{
                 }
 
                 let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
+                bb.shrinkInPlaceXY(0.5);
                 if (bb.contains(mousePt)) {
 
                     if ((comp.hasSubSchematic || comp.subSchematicId) && editorState.maskHover !== comp.id && subSchematicVisible) {

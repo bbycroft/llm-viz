@@ -43,7 +43,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
         size: new Vec3(w, h),
         flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate | CompDefFlags.IsAtomic,
         ports: (args, compDef) => {
-            let portType = PortType.Out;
+            let portType = PortType.In;
             let pos = portPlacementToPos(args.portPos, args.w, args.h);
 
             return [
@@ -84,7 +84,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             ctx.textBaseline = 'middle';
 
             let value = exeComp.data.inPort.value;
-            ctx.fillText(value.toString(), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y / 2);
+            ctx.fillText(value.toString(), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y / 2 - 0.1);
 
             ctx.restore();
         },
@@ -138,7 +138,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             ctx.textBaseline = 'middle';
             ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
             ctx.fillStyle = 'black';
-            ctx.fillText('' + ensureSigned32Bit(exeComp?.data.value ?? 0), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y / 2 + 0.2);
+            ctx.fillText('' + ensureSigned32Bit(exeComp?.data.value ?? 0), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y / 2 + 0.1);
         },
         renderOptions: ({ comp, exeComp, editCtx }) => {
             return <InputOptions editCtx={editCtx} comp={comp} exeComp={exeComp} />;

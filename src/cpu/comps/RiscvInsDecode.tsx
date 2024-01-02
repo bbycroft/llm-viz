@@ -107,10 +107,10 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     }
 
     function setAluCtrl(enable: boolean, isBranch: boolean, funct3: number, isSpecial: boolean) {
-        let val = (enable ? 1 : 0) << 5 |
-                  (isBranch ? 1 : 0) << 4 |
-                  funct3 << 1 |
-                  (isSpecial ? 1 : 0) << 0;
+        let val = (enable ? 1 : 0) << 0 |
+                  (isBranch ? 1 : 0) << 1 |
+                  funct3 << 2 |
+                  (isSpecial ? 1 : 0) << 5;
         data.aluCtrl.value = val;
     }
 

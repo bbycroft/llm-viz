@@ -147,8 +147,8 @@ export function createCompIoComps(args: ICompBuilderArgs) {
 
             // let isInput = hasFlag(comp.args.type, PortType.In);
             // ctx.fillStyle = isInput ? palette.portInputBg : palette.portOutputBg;
-            let p = comp.pos;
-            let s = comp.size;
+            let p = new Vec3(comp.pos.x + 0.5, comp.pos.y + 0.5);
+            let s = new Vec3(comp.size.x - 1, comp.size.y - 1);
             ctx.roundRect(p.x, p.y, s.x, s.y, s.y / 2);
             ctx.restore();
         },
@@ -156,8 +156,8 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             ctx.save();
 
             let scale = Math.min(cvs.scale, 1/15);
-            let p = comp.pos;
-            let s = comp.size;
+            let p = new Vec3(comp.pos.x + 0.5, comp.pos.y + 0.5);
+            let s = new Vec3(comp.size.x - 1, comp.size.y - 1);
 
             ctx.fillStyle = 'black';
             ctx.font = makeCanvasFont(scale * 14);
@@ -384,16 +384,19 @@ export const PortResizer: React.FC<{
 
     function handleResize(end: boolean, pos: Vec3, size: Vec3) {
         setEditorState(editComp(editCtx, end, comp, a => assignImm(a, {
-            pos,
-            args: assignImm(a.args, { w: size.x, h: size.y }),
+            pos: new Vec3(pos.x - 0.5, pos.y - 0.5),
+            args: assignImm(a.args, { w: size.x + 1, h: size.y + 1 }),
             size,
         })));
     }
 
-    return <div className="absolute origin-top-left" style={{ transform: `translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`, width: comp.size.x * scale, height: comp.size.y * scale }}>
+    let posInner = comp.pos.add(new Vec3(0.5, 0.5));
+    let sizeInner = comp.size.sub(new Vec3(1, 1));
+
+    return <div className="absolute origin-top-left" style={{ transform: `translate(${posInner.x}px, ${posInner.y}px) scale(${1/scale})`, width: sizeInner.x * scale, height: sizeInner.y * scale }}>
         {[...new Array(4)].map((_, idx) => {
             // return <SideGripper key={idx} gripPos={idx} size={comp.size} pos={comp.pos} onResize={handleResize} centerY />;
-            return <CornerGripper key={idx} gripPos={1 << idx} size={comp.size} pos={comp.pos} onResize={handleResize} />;
+            return <CornerGripper key={idx} gripPos={1 << idx} size={sizeInner} pos={posInner} onResize={handleResize} />;
         })}
     </div>;
 });

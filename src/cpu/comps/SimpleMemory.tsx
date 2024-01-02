@@ -43,7 +43,7 @@ export enum BusMemCtrlType {
 
 export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
-    let romW = 35;
+    let romW = 32;
     let romH = 30;
     let rom: ICompDef<IRomExeData, IRomConfig> = {
         defId: 'mem/rom0',
@@ -85,7 +85,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             let fontScale = 0.8;
             ctx.save();
             ctx.beginPath();
-            ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+            ctx.rect(comp.pos.x + 0.5, comp.pos.y + 0.5, comp.size.x - 1, comp.size.y - 1);
             ctx.clip();
 
             ctx.font = makeCanvasFont(styles.fontSize * fontScale, FontType.Mono);
@@ -93,8 +93,8 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             let widthPerWord = widthPerChar * 3 * 4
             let padLeft = 0.5;
             let space = comp.size.x - padLeft * 2;
-            let xOffset = comp.pos.x + padLeft;
-            let yOffset = comp.pos.y + 0.5;
+            let xOffset = comp.pos.x + 0.5 + padLeft;
+            let yOffset = comp.pos.y + 1.0;
             let rowHeight = styles.lineHeight * fontScale;
 
             let numWordsPerRow = Math.floor(space / widthPerWord);
@@ -160,7 +160,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
         },
     };
 
-    let ramW = 35;
+    let ramW = 32;
     let ramH = 30;
 
     let ram: ICompDef<IRamExeData, IRamConfig> = {
@@ -270,7 +270,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             let fontScale = 0.8;
             ctx.save();
             ctx.beginPath();
-            ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+            ctx.rect(comp.pos.x + 0.5, comp.pos.y + 0.5, comp.size.x - 1, comp.size.y - 1);
             ctx.clip();
 
             ctx.font = makeCanvasFont(styles.fontSize * fontScale, FontType.Mono);
@@ -278,8 +278,8 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
             let widthPerWord = widthPerChar * 3 * 4
             let padLeft = 0.5;
             let space = comp.size.x - padLeft * 2;
-            let xOffset = comp.pos.x + padLeft;
-            let yOffset = comp.pos.y + 0.5;
+            let xOffset = comp.pos.x + padLeft + 0.5;
+            let yOffset = comp.pos.y + 1.0;
             let rowHeight = styles.lineHeight * fontScale;
 
             let numWordsPerRow = Math.floor(space / widthPerWord);

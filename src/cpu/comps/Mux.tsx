@@ -28,7 +28,7 @@ interface IAdderConfig extends IBaseCompConfig {
 export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
     let w = 2;
-    let h = 6;
+    let h = 4;
     let baseSize = new Vec3(w, h);
     let mux2: ICompDef<ICompDataMux, IMuxConfig> = {
         defId: 'flow/mux2',
@@ -37,12 +37,12 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         size: baseSize,
         flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate,
         ports: (args) => [
-            { id: 'sel', name: 'S', pos: new Vec3(1, 1), type: PortType.In, width: 1 },
+            { id: 'sel', name: 'S', pos: new Vec3(1, 0), type: PortType.In, width: 1 },
 
-            { id: 'a', name: '0', pos: new Vec3(0, 2), type: PortType.In, width: args.bitWidth },
-            { id: 'b', name: '1', pos: new Vec3(0, 4), type: PortType.In, width: args.bitWidth },
+            { id: 'a', name: '0', pos: new Vec3(0, 1), type: PortType.In, width: args.bitWidth },
+            { id: 'b', name: '1', pos: new Vec3(0, 3), type: PortType.In, width: args.bitWidth },
 
-            { id: 'out', name: 'Z', pos: new Vec3(w, 3), type: PortType.Out, width: args.bitWidth },
+            { id: 'out', name: 'Z', pos: new Vec3(w, 2), type: PortType.Out, width: args.bitWidth },
         ],
         applyConfig: (comp, args) => {
             rotatePortsInPlace(comp, args.rotate, baseSize);
@@ -75,20 +75,20 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         renderCanvasPath: ({ comp, ctx }) => {
             ctx.save();
 
-            ctx.translate(comp.pos.x, comp.pos.y);
+            ctx.translate(comp.pos.x + 0.5, comp.pos.y + 0.5);
             let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
             ctx.transform(...mtx.toTransformParams());
             // basic structure is a trapezoid, narrower on the right
             // slope passes through (1, 1) i.e. the select button, but doesn't need to be 45deg
-            let slope = 0.9;
-            let w = baseSize.x;
+            let slope = 0.4;
+            let w = baseSize.x - 1.0;
             let h = baseSize.y;
 
-            let yTl = 1 - slope * baseSize.x / 2;
-            let yTr = 1 + slope * baseSize.x / 2;
+            let yTl = 0.0 - slope * baseSize.x / 2;
+            let yTr = 0.0 + slope * baseSize.x / 2;
 
-            let yBl = h - 1 + slope * baseSize.x / 2;
-            let yBr = h - 1 - slope * baseSize.x / 2;
+            let yBl = h - 1.0 + slope * baseSize.x / 2;
+            let yBr = h - 1.0 - slope * baseSize.x / 2;
 
             ctx.moveTo(0, yTl);
             ctx.lineTo(0 + w, yTr);

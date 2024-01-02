@@ -10,6 +10,15 @@ export class WireRenderCache implements IWireRenderCache {
 
     wireCache = new Map<string, IWireRenderCacheItem>();
 
+    // This might not be a good idea, since caching is likely to not work properly
+    compPortCache = new Map<string, { wire: IWireRenderInfo, nodeId: string }>();
+
+    lookupCompPort(editorState: IEditorState, idPrefix: string, comp: IComp<any>, portId: number): [wire: IWireRenderInfo, nodeId: number] | null {
+        // need to think about how we do this. Maybe not part of WireRenderCache? Still want a way of looking up the IWireRenderInfo + nodeId for a given comp port.
+        // actually just need to find the right wire, and then can query the portBindings map with the compId/portId
+        return null;
+    }
+
     lookupWire(editorState: IEditorState, idPrefix: string, wire: IWireGraph): IWireRenderInfo {
         // Do full-clear if some of the global things have changed.
         // Could potentially be more fine-grained (moving to cache-items), but this is fine for now.
@@ -72,6 +81,7 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
     let flowSegs = new Set<string>(); // the direction of flow is given by id0 -> id1 in "id0:id1"
     let flowNodes = new Set<number>();
     let segKey = (id0: number, id1: number) => `${id0}:${id1}`;
+    let compPortKey = (compId: string, portId: string) => `${compId}:${portId}`; // the schematic-local comp id (i.e. comp.id)
     // data coming into the wire
     let activeSrcNodeCount = 0;
 
@@ -84,8 +94,6 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
 
     if (exeNet) {
         isNonZero = exeNet.value !== 0;
-
-        let key = (compId: string, portId: string) => `${compId}:${portId}`;
 
         for (let exePortRef of [...exeNet.inputs, ...exeNet.outputs]) {
             let exeComp = exePortRef.exeComp;
@@ -111,7 +119,7 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
 
             // Note that the key here is what the wire reports as connecting to, not necessarily the actual port/comp objects.
             // In the case of going to internal ports, the comp/port objects are the internal CompPort, but the wire ref is the external port.
-            portBindings.set(key(compId, portId), {
+            portBindings.set(compPortKey(compId, portId), {
                 comp: comp,
                 port: comp.ports[exePort.portIdx],
                 exePort: exePort,
@@ -123,7 +131,7 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
 
         for (let node of wire.nodes) {
             if (node.ref?.type === RefType.CompNode) {
-                let portBinding = portBindings.get(key(node.ref.id, node.ref.compNodeId!));
+                let portBinding = portBindings.get(compPortKey(node.ref.id, node.ref.compNodeId!));
                 if (portBinding) {
                     let port = portBinding.port;
                     if (hasFlag(port.type, PortType.Ctrl)) {

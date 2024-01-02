@@ -38,7 +38,7 @@ interface IBitExpanderMultiData {
 }
 
 export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[] {
-    let initialW = 2;
+    let initialW = 3;
     let initialH = 4;
 
     function computeHeight(args: IBitExpanderMultiConfig) {
@@ -80,7 +80,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
 
             let multiPortType = args.collapse ? PortType.In : PortType.Out;
             let multiPortPrefix = args.collapse ? 'i' : 'o';
-            let multiPortX = 2;
+            let multiPortX = 3;
 
             let offset = reverse ? fullHeight - 1 : 1;
             for (let range of args.bitRange) {
@@ -191,13 +191,11 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
-            // basic structure is a trapezoid, narrower on the right
-            // slope passes through (1, 1) i.e. the select button, but doesn't need to be 45deg
-            let slope = 0.7;
-            let x = 0;
-            let y = 0;
-            let w = baseSize.x;
-            let h = baseSize.y;
+            let slope = 0.3;
+            let x = 0.5;
+            let y = 0.5;
+            let w = baseSize.x - 1.0;
+            let h = baseSize.y - 1.0;
 
             ctx.moveTo(x + slope, y);
             ctx.lineTo(x + w, y);
@@ -249,15 +247,15 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                         let textBin = allBits.slice(startIdx, endIdx).join(' ');
                         let centerOffset = groupIdx * groupSize + (endIdx - startIdx) / 2 + 0.5;
                         if (isVert) {
-                            ctx.fillText(textBin, comp.pos.x + comp.size.x - 0.3, comp.pos.y + rangeDrawOffset + centerOffset);
+                            ctx.fillText(textBin, comp.pos.x + comp.size.x - 1.0, comp.pos.y + 0.0 + rangeDrawOffset + centerOffset);
                         } else {
-                            ctx.fillText(textBin, comp.pos.x + rangeDrawOffset + centerOffset, comp.pos.y + comp.size.y - 0.1);
+                            ctx.fillText(textBin, comp.pos.x + rangeDrawOffset + centerOffset, comp.pos.y - 0.5 + comp.size.y - 0.1);
                         }
                     }
                 } else {
                     let textBin = allBits.slice(rangeStart, rangeEnd + 1).join('');
                     let text = '0x' + parseInt(textBin, 2).toString(16).padStart(Math.ceil(nBits / 4), '0');
-                    ctx.fillText(text, comp.pos.x + rangeDrawOffset + rangeW / 2 + 0.5, comp.pos.y + comp.size.y - 0.1);
+                    ctx.fillText(text, comp.pos.x + rangeDrawOffset + rangeW / 2 + 0.5, comp.pos.y - 0.5 + comp.size.y - 0.1);
                 }
 
                 if (isVert) {
@@ -267,18 +265,18 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                         ctx.strokeStyle = '#777';
                         ctx.lineWidth = styles.lineWidth;
                         ctx.beginPath();
-                        ctx.moveTo(comp.pos.x + 0.4, lineYStart);
-                        ctx.lineTo(comp.pos.x + comp.size.x - 0.1, lineYStart);
+                        ctx.moveTo(comp.pos.x + 0.9, lineYStart);
+                        ctx.lineTo(comp.pos.x + comp.size.x - 0.6, lineYStart);
                         ctx.stroke();
                     }
 
                     ctx.font = makeCanvasFont(0.6, FontType.Mono);
                     ctx.fillStyle = '#777';
                     ctx.textAlign = 'right';
-                    ctx.fillText(range.end.toString(), comp.pos.x + 1.0, Math.round(lineYStart + 0.5));
+                    ctx.fillText(range.end.toString(), comp.pos.x + 1.5, Math.round(lineYStart + 0.5));
 
                     // ctx.textAlign = '';
-                    ctx.fillText(range.start.toString(), comp.pos.x + 1.0, Math.round(lineYStart + rangeW - 0.5));
+                    ctx.fillText(range.start.toString(), comp.pos.x + 1.5, Math.round(lineYStart + rangeW - 0.5));
                 } else {
 
                     let lineXStart = comp.pos.x + rangeDrawOffset + 0.5;
@@ -287,18 +285,18 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                         ctx.strokeStyle = '#777';
                         ctx.lineWidth = styles.lineWidth;
                         ctx.beginPath();
-                        ctx.moveTo(lineXStart, comp.pos.y + 0.4);
-                        ctx.lineTo(lineXStart, comp.pos.y + comp.size.y - 0.1);
+                        ctx.moveTo(lineXStart, comp.pos.y + 0.7);
+                        ctx.lineTo(lineXStart, comp.pos.y + comp.size.y - 0.6);
                         ctx.stroke();
                     }
 
                     ctx.font = makeCanvasFont(0.6, FontType.Mono);
                     ctx.fillStyle = '#777';
                     ctx.textAlign = 'center';
-                    ctx.fillText(range.end.toString(), Math.round(lineXStart + 0.5), comp.pos.y + 1.0);
+                    ctx.fillText(range.end.toString(), Math.round(lineXStart + 0.5), comp.pos.y + 1.5);
 
                     // ctx.textAlign = '';
-                    ctx.fillText(range.start.toString(), Math.round(lineXStart + rangeW - 0.5), comp.pos.y + 1.0);
+                    ctx.fillText(range.start.toString(), Math.round(lineXStart + rangeW - 0.5), comp.pos.y + 1.5);
                 }
 
                 rangeId += 1;

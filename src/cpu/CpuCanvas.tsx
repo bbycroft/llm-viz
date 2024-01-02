@@ -82,7 +82,7 @@ export const CpuCanvas: React.FC<{
                         comps: ctx.compLibrary.updateAllCompsFromDefs(a.snapshot.mainSchematic.comps),
                     }),
                 }),
-                needsZoomExtent: true,
+                needsZoomExtent: false,
             });
         });
     }, [setEditorState, sharedContext]);
@@ -98,7 +98,7 @@ export const CpuCanvas: React.FC<{
                     undoStack: schematic.undoStack ?? [],
                     redoStack: schematic.redoStack ?? [],
                     mtx: schematic.mtx ?? new AffineMat2d(),
-                    needsZoomExtent: true,
+                    needsZoomExtent: true, // schematic.id !== editorState.activeSchematicId,
                 }));
             } else {
                 setEditorState(a => assignImm(a, {
@@ -375,6 +375,10 @@ function renderAxes(cvs: ICanvasState, editorState: IEditorState) {
     ctx.restore();
 }
 
+const innerOffset = 0.5;
+const fontSize = 1.1;
+const lineHeight = 1.4;
+
 function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix = '', parentInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
@@ -426,8 +430,8 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             exeComp,
             editCtx: { idPrefix },
             styles: {
-                fontSize: 1.6,
-                lineHeight: 2.0,
+                fontSize: fontSize,
+                lineHeight: lineHeight,
                 fillColor: isValidExe ? palette.compBg : "#aaa",
                 strokeColor: isHover ? "#a00" : "#000",
                 lineWidth: 1 * cvs.scale,
@@ -441,7 +445,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             if (compDef?.renderCanvasPath) {
                 compDef.renderCanvasPath(compRenderArgs);
             } else {
-                ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+                ctx.rect(comp.pos.x + innerOffset, comp.pos.y + innerOffset, comp.size.x - 2 * innerOffset, comp.size.y - 2 * innerOffset);
             }
         }
 
@@ -499,7 +503,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             }
 
             for (let node of comp.ports) {
-                renderCompPort(cvs, editorState, comp, node);
+                renderCompPort(cvs, editorState, idPrefix, comp, node);
             }
         }
 
@@ -557,7 +561,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
     ctx.beginPath();
     let selectedCompSet = new Set(editorState.snapshot.selected.filter(a => a.type === RefType.Comp).map(a => a.id));
     for (let comp of layout.comps.filter(c => selectedCompSet.has(idPrefix + c.id))) {
-        ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+        ctx.rect(comp.pos.x + innerOffset, comp.pos.y + innerOffset, comp.size.x - 2 * innerOffset, comp.size.y - 2 * innerOffset);
     }
     ctx.strokeStyle = "#77f";
     ctx.lineWidth = 2 * cvs.scale;
@@ -628,6 +632,7 @@ function constructParentCompInfo(parentComp: IComp, subSchematic: ISchematic, su
 }
 
 function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IComp) {
+    let idPrefix = "";
     let ctx = cvs.ctx;
     let compDef = editorState.compLibrary.getCompDef(comp.defId);
     let isValidExe = false;
@@ -642,10 +647,10 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
         ctx,
         cvs,
         exeComp: null as any,
-        editCtx: { idPrefix: "" },
+        editCtx: { idPrefix },
         styles: {
-            fontSize: 1.6,
-            lineHeight: 2.0,
+            fontSize: fontSize,
+            lineHeight: lineHeight,
             fillColor: "#aaa",
             strokeColor: "#000",
             lineWidth: 1 * cvs.scale,
@@ -685,7 +690,7 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
     // }
 
     for (let node of comp.ports) {
-        renderCompPort(cvs, editorState, comp, node);
+        renderCompPort(cvs, editorState, idPrefix, comp, node);
     }
 
     ctx.restore();
@@ -766,47 +771,71 @@ function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart
 }
 */
 
-function renderCompPort(cvs: ICanvasState, editorState: IEditorState, comp: IComp, node: ICompPort) {
-    if (hasFlag(node.type, PortType.Hidden)) {
+function renderCompPort(cvs: ICanvasState, editorState: IEditorState, idPrefix: string, comp: IComp, port: ICompPort) {
+    if (hasFlag(port.type, PortType.Hidden)) {
         return;
     }
 
     let hoverRef = editorState.hovered?.ref;
-    let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === node.id;
-    let type = node.type ?? 0;
+    let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === port.id;
+    let type = port.type ?? 0;
     let isInput = (type & PortType.In) !== 0;
     let isTristate = (type & PortType.Tristate) !== 0;
     let ctx = cvs.ctx;
-    let x = comp.pos.x + node.pos.x;
-    let y = comp.pos.y + node.pos.y;
+    let x = comp.pos.x + port.pos.x;
+    let y = comp.pos.y + port.pos.y;
+
+    let innerOffset = 0.5;
+    let innerPos = new Vec3(x, y);
+    if (port.pos.x === 0) {
+        innerPos.x += innerOffset;
+    } else if (port.pos.x === comp.size.x) {
+        innerPos.x -= innerOffset;
+    } else if (port.pos.y === 0) {
+        innerPos.y += innerOffset;
+    } else if (port.pos.y === comp.size.y) {
+        innerPos.y -= innerOffset;
+    }
 
     let scale = Math.min(cvs.scale, 1 / 15);
 
+    let portWireInfo = editorState.wireRenderCache.lookupCompPort(editorState, idPrefix, comp, comp.ports.indexOf(port));
+
+    ctx.save();
     let r = 3 * scale;
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, 2 * Math.PI);
+    // ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.moveTo(x, y);
+    ctx.lineTo(innerPos.x, innerPos.y);
     ctx.strokeStyle = isHover ? "#f00" : "#000";
-    ctx.fillStyle = isInput ? "#fff" : isTristate ? "#a3f" : "#00fa";
-    ctx.fill();
+    // ctx.fillStyle = isInput ? "#fff" : isTristate ? "#a3f" : "#00fa";
+    // ctx.fill();
     ctx.stroke();
 
-    if (node.name) {
-        let isTop = node.pos.y === 0;
-        let isBot = node.pos.y === comp.size.y;
-        let isLeft = node.pos.x === 0;
-        let isRight = node.pos.x === comp.size.x;
+    if (port.name) {
+        let isTop = port.pos.y === 0;
+        let isBot = port.pos.y === comp.size.y;
+        let isLeft = port.pos.x === 0;
+        let isRight = port.pos.x === comp.size.x;
+        if (isTop || isBot) {
+            let px = innerPos.x;
+            let py = innerPos.y;
+            ctx.translate(px, py);
+            ctx.rotate(Math.PI / 2);
+            ctx.translate(-px, -py);
+        }
 
-        let text = node.name;
+        let text = port.name;
         let textHeight = 12 * scale;
         ctx.font = makeCanvasFont(textHeight);
-        ctx.textAlign = (isTop || isBot) ? 'center' : isLeft ? 'start' : 'end';
-        ctx.textBaseline = (isLeft || isRight) ? "middle" : isTop ? 'top' : 'bottom';
+        ctx.textAlign = isTop ? 'end' : isBot ? 'start' : isLeft ? 'end' : 'start';
+        ctx.textBaseline = (isLeft || isRight) ? "top" : isTop ? 'bottom' : 'bottom';
         ctx.fillStyle = "#000";
-        let deltaAmt = 8 * scale;
-        let deltaX = isLeft ? deltaAmt : isRight ? -deltaAmt : 0;
-        let deltaY = isTop ? deltaAmt : isBot ? -deltaAmt : 0;
+        let deltaX = isTop ? -0.1 : isBot ? 0.1 : isLeft ? 0.4 : isRight ? -0.4 : 0;
+        let deltaY = (isLeft || isRight) ? 0.2 : isTop ? 0.4 : isBot ? -0.6 : 0;
         ctx.fillText(text, x + deltaX, y + deltaY);
     }
+    ctx.restore();
 }
 
 function renderComponentBoundingBox(cvs: ICanvasState, editorState: IEditorState, layout: IEditSnapshot, idPrefix: string) {
