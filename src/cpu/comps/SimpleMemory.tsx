@@ -249,7 +249,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
                     ram32View[addr.value >> 2] = wordVal;
                     data.updateCntr += 1;
                 }
-            }, [], []);
+            }, [data.ctrl], []);
 
             return builder.build();
         },

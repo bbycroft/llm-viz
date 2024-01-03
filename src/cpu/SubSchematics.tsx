@@ -66,11 +66,14 @@ export function computeSubLayoutMatrix(comp: IComp, subSchematic: ISchematic) {
         bb = new BoundingBox3d(new Vec3(), comp.size.mul(2.5));
     }
 
+    let compSize = comp.size.sub(new Vec3(1, 1));
+    let compPos = comp.pos.add(new Vec3(0.5, 0.5));
+
     let bbSize = bb.size();
-    let scale = Math.min(comp.size.x / bbSize.x, comp.size.y / bbSize.y);
+    let scale = Math.min(compSize.x / bbSize.x, compSize.y / bbSize.y);
 
     let subMtx = AffineMat2d.multiply(
-        AffineMat2d.translateVec(comp.pos.mulAdd(comp.size, 0.5)),
+        AffineMat2d.translateVec(compPos.mulAdd(compSize, 0.5)),
         AffineMat2d.scale1(scale),
         AffineMat2d.translateVec(bb.min.mul(-1).mulAdd(bbSize, -0.5)),
     );

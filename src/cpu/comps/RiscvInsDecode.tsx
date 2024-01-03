@@ -348,9 +348,9 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
 
     ctx.save();
     ctx.translate(comp.pos.x, comp.pos.y);
-    ctx.scale(0.3, 0.3);
+    ctx.scale(0.5, 0.5);
     ctx.translate(-comp.pos.x, -comp.pos.y);
-    ctx.translate(17, 44);
+    ctx.translate(3.5, 25);
 
     let data = exeComp.data;
     let ins = data.ins.value;
