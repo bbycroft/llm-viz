@@ -99,7 +99,7 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
         exeSystem.lookup.compIdToIdx.set(fullCompId, newCompIdx);
         exeSystem.comps.push(exeComp);
 
-        if (subSchematic && !comp.subSchematicId) {
+        if (subSchematic) {
             let prefix = subTreePrefix + comp.id + '|';
 
             let innerSchematicPorts = subSchematic.comps.filter(a => a.defId === compPortDefId) as IComp<ICompPortConfig>[];
@@ -180,6 +180,7 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
                         exeComp: nestedExeComp,
                         exePort: nestedExternalPort,
                         valid: true,
+                        nestedPort: true,
                     }
                     if (hasFlag(exePort.type, PortType.In)) {
                         dests.push(portRef);
@@ -192,10 +193,10 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
             }
 
             if (hasFlag(exePort.type, PortType.In)) {
-                dests.push({ comp, portIdx, exeComp, exePort, valid: true });
+                dests.push({ comp, portIdx, exeComp, exePort, valid: true, nestedPort: false });
             }
             if (hasFlag(exePort.type, PortType.Out) && bindOutPort) {
-                srcs.push({ comp, portIdx, exeComp, exePort, valid: true });
+                srcs.push({ comp, portIdx, exeComp, exePort, valid: true, nestedPort: false });
             }
 
             if (hasFlag(exePort.type, PortType.Tristate)) {
@@ -665,33 +666,17 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
             }
 
             if (allOutputsUnused) {
-
-                // let writePorts = phase.writePortIdxs.map(i => comp.comp.ports[i].id);
-                // let readPorts = phase.readPortIdxs.map(i => comp.comp.ports[i].id);
-                // console.log('marking ports as unused', comp.comp.defId, step.phaseIdx, writePorts, ' => ', readPorts);
                 for (let portIdx of phase.readPortIdxs) {
                     let port = comp.ports[portIdx];
-                    // Making ctrl wires an exception, because... why?
-                    //  - I think this is a workaround where latch-phase ctrl wires are marked as unused, where they shouldn't be
-                    //  - e.g. if latch usage is controlled by ctrl-wires, then then ctrl-wires are _not_ unused
-                    //
-                    //  - Raises another issue: what if an input is used for multiple stages? If any stage uses it, then it's used!
-                    //  - but this logic disables it if any stage doesn't use it
-                    // if (!hasFlag(port.type, PortType.Ctrl)) {
-                        port.dataUsed = false;
-                    // }
+                    port.dataUsed = false;
                 }
             }
 
-
         } else if (step.netIdx !== -1) {
             let net = exeSystem.nets[step.netIdx];
-            if (hasFlag(net.type, PortType.Ctrl)) {
-                continue;
-            }
             let allOutputsUnused = true;
             for (let portRef of net.inputs) {
-                if (portRef.exePort.dataUsed) {
+                if (portRef.exePort.dataUsed && !portRef.nestedPort) {
                     allOutputsUnused = false;
                     break;
                 }
@@ -720,6 +705,11 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
             for (let portIdx of phase.readPortIdxs) {
                 let port = comp.ports[portIdx];
                 port.dataUsed = true;
+
+                let net = exeSystem.nets[port.netIdx];
+                for (let portRef of net.outputs) {
+                    portRef.exePort.dataUsed = true;
+                }
             }
         }
     }
