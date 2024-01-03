@@ -28,6 +28,9 @@
     },
     {
       "id": "adder_RippleAdder"
+    },
+    {
+      "id": "singleBitAdder"
     }
   ]
 }

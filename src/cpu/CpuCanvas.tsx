@@ -7,7 +7,7 @@ import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { applySetter, assignImm, getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { IEditorContext, IViewLayoutContext, MyStoreContext, ViewLayoutContext, useCreateStoreState } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, IParentCompInfo } from "./CpuModel";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, IParentCompInfo, IWireRenderInfo, IWirePortBinding } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { CompLibraryView } from "./CompLibraryView";
 import { CompExampleView } from "./CompExampleView";
@@ -379,14 +379,27 @@ const innerOffset = 0.5;
 const fontSize = 1.1;
 const lineHeight = 1.4;
 
+interface IWirePortInfo {
+    wireInfo: IWireRenderInfo;
+    portInfo: IWirePortBinding;
+}
+
 function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix = '', parentInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
 
     drawGrid(editorState.mtx, ctx, cvs, '#aaa', !!idPrefix);
 
+    let portBindingLookup = new Map<string, IWirePortInfo>();
+
     for (let wire of layout.wires) {
         let exeNet = exeSystem.nets[exeSystem.lookup.wireIdToNetIdx.get(idPrefix + wire.id) ?? -1];
+
+        let wireInfo = editorState.wireRenderCache.lookupWire(editorState, idPrefix, wire);
+        for (let [key, info] of wireInfo.portBindings) {
+            portBindingLookup.set(key, { wireInfo, portInfo: info });
+        }
+
         renderWire(cvs, editorState, wire, exeNet, exeSystem, idPrefix, parentInfo);
     }
 
@@ -503,7 +516,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             }
 
             for (let node of comp.ports) {
-                renderCompPort(cvs, editorState, idPrefix, comp, node);
+                renderCompPort(cvs, editorState, idPrefix, comp, node, portBindingLookup);
             }
         }
 
@@ -690,7 +703,7 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
     // }
 
     for (let node of comp.ports) {
-        renderCompPort(cvs, editorState, idPrefix, comp, node);
+        renderCompPort(cvs, editorState, idPrefix, comp, node, new Map());
     }
 
     ctx.restore();
@@ -771,10 +784,12 @@ function renderDragState(cvs: ICanvasState, editorState: IEditorState, dragStart
 }
 */
 
-function renderCompPort(cvs: ICanvasState, editorState: IEditorState, idPrefix: string, comp: IComp, port: ICompPort) {
+function renderCompPort(cvs: ICanvasState, editorState: IEditorState, idPrefix: string, comp: IComp, port: ICompPort, lookup: Map<string, IWirePortInfo>) {
     if (hasFlag(port.type, PortType.Hidden)) {
         return;
     }
+
+    let info = lookup.get(comp.id + ':' + port.id);
 
     let hoverRef = editorState.hovered?.ref;
     let isHover = hoverRef?.type === RefType.CompNode && hoverRef.id === comp.id && hoverRef.compNodeId === port.id;
@@ -799,18 +814,38 @@ function renderCompPort(cvs: ICanvasState, editorState: IEditorState, idPrefix: 
 
     let scale = Math.min(cvs.scale, 1 / 15);
 
-    let portWireInfo = editorState.wireRenderCache.lookupCompPort(editorState, idPrefix, comp, comp.ports.indexOf(port));
-
     ctx.save();
-    let r = 3 * scale;
     ctx.beginPath();
     // ctx.arc(x, y, r, 0, 2 * Math.PI);
     ctx.moveTo(x, y);
     ctx.lineTo(innerPos.x, innerPos.y);
-    ctx.strokeStyle = isHover ? "#f00" : "#000";
+
+    if (info) {
+        let noFlowColor = '#D3D3D3';
+        let zeroFlowColor = '#fec44f';
+        let nonZeroFlowColor = '#d95f0e';
+        let flowColor = info.wireInfo.isNonZero ? nonZeroFlowColor : zeroFlowColor;
+
+        ctx.lineCap = "round";
+        ctx.lineWidth = info.wireInfo.width * cvs.scale;
+        let isFlow = info.wireInfo.flowNodes.has(info.portInfo.nodeId);
+        ctx.strokeStyle = isFlow ? flowColor : noFlowColor;
+        ctx.stroke();
+
+
+        let r = Math.max(3, info.wireInfo.width) * cvs.scale * 0.5;
+        ctx.beginPath();
+        ctx.arc(innerPos.x, innerPos.y, r, 0, 2 * Math.PI);
+        ctx.fillStyle = '#000';
+        ctx.globalAlpha = 0.7;
+        ctx.fill();
+
+    } else {
+        ctx.strokeStyle = isHover ? "#f00" : "#000";
+        ctx.stroke();
+    }
     // ctx.fillStyle = isInput ? "#fff" : isTristate ? "#a3f" : "#00fa";
     // ctx.fill();
-    ctx.stroke();
 
     if (port.name) {
         let isTop = port.pos.y === 0;

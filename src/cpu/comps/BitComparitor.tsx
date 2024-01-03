@@ -81,12 +81,12 @@ export function createBitComparitorComps(_args: ICompBuilderArgs): ICompDef<any>
                 ctx.fillStyle = '#000';
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(comp.args.name, comp.pos.x + 0.2, comp.pos.y + comp.size.y / 2);
+                ctx.fillText(comp.args.name, comp.pos.x + 0.7, comp.pos.y + comp.size.y / 2 + 0.1);
             }
 
             ctx.textAlign = 'right';
             ctx.fillStyle = isMatch ? palleteColors.green[700] : palleteColors.red[700];
-            ctx.fillText(comp.args.match, comp.pos.x + comp.size.x - 0.2, comp.pos.y + comp.size.y / 2);
+            ctx.fillText(comp.args.match, comp.pos.x + comp.size.x - 0.7, comp.pos.y + comp.size.y / 2 + 0.1);
         },
     };
 

@@ -101,13 +101,14 @@ export interface IExeNet {
     enabledCount: number;
 }
 
-// in our execution data model, we use indexes rather than ids for perf
+// in our execution data model, we use indexes rather than ids for perf (?)
 export interface IExePortRef {
     comp: IComp;
     portIdx: number;
     exeComp: IExeComp
     exePort: IExePort;
     valid: boolean;
+    nestedPort: boolean;
 }
 
 // We're adding a new level of state, which tracks all editors (tabs), and they each have their own state (mostly).
