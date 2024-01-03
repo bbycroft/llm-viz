@@ -142,34 +142,5 @@ export function createMuxComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         },
     };
 
-    let aW = 4;
-    let aH = 6;
-    let adder: ICompDef<ICompDataAdder, IAdderConfig> = {
-        defId: 'math/adder',
-        altDefIds: ['adder'],
-        name: "+",
-        size: new Vec3(aW, aH),
-        ports: [
-            { id: 'a', name: 'A', pos: new Vec3(0, 2), type: PortType.In, width: 32 },
-            { id: 'b', name: 'B', pos: new Vec3(0, 4), type: PortType.In, width: 32 },
-
-            { id: 'out', name: 'O', pos: new Vec3(aW, 4), type: PortType.Out, width: 32 },
-        ],
-        build: (builder) => {
-            let data = builder.addData({
-                inAPort: builder.getPort('a'),
-                inBPort: builder.getPort('b'),
-                outPort: builder.getPort('out'),
-            });
-
-            builder.addPhase(({ data: { inAPort, inBPort, outPort } }) => {
-                outPort.value = inAPort.value + inBPort.value;
-            }, [data.inAPort, data.inBPort], [data.outPort]);
-
-            return builder.build();
-        },
-    };
-
-
-    return [mux2, adder];
+    return [mux2];
 }

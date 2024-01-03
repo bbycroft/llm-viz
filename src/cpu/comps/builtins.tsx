@@ -15,6 +15,7 @@ import { createBitMappingComps } from "./BitMapping";
 import { createBitExpanderComps } from "./BitExpander";
 import { createBitComparitorComps } from "./BitComparitor";
 import { createBinaryGateMultiComps } from "./BinaryGatesMulti";
+import { createMathLogicComps } from "./MathLogic";
 
 export function buildCompLibrary() {
     let compLibrary = new CompLibrary();
@@ -38,6 +39,7 @@ export function buildCompLibrary() {
         ...createBitExpanderComps(args),
         ...createBitComparitorComps(args),
         ...createBinaryGateMultiComps(args),
+        ...createMathLogicComps(args),
     ];
 
     for (let comp of comps) {

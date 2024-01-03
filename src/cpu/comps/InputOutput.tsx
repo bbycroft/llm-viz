@@ -20,6 +20,7 @@ interface IInputConfig extends IBaseCompConfig {
     w: number;
     h: number;
     portPos: PortPlacement;
+    rotate: number;
     signed: boolean;
 }
 
@@ -44,7 +45,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
         flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate | CompDefFlags.IsAtomic,
         ports: (args, compDef) => {
             let portType = PortType.In;
-            let pos = portPlacementToPos(args.portPos, args.w, args.h);
+            let pos = portPlacementToPos(args.rotate, args.w, args.h);
 
             return [
                 { id: 'x', name: '', pos, type: portType, width: args.bitWidth },
@@ -57,10 +58,12 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             h: 4,
             w: constW,
             portPos: PortPlacement.Right,
+            rotate: 0,
             signed: false,
         }),
         applyConfig: (comp, args) => {
             args.portPos ??= PortPlacement.Right;
+            args.rotate ??= args.portPos;
             comp.size = new Vec3(args.w, args.h);
         },
         build: (builder) => {
@@ -103,7 +106,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
         flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate | CompDefFlags.IsAtomic,
         ports: (args, compDef) => {
             let portType = PortType.Out;
-            let pos = portPlacementToPos(args.portPos, args.w, args.h);
+            let pos = portPlacementToPos(args.rotate, args.w, args.h);
 
             return [
                 { id: 'out', name: '', pos, type: portType, width: args.bitWidth },
@@ -116,9 +119,12 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             h: 4,
             w: constW,
             portPos: PortPlacement.Right,
+            rotate: 0,
             signed: false,
         }),
         applyConfig: (comp, args) => {
+            args.portPos ??= PortPlacement.Right;
+            args.rotate ??= args.portPos;
             comp.size = new Vec3(args.w, args.h);
         },
         build: (builder) => {

@@ -20,10 +20,10 @@ import { BooleanEditor } from "../displayTools/BooleanEditor";
 import { RectCorner } from "./SchematicComp";
 
 export enum PortPlacement {
-    Right,
-    Bottom,
-    Left,
-    Top,
+    Right = 0,
+    Bottom = 1,
+    Left = 2,
+    Top = 3,
 }
 
 export enum CompPortFlags {
@@ -40,6 +40,7 @@ export interface ICompPortConfig extends IBaseCompConfig {
     h: number;
     flags: CompPortFlags;
     portPos: PortPlacement;
+    rotate: PortPlacement;
     type: PortType;
     bitWidth: number;
     signed: boolean;
@@ -82,7 +83,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         ports: (args, compDef) => {
 
             let internalPortDir = switchPortDir(args.type);
-            let pos = portPlacementToPos(args.portPos, args.w, args.h);
+            let pos = portPlacementToPos(args.rotate, args.w, args.h);
 
             return [
                 { id: 'a', name: '', pos, type: internalPortDir, width: args.bitWidth },
@@ -96,6 +97,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             h: 6,
             type: PortType.Out,
             portPos: PortPlacement.Right,
+            rotate: 0,
             bitWidth: 1,
             signed: false,
             flags: CompPortFlags.None,
@@ -105,6 +107,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         }),
         applyConfig(comp, args) {
             args.flags ??= CompPortFlags.None;
+            args.rotate ??= args.portPos ?? PortPlacement.Right;
             comp.size = new Vec3(args.w, args.h);
         },
         build: (builder) => {

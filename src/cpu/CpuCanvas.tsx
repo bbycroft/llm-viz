@@ -623,7 +623,7 @@ function constructParentCompInfo(parentComp: IComp, subSchematic: ISchematic, su
             continue;
         }
 
-        let innerPos = subMtx.mulVec3Inv(parentComp.pos.add(parentPort.pos));
+        let innerPos = subMtx.mulVec3Inv(parentComp.pos.add(parentPort.pos).add(new Vec3(0.0, 0.0)));
 
         parentInfo.linkedCompPorts.set(comp.id, { compPort: comp, port: parentPort, innerPos });
     }
@@ -670,7 +670,7 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
     if (compDef?.renderCanvasPath) {
         compDef.renderCanvasPath(compRenderArgs);
     } else {
-        ctx.rect(comp.pos.x, comp.pos.y, comp.size.x, comp.size.y);
+        ctx.rect(comp.pos.x + innerOffset, comp.pos.y + innerOffset, comp.size.x - 2 * innerOffset, comp.size.y - 2 * innerOffset);
     }
     ctx.fill('evenodd');
     ctx.stroke();

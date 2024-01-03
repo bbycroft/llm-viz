@@ -63,7 +63,7 @@ export function createRegisterComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             });
             builder.addPhase(regFilePhase0, [data.inCtrlPort], [data.outAPort, data.outBPort]);
             builder.addPhase(regFilePhase1, [data.inCtrlPort, data.inDataPort], []);
-            builder.addLatchedPhase(regFilePhase2Latch, [], []);
+            builder.addLatchedPhase(regFilePhase2Latch, [data.inCtrlPort], []);
             return builder.build(data);
         },
         render: renderRegisterFile,

@@ -99,7 +99,7 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
         exeSystem.lookup.compIdToIdx.set(fullCompId, newCompIdx);
         exeSystem.comps.push(exeComp);
 
-        if (subSchematic) {
+        if (subSchematic && !comp.subSchematicId) {
             let prefix = subTreePrefix + comp.id + '|';
 
             let innerSchematicPorts = subSchematic.comps.filter(a => a.defId === compPortDefId) as IComp<ICompPortConfig>[];
@@ -642,6 +642,9 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
     for (let i = exeSystem.executionSteps.length - 1; i >= 0; i--) {
         let step = exeSystem.executionSteps[i];
         if (step.compIdx !== -1) {
+            // examining a comp's execution step:
+            //   - if all outputs are unused, mark all inputs as unused
+
             let comp = exeSystem.comps[step.compIdx];
             let phase = comp.phases[step.phaseIdx];
 
@@ -662,14 +665,21 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
             }
 
             if (allOutputsUnused) {
+
                 // let writePorts = phase.writePortIdxs.map(i => comp.comp.ports[i].id);
                 // let readPorts = phase.readPortIdxs.map(i => comp.comp.ports[i].id);
                 // console.log('marking ports as unused', comp.comp.defId, step.phaseIdx, writePorts, ' => ', readPorts);
                 for (let portIdx of phase.readPortIdxs) {
                     let port = comp.ports[portIdx];
-                    if (!hasFlag(port.type, PortType.Ctrl)) {
+                    // Making ctrl wires an exception, because... why?
+                    //  - I think this is a workaround where latch-phase ctrl wires are marked as unused, where they shouldn't be
+                    //  - e.g. if latch usage is controlled by ctrl-wires, then then ctrl-wires are _not_ unused
+                    //
+                    //  - Raises another issue: what if an input is used for multiple stages? If any stage uses it, then it's used!
+                    //  - but this logic disables it if any stage doesn't use it
+                    // if (!hasFlag(port.type, PortType.Ctrl)) {
                         port.dataUsed = false;
-                    }
+                    // }
                 }
             }
 
@@ -692,6 +702,24 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
                 for (let portRef of net.outputs) {
                     portRef.exePort.dataUsed = false;
                 }
+            }
+        }
+    }
+
+    for (let step of exeSystem.latchSteps) {
+        if (step.compIdx !== -1) {
+            let comp = exeSystem.comps[step.compIdx];
+            let phase = comp.phases[step.phaseIdx];
+
+            /* Latch steps have inputs that control whether the any data is used.
+                This is a bit hacky, probably should use another field name for latchSteps?
+
+                Anyway, since latches always depend on these as inputs, they'll always be marked as used
+            */
+
+            for (let portIdx of phase.readPortIdxs) {
+                let port = comp.ports[portIdx];
+                port.dataUsed = true;
             }
         }
     }

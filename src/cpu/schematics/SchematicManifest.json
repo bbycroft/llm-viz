@@ -22,6 +22,12 @@
     },
     {
       "id": "riscvBasicInsDecodeOnly"
+    },
+    {
+      "id": "aluInternalSimple"
+    },
+    {
+      "id": "adder_RippleAdder"
     }
   ]
 }

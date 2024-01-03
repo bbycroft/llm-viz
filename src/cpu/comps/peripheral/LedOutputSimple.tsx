@@ -143,7 +143,7 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
                 if (data.newValue !== null) {
                     data.value = data.newValue;
                 }
-            }, [], []);
+            }, [data.busCtrl], []);
 
             return builder.build();
         },
