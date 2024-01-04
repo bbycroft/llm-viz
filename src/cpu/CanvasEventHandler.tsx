@@ -16,6 +16,7 @@ import { deleteSelection } from './Selection';
 import { compIsVisible } from './ModelHelpers';
 import { shouldRenderComp } from './CanvasRenderHelpers';
 import { multiSortStableAsc } from '../utils/array';
+import { rotateCompIsHoriz, rotateCompPortPos } from './comps/CompHelpers';
 
 export const CanvasEventHandler: React.FC<{
     embedded?: boolean;
@@ -144,8 +145,7 @@ export const CanvasEventHandler: React.FC<{
             let [idPrefix, schematic] = getActiveSubSchematic(editorState);
 
             let compRefs = schematic.comps.filter(c => {
-                let bb2 = new BoundingBox3d(c.pos, c.pos.add(c.size));
-                return bb.intersects(bb2);
+                return bb.intersects(c.bb);
             }).map(c => ({ type: RefType.Comp, id: idPrefix + c.id }));
 
             let wireRefs = schematic.wires.flatMap(w => {
@@ -172,6 +172,7 @@ export const CanvasEventHandler: React.FC<{
                 selectRegion: end ? null : { bbox: bb, idPrefix: '' },
                 snapshot: assignImm(a.snapshot, {
                     selected: [...compRefs, ...wireRefs],
+                    selectionRotateCenter: null,
                 }),
             }));
 
@@ -210,6 +211,7 @@ export const CanvasEventHandler: React.FC<{
             setEditorState(a => assignImm(a, {
                 snapshot: assignImm(a.snapshot, {
                     selected: [hoveredRef],
+                    selectionRotateCenter: null,
                 }),
             }));
         } else {
@@ -217,6 +219,7 @@ export const CanvasEventHandler: React.FC<{
                 dragCreateComp: undefined,
                 snapshot: assignImm(a.snapshot, {
                     selected: [],
+                    selectionRotateCenter: null,
                 }),
             }));
         }
@@ -232,7 +235,7 @@ export const CanvasEventHandler: React.FC<{
         setEditorState(editMainSchematic(end, (schematic, state, snapshot) => {
             let deltaPos = newModelPos.sub(origModelPos);
             let snappedDelta = snapToGrid(deltaPos);
-            return moveSelectedComponents(schematic, snapshot.selected, snappedDelta);
+            return moveSelectedComponents(state, schematic, snapshot.selected, snappedDelta);
         }));
     }
 
@@ -245,16 +248,16 @@ export const CanvasEventHandler: React.FC<{
                 console.log(`WARN: handleWireCreateDrag: comp '${ref.id}' not found`);
                 return schematic;
             }
-            let startNode = startComp.ports.find(n => n.id === ref.compNodeId);
-            if (!startNode) {
+            let startPort = startComp.ports.find(n => n.id === ref.compNodeId);
+            if (!startPort) {
                 console.log(`WARN: handleWireCreateDrag: comp '${ref.id}' does not have the port '${ref.compNodeId}'`);
                 return schematic;
             }
 
-            let startPt = startComp.pos.add(startNode.pos);
+            let startPt = rotateCompPortPos(startComp, startPort);
             let endPt = snapToGrid(newModelPos);
 
-            let isHorizStart = startNode.pos.x === 0 || startNode.pos.x === startComp.size.x;
+            let isHorizStart = rotateCompIsHoriz(startComp, startPort.pos.x === 0 || startPort.pos.x === startComp.size.x);
 
             // split into horizontal and vertical segments
             // maybe drop some of the if's, and have a cleanup phase
@@ -518,14 +521,14 @@ export const CanvasEventHandler: React.FC<{
                 }
 
                 if (compPortsVisible) {
-                    for (let node of comp.ports) {
-                        let modelPos = comp.pos.add(node.pos);
+                    for (let port of comp.ports) {
+                        let modelPos = rotateCompPortPos(comp, port);
                         let nodeScreenPos = modelToScreen(modelPos, mtx);
                         let modelDist = modelPos.dist(mousePt);
                         let screenDist = nodeScreenPos.dist(mousePtScreen);
                         if (screenDist < 10) {
                             refsUnderCursor.push({
-                                ref: { type: RefType.CompNode, id: idPrefix + comp.id, compNodeId: node.id },
+                                ref: { type: RefType.CompNode, id: idPrefix + comp.id, compNodeId: port.id },
                                 distPx: screenDist,
                                 modelPt: modelPos,
                             });
@@ -533,8 +536,8 @@ export const CanvasEventHandler: React.FC<{
                     }
                 }
 
-                let bb = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
-                bb.shrinkInPlaceXY(0.5);
+                let bb = comp.bb; // new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
+                // bb.shrinkInPlaceXY(0.5);
                 if (bb.contains(mousePt)) {
 
                     if ((comp.hasSubSchematic || comp.subSchematicId) && editorState.maskHover !== comp.id && subSchematicVisible) {

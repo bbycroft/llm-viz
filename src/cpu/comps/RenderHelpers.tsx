@@ -61,11 +61,13 @@ export const CompRectBase: React.FC<{
 export function createCanvasDivStyle(comp: IComp): CSSProperties {
 
     let scale = scalePerCell;
+    let pos = comp.bb.min;
+    let size = comp.bb.size();
 
     return {
-        width: comp.size.x * scale,
-        height: comp.size.y * scale,
-        transform: `translate(${comp.pos.x}px, ${comp.pos.y}px) scale(${1/scale})`,
+        width: size.x * scale,
+        height: size.y * scale,
+        transform: `translate(${pos.x}px, ${pos.y}px) scale(${1/scale})`,
     };
 }
 

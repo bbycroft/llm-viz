@@ -69,17 +69,13 @@ export function drawGrid(mtx: AffineMat2d, ctx: CanvasRenderingContext2D, gridSt
 
 
 export function shouldRenderComp(comp: IComp, cvs: ICanvasState): readonly [renderComp: boolean, renderPorts: boolean, renderSubSchematic: boolean] {
-    let tl = cvs.mtx.mulVec3(comp.pos);
-    let br = cvs.mtx.mulVec3(comp.pos.add(comp.size));
-
-    let compBbLocal = new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
-    let compBb = new BoundingBox3d(tl, br);
+    let compBb = cvs.mtx.mulBb(comp.bb);
 
     if (!compBb.intersects(new BoundingBox3d(new Vec3(), cvs.size))) {
         return [false, false, false];
     }
 
-    let size = br.sub(tl);
+    let size = compBb.size();
     let area = size.x * size.y;
 
     let pxPerGrid = 1 / cvs.scale;

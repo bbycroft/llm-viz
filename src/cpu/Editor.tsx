@@ -55,28 +55,12 @@ export function editComp<A>(editCtx: IEditContext, end: boolean, comp: IComp<A>,
     });
 }
 
+export function editMainSchematic(end: boolean, updateEditSchematic: (schematic: IEditSchematic, state: IEditorState, snapshot: IEditSnapshot) => IEditSchematic) {
+    return editSubSchematic({ idPrefix: '' }, end, updateEditSchematic);
+}
+
 export function editSubSchematic(editCtx: IEditContext, end: boolean, updateEditSchematic: (schematic: IEditSchematic, state: IEditorState, snapshot: IEditSnapshot) => IEditSchematic) {
-    return (state: IEditorState) => {
-
-        let newSnapshot = updateSubSchematic(state, editCtx, state.snapshot, (schematic) => updateEditSchematic(schematic, state, state.snapshot));
-
-        if (end) {
-            if (newSnapshot === state.snapshot) {
-                return assignImm(state, { snapshotTemp: null });
-            }
-
-            state = assignImm(state, {
-                snapshot: newSnapshot,
-                snapshotTemp: null,
-                undoStack: [...state.undoStack, state.snapshot],
-                redoStack: [],
-            });
-        } else {
-            state = assignImm(state, { snapshotTemp: newSnapshot });
-        }
-
-        return state;
-    };
+    return editSnapshot(end, (snapshot, state) => updateSubSchematic(state, editCtx, snapshot, (schematic) => updateEditSchematic(schematic, state, snapshot)));
 }
 
 export function updateSubSchematic(editorState: IEditorState, editCtx: IEditContext, snapshot: IEditSnapshot, updateEditSchematic: (schematic: IEditSchematic) => IEditSchematic): IEditSnapshot {
@@ -98,11 +82,7 @@ export function updateSubSchematic(editorState: IEditorState, editCtx: IEditCont
     return snapshot;
 }
 
-export function editMainSchematic(end: boolean, updateEditSchematic: (schematic: IEditSchematic, state: IEditorState, snapshot: IEditSnapshot) => IEditSchematic) {
-    return editSubSchematic({ idPrefix: '' }, end, updateEditSchematic);
-}
-
-export function editSnapshot(end: boolean, updateSnapshot: (element: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
+export function editSnapshot(end: boolean, updateSnapshot: (snapshot: IEditSnapshot, state: IEditorState) => IEditSnapshot) {
     return (state: IEditorState) => {
         let newSnapshot = updateSnapshot(state.snapshot, state);
 

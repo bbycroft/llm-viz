@@ -317,11 +317,13 @@ export interface IComp<A = any> {
     subSchematicId?: string;
     pos: Vec3;
     size: Vec3;
+    rotation: number; // 0 = right, 1 = down, 2 = left, 3 = up
     ports: ICompPort[];
     args: A;
     flags: CompDefFlags;
     resolved: boolean;
     hasSubSchematic: boolean;
+    bb: BoundingBox3d;
 }
 
 export interface ICompPort {
@@ -363,6 +365,7 @@ export interface ISchematic {
 export interface IEditSnapshot {
     focusedIdPrefix: string | null; // where pastes will go, etc, and should point to a subSchematic. null means the top-level, mainSchematic
     selected: IElRef[];
+    selectionRotateCenter: Vec3 | null; // when rotating comps, we want the pivot point to be stable (it also has to be at integer coords), so we store it here
     mainSchematic: IEditSchematic;
     subSchematics: Record<string, IEditSchematic>;
 }

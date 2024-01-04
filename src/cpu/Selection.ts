@@ -72,5 +72,8 @@ export function deleteSelection(snapshot: IEditSnapshot, editorState: IEditorSta
         });
     });
 
-    return assignImm(newSnapshot, { selected: [] });
+    return assignImm(newSnapshot, {
+        selected: [],
+        selectionRotateCenter: null,
+    });
 }

@@ -1,6 +1,7 @@
 import { isNil, hasFlag, assignImm } from "@/src/utils/data";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
 import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, IEditSnapshot, ILibraryItem, ISchematic, ISubLayoutPort, ICompOptsRenderArgs, CompDefFlags } from "../CpuModel";
+import { rotateBboxInt } from "./CompHelpers";
 
 export interface ICompBuilderArgs {
 
@@ -146,22 +147,8 @@ export class CompLibrary {
 
     create<A = undefined>(defId: string, cfg?: A | undefined): IComp<A> {
         let compDef = this.getCompDef(defId);
-        if (!compDef) {
-            return {
-                id: '',
-                defId,
-                name: '<unknown>',
-                args: cfg ?? {} as any,
-                ports: [],
-                flags: CompDefFlags.None,
-                pos: new Vec3(0, 0),
-                size: new Vec3(4, 4),
-                resolved: false,
-                hasSubSchematic: false,
-            };
-        }
 
-        let args = compDef.initConfig ? compDef.initConfig({}) : {};
+        let args = compDef?.initConfig ? compDef.initConfig({}) : {};
 
         if (args && cfg) {
             args = assignImm(args, cfg);
@@ -169,32 +156,35 @@ export class CompLibrary {
 
         let comp: IComp = {
             id: '',
-            defId: compDef.defId,
-            name: compDef.name,
-            ports: compDef.ports instanceof Function ? compDef.ports(args, compDef) : compDef.ports,
-            flags: compDef.flags instanceof Function ? compDef.flags(args, compDef) : compDef.flags ?? CompDefFlags.None,
+            defId: compDef?.defId ?? defId,
+            name: compDef?.name ?? '<unknown>',
+            ports: [],
+            flags: CompDefFlags.None,
             pos: new Vec3(0, 0),
-            size: compDef.size,
+            size: compDef?.size ?? new Vec3(4, 4),
+            rotation: 0,
             args: args ?? {} as any,
-            resolved: true,
-            hasSubSchematic: !!compDef.subLayout,
+            resolved: !!compDef,
+            hasSubSchematic: !!compDef?.subLayout,
+            bb: new BoundingBox3d(),
         };
-        compDef.applyConfig?.(comp, comp.args);
-
+        if (compDef) {
+            this.updateCompFromDef(comp, compDef);
+        }
         return comp;
     }
 
-    updateCompFromDef(comp: IComp) {
-        let compDef = this.getCompDef(comp.defId);
-        if (!compDef) {
-            return;
+    updateCompFromDef(comp: IComp, compDef?: ICompDef<any>) {
+        compDef ??= this.getCompDef(comp.defId) ?? undefined;
+        if (compDef) {
+            comp.name ??= compDef.name;
+            comp.ports = compDef.ports instanceof Function ? compDef.ports(comp.args, compDef) : compDef.ports;
+            comp.flags = compDef.flags instanceof Function ? compDef.flags(comp.args, compDef) : compDef.flags ?? CompDefFlags.None;
+            comp.size = compDef.size;
+            comp.hasSubSchematic = !!compDef.subLayout;
+            compDef.applyConfig?.(comp, comp.args);
         }
-        comp.name ??= compDef.name;
-        comp.ports = compDef.ports instanceof Function ? compDef.ports(comp.args, compDef) : compDef.ports;
-        comp.flags = compDef.flags instanceof Function ? compDef.flags(comp.args, compDef) : compDef.flags ?? CompDefFlags.None;
-        comp.size = compDef.size;
-        comp.hasSubSchematic = !!compDef.subLayout;
-        compDef.applyConfig?.(comp, comp.args);
+        comp.bb = rotateBboxInt(comp.rotation, comp.pos, comp.size).shrinkInPlaceXY(0.5);
     }
 
     updateAllCompsFromDefs(comps: IComp[]) {

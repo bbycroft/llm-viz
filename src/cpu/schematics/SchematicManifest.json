@@ -31,6 +31,9 @@
     },
     {
       "id": "singleBitAdder"
+    },
+    {
+      "id": "mux_2Internal"
     }
   ]
 }

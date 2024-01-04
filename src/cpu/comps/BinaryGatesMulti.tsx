@@ -85,7 +85,7 @@ export function createBinaryGateMultiComps(_args: ICompBuilderArgs): ICompDef<an
             }
 
             let baseSize = new Vec3(wOrig, height);
-            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
+            let mtx = rotateAboutAffineInt(comp.rotation, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
 

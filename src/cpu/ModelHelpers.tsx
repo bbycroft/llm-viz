@@ -84,6 +84,7 @@ export function constructEditSnapshot(): IEditSnapshot {
     return {
         focusedIdPrefix: "",
         selected: [],
+        selectionRotateCenter: null,
         mainSchematic: {
             id: "",
             name: "",
