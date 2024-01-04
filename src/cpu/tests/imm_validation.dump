@@ -1,0 +1,608 @@
+
+imm_validation.elf:	file format elf32-littleriscv
+
+Disassembly of section .text_imm0_itype_li:
+
+00000000 <_start_imm0_itype_li>:
+       0: 93 00 00 00  	li	ra, 0x0
+       4: 13 01 f0 ff  	li	sp, -0x1
+       8: 93 01 10 00  	li	gp, 0x1
+       c: 13 02 20 00  	li	tp, 0x2
+      10: 93 02 40 00  	li	t0, 0x4
+      14: 13 03 80 00  	li	t1, 0x8
+      18: 93 03 00 01  	li	t2, 0x10
+      1c: 13 04 00 02  	li	s0, 0x20
+      20: 93 04 00 04  	li	s1, 0x40
+      24: 13 05 00 08  	li	a0, 0x80
+      28: 93 05 00 10  	li	a1, 0x100
+      2c: 13 06 00 20  	li	a2, 0x200
+      30: 93 06 00 40  	li	a3, 0x400
+      34: 13 07 00 80  	li	a4, -0x800
+      38: 93 07 e0 ff  	li	a5, -0x2
+      3c: 13 08 d0 ff  	li	a6, -0x3
+      40: 93 08 b0 ff  	li	a7, -0x5
+      44: 13 09 70 ff  	li	s2, -0x9
+      48: 93 09 f0 fe  	li	s3, -0x11
+      4c: 13 0a f0 fd  	li	s4, -0x21
+      50: 93 0a f0 fb  	li	s5, -0x41
+      54: 13 0b f0 f7  	li	s6, -0x81
+      58: 93 0b f0 ef  	li	s7, -0x101
+      5c: 13 0c f0 df  	li	s8, -0x201
+      60: 93 0c f0 bf  	li	s9, -0x401
+      64: 13 0d f0 7f  	li	s10, 0x7ff
+      68: 93 0d 00 00  	li	s11, 0x0
+      6c: 13 0e 10 00  	li	t3, 0x1
+      70: 93 0e 30 00  	li	t4, 0x3
+      74: 13 0f 70 00  	li	t5, 0x7
+      78: 93 0f f0 00  	li	t6, 0xf
+      7c: 93 00 f0 01  	li	ra, 0x1f
+      80: 13 01 f0 03  	li	sp, 0x3f
+      84: 93 01 f0 07  	li	gp, 0x7f
+      88: 13 02 f0 0f  	li	tp, 0xff
+      8c: 93 02 f0 1f  	li	t0, 0x1ff
+      90: 13 03 f0 3f  	li	t1, 0x3ff
+      94: 93 03 f0 ff  	li	t2, -0x1
+      98: 13 04 e0 ff  	li	s0, -0x2
+      9c: 93 04 c0 ff  	li	s1, -0x4
+      a0: 13 05 80 ff  	li	a0, -0x8
+      a4: 93 05 00 ff  	li	a1, -0x10
+      a8: 13 06 00 fe  	li	a2, -0x20
+      ac: 93 06 00 fc  	li	a3, -0x40
+      b0: 13 07 00 f8  	li	a4, -0x80
+      b4: 93 07 00 f0  	li	a5, -0x100
+      b8: 13 08 00 e0  	li	a6, -0x200
+      bc: 93 08 00 c0  	li	a7, -0x400
+      c0: 13 09 30 00  	li	s2, 0x3
+      c4: 93 09 60 00  	li	s3, 0x6
+      c8: 13 0a c0 00  	li	s4, 0xc
+      cc: 93 0a 80 01  	li	s5, 0x18
+      d0: 13 0b 00 03  	li	s6, 0x30
+      d4: 93 0b 00 06  	li	s7, 0x60
+      d8: 13 0c 00 0c  	li	s8, 0xc0
+      dc: 93 0c 00 18  	li	s9, 0x180
+      e0: 13 0d 00 30  	li	s10, 0x300
+      e4: 93 0d 00 60  	li	s11, 0x600
+      e8: 13 0e 00 c0  	li	t3, -0x400
+      ec: 93 0e c0 ff  	li	t4, -0x4
+      f0: 13 0f 90 ff  	li	t5, -0x7
+      f4: 93 0f 30 ff  	li	t6, -0xd
+      f8: 93 00 70 fe  	li	ra, -0x19
+      fc: 13 01 f0 fc  	li	sp, -0x31
+     100: 93 01 f0 f9  	li	gp, -0x61
+     104: 13 02 f0 f3  	li	tp, -0xc1
+     108: 93 02 f0 e7  	li	t0, -0x181
+     10c: 13 03 f0 cf  	li	t1, -0x301
+     110: 93 03 f0 9f  	li	t2, -0x601
+     114: 13 04 f0 3f  	li	s0, 0x3ff
+     118: 6f 00 00 01  	j	0x128 <success_imm0_itype_li>
+
+0000011c <fail_imm0_itype_li>:
+     11c: 13 05 f0 38  	li	a0, 0x38f
+     120: 73 00 00 00  	ecall
+     124: 00 00        	<unknown>
+     126: 00 00        	<unknown>
+
+00000128 <success_imm0_itype_li>:
+     128: 13 05 c0 02  	li	a0, 0x2c
+     12c: 73 00 00 00  	ecall
+
+Disassembly of section .text_imm1_itype_lb:
+
+00000130 <_start_imm1_itype_lb>:
+     130: 03 00 00 00  	lb	zero, 0x0(zero)
+     134: 03 00 f0 ff  	lb	zero, -0x1(zero)
+     138: 03 00 10 00  	lb	zero, 0x1(zero)
+     13c: 03 00 20 00  	lb	zero, 0x2(zero)
+     140: 03 00 40 00  	lb	zero, 0x4(zero)
+     144: 03 00 80 00  	lb	zero, 0x8(zero)
+     148: 03 00 00 01  	lb	zero, 0x10(zero)
+     14c: 03 00 00 02  	lb	zero, 0x20(zero)
+     150: 03 00 00 04  	lb	zero, 0x40(zero)
+     154: 03 00 00 08  	lb	zero, 0x80(zero)
+     158: 03 00 00 10  	lb	zero, 0x100(zero)
+     15c: 03 00 00 20  	lb	zero, 0x200(zero)
+     160: 03 00 00 40  	lb	zero, 0x400(zero)
+     164: 03 00 00 80  	lb	zero, -0x800(zero)
+     168: 03 00 e0 ff  	lb	zero, -0x2(zero)
+     16c: 03 00 d0 ff  	lb	zero, -0x3(zero)
+     170: 03 00 b0 ff  	lb	zero, -0x5(zero)
+     174: 03 00 70 ff  	lb	zero, -0x9(zero)
+     178: 03 00 f0 fe  	lb	zero, -0x11(zero)
+     17c: 03 00 f0 fd  	lb	zero, -0x21(zero)
+     180: 03 00 f0 fb  	lb	zero, -0x41(zero)
+     184: 03 00 f0 f7  	lb	zero, -0x81(zero)
+     188: 03 00 f0 ef  	lb	zero, -0x101(zero)
+     18c: 03 00 f0 df  	lb	zero, -0x201(zero)
+     190: 03 00 f0 bf  	lb	zero, -0x401(zero)
+     194: 03 00 f0 7f  	lb	zero, 0x7ff(zero)
+     198: 03 00 00 00  	lb	zero, 0x0(zero)
+     19c: 03 00 10 00  	lb	zero, 0x1(zero)
+     1a0: 03 00 30 00  	lb	zero, 0x3(zero)
+     1a4: 03 00 70 00  	lb	zero, 0x7(zero)
+     1a8: 03 00 f0 00  	lb	zero, 0xf(zero)
+     1ac: 03 00 f0 01  	lb	zero, 0x1f(zero)
+     1b0: 03 00 f0 03  	lb	zero, 0x3f(zero)
+     1b4: 03 00 f0 07  	lb	zero, 0x7f(zero)
+     1b8: 03 00 f0 0f  	lb	zero, 0xff(zero)
+     1bc: 03 00 f0 1f  	lb	zero, 0x1ff(zero)
+     1c0: 03 00 f0 3f  	lb	zero, 0x3ff(zero)
+     1c4: 03 00 f0 ff  	lb	zero, -0x1(zero)
+     1c8: 03 00 e0 ff  	lb	zero, -0x2(zero)
+     1cc: 03 00 c0 ff  	lb	zero, -0x4(zero)
+     1d0: 03 00 80 ff  	lb	zero, -0x8(zero)
+     1d4: 03 00 00 ff  	lb	zero, -0x10(zero)
+     1d8: 03 00 00 fe  	lb	zero, -0x20(zero)
+     1dc: 03 00 00 fc  	lb	zero, -0x40(zero)
+     1e0: 03 00 00 f8  	lb	zero, -0x80(zero)
+     1e4: 03 00 00 f0  	lb	zero, -0x100(zero)
+     1e8: 03 00 00 e0  	lb	zero, -0x200(zero)
+     1ec: 03 00 00 c0  	lb	zero, -0x400(zero)
+     1f0: 03 00 30 00  	lb	zero, 0x3(zero)
+     1f4: 03 00 60 00  	lb	zero, 0x6(zero)
+     1f8: 03 00 c0 00  	lb	zero, 0xc(zero)
+     1fc: 03 00 80 01  	lb	zero, 0x18(zero)
+     200: 03 00 00 03  	lb	zero, 0x30(zero)
+     204: 03 00 00 06  	lb	zero, 0x60(zero)
+     208: 03 00 00 0c  	lb	zero, 0xc0(zero)
+     20c: 03 00 00 18  	lb	zero, 0x180(zero)
+     210: 03 00 00 30  	lb	zero, 0x300(zero)
+     214: 03 00 00 60  	lb	zero, 0x600(zero)
+     218: 03 00 00 c0  	lb	zero, -0x400(zero)
+     21c: 03 00 c0 ff  	lb	zero, -0x4(zero)
+     220: 03 00 90 ff  	lb	zero, -0x7(zero)
+     224: 03 00 30 ff  	lb	zero, -0xd(zero)
+     228: 03 00 70 fe  	lb	zero, -0x19(zero)
+     22c: 03 00 f0 fc  	lb	zero, -0x31(zero)
+     230: 03 00 f0 f9  	lb	zero, -0x61(zero)
+     234: 03 00 f0 f3  	lb	zero, -0xc1(zero)
+     238: 03 00 f0 e7  	lb	zero, -0x181(zero)
+     23c: 03 00 f0 cf  	lb	zero, -0x301(zero)
+     240: 03 00 f0 9f  	lb	zero, -0x601(zero)
+     244: 03 00 f0 3f  	lb	zero, 0x3ff(zero)
+     248: 6f 00 00 01  	j	0x258 <success_imm1_itype_lb>
+
+0000024c <fail_imm1_itype_lb>:
+     24c: 13 05 f0 38  	li	a0, 0x38f
+     250: 73 00 00 00  	ecall
+     254: 00 00        	<unknown>
+     256: 00 00        	<unknown>
+
+00000258 <success_imm1_itype_lb>:
+     258: 13 05 c0 02  	li	a0, 0x2c
+     25c: 73 00 00 00  	ecall
+
+Disassembly of section .text_imm2_stype_sb:
+
+00000260 <_start_imm2_stype_sb>:
+     260: 23 00 00 00  	sb	zero, 0x0(zero)
+     264: a3 0f 00 fe  	sb	zero, -0x1(zero)
+     268: a3 00 00 00  	sb	zero, 0x1(zero)
+     26c: 23 01 00 00  	sb	zero, 0x2(zero)
+     270: 23 02 00 00  	sb	zero, 0x4(zero)
+     274: 23 04 00 00  	sb	zero, 0x8(zero)
+     278: 23 08 00 00  	sb	zero, 0x10(zero)
+     27c: 23 00 00 02  	sb	zero, 0x20(zero)
+     280: 23 00 00 04  	sb	zero, 0x40(zero)
+     284: 23 00 00 08  	sb	zero, 0x80(zero)
+     288: 23 00 00 10  	sb	zero, 0x100(zero)
+     28c: 23 00 00 20  	sb	zero, 0x200(zero)
+     290: 23 00 00 40  	sb	zero, 0x400(zero)
+     294: 23 00 00 80  	sb	zero, -0x800(zero)
+     298: 23 0f 00 fe  	sb	zero, -0x2(zero)
+     29c: a3 0e 00 fe  	sb	zero, -0x3(zero)
+     2a0: a3 0d 00 fe  	sb	zero, -0x5(zero)
+     2a4: a3 0b 00 fe  	sb	zero, -0x9(zero)
+     2a8: a3 07 00 fe  	sb	zero, -0x11(zero)
+     2ac: a3 0f 00 fc  	sb	zero, -0x21(zero)
+     2b0: a3 0f 00 fa  	sb	zero, -0x41(zero)
+     2b4: a3 0f 00 f6  	sb	zero, -0x81(zero)
+     2b8: a3 0f 00 ee  	sb	zero, -0x101(zero)
+     2bc: a3 0f 00 de  	sb	zero, -0x201(zero)
+     2c0: a3 0f 00 be  	sb	zero, -0x401(zero)
+     2c4: a3 0f 00 7e  	sb	zero, 0x7ff(zero)
+     2c8: 23 00 00 00  	sb	zero, 0x0(zero)
+     2cc: a3 00 00 00  	sb	zero, 0x1(zero)
+     2d0: a3 01 00 00  	sb	zero, 0x3(zero)
+     2d4: a3 03 00 00  	sb	zero, 0x7(zero)
+     2d8: a3 07 00 00  	sb	zero, 0xf(zero)
+     2dc: a3 0f 00 00  	sb	zero, 0x1f(zero)
+     2e0: a3 0f 00 02  	sb	zero, 0x3f(zero)
+     2e4: a3 0f 00 06  	sb	zero, 0x7f(zero)
+     2e8: a3 0f 00 0e  	sb	zero, 0xff(zero)
+     2ec: a3 0f 00 1e  	sb	zero, 0x1ff(zero)
+     2f0: a3 0f 00 3e  	sb	zero, 0x3ff(zero)
+     2f4: a3 0f 00 fe  	sb	zero, -0x1(zero)
+     2f8: 23 0f 00 fe  	sb	zero, -0x2(zero)
+     2fc: 23 0e 00 fe  	sb	zero, -0x4(zero)
+     300: 23 0c 00 fe  	sb	zero, -0x8(zero)
+     304: 23 08 00 fe  	sb	zero, -0x10(zero)
+     308: 23 00 00 fe  	sb	zero, -0x20(zero)
+     30c: 23 00 00 fc  	sb	zero, -0x40(zero)
+     310: 23 00 00 f8  	sb	zero, -0x80(zero)
+     314: 23 00 00 f0  	sb	zero, -0x100(zero)
+     318: 23 00 00 e0  	sb	zero, -0x200(zero)
+     31c: 23 00 00 c0  	sb	zero, -0x400(zero)
+     320: a3 01 00 00  	sb	zero, 0x3(zero)
+     324: 23 03 00 00  	sb	zero, 0x6(zero)
+     328: 23 06 00 00  	sb	zero, 0xc(zero)
+     32c: 23 0c 00 00  	sb	zero, 0x18(zero)
+     330: 23 08 00 02  	sb	zero, 0x30(zero)
+     334: 23 00 00 06  	sb	zero, 0x60(zero)
+     338: 23 00 00 0c  	sb	zero, 0xc0(zero)
+     33c: 23 00 00 18  	sb	zero, 0x180(zero)
+     340: 23 00 00 30  	sb	zero, 0x300(zero)
+     344: 23 00 00 60  	sb	zero, 0x600(zero)
+     348: 23 00 00 c0  	sb	zero, -0x400(zero)
+     34c: 23 0e 00 fe  	sb	zero, -0x4(zero)
+     350: a3 0c 00 fe  	sb	zero, -0x7(zero)
+     354: a3 09 00 fe  	sb	zero, -0xd(zero)
+     358: a3 03 00 fe  	sb	zero, -0x19(zero)
+     35c: a3 07 00 fc  	sb	zero, -0x31(zero)
+     360: a3 0f 00 f8  	sb	zero, -0x61(zero)
+     364: a3 0f 00 f2  	sb	zero, -0xc1(zero)
+     368: a3 0f 00 e6  	sb	zero, -0x181(zero)
+     36c: a3 0f 00 ce  	sb	zero, -0x301(zero)
+     370: a3 0f 00 9e  	sb	zero, -0x601(zero)
+     374: a3 0f 00 3e  	sb	zero, 0x3ff(zero)
+     378: 6f 00 00 01  	j	0x388 <success_imm2_stype_sb>
+
+0000037c <fail_imm2_stype_sb>:
+     37c: 13 05 f0 38  	li	a0, 0x38f
+     380: 73 00 00 00  	ecall
+     384: 00 00        	<unknown>
+     386: 00 00        	<unknown>
+
+00000388 <success_imm2_stype_sb>:
+     388: 13 05 c0 02  	li	a0, 0x2c
+     38c: 73 00 00 00  	ecall
+
+Disassembly of section .text_imm2_btype_bne:
+
+00000390 <_start_imm2_btype_bne>:
+     390: 63 10 00 00  	bnez	zero, 0x390 <_start_imm2_btype_bne>
+     394: e3 1f 00 fe  	bnez	zero, 0x392 <_start_imm2_btype_bne+0x2>
+     398: 63 11 00 00  	bnez	zero, 0x39a <_start_imm2_btype_bne+0xa>
+     39c: 63 12 00 00  	bnez	zero, 0x3a0 <_start_imm2_btype_bne+0x10>
+     3a0: 63 14 00 00  	bnez	zero, 0x3a8 <_start_imm2_btype_bne+0x18>
+     3a4: 63 18 00 00  	bnez	zero, 0x3b4 <_start_imm2_btype_bne+0x24>
+     3a8: 63 10 00 02  	bnez	zero, 0x3c8 <_start_imm2_btype_bne+0x38>
+     3ac: 63 10 00 04  	bnez	zero, 0x3ec <_start_imm2_btype_bne+0x5c>
+     3b0: 63 10 00 08  	bnez	zero, 0x430 <_start_imm2_btype_bne+0xa0>
+     3b4: 63 10 00 10  	bnez	zero, 0x4b4 <fail_imm2_btype_bne+0x8>
+     3b8: 63 10 00 20  	bnez	zero, 0x5b8 <_start_imm2_utype_lui+0xf8>
+     3bc: 63 10 00 40  	bnez	zero, 0x7bc <_start_imm2_jtype_jal+0x10c>
+     3c0: e3 10 00 00  	bnez	zero, 0xbc0 <success_imm2_jtype_jal+0x328>
+     3c4: 63 10 00 80  	bnez	zero, 0xfffff3c4 <success_imm2_jtype_jal+0xffffffffffffeb2c>
+     3c8: e3 1e 00 fe  	bnez	zero, 0x3c4 <_start_imm2_btype_bne+0x34>
+     3cc: e3 1d 00 fe  	bnez	zero, 0x3c6 <_start_imm2_btype_bne+0x36>
+     3d0: e3 1b 00 fe  	bnez	zero, 0x3c6 <_start_imm2_btype_bne+0x36>
+     3d4: e3 17 00 fe  	bnez	zero, 0x3c2 <_start_imm2_btype_bne+0x32>
+     3d8: e3 1f 00 fc  	bnez	zero, 0x3b6 <_start_imm2_btype_bne+0x26>
+     3dc: e3 1f 00 fa  	bnez	zero, 0x39a <_start_imm2_btype_bne+0xa>
+     3e0: e3 1f 00 f6  	bnez	zero, 0x35e <_start_imm2_stype_sb+0xfe>
+     3e4: e3 1f 00 ee  	bnez	zero, 0x2e2 <_start_imm2_stype_sb+0x82>
+     3e8: e3 1f 00 de  	bnez	zero, 0x1e6 <_start_imm1_itype_lb+0xb6>
+     3ec: e3 1f 00 be  	bnez	zero, 0xffffffea <success_imm2_jtype_jal+0xfffffffffffff752>
+     3f0: 63 1f 00 fe  	bnez	zero, 0xfffffbee <success_imm2_jtype_jal+0xfffffffffffff356>
+     3f4: e3 1f 00 7e  	bnez	zero, 0x13f2 <success_imm2_jtype_jal+0xb5a>
+     3f8: 63 10 00 00  	bnez	zero, 0x3f8 <_start_imm2_btype_bne+0x68>
+     3fc: 63 11 00 00  	bnez	zero, 0x3fe <_start_imm2_btype_bne+0x6e>
+     400: 63 13 00 00  	bnez	zero, 0x406 <_start_imm2_btype_bne+0x76>
+     404: 63 17 00 00  	bnez	zero, 0x412 <_start_imm2_btype_bne+0x82>
+     408: 63 1f 00 00  	bnez	zero, 0x426 <_start_imm2_btype_bne+0x96>
+     40c: 63 1f 00 02  	bnez	zero, 0x44a <_start_imm2_btype_bne+0xba>
+     410: 63 1f 00 06  	bnez	zero, 0x48e <_start_imm2_btype_bne+0xfe>
+     414: 63 1f 00 0e  	bnez	zero, 0x512 <_start_imm2_utype_lui+0x52>
+     418: 63 1f 00 1e  	bnez	zero, 0x616 <_start_imm2_utype_lui+0x156>
+     41c: 63 1f 00 3e  	bnez	zero, 0x81a <_start_imm2_jtype_jal+0x16a>
+     420: 63 1f 00 7e  	bnez	zero, 0xc1e <success_imm2_jtype_jal+0x386>
+     424: e3 1f 00 fe  	bnez	zero, 0x422 <_start_imm2_btype_bne+0x92>
+     428: e3 1e 00 fe  	bnez	zero, 0x424 <_start_imm2_btype_bne+0x94>
+     42c: e3 1c 00 fe  	bnez	zero, 0x424 <_start_imm2_btype_bne+0x94>
+     430: e3 18 00 fe  	bnez	zero, 0x420 <_start_imm2_btype_bne+0x90>
+     434: e3 10 00 fe  	bnez	zero, 0x414 <_start_imm2_btype_bne+0x84>
+     438: e3 10 00 fc  	bnez	zero, 0x3f8 <_start_imm2_btype_bne+0x68>
+     43c: e3 10 00 f8  	bnez	zero, 0x3bc <_start_imm2_btype_bne+0x2c>
+     440: e3 10 00 f0  	bnez	zero, 0x340 <_start_imm2_stype_sb+0xe0>
+     444: e3 10 00 e0  	bnez	zero, 0x244 <_start_imm1_itype_lb+0x114>
+     448: e3 10 00 c0  	bnez	zero, 0x48 <_start_imm0_itype_li+0x48>
+     44c: e3 10 00 80  	bnez	zero, 0xfffffc4c <success_imm2_jtype_jal+0xfffffffffffff3b4>
+     450: 63 13 00 00  	bnez	zero, 0x456 <_start_imm2_btype_bne+0xc6>
+     454: 63 16 00 00  	bnez	zero, 0x460 <_start_imm2_btype_bne+0xd0>
+     458: 63 1c 00 00  	bnez	zero, 0x470 <_start_imm2_btype_bne+0xe0>
+     45c: 63 18 00 02  	bnez	zero, 0x48c <_start_imm2_btype_bne+0xfc>
+     460: 63 10 00 06  	bnez	zero, 0x4c0 <_start_imm2_utype_lui>
+     464: 63 10 00 0c  	bnez	zero, 0x524 <_start_imm2_utype_lui+0x64>
+     468: 63 10 00 18  	bnez	zero, 0x5e8 <_start_imm2_utype_lui+0x128>
+     46c: 63 10 00 30  	bnez	zero, 0x76c <_start_imm2_jtype_jal+0xbc>
+     470: 63 10 00 60  	bnez	zero, 0xa70 <success_imm2_jtype_jal+0x1d8>
+     474: e3 10 00 40  	bnez	zero, 0x1074 <success_imm2_jtype_jal+0x7dc>
+     478: e3 10 00 80  	bnez	zero, 0xfffffc78 <success_imm2_jtype_jal+0xfffffffffffff3e0>
+     47c: e3 1c 00 fe  	bnez	zero, 0x474 <_start_imm2_btype_bne+0xe4>
+     480: e3 19 00 fe  	bnez	zero, 0x472 <_start_imm2_btype_bne+0xe2>
+     484: e3 13 00 fe  	bnez	zero, 0x46a <_start_imm2_btype_bne+0xda>
+     488: e3 17 00 fc  	bnez	zero, 0x456 <_start_imm2_btype_bne+0xc6>
+     48c: e3 1f 00 f8  	bnez	zero, 0x42a <_start_imm2_btype_bne+0x9a>
+     490: e3 1f 00 f2  	bnez	zero, 0x3ce <_start_imm2_btype_bne+0x3e>
+     494: e3 1f 00 e6  	bnez	zero, 0x312 <_start_imm2_stype_sb+0xb2>
+     498: e3 1f 00 ce  	bnez	zero, 0x196 <_start_imm1_itype_lb+0x66>
+     49c: e3 1f 00 9e  	bnez	zero, 0xfffffe9a <success_imm2_jtype_jal+0xfffffffffffff602>
+     4a0: 63 1f 00 be  	bnez	zero, 0xfffff89e <success_imm2_jtype_jal+0xfffffffffffff006>
+     4a4: 63 1f 00 7e  	bnez	zero, 0xca2 <success_imm2_jtype_jal+0x40a>
+     4a8: 6f 00 00 01  	j	0x4b8 <success_imm2_btype_bne>
+
+000004ac <fail_imm2_btype_bne>:
+     4ac: 13 05 f0 38  	li	a0, 0x38f
+     4b0: 73 00 00 00  	ecall
+     4b4: 00 00        	<unknown>
+     4b6: 00 00        	<unknown>
+
+000004b8 <success_imm2_btype_bne>:
+     4b8: 13 05 c0 02  	li	a0, 0x2c
+     4bc: 73 00 00 00  	ecall
+
+Disassembly of section .text_imm2_utype_lui:
+
+000004c0 <_start_imm2_utype_lui>:
+     4c0: b7 00 00 00  	lui	ra, 0x0
+     4c4: b7 f0 ff ff  	lui	ra, 0xfffff
+     4c8: b7 10 00 00  	lui	ra, 0x1
+     4cc: b7 20 00 00  	lui	ra, 0x2
+     4d0: b7 40 00 00  	lui	ra, 0x4
+     4d4: b7 80 00 00  	lui	ra, 0x8
+     4d8: b7 00 01 00  	lui	ra, 0x10
+     4dc: b7 00 02 00  	lui	ra, 0x20
+     4e0: b7 00 04 00  	lui	ra, 0x40
+     4e4: b7 00 08 00  	lui	ra, 0x80
+     4e8: b7 00 10 00  	lui	ra, 0x100
+     4ec: b7 00 20 00  	lui	ra, 0x200
+     4f0: b7 00 40 00  	lui	ra, 0x400
+     4f4: b7 00 80 00  	lui	ra, 0x800
+     4f8: b7 00 00 01  	lui	ra, 0x1000
+     4fc: b7 00 00 02  	lui	ra, 0x2000
+     500: b7 00 00 04  	lui	ra, 0x4000
+     504: b7 00 00 08  	lui	ra, 0x8000
+     508: b7 00 00 10  	lui	ra, 0x10000
+     50c: b7 00 00 20  	lui	ra, 0x20000
+     510: b7 00 00 40  	lui	ra, 0x40000
+     514: b7 00 00 80  	lui	ra, 0x80000
+     518: b7 e0 ff ff  	lui	ra, 0xffffe
+     51c: b7 d0 ff ff  	lui	ra, 0xffffd
+     520: b7 b0 ff ff  	lui	ra, 0xffffb
+     524: b7 70 ff ff  	lui	ra, 0xffff7
+     528: b7 f0 fe ff  	lui	ra, 0xfffef
+     52c: b7 f0 fd ff  	lui	ra, 0xfffdf
+     530: b7 f0 fb ff  	lui	ra, 0xfffbf
+     534: b7 f0 f7 ff  	lui	ra, 0xfff7f
+     538: b7 f0 ef ff  	lui	ra, 0xffeff
+     53c: b7 f0 df ff  	lui	ra, 0xffdff
+     540: b7 f0 bf ff  	lui	ra, 0xffbff
+     544: b7 f0 7f ff  	lui	ra, 0xff7ff
+     548: b7 f0 ff fe  	lui	ra, 0xfefff
+     54c: b7 f0 ff fd  	lui	ra, 0xfdfff
+     550: b7 f0 ff fb  	lui	ra, 0xfbfff
+     554: b7 f0 ff f7  	lui	ra, 0xf7fff
+     558: b7 f0 ff ef  	lui	ra, 0xeffff
+     55c: b7 f0 ff df  	lui	ra, 0xdffff
+     560: b7 f0 ff bf  	lui	ra, 0xbffff
+     564: b7 f0 ff 7f  	lui	ra, 0x7ffff
+     568: b7 00 00 00  	lui	ra, 0x0
+     56c: b7 10 00 00  	lui	ra, 0x1
+     570: b7 30 00 00  	lui	ra, 0x3
+     574: b7 70 00 00  	lui	ra, 0x7
+     578: b7 f0 00 00  	lui	ra, 0xf
+     57c: b7 f0 01 00  	lui	ra, 0x1f
+     580: b7 f0 03 00  	lui	ra, 0x3f
+     584: b7 f0 07 00  	lui	ra, 0x7f
+     588: b7 f0 0f 00  	lui	ra, 0xff
+     58c: b7 f0 1f 00  	lui	ra, 0x1ff
+     590: b7 f0 3f 00  	lui	ra, 0x3ff
+     594: b7 f0 7f 00  	lui	ra, 0x7ff
+     598: b7 f0 ff 00  	lui	ra, 0xfff
+     59c: b7 f0 ff 01  	lui	ra, 0x1fff
+     5a0: b7 f0 ff 03  	lui	ra, 0x3fff
+     5a4: b7 f0 ff 07  	lui	ra, 0x7fff
+     5a8: b7 f0 ff 0f  	lui	ra, 0xffff
+     5ac: b7 f0 ff 1f  	lui	ra, 0x1ffff
+     5b0: b7 f0 ff 3f  	lui	ra, 0x3ffff
+     5b4: b7 f0 ff ff  	lui	ra, 0xfffff
+     5b8: b7 e0 ff ff  	lui	ra, 0xffffe
+     5bc: b7 c0 ff ff  	lui	ra, 0xffffc
+     5c0: b7 80 ff ff  	lui	ra, 0xffff8
+     5c4: b7 00 ff ff  	lui	ra, 0xffff0
+     5c8: b7 00 fe ff  	lui	ra, 0xfffe0
+     5cc: b7 00 fc ff  	lui	ra, 0xfffc0
+     5d0: b7 00 f8 ff  	lui	ra, 0xfff80
+     5d4: b7 00 f0 ff  	lui	ra, 0xfff00
+     5d8: b7 00 e0 ff  	lui	ra, 0xffe00
+     5dc: b7 00 c0 ff  	lui	ra, 0xffc00
+     5e0: b7 00 80 ff  	lui	ra, 0xff800
+     5e4: b7 00 00 ff  	lui	ra, 0xff000
+     5e8: b7 00 00 fe  	lui	ra, 0xfe000
+     5ec: b7 00 00 fc  	lui	ra, 0xfc000
+     5f0: b7 00 00 f8  	lui	ra, 0xf8000
+     5f4: b7 00 00 f0  	lui	ra, 0xf0000
+     5f8: b7 00 00 e0  	lui	ra, 0xe0000
+     5fc: b7 00 00 c0  	lui	ra, 0xc0000
+     600: b7 30 00 00  	lui	ra, 0x3
+     604: b7 60 00 00  	lui	ra, 0x6
+     608: b7 c0 00 00  	lui	ra, 0xc
+     60c: b7 80 01 00  	lui	ra, 0x18
+     610: b7 00 03 00  	lui	ra, 0x30
+     614: b7 00 06 00  	lui	ra, 0x60
+     618: b7 00 0c 00  	lui	ra, 0xc0
+     61c: b7 00 18 00  	lui	ra, 0x180
+     620: b7 00 30 00  	lui	ra, 0x300
+     624: b7 00 60 00  	lui	ra, 0x600
+     628: b7 00 c0 00  	lui	ra, 0xc00
+     62c: b7 00 80 01  	lui	ra, 0x1800
+     630: b7 00 00 03  	lui	ra, 0x3000
+     634: b7 00 00 06  	lui	ra, 0x6000
+     638: b7 00 00 0c  	lui	ra, 0xc000
+     63c: b7 00 00 18  	lui	ra, 0x18000
+     640: b7 00 00 30  	lui	ra, 0x30000
+     644: b7 00 00 60  	lui	ra, 0x60000
+     648: b7 00 00 c0  	lui	ra, 0xc0000
+     64c: b7 c0 ff ff  	lui	ra, 0xffffc
+     650: b7 90 ff ff  	lui	ra, 0xffff9
+     654: b7 30 ff ff  	lui	ra, 0xffff3
+     658: b7 70 fe ff  	lui	ra, 0xfffe7
+     65c: b7 f0 fc ff  	lui	ra, 0xfffcf
+     660: b7 f0 f9 ff  	lui	ra, 0xfff9f
+     664: b7 f0 f3 ff  	lui	ra, 0xfff3f
+     668: b7 f0 e7 ff  	lui	ra, 0xffe7f
+     66c: b7 f0 cf ff  	lui	ra, 0xffcff
+     670: b7 f0 9f ff  	lui	ra, 0xff9ff
+     674: b7 f0 3f ff  	lui	ra, 0xff3ff
+     678: b7 f0 7f fe  	lui	ra, 0xfe7ff
+     67c: b7 f0 ff fc  	lui	ra, 0xfcfff
+     680: b7 f0 ff f9  	lui	ra, 0xf9fff
+     684: b7 f0 ff f3  	lui	ra, 0xf3fff
+     688: b7 f0 ff e7  	lui	ra, 0xe7fff
+     68c: b7 f0 ff cf  	lui	ra, 0xcffff
+     690: b7 f0 ff 9f  	lui	ra, 0x9ffff
+     694: b7 f0 ff 3f  	lui	ra, 0x3ffff
+     698: 6f 00 00 01  	j	0x6a8 <success_imm2_utype_lui>
+
+0000069c <fail_imm2_utype_lui>:
+     69c: 13 05 f0 38  	li	a0, 0x38f
+     6a0: 73 00 00 00  	ecall
+     6a4: 00 00        	<unknown>
+     6a6: 00 00        	<unknown>
+
+000006a8 <success_imm2_utype_lui>:
+     6a8: 13 05 c0 02  	li	a0, 0x2c
+     6ac: 73 00 00 00  	ecall
+
+Disassembly of section .text_imm2_jtype_jal:
+
+000006b0 <_start_imm2_jtype_jal>:
+     6b0: 6f 00 00 00  	j	0x6b0 <_start_imm2_jtype_jal>
+     6b4: 6f f0 ff ff  	j	0x6b2 <_start_imm2_jtype_jal+0x2>
+     6b8: 6f 00 20 00  	j	0x6ba <_start_imm2_jtype_jal+0xa>
+     6bc: 6f 00 40 00  	j	0x6c0 <_start_imm2_jtype_jal+0x10>
+     6c0: 6f 00 80 00  	j	0x6c8 <_start_imm2_jtype_jal+0x18>
+     6c4: 6f 00 00 01  	j	0x6d4 <_start_imm2_jtype_jal+0x24>
+     6c8: 6f 00 00 02  	j	0x6e8 <_start_imm2_jtype_jal+0x38>
+     6cc: 6f 00 00 04  	j	0x70c <_start_imm2_jtype_jal+0x5c>
+     6d0: 6f 00 00 08  	j	0x750 <_start_imm2_jtype_jal+0xa0>
+     6d4: 6f 00 00 10  	j	0x7d4 <_start_imm2_jtype_jal+0x124>
+     6d8: 6f 00 00 20  	j	0x8d8 <success_imm2_jtype_jal+0x40>
+     6dc: 6f 00 00 40  	j	0xadc <success_imm2_jtype_jal+0x244>
+     6e0: 6f 00 10 00  	j	0xee0 <success_imm2_jtype_jal+0x648>
+     6e4: 6f 10 00 00  	j	0x16e4 <success_imm2_jtype_jal+0xe4c>
+     6e8: 6f 20 00 00  	j	0x26e8 <success_imm2_jtype_jal+0x1e50>
+     6ec: 6f 40 00 00  	j	0x46ec <success_imm2_jtype_jal+0x3e54>
+     6f0: 6f 80 00 00  	j	0x86f0 <success_imm2_jtype_jal+0x7e58>
+     6f4: 6f 00 01 00  	j	0x106f4 <success_imm2_jtype_jal+0xfe5c>
+     6f8: 6f 00 02 00  	j	0x206f8 <success_imm2_jtype_jal+0x1fe60>
+     6fc: 6f 00 04 00  	j	0x406fc <success_imm2_jtype_jal+0x3fe64>
+     700: 6f 00 08 00  	j	0x80700 <success_imm2_jtype_jal+0x7fe68>
+     704: 6f 00 00 80  	j	0xfff00704 <success_imm2_jtype_jal+0xffffffffffeffe6c>
+     708: 6f f0 df ff  	j	0x704 <_start_imm2_jtype_jal+0x54>
+     70c: 6f f0 bf ff  	j	0x706 <_start_imm2_jtype_jal+0x56>
+     710: 6f f0 7f ff  	j	0x706 <_start_imm2_jtype_jal+0x56>
+     714: 6f f0 ff fe  	j	0x702 <_start_imm2_jtype_jal+0x52>
+     718: 6f f0 ff fd  	j	0x6f6 <_start_imm2_jtype_jal+0x46>
+     71c: 6f f0 ff fb  	j	0x6da <_start_imm2_jtype_jal+0x2a>
+     720: 6f f0 ff f7  	j	0x69e <fail_imm2_utype_lui+0x2>
+     724: 6f f0 ff ef  	j	0x622 <_start_imm2_utype_lui+0x162>
+     728: 6f f0 ff df  	j	0x526 <_start_imm2_utype_lui+0x66>
+     72c: 6f f0 ff bf  	j	0x32a <_start_imm2_stype_sb+0xca>
+     730: 6f f0 ef ff  	j	0xffffff2e <success_imm2_jtype_jal+0xfffffffffffff696>
+     734: 6f e0 ff ff  	j	0xfffff732 <success_imm2_jtype_jal+0xffffffffffffee9a>
+     738: 6f d0 ff ff  	j	0xffffe736 <success_imm2_jtype_jal+0xffffffffffffde9e>
+     73c: 6f b0 ff ff  	j	0xffffc73a <success_imm2_jtype_jal+0xffffffffffffbea2>
+     740: 6f 70 ff ff  	j	0xffff873e <success_imm2_jtype_jal+0xffffffffffff7ea6>
+     744: 6f f0 fe ff  	j	0xffff0742 <success_imm2_jtype_jal+0xfffffffffffefeaa>
+     748: 6f f0 fd ff  	j	0xfffe0746 <success_imm2_jtype_jal+0xfffffffffffdfeae>
+     74c: 6f f0 fb ff  	j	0xfffc074a <success_imm2_jtype_jal+0xfffffffffffbfeb2>
+     750: 6f f0 f7 ff  	j	0xfff8074e <success_imm2_jtype_jal+0xfffffffffff7feb6>
+     754: 6f f0 ff 7f  	j	0x100752 <success_imm2_jtype_jal+0xffeba>
+     758: 6f 00 00 00  	j	0x758 <_start_imm2_jtype_jal+0xa8>
+     75c: 6f 00 20 00  	j	0x75e <_start_imm2_jtype_jal+0xae>
+     760: 6f 00 60 00  	j	0x766 <_start_imm2_jtype_jal+0xb6>
+     764: 6f 00 e0 00  	j	0x772 <_start_imm2_jtype_jal+0xc2>
+     768: 6f 00 e0 01  	j	0x786 <_start_imm2_jtype_jal+0xd6>
+     76c: 6f 00 e0 03  	j	0x7aa <_start_imm2_jtype_jal+0xfa>
+     770: 6f 00 e0 07  	j	0x7ee <_start_imm2_jtype_jal+0x13e>
+     774: 6f 00 e0 0f  	j	0x872 <_start_imm2_jtype_jal+0x1c2>
+     778: 6f 00 e0 1f  	j	0x976 <success_imm2_jtype_jal+0xde>
+     77c: 6f 00 e0 3f  	j	0xb7a <success_imm2_jtype_jal+0x2e2>
+     780: 6f 00 e0 7f  	j	0xf7e <success_imm2_jtype_jal+0x6e6>
+     784: 6f 00 f0 7f  	j	0x1782 <success_imm2_jtype_jal+0xeea>
+     788: 6f 10 f0 7f  	j	0x2786 <success_imm2_jtype_jal+0x1eee>
+     78c: 6f 30 f0 7f  	j	0x478a <success_imm2_jtype_jal+0x3ef2>
+     790: 6f 70 f0 7f  	j	0x878e <success_imm2_jtype_jal+0x7ef6>
+     794: 6f f0 f0 7f  	j	0x10792 <success_imm2_jtype_jal+0xfefa>
+     798: 6f f0 f1 7f  	j	0x20796 <success_imm2_jtype_jal+0x1fefe>
+     79c: 6f f0 f3 7f  	j	0x4079a <success_imm2_jtype_jal+0x3ff02>
+     7a0: 6f f0 f7 7f  	j	0x8079e <success_imm2_jtype_jal+0x7ff06>
+     7a4: 6f f0 ff ff  	j	0x7a2 <_start_imm2_jtype_jal+0xf2>
+     7a8: 6f f0 df ff  	j	0x7a4 <_start_imm2_jtype_jal+0xf4>
+     7ac: 6f f0 9f ff  	j	0x7a4 <_start_imm2_jtype_jal+0xf4>
+     7b0: 6f f0 1f ff  	j	0x7a0 <_start_imm2_jtype_jal+0xf0>
+     7b4: 6f f0 1f fe  	j	0x794 <_start_imm2_jtype_jal+0xe4>
+     7b8: 6f f0 1f fc  	j	0x778 <_start_imm2_jtype_jal+0xc8>
+     7bc: 6f f0 1f f8  	j	0x73c <_start_imm2_jtype_jal+0x8c>
+     7c0: 6f f0 1f f0  	j	0x6c0 <_start_imm2_jtype_jal+0x10>
+     7c4: 6f f0 1f e0  	j	0x5c4 <_start_imm2_utype_lui+0x104>
+     7c8: 6f f0 1f c0  	j	0x3c8 <_start_imm2_btype_bne+0x38>
+     7cc: 6f f0 1f 80  	j	0xffffffcc <success_imm2_jtype_jal+0xfffffffffffff734>
+     7d0: 6f f0 0f 80  	j	0xfffff7d0 <success_imm2_jtype_jal+0xffffffffffffef38>
+     7d4: 6f e0 0f 80  	j	0xffffe7d4 <success_imm2_jtype_jal+0xffffffffffffdf3c>
+     7d8: 6f c0 0f 80  	j	0xffffc7d8 <success_imm2_jtype_jal+0xffffffffffffbf40>
+     7dc: 6f 80 0f 80  	j	0xffff87dc <success_imm2_jtype_jal+0xffffffffffff7f44>
+     7e0: 6f 00 0f 80  	j	0xffff07e0 <success_imm2_jtype_jal+0xfffffffffffeff48>
+     7e4: 6f 00 0e 80  	j	0xfffe07e4 <success_imm2_jtype_jal+0xfffffffffffdff4c>
+     7e8: 6f 00 0c 80  	j	0xfffc07e8 <success_imm2_jtype_jal+0xfffffffffffbff50>
+     7ec: 6f 00 08 80  	j	0xfff807ec <success_imm2_jtype_jal+0xfffffffffff7ff54>
+     7f0: 6f 00 60 00  	j	0x7f6 <_start_imm2_jtype_jal+0x146>
+     7f4: 6f 00 c0 00  	j	0x800 <_start_imm2_jtype_jal+0x150>
+     7f8: 6f 00 80 01  	j	0x810 <_start_imm2_jtype_jal+0x160>
+     7fc: 6f 00 00 03  	j	0x82c <_start_imm2_jtype_jal+0x17c>
+     800: 6f 00 00 06  	j	0x860 <_start_imm2_jtype_jal+0x1b0>
+     804: 6f 00 00 0c  	j	0x8c4 <success_imm2_jtype_jal+0x2c>
+     808: 6f 00 00 18  	j	0x988 <success_imm2_jtype_jal+0xf0>
+     80c: 6f 00 00 30  	j	0xb0c <success_imm2_jtype_jal+0x274>
+     810: 6f 00 00 60  	j	0xe10 <success_imm2_jtype_jal+0x578>
+     814: 6f 00 10 40  	j	0x1414 <success_imm2_jtype_jal+0xb7c>
+     818: 6f 10 10 00  	j	0x2018 <success_imm2_jtype_jal+0x1780>
+     81c: 6f 30 00 00  	j	0x381c <success_imm2_jtype_jal+0x2f84>
+     820: 6f 60 00 00  	j	0x6820 <success_imm2_jtype_jal+0x5f88>
+     824: 6f c0 00 00  	j	0xc824 <success_imm2_jtype_jal+0xbf8c>
+     828: 6f 80 01 00  	j	0x18828 <success_imm2_jtype_jal+0x17f90>
+     82c: 6f 00 03 00  	j	0x3082c <success_imm2_jtype_jal+0x2ff94>
+     830: 6f 00 06 00  	j	0x60830 <success_imm2_jtype_jal+0x5ff98>
+     834: 6f 00 0c 00  	j	0xc0834 <success_imm2_jtype_jal+0xbff9c>
+     838: 6f 00 08 80  	j	0xfff80838 <success_imm2_jtype_jal+0xfffffffffff7ffa0>
+     83c: 6f f0 9f ff  	j	0x834 <_start_imm2_jtype_jal+0x184>
+     840: 6f f0 3f ff  	j	0x832 <_start_imm2_jtype_jal+0x182>
+     844: 6f f0 7f fe  	j	0x82a <_start_imm2_jtype_jal+0x17a>
+     848: 6f f0 ff fc  	j	0x816 <_start_imm2_jtype_jal+0x166>
+     84c: 6f f0 ff f9  	j	0x7ea <_start_imm2_jtype_jal+0x13a>
+     850: 6f f0 ff f3  	j	0x78e <_start_imm2_jtype_jal+0xde>
+     854: 6f f0 ff e7  	j	0x6d2 <_start_imm2_jtype_jal+0x22>
+     858: 6f f0 ff cf  	j	0x556 <_start_imm2_utype_lui+0x96>
+     85c: 6f f0 ff 9f  	j	0x25a <success_imm1_itype_lb+0x2>
+     860: 6f f0 ef bf  	j	0xfffffc5e <success_imm2_jtype_jal+0xfffffffffffff3c6>
+     864: 6f e0 ef ff  	j	0xfffff062 <success_imm2_jtype_jal+0xffffffffffffe7ca>
+     868: 6f c0 ff ff  	j	0xffffd866 <success_imm2_jtype_jal+0xffffffffffffcfce>
+     86c: 6f 90 ff ff  	j	0xffffa86a <success_imm2_jtype_jal+0xffffffffffff9fd2>
+     870: 6f 30 ff ff  	j	0xffff486e <success_imm2_jtype_jal+0xffffffffffff3fd6>
+     874: 6f 70 fe ff  	j	0xfffe8872 <success_imm2_jtype_jal+0xfffffffffffe7fda>
+     878: 6f f0 fc ff  	j	0xfffd0876 <success_imm2_jtype_jal+0xfffffffffffcffde>
+     87c: 6f f0 f9 ff  	j	0xfffa087a <success_imm2_jtype_jal+0xfffffffffff9ffe2>
+     880: 6f f0 f3 ff  	j	0xfff4087e <success_imm2_jtype_jal+0xfffffffffff3ffe6>
+     884: 6f f0 f7 7f  	j	0x80882 <success_imm2_jtype_jal+0x7ffea>
+     888: 6f 00 00 01  	j	0x898 <success_imm2_jtype_jal>
+
+0000088c <fail_imm2_jtype_jal>:
+     88c: 13 05 f0 38  	li	a0, 0x38f
+     890: 73 00 00 00  	ecall
+     894: 00 00        	<unknown>
+     896: 00 00        	<unknown>
+
+00000898 <success_imm2_jtype_jal>:
+     898: 13 05 c0 02  	li	a0, 0x2c
+     89c: 73 00 00 00  	ecall
