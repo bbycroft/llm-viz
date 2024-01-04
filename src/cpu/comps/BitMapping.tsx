@@ -51,7 +51,7 @@ export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.save();
             ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
+            let mtx = rotateAboutAffineInt(comp.rotation, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
             // basic structure is a trapezoid, narrower on the right

@@ -45,7 +45,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
         flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate | CompDefFlags.IsAtomic,
         ports: (args, compDef) => {
             let portType = PortType.In;
-            let pos = portPlacementToPos(args.rotate, args.w, args.h);
+            let pos = portPlacementToPos(0, args.w, args.h);
 
             return [
                 { id: 'x', name: '', pos, type: portType, width: args.bitWidth },
@@ -62,8 +62,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             signed: false,
         }),
         applyConfig: (comp, args) => {
-            args.portPos ??= PortPlacement.Right;
-            args.rotate ??= args.portPos;
+            // args.portPos ??= PortPlacement.Right;
+            // args.rotate ??= args.portPos;
             comp.size = new Vec3(args.w, args.h);
         },
         build: (builder) => {
@@ -87,7 +87,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             ctx.textBaseline = 'middle';
 
             let value = exeComp.data.inPort.value;
-            ctx.fillText(value.toString(), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y / 2 - 0.1);
+            let bb = comp.bb;
+            ctx.fillText(value.toString(), bb.center().x, bb.center().y + 0.1);
 
             ctx.restore();
         },
@@ -106,7 +107,7 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
         flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate | CompDefFlags.IsAtomic,
         ports: (args, compDef) => {
             let portType = PortType.Out;
-            let pos = portPlacementToPos(args.rotate, args.w, args.h);
+            let pos = portPlacementToPos(0, args.w, args.h);
 
             return [
                 { id: 'out', name: '', pos, type: portType, width: args.bitWidth },
@@ -123,8 +124,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             signed: false,
         }),
         applyConfig: (comp, args) => {
-            args.portPos ??= PortPlacement.Right;
-            args.rotate ??= args.portPos;
+            // args.portPos ??= PortPlacement.Right;
+            // args.rotate ??= args.portPos;
             comp.size = new Vec3(args.w, args.h);
         },
         build: (builder) => {
@@ -144,7 +145,8 @@ export function createInputOutputComps(_args: ICompBuilderArgs): ICompDef<any>[]
             ctx.textBaseline = 'middle';
             ctx.font = makeCanvasFont(styles.fontSize, FontType.Mono);
             ctx.fillStyle = 'black';
-            ctx.fillText('' + ensureSigned32Bit(exeComp?.data.value ?? 0), comp.pos.x + comp.size.x / 2, comp.pos.y + comp.size.y / 2 + 0.1);
+            let bb = comp.bb;
+            ctx.fillText('' + ensureSigned32Bit(exeComp?.data.value ?? 0), bb.center().x, bb.center().y + 0.1);
         },
         renderOptions: ({ comp, exeComp, editCtx }) => {
             return <InputOptions editCtx={editCtx} comp={comp} exeComp={exeComp} />;

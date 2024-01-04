@@ -56,7 +56,10 @@ export function pasteSelection(ev: KeyboardEvent, editorState: IEditorState, set
                     return newSchematic;
                 });
 
-                newSnapshot = assignImm(newSnapshot, { selected: newSelectionRefs });
+                newSnapshot = assignImm(newSnapshot, {
+                    selected: newSelectionRefs,
+                    selectionRotateCenter: null,
+                });
 
                 return newSnapshot;
             }));
@@ -81,6 +84,10 @@ export function mergeInSchematic(snapshot: IEditSchematic, srcSchematic: ISchema
         let newComp = compLibrary.create(comp.defId, comp.args);
         newComp.id = id;
         newComp.pos = comp.pos.add(delta);
+        newComp.rotation = comp.rotation;
+        newComp.subSchematicId = comp.subSchematicId;
+
+        compLibrary.updateCompFromDef(newComp);
 
         compIdRemap.set(comp.id, id);
         snapshot.comps.push(newComp);

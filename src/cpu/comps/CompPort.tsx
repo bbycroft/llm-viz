@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from "react";
 import { StateSetter, assignImm, hasFlag } from "@/src/utils/data";
-import { Vec3 } from "@/src/utils/vector";
+import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
 import { CompDefFlags, IComp, IEditContext, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CheckboxMenuTitle, CompRectBase } from "./RenderHelpers";
@@ -18,6 +18,7 @@ import { EditKvp } from "../CompDetails";
 import { SelectEditor } from "../displayTools/SelectEditor";
 import { BooleanEditor } from "../displayTools/BooleanEditor";
 import { RectCorner } from "./SchematicComp";
+import { invertRotation, rotateAffineInt, rotatePos, rotatedBbPivotPoint } from "./CompHelpers";
 
 export enum PortPlacement {
     Right = 0,
@@ -83,7 +84,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         ports: (args, compDef) => {
 
             let internalPortDir = switchPortDir(args.type);
-            let pos = portPlacementToPos(args.rotate, args.w, args.h);
+            let pos = portPlacementToPos(0, args.w, args.h);
 
             return [
                 { id: 'a', name: '', pos, type: internalPortDir, width: args.bitWidth },
@@ -148,9 +149,12 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         renderCanvasPath: ({ comp, ctx, cvs }) => {
             ctx.save();
 
+            ctx.translate(comp.pos.x, comp.pos.y);
+            ctx.transform(...rotateAffineInt(comp.rotation).toTransformParams());
+
             // let isInput = hasFlag(comp.args.type, PortType.In);
             // ctx.fillStyle = isInput ? palette.portInputBg : palette.portOutputBg;
-            let p = new Vec3(comp.pos.x + 0.5, comp.pos.y + 0.5);
+            let p = new Vec3(0.5, 0.5);
             let s = new Vec3(comp.size.x - 1, comp.size.y - 1);
             ctx.roundRect(p.x, p.y, s.x, s.y, s.y / 2);
             ctx.restore();
@@ -159,8 +163,8 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             ctx.save();
 
             let scale = Math.min(cvs.scale, 1/15);
-            let p = new Vec3(comp.pos.x + 0.5, comp.pos.y + 0.5);
-            let s = new Vec3(comp.size.x - 1, comp.size.y - 1);
+            let p = comp.bb.min; // new Vec3(comp.pos.x + 0.5, comp.pos.y + 0.5);
+            let s = comp.bb.size(); //new Vec3(comp.size.x - 1, comp.size.y - 1);
 
             ctx.fillStyle = 'black';
             ctx.font = makeCanvasFont(scale * 14);
@@ -378,7 +382,7 @@ const PortOptions: React.FC<{
 
 export const PortResizer: React.FC<{
     editCtx: IEditContext,
-    comp: IComp<{ w: number, h: number, portPos: PortPlacement }>,
+    comp: IComp<{ w: number, h: number }>,
 }> = memo(function PortResizer({ editCtx, comp }) {
 
     let [editorState, setEditorState] = useEditorContext();
@@ -386,20 +390,30 @@ export const PortResizer: React.FC<{
     let scale = editorState.mtx.a;
 
     function handleResize(end: boolean, pos: Vec3, size: Vec3) {
-        setEditorState(editComp(editCtx, end, comp, a => assignImm(a, {
-            pos: new Vec3(pos.x - 0.5, pos.y - 0.5),
-            args: assignImm(a.args, { w: size.x + 1, h: size.y + 1 }),
-            size,
-        })));
+        setEditorState(editComp(editCtx, end, comp, a => {
+            let p0 = new Vec3(pos.x - 0.5, pos.y - 0.5);
+            let p1 = new Vec3(p0.x + size.x + 1, p0.y + size.y + 1);
+            let bb = new BoundingBox3d(p0, p1);
+            let size2 = bb.size(); // p1Unrotated.sub(p0Unrotated).abs();
+            if (comp.rotation === 1 || comp.rotation === 3) {
+                size2 = new Vec3(size2.y, size2.x);
+            }
+
+            return assignImm(a, {
+                pos: rotatedBbPivotPoint(comp.rotation, bb),
+                args: assignImm(a.args, { w: Math.max(2, size2.x), h: Math.max(2, size2.y) }),
+                size,
+            });
+        }));
     }
 
-    let posInner = comp.pos.add(new Vec3(0.5, 0.5));
-    let sizeInner = comp.size.sub(new Vec3(1, 1));
+    let pos = comp.bb.min;
+    let size = comp.bb.size();
 
-    return <div className="absolute origin-top-left" style={{ transform: `translate(${posInner.x}px, ${posInner.y}px) scale(${1/scale})`, width: sizeInner.x * scale, height: sizeInner.y * scale }}>
+    return <div className="absolute origin-top-left" style={{ transform: `translate(${pos.x}px, ${pos.y}px) scale(${1/scale})`, width: size.x * scale, height: size.y * scale }}>
         {[...new Array(4)].map((_, idx) => {
             // return <SideGripper key={idx} gripPos={idx} size={comp.size} pos={comp.pos} onResize={handleResize} centerY />;
-            return <CornerGripper key={idx} gripPos={1 << idx} size={sizeInner} pos={posInner} onResize={handleResize} />;
+            return <CornerGripper key={idx} gripPos={1 << idx} size={size} pos={pos} onResize={handleResize} />;
         })}
     </div>;
 });

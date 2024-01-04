@@ -1,14 +1,16 @@
 import React from "react";
-import { editComp, editCompConfig, useEditorContext } from "./Editor";
+import { editComp, editCompConfig, editMainSchematic, useEditorContext } from "./Editor";
 import { CompDefFlags, IComp, IElRef, IExeComp, IExeSystem, RefType } from "./CpuModel";
 import { StringEditor } from "./displayTools/StringEditor";
-import { assignImm, hasFlag } from "../utils/data";
+import { assignImm, getOrAddToMap, hasFlag } from "../utils/data";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { getCompFromRef, getCompSubSchematic } from "./SubSchematics";
 import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "../utils/keyboard";
 import { HexValueEditor, HexValueInputType } from "./displayTools/HexValueEditor";
 import { ButtonStandard } from "./EditorControls";
+import { rotatePos } from "./comps/CompHelpers";
+import { BoundingBox3d } from "../utils/vector";
 
 function getExeComp(exeModel: IExeSystem, compRef: IElRef): IExeComp | null {
     let idx = exeModel.lookup.compIdToIdx.get(compRef.id);
@@ -47,14 +49,97 @@ export const CompDetails: React.FC<{
     }
 
     useGlobalKeyboard(KeyboardOrder.Element, ev => {
-        if (singleComp && compDef) {
-            if (isKeyWithModifiers(ev, 'r') && singleComp.flags && hasFlag(singleComp.flags, CompDefFlags.CanRotate)) {
-                setEditorState(editCompConfig({ idPrefix: "" }, true, singleComp as IComp<{ rotate: number }>, a => assignImm(a, { rotate: (a.rotate + 1) % 4 })));
-                ev.preventDefault();
-                ev.stopPropagation();
-            }
+        // if (singleComp && compDef) {
+        if (isKeyWithModifiers(ev, 'r')) {
+            setEditorState(fullState => {
+
+                let rotateCenter = fullState.snapshot.selectionRotateCenter;
+                let schematic = fullState.snapshot.mainSchematic;
+
+                let selectedCompIds = new Set<string>();
+                let selectedWiresAndNodes = new Map<string, Set<number>>();
+                for (let selected of snapshot.selected) {
+                    if (selected.type === RefType.Comp) {
+                        selectedCompIds.add(selected.id);
+                    } else if (selected.type === RefType.WireNode) {
+                        let wireId = selected.id;
+                        getOrAddToMap(selectedWiresAndNodes, wireId, () => new Set())
+                            .add(selected.wireNode0Id!);
+                    } else if (selected.type === RefType.WireSeg) {
+                        let wireId = selected.id;
+                        getOrAddToMap(selectedWiresAndNodes, wireId, () => new Set())
+                            .add(selected.wireNode0Id!).add(selected.wireNode1Id!);
+                    }
+                }
+
+                if (!rotateCenter) {
+
+                    let selectedBb = new BoundingBox3d();
+                    for (let comp of schematic.comps) {
+                        if (selectedCompIds.has(comp.id)) {
+                            selectedBb.combineInPlace(comp.bb);
+                        }
+                    }
+                    for (let wire of schematic.wires) {
+                        let nodeIds = selectedWiresAndNodes.get(wire.id);
+                        if (nodeIds) {
+                            for (let nodeId of nodeIds) {
+                                let node = wire.nodes[nodeId];
+                                selectedBb.addInPlace(node.pos);
+                            }
+                        }
+                    }
+
+                    rotateCenter = selectedBb.center().floor();
+
+                    fullState = assignImm(fullState, {
+                        snapshot: assignImm(fullState.snapshot, {
+                            selectionRotateCenter: rotateCenter,
+                        }),
+                    });
+                }
+
+                fullState = editMainSchematic(true, (schematic, state, snapshot) => {
+                    let center = rotateCenter!;
+
+                    return assignImm(schematic, {
+                        comps: schematic.comps.map(comp => {
+                            if (selectedCompIds.has(comp.id)) {
+                                comp = assignImm(comp, {
+                                    pos: rotatePos(1, comp.pos.sub(center)).add(center),
+                                    rotation: (comp.rotation + 1) % 4,
+                                });
+                                editorState.compLibrary.updateCompFromDef(comp);
+                            }
+                            return comp;
+                        }),
+                        wires: schematic.wires.map(wire => {
+                            let nodeIds = selectedWiresAndNodes.get(wire.id);
+                            if (!nodeIds) {
+                                return wire;
+                            }
+
+                            wire = assignImm(wire, { nodes: [...wire.nodes] });
+
+                            for (let nodeId of nodeIds) {
+                                let node = wire.nodes[nodeId];
+                                wire.nodes[nodeId] = assignImm(node, {
+                                    pos: rotatePos(1, node.pos.sub(center)).add(center),
+                                });
+                            }
+
+                            return wire;
+                        }),
+                    });
+                })(fullState);
+
+                return fullState;
+            });
+
+            ev.preventDefault();
+            ev.stopPropagation();
         }
-    }, { isActive: !!singleComp && !!compDef });
+    });
 
     let subSchematic = singleComp ? getCompSubSchematic(editorState, singleComp) : null;
 

@@ -59,6 +59,7 @@ export class Vec3 {
     clone(): Vec3 { return new Vec3(this.x, this.y, this.z); }
     toVec4(): Vec4 { return new Vec4(this.x, this.y, this.z, 1.0); }
     round(): Vec3 { return new Vec3(Math.round(this.x), Math.round(this.y), Math.round(this.z)); }
+    floor(): Vec3 { return new Vec3(Math.floor(this.x), Math.floor(this.y), Math.floor(this.z)); }
     round_(): Vec3 { this.x = Math.round(this.x); this.y = Math.round(this.y); this.z = Math.round(this.z); return this; }
     copy_(a: Vec3) { this.x = a.x; this.y = a.y; this.z = a.z; }
     static cross(a: Vec3, b: Vec3): Vec3 { return new Vec3(

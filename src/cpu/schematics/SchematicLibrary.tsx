@@ -109,6 +109,9 @@ export class SchematicLibrary {
                     let newComp = compLibrary.create(comp.defId, comp.args);
                     newComp.id = comp.id;
                     newComp.pos = comp.pos;
+                    newComp.rotation = comp.rotation;
+                    newComp.subSchematicId = comp.subSchematicId;
+                    compLibrary.updateCompFromDef(newComp);
                     if (!newComp.resolved) {
                         console.error(`Schematic ${schematic.id} references unknown component ${comp.defId}`);
                         continue;

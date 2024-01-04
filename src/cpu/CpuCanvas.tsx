@@ -29,6 +29,7 @@ import { Resizer } from "../utils/Resizer";
 import { SchematicDetails } from "./SchematicDetails";
 import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort";
 import { WireRenderCache } from "./WireRenderCache";
+import { rotateCompPortPos, rotatePos } from "./comps/CompHelpers";
 
 export const CpuCanvas: React.FC<{
     embedded?: boolean;
@@ -458,7 +459,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             if (compDef?.renderCanvasPath) {
                 compDef.renderCanvasPath(compRenderArgs);
             } else {
-                ctx.rect(comp.pos.x + innerOffset, comp.pos.y + innerOffset, comp.size.x - 2 * innerOffset, comp.size.y - 2 * innerOffset);
+                defaultCanvasPath(ctx, comp);
             }
         }
 
@@ -574,7 +575,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
     ctx.beginPath();
     let selectedCompSet = new Set(editorState.snapshot.selected.filter(a => a.type === RefType.Comp).map(a => a.id));
     for (let comp of layout.comps.filter(c => selectedCompSet.has(idPrefix + c.id))) {
-        ctx.rect(comp.pos.x + innerOffset, comp.pos.y + innerOffset, comp.size.x - 2 * innerOffset, comp.size.y - 2 * innerOffset);
+        defaultCanvasPath(ctx, comp);
     }
     ctx.strokeStyle = "#77f";
     ctx.lineWidth = 2 * cvs.scale;
@@ -683,7 +684,7 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
     if (compDef?.renderCanvasPath) {
         compDef.renderCanvasPath(compRenderArgs);
     } else {
-        ctx.rect(comp.pos.x + innerOffset, comp.pos.y + innerOffset, comp.size.x - 2 * innerOffset, comp.size.y - 2 * innerOffset);
+        defaultCanvasPath(ctx, comp);
     }
     ctx.fill('evenodd');
     ctx.stroke();
@@ -709,6 +710,11 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
     ctx.restore();
 }
 
+function defaultCanvasPath(ctx: CanvasRenderingContext2D, comp: IComp<any>) {
+    let x = comp.bb.min.x;
+    let y = comp.bb.min.y;
+    ctx.rect(x, y, comp.bb.max.x - x, comp.bb.max.y - y);
+}
 
 function renderSelectRegion(cvs: ICanvasState, editorState: IEditorState, idPrefix: string) {
 
@@ -797,11 +803,15 @@ function renderCompPort(cvs: ICanvasState, editorState: IEditorState, idPrefix: 
     let isInput = (type & PortType.In) !== 0;
     let isTristate = (type & PortType.Tristate) !== 0;
     let ctx = cvs.ctx;
+
+    let portPos = rotateCompPortPos(comp, port);
+
     let x = comp.pos.x + port.pos.x;
     let y = comp.pos.y + port.pos.y;
 
+    //
     let innerOffset = 0.5;
-    let innerPos = new Vec3(x, y);
+    let innerPos = new Vec3(port.pos.x, port.pos.y);
     if (port.pos.x === 0) {
         innerPos.x += innerOffset;
     } else if (port.pos.x === comp.size.x) {
@@ -812,12 +822,14 @@ function renderCompPort(cvs: ICanvasState, editorState: IEditorState, idPrefix: 
         innerPos.y -= innerOffset;
     }
 
+    innerPos = rotatePos(comp.rotation, innerPos).add(comp.pos);
+
     let scale = Math.min(cvs.scale, 1 / 15);
 
     ctx.save();
     ctx.beginPath();
     // ctx.arc(x, y, r, 0, 2 * Math.PI);
-    ctx.moveTo(x, y);
+    ctx.moveTo(portPos.x, portPos.y);
     ctx.lineTo(innerPos.x, innerPos.y);
 
     if (info) {
@@ -848,6 +860,7 @@ function renderCompPort(cvs: ICanvasState, editorState: IEditorState, idPrefix: 
     // ctx.fill();
 
     if (port.name) {
+        // ALL BROKEN with rotation
         let isTop = port.pos.y === 0;
         let isBot = port.pos.y === comp.size.y;
         let isLeft = port.pos.x === 0;

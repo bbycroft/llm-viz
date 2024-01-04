@@ -43,7 +43,7 @@ export function exportData(layout: ISchematic) {
     for (let i = 0; i < layout.comps.length; i++) {
         let comp = layout.comps[i];
         let configStr = comp.args ? " c:" + JSON.stringify(comp.args) : "";
-        str += `C ${comp.id} ${comp.defId} p:${comp.pos.x},${comp.pos.y}${configStr}\n`;
+        str += `C ${comp.id} ${comp.defId} p:${comp.pos.x},${comp.pos.y},${comp.rotation}${configStr}\n`;
     }
     for (let i = 0; i < layout.wires.length; i++) {
         let wire = layout.wires[i];
@@ -143,29 +143,33 @@ export function importData(str: string): IImportResult {
                 name: id,
                 pos: new Vec3(0, 0),
                 size: new Vec3(0, 0),
+                rotation: 0,
                 defId: type,
                 ports: [],
                 flags: CompDefFlags.None,
                 args: null,
                 resolved: false,
                 hasSubSchematic: false,
+                bb: new BoundingBox3d(),
             };
 
             for (let j = 3; j < parts.length; j++) {
                 let part = parts[j];
                 if (part.label === 'p') {
                     let posParts = part.value.split(",");
-                    if (posParts.length !== 2) {
-                        makeIssue("Invalid component line: p: must have 2 parts", lineIdx);
+                    if (posParts.length !== 2 && posParts.length !== 3) {
+                        makeIssue("Invalid component line: p: must have 2 or 3 parts", lineIdx);
                         continue;
                     }
                     let x = parseFloat(posParts[0]);
                     let y = parseFloat(posParts[1]);
+                    let r = posParts.length === 3 ? parseFloat(posParts[2]) : 0;
                     if (isNaN(x) || isNaN(y)) {
-                        makeIssue("Invalid component line: p: must have 2 numbers", lineIdx);
+                        makeIssue("Invalid component line: p: must have 2 or 3 numbers", lineIdx);
                         continue;
                     }
                     comp.pos = new Vec3(x, y);
+                    comp.rotation = r;
                 } else if (part.label === 'c') {
                     comp.args = JSON.parse(part.value);
                 } else {
@@ -303,6 +307,7 @@ export interface ILSComp {
     defId: string;
     x: number;
     y: number;
+    r?: number; // rotation; 0 = right, 1 = down, 2 = left, 3 = up, rotation about the comp origin: (x, y)
     args?: any;
     subSchematicId?: string;
 }
@@ -465,7 +470,10 @@ function compFromLs(compLibrary: CompLibrary, c: ILSComp): IComp {
 
     comp.id = c.id;
     comp.pos = new Vec3(c.x, c.y);
+    comp.rotation = c.r ?? c.args?.rotate ?? 0;
     comp.subSchematicId = c.subSchematicId;
+
+    compLibrary.updateCompFromDef(comp);
 
     return comp;
 }
@@ -478,6 +486,7 @@ function compToLs(c: IComp): ILSComp {
         defId: c.defId,
         x: c.pos.x,
         y: c.pos.y,
+        r: c.rotation,
         args: args,
         subSchematicId: c.subSchematicId,
     };

@@ -17,10 +17,10 @@ import { EditKvp } from "../CompDetails";
 import { ensureUnsigned32Bit } from "./RiscvInsDecode";
 
 interface IBitExpanderMultiConfig extends IBaseCompConfig {
-    rotate: number; // 0, 1, 2, 3
     collapse: boolean; // (or expand)
     bitWidth: number; // input bit width
     bitRange: IBitRange[];
+    reverse: boolean;
 }
 
 interface IBitRange {
@@ -76,7 +76,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                 { id: args.collapse ? 'o' : 'i', name: '', pos: new Vec3(0, (fullHeight - 1) / 2).round(), type: args.collapse ? PortType.Out : PortType.In, width: args.bitWidth },
             ];
 
-            let reverse = args.rotate === 1 || args.rotate === 2;
+            let reverse = args.reverse;
 
             let multiPortType = args.collapse ? PortType.In : PortType.Out;
             let multiPortPrefix = args.collapse ? 'i' : 'o';
@@ -108,6 +108,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             bitWidth: 32,
             bitRange: [{ start: 0, end: 31, individual: false, showBits: true, id: 0 }],
             collapse: false,
+            reverse: false,
             rotate: 0,
         }),
         applyConfig(comp, args) {
@@ -117,15 +118,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                     range.id = maxId++;
                 }
             }
-            args.collapse = !!args.collapse;
-            args.rotate ??= 0;
-
-            let baseSize = new Vec3(initialW, computeHeight(args));
-            comp.size = baseSize;
-            // if (args.rotate === 1 || args.rotate === 3) {
-            //     comp.size = new Vec3(comp.size.y, comp.size.x);
-            // }
-            rotatePortsInPlace(comp, args.rotate, baseSize);
+            comp.size = new Vec3(initialW, computeHeight(args));
         },
         build: (builder) => {
             let args = builder.comp.args;
@@ -187,8 +180,8 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
         renderCanvasPath({ comp, ctx }) {
             ctx.save();
             ctx.translate(comp.pos.x, comp.pos.y);
-            let baseSize = new Vec3(initialW, computeHeight(comp.args));
-            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
+            let baseSize = comp.size;
+            let mtx = rotateAboutAffineInt(comp.rotation, comp.size);
             ctx.transform(...mtx.toTransformParams());
 
             let slope = 0.3;
@@ -216,91 +209,124 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             let singleW = ctx.measureText('0 ').width;
             let numCanvasFont = makeCanvasFont(1 / singleW, FontType.Mono);
 
-            let fullValue = exeComp?.data.singlePort.value ?? 0x00;
-            let allBits = [...fullValue.toString(2).padStart(comp.args.bitWidth, '0')];
 
             let rangeDrawOffset = 0;
             let rangeId = 0;
             let prevEnd = -1;
 
-            let isVert = comp.args.rotate === 0 || comp.args.rotate === 2;
+            let isVert = comp.rotation === 0 || comp.rotation === 2;
+            let isReversed = comp.args.reverse !== (comp.rotation === 1 || comp.rotation === 2);
+            let tl = comp.bb.min.sub(new Vec3(0.5, 0.5));
 
-            for (let range of comp.args.bitRange) {
+            let fullValue = exeComp?.data.singlePort.value ?? 0x00;
+            let allBits = [...fullValue.toString(2).padStart(comp.args.bitWidth, '0')];
 
+            let ranges = [...comp.args.bitRange];
+
+            for (let rangeIdx = 0; rangeIdx < ranges.length; rangeIdx++) {
+
+                let rIdx = isReversed ? ranges.length - rangeIdx - 1 : rangeIdx;
+                let range = ranges[rIdx];
+
+                // binary string is 01101001 say, i.e. MSB first, so need to reverse these numbers
                 let rangeStart = comp.args.bitWidth - range.end - 1;
                 let rangeEnd = comp.args.bitWidth - range.start - 1;
 
                 let nBits = rangeEnd - rangeStart + 1;
-                let rangeW = rangeHeight(range);
+                let rangeH = rangeHeight(range);
 
                 ctx.font = numCanvasFont;
-                ctx.fillStyle = rangeColors[rangeId % 4];
+                ctx.fillStyle = rangeColors[rIdx % 4];
                 ctx.textAlign = isVert ? 'right' : 'center';
                 ctx.textBaseline = isVert ? 'middle' : 'bottom';
 
-                if (rangeW === nBits) {
+                if (rangeH === nBits) {
+                    // split into groups of 4, so the amount of drift is minimized (text sizing is intended to put a digit
+                    // above each line, but it's not perfect, so this approach helps)
                     let groupSize = isVert ? 1 : 4;
-                    let nGroups = Math.ceil(rangeW / groupSize);
+                    let nGroups = Math.ceil(rangeH / groupSize);
                     for (let groupIdx = 0; groupIdx < nGroups; groupIdx++) {
-                        let startIdx = rangeStart + groupIdx * groupSize;
+                        let gIdx = isReversed ? nGroups - groupIdx - 1 : groupIdx;
+                        let startIdx = rangeStart + gIdx * groupSize;
                         let endIdx = Math.min(startIdx + groupSize, rangeEnd + 1);
-                        let textBin = allBits.slice(startIdx, endIdx).join(' ');
-                        let centerOffset = groupIdx * groupSize + (endIdx - startIdx) / 2 + 0.5;
+                        let groupBits = allBits.slice(startIdx, endIdx);
+                        let centerOffset = gIdx * groupSize + (endIdx - startIdx) / 2 + 0.5;
+                        if (isReversed) {
+                            groupBits.reverse();
+                            centerOffset = rangeH + 1 - centerOffset;
+                        }
+                        let textBin = groupBits.join(' ');
                         if (isVert) {
-                            ctx.fillText(textBin, comp.pos.x + comp.size.x - 1.0, comp.pos.y + 0.0 + rangeDrawOffset + centerOffset);
+                            ctx.fillText(textBin, tl.x + comp.size.x - 1.0, tl.y + 0.0 + rangeDrawOffset + centerOffset);
                         } else {
-                            ctx.fillText(textBin, comp.pos.x + rangeDrawOffset + centerOffset, comp.pos.y - 0.5 + comp.size.y - 0.1);
+                            ctx.fillText(textBin, tl.x + rangeDrawOffset + centerOffset, tl.y - 0.5 + comp.size.x - 0.1);
+                            // ctx.fillRect(tl.x + rangeDrawOffset + centerOffset, tl.y - 0.5 + comp.size.x - 0.15, 0.1, 0.1);
                         }
                     }
                 } else {
                     let textBin = allBits.slice(rangeStart, rangeEnd + 1).join('');
                     let text = '0x' + parseInt(textBin, 2).toString(16).padStart(Math.ceil(nBits / 4), '0');
-                    ctx.fillText(text, comp.pos.x + rangeDrawOffset + rangeW / 2 + 0.5, comp.pos.y - 0.5 + comp.size.y - 0.1);
+                    ctx.fillText(text, tl.x + rangeDrawOffset + rangeH / 2 + 0.5, comp.pos.y - 0.5 + comp.size.y - 0.1);
                 }
 
                 if (isVert) {
-                    let lineYStart = comp.pos.y + rangeDrawOffset + 0.5;
+                    let lineYStart = tl.y + rangeDrawOffset + 0.5;
 
                     if (prevEnd >= 0) {
                         ctx.strokeStyle = '#777';
                         ctx.lineWidth = styles.lineWidth;
                         ctx.beginPath();
-                        ctx.moveTo(comp.pos.x + 0.9, lineYStart);
-                        ctx.lineTo(comp.pos.x + comp.size.x - 0.6, lineYStart);
+                        ctx.moveTo(tl.x + 0.9, lineYStart);
+                        ctx.lineTo(tl.x + comp.size.x - 0.6, lineYStart);
                         ctx.stroke();
                     }
 
                     ctx.font = makeCanvasFont(0.6, FontType.Mono);
                     ctx.fillStyle = '#777';
                     ctx.textAlign = 'right';
-                    ctx.fillText(range.end.toString(), comp.pos.x + 1.5, Math.round(lineYStart + 0.5));
+
+                    let topText = range.end.toString();
+                    let botText = range.start.toString();
+
+                    if (isReversed) {
+                        [topText, botText] = [botText, topText];
+                    }
+
+                    ctx.fillText(topText, tl.x + 1.4, Math.round(lineYStart + 0.5));
 
                     // ctx.textAlign = '';
-                    ctx.fillText(range.start.toString(), comp.pos.x + 1.5, Math.round(lineYStart + rangeW - 0.5));
+                    ctx.fillText(botText, tl.x + 1.4, Math.round(lineYStart + rangeH - 0.5));
                 } else {
 
-                    let lineXStart = comp.pos.x + rangeDrawOffset + 0.5;
+                    let lineXStart = tl.x + rangeDrawOffset + 0.5;
 
                     if (prevEnd >= 0) {
                         ctx.strokeStyle = '#777';
                         ctx.lineWidth = styles.lineWidth;
                         ctx.beginPath();
-                        ctx.moveTo(lineXStart, comp.pos.y + 0.7);
-                        ctx.lineTo(lineXStart, comp.pos.y + comp.size.y - 0.6);
+                        ctx.moveTo(lineXStart, tl.y + 0.7);
+                        ctx.lineTo(lineXStart, tl.y + comp.size.x - 0.6);
                         ctx.stroke();
                     }
 
                     ctx.font = makeCanvasFont(0.6, FontType.Mono);
                     ctx.fillStyle = '#777';
                     ctx.textAlign = 'center';
-                    ctx.fillText(range.end.toString(), Math.round(lineXStart + 0.5), comp.pos.y + 1.5);
+
+                    let leftText = range.end.toString();
+                    let rightText = range.start.toString();
+
+                    if (isReversed) {
+                        [leftText, rightText] = [rightText, leftText];
+                    }
+                    ctx.fillText(leftText, Math.round(lineXStart + 0.5), tl.y + 1.5);
 
                     // ctx.textAlign = '';
-                    ctx.fillText(range.start.toString(), Math.round(lineXStart + rangeW - 0.5), comp.pos.y + 1.5);
+                    ctx.fillText(rightText, Math.round(lineXStart + rangeH - 0.5), tl.y + 1.5);
                 }
 
                 rangeId += 1;
-                rangeDrawOffset += rangeW;
+                rangeDrawOffset += rangeH;
                 prevEnd = rangeEnd;
             }
         },
@@ -344,6 +370,10 @@ const BitExpandMultiOptions: React.FC<{
 
         <EditKvp label="Collapse">
             <CheckboxMenuTitle title="" value={comp.args.collapse} update={(end, v) => setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { collapse: v })))} />
+        </EditKvp>
+
+        <EditKvp label="Reverse">
+            <CheckboxMenuTitle title="" value={comp.args.reverse} update={(end, v) => setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { reverse: v })))} />
         </EditKvp>
 
         <div className="flex flex-col">

@@ -1,7 +1,8 @@
 import { assignImm, getOrAddToMap, hasFlag, isNil } from "../utils/data";
 import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
-import { IWire, ISegment, IWireGraph, IWireGraphNode, IElRef, RefType, IComp, IEditSchematic, PortType } from "./CpuModel";
+import { IWire, ISegment, IWireGraph, IWireGraphNode, IElRef, RefType, IComp, IEditSchematic, PortType, IEditorState } from "./CpuModel";
 import { PortHandling } from "./Editor";
+import { rotateCompPortPos } from "./comps/CompHelpers";
 
 export function adjustWiresToPorts(schematic: IEditSchematic, compRefs: IElRef[]): IEditSchematic {
     let compPorts = new Map<string, { pos: Vec3, ref: IElRef }>();
@@ -15,7 +16,7 @@ export function adjustWiresToPorts(schematic: IEditSchematic, compRefs: IElRef[]
             continue;
         }
         for (let port of comp.ports ?? []) {
-            let pos = comp.pos.add(port.pos);
+            let pos = rotateCompPortPos(comp, port);
             let ref: IElRef = { type: RefType.CompNode, id: comp.id, compNodeId: port.id };
             compPorts.set(refToString(ref), { pos, ref });
         }
@@ -67,7 +68,7 @@ export function rebindWiresToPorts(schematic: IEditSchematic, compRefs: IElRef[]
         }
         for (let port of comp.ports ?? []) {
             if (!hasFlag(port.type, PortType.Hidden)) {
-                let pos = comp.pos.add(port.pos);
+                let pos = rotateCompPortPos(comp, port);
                 let ref: IElRef = { type: RefType.CompNode, id: comp.id, compNodeId: port.id };
                 compPortLocs.set(vecToPosStr(pos), { pos, ref });
             }
@@ -95,7 +96,7 @@ export function rebindWiresToPorts(schematic: IEditSchematic, compRefs: IElRef[]
 
 }
 
-export function moveSelectedComponents(schematic: IEditSchematic, selected: IElRef[], delta: Vec3): IEditSchematic {
+export function moveSelectedComponents(editorState: IEditorState, schematic: IEditSchematic, selected: IElRef[], delta: Vec3): IEditSchematic {
     if (delta.dist(Vec3.zero) < EPSILON) {
         return schematic;
     }
@@ -119,7 +120,7 @@ export function moveSelectedComponents(schematic: IEditSchematic, selected: IElR
             continue;
         }
         for (let port of comp.ports ?? []) {
-            let pos = comp.pos.add(port.pos);
+            let pos = rotateCompPortPos(comp, port);
             let ref: IElRef = { type: RefType.CompNode, id: comp.id, compNodeId: port.id };
             compPorts.set(refToString(ref), { pos, ref });
         }
@@ -172,7 +173,8 @@ export function moveSelectedComponents(schematic: IEditSchematic, selected: IElR
     return assignImm(schematic, {
         comps: schematic.comps.map(comp => {
             if (compsToMove.has(comp.id)) {
-                return assignImm(comp, { pos: snapToGrid(comp.pos.add(delta)) });
+                comp = assignImm(comp, { pos: snapToGrid(comp.pos.add(delta)) });
+                editorState.compLibrary.updateCompFromDef(comp);
             }
             return comp;
         }),
@@ -209,7 +211,7 @@ export function updateWiresForComp<T extends IEditSchematic>(layout: T, comp: IC
                         nodeIdsToClean.add(node.id);
                         continue;
                     }
-                    let delta = comp.pos.add(port.pos).sub(node.pos);
+                    let delta = rotateCompPortPos(comp, port).sub(node.pos);
 
                     nodeIdsToMove.set(node.id, delta);
                 }
@@ -244,6 +246,18 @@ export function refToString(ref: IElRef): string {
         case RefType.WireSeg:
             return `W|${ref.id}|${ref.wireNode0Id!}|${ref.wireNode1Id!}`;
     }
+}
+
+export function refStringForComp(comp: IComp) {
+    return `C|${comp.id}`;
+}
+
+export function refStringForWireNode(wire: IWireGraph, nodeIdx: number) {
+    return `WN|${wire.id}|${nodeIdx}`;
+}
+
+export function refStringForWireSeg(wire: IWireGraph, node0Idx: number, node1Idx: number) {
+    return `W|${wire.id}|${node0Idx}|${node1Idx}`;
 }
 
 export function parseRefStr(str: string): IElRef {
@@ -519,18 +533,18 @@ function vecToPosStr(v: Vec3) {
     return `${v.x},${v.y}`;
 }
 
-function createNodePosMap(layout: IEditSchematic) {
+function createPortPosMap(layout: IEditSchematic) {
     let nodePosMap = new Map<string, { pos: Vec3, ref: IElRef }>();
     for (let comp of layout.comps) {
-        for (let node of comp.ports) {
-            let nodePos = comp.pos.add(node.pos);
+        for (let port of comp.ports) {
+            let portPos = rotateCompPortPos(comp, port);
             let ref: IElRef = {
                 type: RefType.CompNode,
                 id: comp.id,
-                compNodeId: node.id,
+                compNodeId: port.id,
             };
-            let posStr = `${nodePos.x},${nodePos.y}`;
-            nodePosMap.set(posStr, { pos: nodePos, ref });
+            let posStr = `${portPos.x},${portPos.y}`;
+            nodePosMap.set(posStr, { pos: portPos, ref });
         }
     }
 
@@ -615,7 +629,7 @@ export function fixWires(layout: IEditSchematic, wires: IWireGraph[], editIdx: n
 
     let editWireGraph = wires[editIdx];
 
-    let nodePosMap = createNodePosMap(layout);
+    let nodePosMap = createPortPosMap(layout);
     for (let node of editWireGraph.nodes) {
         let posStr = `${node.pos.x},${node.pos.y}`;
         let nodePos = nodePosMap.get(posStr);

@@ -56,7 +56,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.save();
             ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
+            let mtx = rotateAboutAffineInt(comp.rotation, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
             // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
@@ -118,7 +118,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.save();
             ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
+            let mtx = rotateAboutAffineInt(comp.rotation, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
             // basic structure is a trapezoid, narrower on the right, with slopes of 45deg
@@ -190,7 +190,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.save();
             ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, baseSize);
+            let mtx = rotateAboutAffineInt(comp.rotation, baseSize);
             ctx.transform(...mtx.toTransformParams());
 
             let dx = 0.0;
@@ -251,7 +251,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.save();
             ctx.translate(comp.pos.x, comp.pos.y);
 
-            let mtx = rotateAboutAffineInt(comp.args.rotate, notBaseSize);
+            let mtx = rotateAboutAffineInt(comp.rotation, notBaseSize);
             ctx.transform(...mtx.toTransformParams());
 
             let dy = 0.7;
