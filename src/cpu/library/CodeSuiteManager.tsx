@@ -24,6 +24,7 @@ export class CodeSuiteManager {
         this.registerSuite('blinky.elf', 'Blinky');
         this.registerSuite('blinky2.elf', 'Blinky 2');
         this.registerSuite('add_tests.elf', 'Test Suite');
+        this.registerSuite('imm_validation.elf', 'Imm Tests');
     }
 
     public registerSuite(fileName: string, title: string) {
