@@ -121,11 +121,11 @@ export const CpuCanvas: React.FC<{
                     bb = new BoundingBox3d(new Vec3(0, 0), new Vec3(20, 20));
                 }
 
-                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(0, 0), new Vec3(bcr.width, bcr.height)), 0.05);
+                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(0, embedded ? 50 : 0), new Vec3(bcr.width, bcr.height)), embedded ? 0 : 0.01, 15);
                 return assignImm(a, { mtx, needsZoomExtent: false });
             });
         }
-    }, [setEditorState, cvsState, editorState.needsZoomExtent, readonly, editorState.activeSchematicId]);
+    }, [setEditorState, cvsState, editorState.needsZoomExtent, readonly, editorState.activeSchematicId, embedded]);
 
     useResizeChangeHandler(cvsState?.canvas?.parentElement, redraw);
 
