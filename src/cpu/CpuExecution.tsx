@@ -1,9 +1,9 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
-import { CompLibrary, IResetOptions } from "./comps/CompBuilder";
+import { IResetOptions } from "./comps/CompBuilder";
 import { compPortDefId, ICompPortConfig, ICompPortData } from "./comps/CompPort";
-import { PortType, IEditSnapshot, IExeComp, IExeNet, IExePortRef, IExeSystem, RefType, IExeStep, IExeSystemLookup, IElRef, IoDir, IExePort, ISchematic, IComp, IEditorState } from "./CpuModel";
+import { PortType, IEditSnapshot, IExeComp, IExeNet, IExePortRef, IExeSystem, IExeStep, IElRef, IoDir, IExePort, ISchematic, IComp } from "./CpuModel";
 import { ISharedContext } from "./library/SharedContext";
-import { getCompSubSchematic, getCompSubSchematicForSnapshot } from "./SubSchematics";
+import { getCompSubSchematicForSnapshot } from "./SubSchematics";
 
 /*
 

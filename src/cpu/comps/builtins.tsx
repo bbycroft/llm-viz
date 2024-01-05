@@ -1,5 +1,5 @@
 import { createAluComps } from "./Alu";
-import { CompLibrary as CompLibrary, ICompBuilderArgs } from "./CompBuilder";
+import { ICompBuilderArgs } from "./CompBuilder";
 import { createRegisterComps } from "./Registers";
 import { createRiscvInsDecodeComps } from "./RiscvInsDecode";
 import { createRiscvExtraComps } from "./RiscvExtra";
@@ -16,6 +16,7 @@ import { createBitExpanderComps } from "./BitExpander";
 import { createBitComparitorComps } from "./BitComparitor";
 import { createBinaryGateMultiComps } from "./BinaryGatesMulti";
 import { createMathLogicComps } from "./MathLogic";
+import { CompLibrary } from "../library/CompLibrary";
 
 export function buildCompLibrary() {
     let compLibrary = new CompLibrary();

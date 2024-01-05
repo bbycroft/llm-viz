@@ -1,18 +1,12 @@
 import { iterLocalStorageEntries, writeToLocalStorageWithNotifyOnChange } from "@/src/utils/localstorage";
-import { CompLibrary, } from "../comps/CompBuilder";
+import { CompLibrary } from "./CompLibrary";
 import { IEditSnapshot, ISchematicDef } from "../CpuModel";
 import { exportData, editSnapshotToLsSchematic, lsSchematicToSchematicDef, ILSSchematic } from "../ImportExport";
 import { getOrAddToMap } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";
-import { schematicManifest } from "./SchematicManifest";
+import { schematicManifest } from "../schematics/SchematicManifest";
 import { constructEditSnapshot } from "../ModelHelpers";
 import { Subscriptions } from "@/src/utils/hooks";
-
-export interface ILocalSchematic {
-    id: string;
-    name: string;
-    cpuStateStr: string;
-}
 
 export class SchematicLibrary {
     subs = new Subscriptions();

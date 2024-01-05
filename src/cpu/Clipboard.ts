@@ -5,7 +5,7 @@ import { editSnapshot, updateSubSchematic } from "./Editor";
 import { exportData, importData, } from "./ImportExport";
 import { deleteSelection } from "./Selection";
 import { copyWireGraph, repackGraphIds, splitIntoIslands } from "./Wire";
-import { CompLibrary } from "./comps/CompBuilder";
+import { CompLibrary } from "./library/CompLibrary";
 
 export function cutSelection(ev: KeyboardEvent, editorState: IEditorState, setEditorState: StateSetter<IEditorState>) {
     let schematic = selectionToSchematic(editorState);
