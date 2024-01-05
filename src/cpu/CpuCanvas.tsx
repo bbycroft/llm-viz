@@ -14,7 +14,7 @@ import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
-import { drawGrid, makeCanvasFont, shouldRenderComp } from "./CanvasRenderHelpers";
+import { drawGrid, makeCanvasFont, scaleFromMtx, shouldRenderComp } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
 import { compIsVisible, computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
 import { MainToolbar } from "./toolbars/CpuToolbars";
@@ -347,12 +347,6 @@ export const CpuCanvas: React.FC<{
         {!readonly && <SaveLoadHandler />}
     </MyStoreContext.Provider>;
 };
-
-function scaleFromMtx(mtx: AffineMat2d) {
-    // if we're zoomed out enough, wires/lines etc shrink
-    // but otherwise, they stay the same size independent of zoom
-    return Math.min(0.2, 1.0 / mtx.a);
-}
 
 function renderAxes(cvs: ICanvasState, editorState: IEditorState) {
     let ctx = cvs.ctx;

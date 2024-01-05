@@ -118,3 +118,24 @@ export function shouldRenderSubSchematic(comp: IComp, cvs: ICanvasState) {
 
     return true;
 }
+
+
+export function scaleFromMtx(mtx: AffineMat2d) {
+    // if we're zoomed out enough, wires/lines etc shrink
+    // but otherwise, they stay the same size independent of zoom
+    return Math.min(0.2, 1.0 / mtx.a);
+}
+
+export function constructSubCanvasState(cvs: ICanvasState, subMtx: AffineMat2d, comp: IComp) {
+    let innerMtx = cvs.mtx.mul(subMtx.inv());
+    let newMtx = cvs.mtx.mul(subMtx);
+
+    let subCvs: ICanvasState = {
+        ...cvs,
+        mtx: newMtx,
+        scale: scaleFromMtx(newMtx),
+        region: innerMtx.mulBb(comp.bb),
+    };
+
+    return subCvs;
+}

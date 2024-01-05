@@ -216,6 +216,58 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         // },
     };
 
+    let andGateBCast: ICompDef<IBinGateData, IBinGateConfig> = {
+        defId: 'gate/and-bcast',
+        name: "And Broadcast",
+        size: new Vec3(wOrig, hOrig),
+        flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
+        ports: (args) => [
+            { id: 'a', name: '', pos: new Vec3(0, 2), type: PortType.In, width: args.bitWidth },
+            { id: 'b', name: '', pos: new Vec3(2, 0), type: PortType.In | PortType.Ctrl, width: 1 },
+            { id: 'o', name: '', pos: new Vec3(wOrig, 2), type: PortType.Out, width: args.bitWidth },
+        ],
+        initConfig: () => ({ rotate: 0, bitWidth: 1 }),
+        applyConfig(comp, args) {
+            rotatePortsInPlace(comp, args.rotate, baseSize);
+        },
+        build: (builder) => {
+            let data = builder.addData({
+                inAPort: builder.getPort('a'),
+                inBPort: builder.getPort('b'),
+                outPort: builder.getPort('o'),
+            });
+
+            builder.addPhase(({ data: { inAPort, inBPort, outPort } }) => {
+                outPort.value = inBPort.value ? inAPort.value : 0;
+                inAPort.ioEnabled = !!inBPort.value;
+            }, [data.inAPort, data.inBPort], [data.outPort]);
+
+            return builder.build();
+        },
+        renderCanvasPath: ({ comp, ctx, cvs, exeComp }) => {
+            ctx.save();
+            ctx.translate(comp.pos.x, comp.pos.y);
+
+            let mtx = rotateAboutAffineInt(comp.rotation, baseSize);
+            ctx.transform(...mtx.toTransformParams());
+
+            let dx = 0.0;
+            let x = 0.5 - dx;
+            let y = 0.5;
+            let rightX = x + wOrig - 1;
+            let w = wOrig + dx - 1;
+            let h = hOrig - 1;
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + w * 0.4, y);
+            ctx.arc(rightX - h/2, y + h / 2, h / 2, -Math.PI / 2, Math.PI / 2);
+            ctx.lineTo(x, y + h);
+            ctx.lineTo(x, y);
+
+            ctx.closePath();
+            ctx.restore();
+        },
+    };
+
     let notW = 3;
     let notH = 2;
     let notBaseSize = new Vec3(notW, notH);
@@ -274,5 +326,5 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
     };
 
-    return [orGate, xorGate, andGate, notGate];
+    return [orGate, xorGate, andGate, notGate, andGateBCast];
 }

@@ -57,7 +57,7 @@ export const CompLibraryView: React.FC = () => {
 
     return <div className={'flex flex-col overflow-hidden flex-1 flex-shrink'}>
         <div className="overflow-y-auto flex flex-col flex-shrink">
-            {[...prefixGroups].map(([prefix, group]) => {
+            {[...groups].map(([prefix, group]) => {
 
                 let groupKey = prefix || '<ungrouped>';
 
