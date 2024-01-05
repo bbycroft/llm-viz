@@ -47,7 +47,7 @@ export class SchematicLibrary {
         this.subs.notify();
     }
 
-    public addSchematicsToCompLibrary(compLibrary: CompLibrary) {
+    private addSchematicsToCompLibrary(compLibrary: CompLibrary) {
         for (let schem of [...this.builtinSchematics.values(), ...this.customSchematics.values()]) {
             if (schem.compArgs) {
                 let libItem = createSchematicCompDef(schem.id, schem.name, schem.snapshot.mainSchematic, schem.compArgs);
@@ -56,7 +56,7 @@ export class SchematicLibrary {
         }
     }
 
-    public addLocalSchematics(compLibrary: CompLibrary) {
+    private addLocalSchematics(compLibrary: CompLibrary) {
         for (let lsSchematic of schematicManifest) {
             this.builtinSchematics.set(lsSchematic.id, lsSchematicToSchematicDef(lsSchematic, compLibrary));
         }
@@ -65,9 +65,10 @@ export class SchematicLibrary {
     deleteCustomSchematic(id: string) {
         this.customSchematics.delete(id);
         localStorage.removeItem(this.schematicLocalStorageKey(id));
+        this.subs.notify();
     }
 
-    public getSchematic(id: string): ISchematicDef | undefined {
+    getSchematic(id: string): ISchematicDef | undefined {
         return this.customSchematics.get(id) || this.builtinSchematics.get(id);
     }
 
