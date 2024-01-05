@@ -1,7 +1,7 @@
 import React, { createContext, useEffect, useState } from 'react';
-import { CompLibrary } from '../comps/CompBuilder';
+import { CompLibrary } from './CompLibrary';
 import { CodeSuiteManager } from './CodeSuiteManager';
-import { SchematicLibrary } from '../schematics/SchematicLibrary';
+import { SchematicLibrary } from './SchematicLibrary';
 import { buildCompLibrary } from '../comps/builtins';
 
 export interface ISharedContext {

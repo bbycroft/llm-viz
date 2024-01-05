@@ -1,10 +1,11 @@
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
-import { CompLibrary, ICompDef } from "./comps/CompBuilder";
+import { ICompDef } from "./comps/CompBuilder";
+import { CompLibrary } from "./library/CompLibrary";
 import { ICompPortConfig } from "./comps/CompPort";
 import { CodeSuiteManager } from "./library/CodeSuiteManager";
 import { ISharedContext } from "./library/SharedContext";
-import { SchematicLibrary } from "./schematics/SchematicLibrary";
+import { SchematicLibrary } from "./library/SchematicLibrary";
 
 /* All components & schematics and each version of them is represented by a separate ILibraryItem.
 

@@ -1,6 +1,6 @@
-import { isNotNil, assignImm } from "../utils/data";
+import { assignImm } from "../utils/data";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
-import { CompLibrary } from "./comps/CompBuilder";
+import { CompLibrary } from "./library/CompLibrary";
 import { CompDefFlags, IComp, IEditSchematic, IEditSnapshot, IElRef, ISchematic, ISchematicCompArgs, ISchematicDef, IWireGraph, IWireGraphNode, PortType, RefType } from "./CpuModel";
 import { constructEditSnapshot } from "./ModelHelpers";
 import { checkWires, fixWire } from "./Wire";
