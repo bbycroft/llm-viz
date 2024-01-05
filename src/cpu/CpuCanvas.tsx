@@ -673,7 +673,8 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
     // the entire canvas
     ctx.save();
     ctx.transform(...cvs.mtx.inv().toTransformParams());
-    ctx.rect(cvs.region.min.x, cvs.region.min.y, cvs.region.size().x, cvs.region.size().y);
+    let region = cvs.region.clone().expandInPlace(10);
+    ctx.rect(region.min.x, region.min.y, region.size().x, region.size().y);
     ctx.restore();
 
     if (compDef?.renderCanvasPath) {

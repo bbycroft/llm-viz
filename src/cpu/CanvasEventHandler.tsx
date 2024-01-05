@@ -28,7 +28,7 @@ export const CanvasEventHandler: React.FC<{
     let [canvasWrapEl, setCanvasWrapEl] = useState<HTMLDivElement | null>(null);
     let [editorState, setEditorState] = useEditorContext({ });
 
-    useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
+    let keyboardManager = useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
         if (ev.key === "Control") {
             setCtrlDown(ev.type === "keydown");
         }
@@ -63,7 +63,7 @@ export const CanvasEventHandler: React.FC<{
     useEffect(() => {
         if (canvasWrapEl) {
             function wheelHandler(ev: WheelEvent) {
-                if (!embedded || hasModifiers(ev, Modifiers.CtrlOrCmd)) {
+                if (!embedded || hasModifiers(ev, Modifiers.CtrlOrCmd) || keyboardManager.isFocused) {
                     handleWheelFuncRef.current(ev);
                 }
             }
