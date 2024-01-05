@@ -1,6 +1,6 @@
 'use client';
 
-import { HTMLProps, memo, useEffect, useState } from "react";
+import React, { HTMLProps, memo, useEffect, useState } from "react";
 import { KeyboardManager, KeyboardManagerContext } from "./keyboard";
 
 export const KeyboardLocalListener: React.FC<HTMLProps<HTMLDivElement>> = memo(function KeyboardLocalListener({ children, ...props }) {

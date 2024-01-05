@@ -1,6 +1,5 @@
-import { useBindLocalStorageState, useLocalStorageState } from "@/src/utils/localstorage";
 import clsx from "clsx";
-import { memo, useEffect, useState } from "react";
+import React, { memo, useState } from "react";
 import { ButtonStandard } from "./EditorControls";
 import { SchematicLibraryView } from "./SchematicLibraryView";
 import { CompLibraryView } from "./CompLibraryView";

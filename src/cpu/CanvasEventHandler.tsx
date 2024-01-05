@@ -71,7 +71,7 @@ export const CanvasEventHandler: React.FC<{
                 canvasWrapEl!.removeEventListener("wheel", wheelHandler);
             };
         }
-    }, [canvasWrapEl, handleWheelFuncRef, embedded]);
+    }, [canvasWrapEl, handleWheelFuncRef, embedded, keyboardManager]);
 
 
     useTouchEvents(canvasWrapEl, { mtx: editorState.mtx }, { alwaysSendDragEvent: true },
