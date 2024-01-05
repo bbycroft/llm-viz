@@ -186,9 +186,22 @@ export class MyStore<T> {
     setValue = (value: T | ((a : T) => T)) => {
         let prevValue = this.value;
         this.value = value instanceof Function ? value(this.value) : value;
+
+        compareValues(prevValue, this.value);
+
         if (this.value !== prevValue) {
             this.subs.notify();
         }
+    }
+}
+
+function compareValues(a: any, b: any) {
+    if (a === b) {
+        return;
+    }
+
+    if ((!a.dragCreateComp) !== (!b.dragCreateComp)) {
+        console.log('dragCreateComp changed:', a.dragCreateComp, b.dragCreateComp);
     }
 }
 

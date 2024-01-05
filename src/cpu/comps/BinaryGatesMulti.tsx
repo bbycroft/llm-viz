@@ -5,7 +5,7 @@ import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { assignImm, clamp, makeArray } from "@/src/utils/data";
 import { rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
-import { EditKvp } from "../CompDetails";
+import { EditKvp } from "../sidebars/CompDetails";
 import { HexValueEditor, HexValueInputType } from "../displayTools/HexValueEditor";
 
 interface IBinGateMultiConfig extends IBaseCompConfig {

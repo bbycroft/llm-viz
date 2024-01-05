@@ -1,14 +1,14 @@
 import React from "react";
-import { editMainSchematic, useEditorContext } from "./Editor";
-import { StringEditor } from "./displayTools/StringEditor";
-import { assignImm } from "../utils/data";
+import { editMainSchematic, useEditorContext } from "../Editor";
+import { StringEditor } from "../displayTools/StringEditor";
+import { assignImm } from "../../utils/data";
 import { ButtonStandard } from "./EditorControls";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faExpand } from "@fortawesome/free-solid-svg-icons";
-import { computeModelBoundingBox } from "./ModelHelpers";
+import { computeModelBoundingBox } from "../ModelHelpers";
 import { EditKvp } from "./CompDetails";
-import { adjustWiresToPorts, rebindWiresToPorts } from "./Wire";
-import { editSnapshotToLsSchematic } from "./ImportExport";
+import { adjustWiresToPorts, rebindWiresToPorts } from "../Wire";
+import { editSnapshotToLsSchematic } from "../ImportExport";
 
 export const SchematicDetails: React.FC<{
 }> = ({  }) => {

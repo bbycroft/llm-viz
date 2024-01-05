@@ -1,35 +1,36 @@
 'use client';
 
-import React, { SetStateAction, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
-import { applySetter, assignImm, getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
-import { IEditorContext, IViewLayoutContext, MyStoreContext, ViewLayoutContext, useCreateStoreState } from "./Editor";
+import { assignImm, getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
+import { IViewLayoutContext, MyStoreContext, ViewLayoutContext, useCreateStoreState } from "./Editor";
 import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, IParentCompInfo, IWireRenderInfo, IWirePortBinding } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
-import { CompLibraryView } from "./CompLibraryView";
-import { CompExampleView } from "./CompExampleView";
+import { CompLibraryView } from "./sidebars/CompLibraryView";
+import { CompExampleView } from "./sidebars/CompExampleView";
 import { HoverDisplay } from "./HoverDisplay";
 import { renderWire } from "./WireRender";
-import { SchematicLibraryView } from "./schematics/SchematicLibraryView";
+import { SchematicLibraryView } from "./sidebars/SchematicLibraryView";
 import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
 import { palette } from "./palette";
-import { drawGrid, makeCanvasFont, shouldRenderComp, shouldRenderSubSchematic } from "./CanvasRenderHelpers";
+import { drawGrid, makeCanvasFont, shouldRenderComp } from "./CanvasRenderHelpers";
 import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
 import { compIsVisible, computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
 import { MainToolbar } from "./toolbars/CpuToolbars";
 import { SharedContextContext, createSharedContext } from "./library/SharedContext";
 import { CompBoundingBox } from "./CompBoundingBox";
-import { CompDetails } from "./CompDetails";
+import { CompDetails } from "./sidebars/CompDetails";
 import { Resizer } from "../utils/Resizer";
-import { SchematicDetails } from "./SchematicDetails";
+import { SchematicDetails } from "./sidebars/SchematicDetails";
 import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort";
 import { WireRenderCache } from "./WireRenderCache";
 import { rotateCompPortPos, rotatePos } from "./comps/CompHelpers";
+import { LeftSidebar } from "./sidebars/LeftSidebar";
 
 export const CpuCanvas: React.FC<{
     embedded?: boolean;
@@ -123,7 +124,7 @@ export const CpuCanvas: React.FC<{
                     bb = new BoundingBox3d(new Vec3(0, 0), new Vec3(20, 20));
                 }
 
-                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(readonly ? 0 : 330, readonly ? 50 : 0), new Vec3(bcr.width, bcr.height)), 0.05);
+                let mtx = computeZoomExtentMatrix(bb, new BoundingBox3d(new Vec3(0, 0), new Vec3(bcr.width, bcr.height)), 0.05);
                 return assignImm(a, { mtx, needsZoomExtent: false });
             });
         }
@@ -313,37 +314,33 @@ export const CpuCanvas: React.FC<{
     return <MyStoreContext.Provider value={editorStore}>
         <ViewLayoutContext.Provider value={viewLayout}>
             {!embedded && <MainToolbar readonly={readonly} toolbars={toolbars} />}
-            <Resizer className="flex-1 flex flex-row" id={"cpu-tools-right"} defaultFraction={0.8}>
-                <div className="relative touch-none flex-1 overflow-hidden shadow-inner-lg">
-                    <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
-                    {cvsState && <CanvasEventHandler cvsState={cvsState} embedded={embedded}>
-                        <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
-                            <div
-                                className={"absolute origin-top-left"}
-                                style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
-                                {compDivs}
-                                <CompBoundingBox />
+            <Resizer className="flex-1 flex flex-row" id={"cpu-tools-right"} defaultAmt={250} fixedWidthRight>
+                <Resizer className="flex-1 flex flex-row" id={"cpu-tools-left"} defaultAmt={280} fixedWidthLeft>
+                    {!embedded && <LeftSidebar />}
+                    <div className="relative touch-none flex-1 overflow-hidden shadow-inner-lg">
+                        <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
+                        {cvsState && <CanvasEventHandler cvsState={cvsState} embedded={embedded}>
+                            <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
+                                <div
+                                    className={"absolute origin-top-left"}
+                                    style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
+                                    {compDivs}
+                                    <CompBoundingBox />
+                                </div>
+                                {editorState.transparentComps && <div className="absolute w-full h-full pointer-events-auto top-0 left-0" />}
                             </div>
-                            {editorState.transparentComps && <div className="absolute w-full h-full pointer-events-auto top-0 left-0" />}
-                        </div>
-                    </CanvasEventHandler>}
-                    <div className={s.toolsLeftTop}>
-                        {!embedded && <>
-                            <CompLibraryView />
-                            <CompExampleView />
-                            <SchematicLibraryView />
-                        </>}
+                        </CanvasEventHandler>}
                         {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
+                        {embedded && <div className="absolute left-2 top-2 pointer-events-auto shadow">
+                            <MainToolbar readonly={readonly} toolbars={toolbars} />
+                        </div>}
+                        <div className="cls_toolsTopRight absolute top-0 right-0">
+                            {!readonly && <CompLayoutToolbar />}
+                        </div>
+                        {editorState.compLibraryVisible && <LibraryBrowser />}
+                        {children}
                     </div>
-                    {embedded && <div className="absolute left-2 top-2 pointer-events-auto shadow">
-                        <MainToolbar readonly={readonly} toolbars={toolbars} />
-                    </div>}
-                    <div className="cls_toolsTopRight absolute top-0 right-0">
-                        {!readonly && <CompLayoutToolbar />}
-                    </div>
-                    {editorState.compLibraryVisible && <LibraryBrowser />}
-                    {children}
-                </div>
+                </Resizer>
                 {!readonly && <div className="flex-1 flex flex-col border-t">
                     <SchematicDetails />
                     <CompDetails />
