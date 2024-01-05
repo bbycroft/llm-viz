@@ -1,15 +1,15 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { AffineMat2d } from '../utils/AffineMat2d';
-import { assignImm, assignImmFull, clamp, getOrAddToMap, isNil, isNotNil } from '../utils/data';
+import { assignImm, assignImmFull, clamp, isNil, isNotNil } from '../utils/data';
 import { hasModifiers, isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
 import { useCombinedMouseTouchDrag, useTouchEvents } from '../utils/pointer';
 import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
-import { ICanvasState, IEditSchematic, IEditSnapshot, IEditorState, IElRef, IHitTest, ISchematic, ISegment, IWireGraph, RefType } from './CpuModel';
+import { ICanvasState, IEditSnapshot, IEditorState, IElRef, IHitTest, ISchematic, ISegment, IWireGraph, RefType } from './CpuModel';
 import { editMainSchematic, editSnapshot, editSubSchematic, useEditorContext } from './Editor';
-import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, refToString, wireUnlinkNodes, repackGraphIds } from './Wire';
+import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments } from './Wire';
 import s from './CpuCanvas.module.scss';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
-import { computeSubLayoutMatrix, editCtxFromRefId as editCtxFromElRef, getActiveSubSchematic, getCompFromRef, getCompSubSchematic, getMatrixForEditContext, getSchematicForRef, globalRefToLocal } from './SubSchematics';
+import { computeSubLayoutMatrix, editCtxFromRefId as editCtxFromElRef, getActiveSubSchematic, getCompSubSchematic, getMatrixForEditContext, getSchematicForRef, globalRefToLocal } from './SubSchematics';
 import { useFunctionRef, useRequestAnimationFrame } from '../utils/hooks';
 import { copySelection, cutSelection, pasteSelection } from './Clipboard';
 import { deleteSelection } from './Selection';
@@ -737,7 +737,7 @@ export const CanvasEventHandler: React.FC<{
     }
 
     return <div
-        className={s.canvasEventSurface}
+        className={"pointer-events-auto w-full h-full absolute cursor-grab"}
         ref={setCanvasWrapEl}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}

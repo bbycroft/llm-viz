@@ -1,4 +1,4 @@
-import { iterLocalStorageEntries } from "@/src/utils/localstorage";
+import { iterLocalStorageEntries, writeToLocalStorageWithNotifyOnChange } from "@/src/utils/localstorage";
 import { CompLibrary, } from "../comps/CompBuilder";
 import { IEditSnapshot, ISchematicDef } from "../CpuModel";
 import { exportData, editSnapshotToLsSchematic, lsSchematicToSchematicDef, ILSSchematic } from "../ImportExport";
@@ -6,6 +6,7 @@ import { getOrAddToMap } from "@/src/utils/data";
 import { createSchematicCompDef } from "../comps/SchematicComp";
 import { schematicManifest } from "./SchematicManifest";
 import { constructEditSnapshot } from "../ModelHelpers";
+import { Subscriptions } from "@/src/utils/hooks";
 
 export interface ILocalSchematic {
     id: string;
@@ -14,6 +15,7 @@ export interface ILocalSchematic {
 }
 
 export class SchematicLibrary {
+    subs = new Subscriptions();
 
     // builtins are shipped with this app
     // customs are from local-storage
@@ -41,6 +43,8 @@ export class SchematicLibrary {
         this.addSchematicsToCompLibrary(compLibrary);
 
         this.resolveSchematicRefs(compLibrary);
+
+        this.subs.notify();
     }
 
     public addSchematicsToCompLibrary(compLibrary: CompLibrary) {
@@ -87,7 +91,19 @@ export class SchematicLibrary {
                 return;
             }
 
-            customSchematics.set(lsSchematic.id, lsSchematicToSchematicDef(lsSchematic, compLibrary))
+            let customSchematic = lsSchematicToSchematicDef(lsSchematic, compLibrary);
+
+            let builtin = this.builtinSchematics.get(lsSchematic.id);
+            if (builtin) {
+                let builtinStr = JSON.stringify(editSnapshotToLsSchematic(builtin.id, builtin.snapshot));
+                let customStr = JSON.stringify(editSnapshotToLsSchematic(customSchematic.id, customSchematic.snapshot));
+
+                if (builtinStr === customStr) {
+                    return;
+                }
+            }
+
+            customSchematics.set(lsSchematic.id, customSchematic)
         });
 
         this.localStorageSchematicsLoaded = true;
@@ -130,6 +146,17 @@ export class SchematicLibrary {
         }
     }
 
+    public copyBuiltinToCustom(id: string) {
+        let builtin = this.builtinSchematics.get(id);
+
+        if (!builtin) {
+            console.error(`Schematic ${id} not found`);
+            return;
+        }
+
+        this.customSchematics.set(id, { ...builtin });
+    }
+
     public addCustomSchematic(name: string) {
         // create random string of 8 chars
         let id = `c-${Math.random().toString(36).substring(2, 10)}`;
@@ -148,13 +175,27 @@ export class SchematicLibrary {
 
     public saveToLocalStorage(id: string) {
         let schematic = this.customSchematics.get(id);
+        let builtin = this.builtinSchematics.get(id);
 
         if (schematic) {
             let lsSchematic = editSnapshotToLsSchematic(id, schematic.snapshot);
-            // console.log('saving schematic', lsSchematic, 'based on snapshot', schematic.model);
-            localStorage.setItem(this.schematicLocalStorageKey(schematic.id), JSON.stringify(lsSchematic));
-        } else if (this.builtinSchematics.get(id)) {
-            // console.log(`Can't update builtin schematic ${id}`);
+
+            if (builtin) {
+                // GAWD this is ugly!! We previously added a custom schematic, only to delete it here...
+                let customStr = JSON.stringify(lsSchematic);
+                let builtinStr = JSON.stringify(editSnapshotToLsSchematic(builtin.id, builtin.snapshot));
+
+                if (customStr === builtinStr) {
+                    this.customSchematics.delete(id);
+                    writeToLocalStorageWithNotifyOnChange(this.schematicLocalStorageKey(schematic.id), null);
+                    this.subs.notify();
+                    return;
+                }
+            }
+
+            // localStorage.setItem(this.schematicLocalStorageKey(schematic.id), JSON.stringify(lsSchematic));
+            writeToLocalStorageWithNotifyOnChange(this.schematicLocalStorageKey(schematic.id), lsSchematic);
+            this.subs.notify();
         } else {
             console.error(`Schematic ${id} not found`);
         }

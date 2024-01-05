@@ -3,17 +3,13 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useResizeChangeHandler } from "../utils/layout";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
-import s from "./CpuCanvas.module.scss";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { assignImm, getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { IViewLayoutContext, MyStoreContext, ViewLayoutContext, useCreateStoreState } from "./Editor";
 import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, IParentCompInfo, IWireRenderInfo, IWirePortBinding } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
-import { CompLibraryView } from "./sidebars/CompLibraryView";
-import { CompExampleView } from "./sidebars/CompExampleView";
 import { HoverDisplay } from "./HoverDisplay";
 import { renderWire } from "./WireRender";
-import { SchematicLibraryView } from "./sidebars/SchematicLibraryView";
 import { CanvasEventHandler } from "./CanvasEventHandler";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { CompLayoutToolbar } from "./CompLayoutEditor";
@@ -31,6 +27,7 @@ import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort"
 import { WireRenderCache } from "./WireRenderCache";
 import { rotateCompPortPos, rotatePos } from "./comps/CompHelpers";
 import { LeftSidebar } from "./sidebars/LeftSidebar";
+import { SaveLoadHandler } from "./SaveLoadHandler";
 
 export const CpuCanvas: React.FC<{
     embedded?: boolean;
@@ -347,6 +344,7 @@ export const CpuCanvas: React.FC<{
                 </div>}
             </Resizer>
         </ViewLayoutContext.Provider>
+        {!readonly && <SaveLoadHandler />}
     </MyStoreContext.Provider>;
 };
 
