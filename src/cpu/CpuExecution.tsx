@@ -707,8 +707,10 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
                 port.dataUsed = true;
 
                 let net = exeSystem.nets[port.netIdx];
-                for (let portRef of net.outputs) {
-                    portRef.exePort.dataUsed = true;
+                if (net) {
+                    for (let portRef of net.outputs) {
+                        portRef.exePort.dataUsed = true;
+                    }
                 }
             }
         }

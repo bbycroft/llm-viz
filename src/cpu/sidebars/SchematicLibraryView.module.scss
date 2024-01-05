@@ -1,31 +1,14 @@
 @import '@/styles/variables.scss';
-@import "./shared.scss";
-
-.exampleView {
-    @include overlayTool;
-    margin: 20px 20px 0;
-
-    display: flex;
-    flex-direction: column;
-
-}
-
-.header {
-    font-size: 120%;
-    border-bottom: 1px solid $color-light-grey;
-    padding: 0 10px;
-    text-align: center;
-    position: relative;
-}
-
-.body {
-    overflow-y: auto;
-    max-height: 200px;
-}
+@import "../shared.scss";
 
 .entry {
-    cursor: pointer;
     padding: 0 10px;
+    display: flex;
+}
+
+.name {
+    flex: 1 0 0;
+    cursor: pointer;
 
     &:hover {
         background-color: lighten($color-highlight, 25%);
@@ -54,12 +37,20 @@
     }
 }
 
-.reloadBtn {
+.btnIcon {
     @extend .btn;
-    position: absolute;
     font-size: 80%;
     color: #777;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
+}
+
+.input {
+    width: 100%;
+    flex: 1 0 0;
+    border-radius: 4px;
+
+    &:focus {
+        background-color: #eee;
+        outline: none;
+        border: none;
+    }
 }

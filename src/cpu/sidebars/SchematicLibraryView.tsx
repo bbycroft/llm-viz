@@ -87,8 +87,7 @@ export const SchematicLibraryView: React.FC = memo(function SchematicLibraryView
         saveFromState();
     }, [saveFromState]);
 
-    return <div className={s.libraryView}>
-        <div className={s.header}>Schematics</div>
+    return <div>
         <div className={s.body + " overflow-y-auto"}>
             {[...schematicLib.builtinSchematics].map(([id, schematic], idx) => {
                 return <div

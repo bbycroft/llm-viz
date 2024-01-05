@@ -1,16 +1,16 @@
 import React from "react";
-import { editComp, editCompConfig, editMainSchematic, useEditorContext } from "./Editor";
-import { CompDefFlags, IComp, IElRef, IExeComp, IExeSystem, RefType } from "./CpuModel";
-import { StringEditor } from "./displayTools/StringEditor";
-import { assignImm, getOrAddToMap, hasFlag } from "../utils/data";
+import { editComp, editCompConfig, editMainSchematic, useEditorContext } from "../Editor";
+import { CompDefFlags, IComp, IElRef, IExeComp, IExeSystem, RefType } from "../CpuModel";
+import { StringEditor } from "../displayTools/StringEditor";
+import { assignImm, getOrAddToMap, hasFlag } from "../../utils/data";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import { getCompFromRef, getCompSubSchematic } from "./SubSchematics";
-import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "../utils/keyboard";
-import { HexValueEditor, HexValueInputType } from "./displayTools/HexValueEditor";
+import { getCompFromRef, getCompSubSchematic } from "../SubSchematics";
+import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "../../utils/keyboard";
+import { HexValueEditor, HexValueInputType } from "../displayTools/HexValueEditor";
 import { ButtonStandard } from "./EditorControls";
-import { rotatePos } from "./comps/CompHelpers";
-import { BoundingBox3d } from "../utils/vector";
+import { rotatePos } from "../comps/CompHelpers";
+import { BoundingBox3d } from "../../utils/vector";
 
 function getExeComp(exeModel: IExeSystem, compRef: IElRef): IExeComp | null {
     let idx = exeModel.lookup.compIdToIdx.get(compRef.id);

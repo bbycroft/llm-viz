@@ -14,7 +14,7 @@ import { IPointerEvent, useCombinedMouseTouchDrag } from "@/src/utils/pointer";
 import { StringEditor } from "../displayTools/StringEditor";
 import { CursorDragOverlay } from "@/src/utils/CursorDragOverlay";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
-import { EditKvp } from "../CompDetails";
+import { EditKvp } from "../sidebars/CompDetails";
 import { SelectEditor } from "../displayTools/SelectEditor";
 import { BooleanEditor } from "../displayTools/BooleanEditor";
 import { RectCorner } from "./SchematicComp";

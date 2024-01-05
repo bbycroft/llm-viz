@@ -624,10 +624,12 @@ export const CanvasEventHandler: React.FC<{
         return sorted[0] ?? null;
     }
 
+    let dragCreateComp = editorState.dragCreateComp;
+
     function handleMouseMove(ev: React.MouseEvent) {
 
-        if (editorState.dragCreateComp) {
-            let compOrig = editorState.dragCreateComp.compOrig;
+        if (dragCreateComp) {
+            let compOrig = dragCreateComp.compOrig;
             let mousePos = snapToGrid(evToModel(ev, editorState.mtx));
 
             let applyFunc = (a: IEditSnapshot): IEditSnapshot => {
@@ -638,6 +640,7 @@ export const CanvasEventHandler: React.FC<{
                     id: '' + a.mainSchematic.nextCompId,
                     pos: mousePos,
                 });
+                editorState.compLibrary.updateCompFromDef(newComp);
                 return assignImm(a, {
                     mainSchematic: assignImm(a.mainSchematic, {
                         nextCompId: a.mainSchematic.nextCompId + 1,
@@ -647,7 +650,7 @@ export const CanvasEventHandler: React.FC<{
             };
 
             setEditorState(a => assignImm(a, {
-                dragCreateComp: assignImm(a.dragCreateComp, { applyFunc }),
+                dragCreateComp: a.dragCreateComp ? assignImm(a.dragCreateComp, { applyFunc }) : undefined,
             }));
 
             return;

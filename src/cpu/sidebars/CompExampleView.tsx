@@ -1,15 +1,15 @@
 import React, { memo, useContext, useEffect, useState } from "react";
-import { notifyExeModelUpdated, useEditorContext } from "./Editor";
+import { notifyExeModelUpdated, useEditorContext } from "../Editor";
 import s from "./CompExampleView.module.scss";
-import { IRomExeData } from "./comps/SimpleMemory";
-import { IExeComp } from "./CpuModel";
-import { ICompDataRegFile, ICompDataSingleReg } from "./comps/Registers";
-import { resetExeModel, stepExecutionCombinatorial } from "./CpuExecution";
+import { IRomExeData } from "../comps/SimpleMemory";
+import { IExeComp } from "../CpuModel";
+import { ICompDataRegFile, ICompDataSingleReg } from "../comps/Registers";
+import { resetExeModel, stepExecutionCombinatorial } from "../CpuExecution";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileImport, faRotate } from "@fortawesome/free-solid-svg-icons";
-import { ICodeEntry } from "./library/CodeSuiteManager";
-import { SharedContextContext } from "./library/SharedContext";
-import { useSubscriptions } from "../utils/hooks";
+import { ICodeEntry } from "../library/CodeSuiteManager";
+import { SharedContextContext } from "../library/SharedContext";
+import { useSubscriptions } from "../../utils/hooks";
 import clsx from "clsx";
 
 export const CompExampleView: React.FC = memo(function CompExampleView() {
@@ -164,14 +164,8 @@ export const CompExampleView: React.FC = memo(function CompExampleView() {
     //     setEditorState(a => ({ ...a }));
     // }
 
-    return <div className={s.exampleView + " min-w-[200px]"}>
-        <div className={s.header}>Examples
-            <div className={s.reloadBtn} onClick={() => setReloadCntr(a => a + 1)}>
-                <FontAwesomeIcon icon={faRotate} />
-            </div>
-        </div>
-
-        <div className={s.body}>
+    return <div>
+        <div className={"overflow-y-auto"}>
             {[...codeLibrary.suites.values()].map((suite, sidx) => {
 
                 let hasEntries = suite.entries.length > 0;
@@ -206,15 +200,5 @@ export const CompExampleView: React.FC = memo(function CompExampleView() {
                 </div>;
             })}
         </div>
-
-        {/* <div className={s.divider} /> */}
-
-        {/* <div className={s.body}>
-            <button className={s.btn} disabled={exeModel.runArgs.halt} onClick={onStepClicked}>Step</button>
-            <button className={s.btn} onClick={onResetClicked}>Reset</button>
-            <button className={s.btn} onClick={onRunAllTestsClicked}>Run all</button>
-            <button className={s.btn} onClick={runTestsQuickly}>Run all (slow)</button>
-        </div> */}
-
     </div>;
 });

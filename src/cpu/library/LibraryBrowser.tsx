@@ -220,7 +220,7 @@ export const LibraryBrowser: React.FC<{}> = () => {
                     <FontAwesomeIcon icon={faTimes} className="px-3" />
                 </button>
             </div>
-            <Resizer id="libraryBrowser" className="flex-1 overflow-hidden border" defaultFraction={0.3}>
+            <Resizer id="libraryBrowser" className="flex-1 overflow-hidden border" defaultAmt={0.3}>
                 <div className="flex flex-col flex-1 overflow-hidden">
                     <h2 className="text-center p-1 border-b">Folders</h2>
                     <div className="flex flex-col overflow-y-auto flex-1">
@@ -247,7 +247,7 @@ export const LibraryBrowser: React.FC<{}> = () => {
                     </div>
                 </div>
 
-                <Resizer id="fileInfoSplit" vertical className="flex-1" defaultFraction={0.5}>
+                <Resizer id="fileInfoSplit" vertical className="flex-1" defaultAmt={0.5}>
                     <div className="flex-1 overflow-y-auto bg-gray-100 shadow-inner">
                         <div className="grid p-2"
                             style={{ gridTemplateColumns: 'repeat(auto-fit, 230px)' }}

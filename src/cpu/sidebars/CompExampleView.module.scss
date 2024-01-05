@@ -1,7 +1,7 @@
 @import '@/styles/variables.scss';
-@import "../shared.scss";
+@import "@/src/cpu/shared.scss";
 
-.libraryView {
+.exampleView {
     @include overlayTool;
     margin: 20px 20px 0;
 
@@ -18,14 +18,14 @@
     position: relative;
 }
 
-.entry {
-    padding: 0 10px;
-    display: flex;
+.body {
+    overflow-y: auto;
+    max-height: 200px;
 }
 
-.name {
-    flex: 1 0 0;
+.entry {
     cursor: pointer;
+    padding: 0 10px;
 
     &:hover {
         background-color: lighten($color-highlight, 25%);
@@ -54,20 +54,12 @@
     }
 }
 
-.btnIcon {
+.reloadBtn {
     @extend .btn;
+    position: absolute;
     font-size: 80%;
     color: #777;
-}
-
-.input {
-    width: 100%;
-    flex: 1 0 0;
-    border-radius: 4px;
-
-    &:focus {
-        background-color: #eee;
-        outline: none;
-        border: none;
-    }
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
 }

@@ -5,7 +5,7 @@ import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { assignImm } from "@/src/utils/data";
-import { EditKvp } from "../CompDetails";
+import { EditKvp } from "../sidebars/CompDetails";
 import { StringEditor } from "../displayTools/StringEditor";
 import { palleteColors } from "../palette";
 

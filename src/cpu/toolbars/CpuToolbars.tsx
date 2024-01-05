@@ -7,7 +7,6 @@ import { IBaseEvent } from '../../utils/pointer';
 import { notifyExeModelUpdated, redoAction, undoAction, useEditorContext } from '../Editor';
 import { resetExeModel, stepExecutionCombinatorial, stepExecutionLatch } from '../CpuExecution';
 import { modifiersToString } from '../Keymap';
-import { ComponentAdder } from '../ComponentAdder';
 import { ToolbarButton, ToolbarDivider } from './ToolbarBasics';
 import { useInterval, useRequestAnimationFrame } from '@/src/utils/hooks';
 import { ToolbarTypes } from '../CpuModel';
@@ -92,10 +91,6 @@ export const MainToolbar: React.FC<{
         <ToolbarDivider />
 
         <ViewportControls />
-
-        <ToolbarDivider />
-
-        <ComponentAdder />
     </div>;
 });
 

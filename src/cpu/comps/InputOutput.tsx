@@ -10,7 +10,7 @@ import { HexValueEditor, HexValueInputType, clampToSignedWidth } from '../displa
 import { FontType, makeCanvasFont } from '../CanvasRenderHelpers';
 import { PortPlacement, PortResizer, portPlacementToPos } from './CompPort';
 import { ensureSigned32Bit } from './RiscvInsDecode';
-import { EditKvp } from '../CompDetails';
+import { EditKvp } from '../sidebars/CompDetails';
 import { BooleanEditor } from '../displayTools/BooleanEditor';
 
 interface IInputConfig extends IBaseCompConfig {

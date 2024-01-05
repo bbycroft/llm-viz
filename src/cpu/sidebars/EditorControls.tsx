@@ -2,9 +2,9 @@ import { faBook } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import clsx from 'clsx';
 import React, { ButtonHTMLAttributes } from 'react';
-import { assignImm } from '../utils/data';
-import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
-import { redoAction, undoAction, useEditorContext } from "./Editor";
+import { assignImm } from '../../utils/data';
+import { isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../../utils/keyboard';
+import { redoAction, undoAction, useEditorContext } from "../Editor";
 import s from './EditorControls.module.scss';
 
 export const CpuEditorToolbar: React.FC<{}> = () => {

@@ -8,12 +8,12 @@ import { editCompConfig, useEditorContext } from "../Editor";
 import { applySetter, assignImm, isNil, makeArrayRange } from "@/src/utils/data";
 import { HexValueEditor, HexValueInputType } from "../displayTools/HexValueEditor";
 import { CheckboxMenuTitle } from "./RenderHelpers";
-import { ButtonStandard } from "../EditorControls";
+import { ButtonStandard } from "../sidebars/EditorControls";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { palleteColors } from "../palette";
 import clsx from "clsx";
 import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
-import { EditKvp } from "../CompDetails";
+import { EditKvp } from "../sidebars/CompDetails";
 import { ensureUnsigned32Bit } from "./RiscvInsDecode";
 
 interface IBitExpanderMultiConfig extends IBaseCompConfig {
