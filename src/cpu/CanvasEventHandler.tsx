@@ -7,7 +7,6 @@ import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../
 import { ICanvasState, IEditSnapshot, IEditorState, IElRef, IHitTest, ISchematic, ISegment, IWireGraph, RefType } from './CpuModel';
 import { editMainSchematic, editSnapshot, editSubSchematic, useEditorContext } from './Editor';
 import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments } from './Wire';
-import s from './CpuCanvas.module.scss';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 import { computeSubLayoutMatrix, editCtxFromRefId as editCtxFromElRef, getActiveSubSchematic, getCompSubSchematic, getMatrixForEditContext, getSchematicForRef, globalRefToLocal } from './SubSchematics';
 import { useFunctionRef, useRequestAnimationFrame } from '../utils/hooks';

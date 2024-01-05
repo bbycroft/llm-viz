@@ -18,8 +18,7 @@ export function computeModelBoundingBox(model: IEditSnapshot, options?: IBoundin
             continue;
         }
 
-        modelBbb.addInPlace(c.pos);
-        modelBbb.addInPlace(c.pos.add(c.size));
+        modelBbb.combineInPlace(c.bb);
     }
     for (let w of model.mainSchematic.wires) {
         for (let n of w.nodes) {
@@ -33,17 +32,20 @@ export function computeModelBoundingBox(model: IEditSnapshot, options?: IBoundin
     return modelBbb;
 }
 
-export function computeZoomExtentMatrix(modelBb: BoundingBox3d, viewBb: BoundingBox3d, expandFraction: number): AffineMat2d {
-    let bb = new BoundingBox3d(modelBb.min, modelBb.max);
-    bb.expandInPlace(modelBb.size().mul(expandFraction).len());
+export function computeZoomExtentMatrix(modelBb: BoundingBox3d, viewBb: BoundingBox3d, expandFraction: number, boundaryPx: number): AffineMat2d {
+    modelBb = modelBb.clone();
+    modelBb.expandInPlace(modelBb.size().mul(expandFraction).len());
 
-    let modelSize = bb.size();
+    viewBb = viewBb.clone();
+    viewBb.shrinkInPlaceXY(boundaryPx);
+
+    let modelSize = modelBb.size();
     let viewSize = viewBb.size();
 
     let mtx = AffineMat2d.multiply(
         AffineMat2d.translateVec(viewBb.center()),
         AffineMat2d.scale1(Math.min(viewSize.x / modelSize.x, viewSize.y / modelSize.y)),
-        AffineMat2d.translateVec(bb.center().mul(-1)),
+        AffineMat2d.translateVec(modelBb.center().mul(-1)),
     );
 
     return mtx;
