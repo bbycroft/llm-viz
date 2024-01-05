@@ -1,38 +1,16 @@
 import { assignImm } from "@/src/utils/data";
-import { faCheck, faPencil, faTimes, faTrash } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React, { memo, useCallback, useEffect, useState } from "react";
+import React, { memo } from "react";
 import { useEditorContext } from "../Editor";
 import s from "./SchematicLibraryView.module.scss";
-import { createSchematicCompDef } from "../comps/SchematicComp";
 import { ISchematicDef } from "../CpuModel";
+import { useSubscriptions } from "@/src/utils/hooks";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
 
 export const SchematicLibraryView: React.FC = memo(function SchematicLibraryView() {
-    let [editorState, setEditorState, editorStore] = useEditorContext({ });
-
-    let compLibrary = editorState.compLibrary;
+    let [editorState, setEditorState] = useEditorContext({ });
     let schematicLib = editorState.schematicLibrary;
-
-    let saveFromState = useCallback(() => {
-        let fullEditorState = editorStore.value;
-        let schemId = editorState.activeSchematicId;
-        if (schemId) {
-            let schematic = schematicLib.getSchematic(schemId);
-            if (schematic) {
-                console.log('updating schematic with id: ' + schemId);
-                schematic.snapshot = editorState.snapshot;
-                schematic.undoStack = fullEditorState.undoStack;
-                schematic.redoStack = fullEditorState.redoStack;
-                schematic.mtx = fullEditorState.mtx;
-
-                if (schematic.compArgs) {
-                    let libItem = createSchematicCompDef(schematic.id, schematic.name, schematic.snapshot.mainSchematic, schematic.compArgs);
-                    compLibrary.addLibraryItem(libItem);
-                }
-            }
-            schematicLib.saveToLocalStorage(schemId);
-        }
-    }, [schematicLib, compLibrary, editorStore, editorState.activeSchematicId, editorState.snapshot]);
+    useSubscriptions(schematicLib.subs);
 
     function loadIntoEditor(schematic: ISchematicDef) {
         setEditorState(() => {
@@ -41,38 +19,12 @@ export const SchematicLibraryView: React.FC = memo(function SchematicLibraryView
     }
 
     function handleEntryClick(ev: React.MouseEvent, schematic: ISchematicDef) {
-        saveFromState();
         loadIntoEditor(schematic);
     }
 
     function handleAddNew(ev: React.MouseEvent) {
         let newSchematic = schematicLib.addCustomSchematic('New Schematic')!;
-        saveFromState();
         loadIntoEditor(newSchematic);
-    }
-
-    interface INameEditState {
-        id: string;
-        schematic: ISchematicDef;
-        name: string;
-    }
-
-    let [nameEdit, setNameEdit] = useState<INameEditState | null>(null);
-
-    function handleEditName(ev: React.MouseEvent, schematic: ISchematicDef) {
-        setNameEdit({ id: schematic.id, name: schematic.snapshot.mainSchematic.name, schematic });
-    }
-
-    function cancelEditName() {
-        setNameEdit(null);
-    }
-
-    function applyEditName() {
-        if (nameEdit) {
-            nameEdit.schematic.snapshot.mainSchematic.name = nameEdit.name;
-            schematicLib.saveToLocalStorage(nameEdit.id);
-            setNameEdit(null);
-        }
     }
 
     async function handleDelete(ev: React.MouseEvent, schematic: ISchematicDef) {
@@ -83,13 +35,11 @@ export const SchematicLibraryView: React.FC = memo(function SchematicLibraryView
         setEditorState(a => ({ ...a }));
     }
 
-    useEffect(() => {
-        saveFromState();
-    }, [saveFromState]);
-
     return <div>
         <div className={s.body + " overflow-y-auto"}>
             {[...schematicLib.builtinSchematics].map(([id, schematic], idx) => {
+                let custom = schematicLib.customSchematics.get(id);
+
                 return <div
                     className={s.entry}
                     key={idx}
@@ -99,6 +49,7 @@ export const SchematicLibraryView: React.FC = memo(function SchematicLibraryView
                         onMouseDown={ev => handleEntryClick(ev, schematic)}
                     >
                         {schematic.name}
+                        {custom && <span className={"ml-auto text-red-800"}>*</span>}
                     </div>
                 </div>
             })}
@@ -106,33 +57,24 @@ export const SchematicLibraryView: React.FC = memo(function SchematicLibraryView
             <div className={s.divider} />
 
             {[...schematicLib.customSchematics].map(([id, schematic], idx) => {
-                let isEditing = nameEdit?.id === schematic.id;
+
+                let builtin = schematicLib.builtinSchematics.get(id);
+                if (builtin) {
+                    return null;
+                }
 
                 return <div
                     className={s.entry}
                     key={idx}
                 >
-                    {!isEditing && <>
-                        <div
-                            onMouseDown={ev => handleEntryClick(ev, schematic)}
-                            className={s.name}
-                        >{schematic.snapshot.mainSchematic.name}</div>
-                        <button className={s.btnIcon} onClick={ev => handleEditName(ev, schematic)}>
-                            <FontAwesomeIcon icon={faPencil} />
-                        </button>
-                        <button className={s.btnIcon} onClick={ev => handleDelete(ev, schematic)}>
-                            <FontAwesomeIcon icon={faTrash} />
-                        </button>
-                    </>}
-                    {isEditing && <>
-                        <input className={s.input} value={nameEdit!.name} onChange={ev => setNameEdit(a => assignImm(a!, { name: ev.target.value }))} />
-                        <button className={s.btnIcon} onClick={ev => applyEditName()}>
-                            <FontAwesomeIcon icon={faCheck} />
-                        </button>
-                        <button className={s.btnIcon} onClick={ev => cancelEditName()}>
-                            <FontAwesomeIcon icon={faTimes} />
-                        </button>
-                    </>}
+                    <div
+                        onMouseDown={ev => handleEntryClick(ev, schematic)}
+                        className={s.name}
+                    >{schematic.snapshot.mainSchematic.name}</div>
+
+                    <button className={s.btnIcon} onClick={ev => handleDelete(ev, schematic)}>
+                        <FontAwesomeIcon icon={faTrash} />
+                    </button>
                 </div>;
             })}
         </div>
