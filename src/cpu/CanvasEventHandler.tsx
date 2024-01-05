@@ -13,7 +13,7 @@ import { useFunctionRef, useRequestAnimationFrame } from '../utils/hooks';
 import { copySelection, cutSelection, pasteSelection } from './Clipboard';
 import { deleteSelection } from './Selection';
 import { compIsVisible } from './ModelHelpers';
-import { shouldRenderComp } from './CanvasRenderHelpers';
+import { constructSubCanvasState, shouldRenderComp } from './CanvasRenderHelpers';
 import { multiSortStableAsc } from '../utils/array';
 import { rotateCompIsHoriz, rotateCompPortPos } from './comps/CompHelpers';
 
@@ -494,8 +494,8 @@ export const CanvasEventHandler: React.FC<{
         });
     });
 
-    function getRefUnderCursor(editorState: IEditorState, ev: React.MouseEvent, schematic?: ISchematic, mtx?: AffineMat2d, idPrefix: string = ''): IHitTest | null {
-        mtx ??= editorState.mtx;
+    function getRefUnderCursor(editorState: IEditorState, cvsState: ICanvasState, ev: React.MouseEvent, schematic?: ISchematic, idPrefix: string = ''): IHitTest | null {
+        let mtx = cvsState.mtx;
         schematic ??= editorState.snapshot.mainSchematic;
 
         let mousePt = evToModel(ev, mtx);
@@ -535,12 +535,10 @@ export const CanvasEventHandler: React.FC<{
                     }
                 }
 
-                let bb = comp.bb; // new BoundingBox3d(comp.pos, comp.pos.add(comp.size));
-                // bb.shrinkInPlaceXY(0.5);
-                if (bb.contains(mousePt)) {
+                if (comp.bb.contains(mousePt)) {
 
                     if ((comp.hasSubSchematic || comp.subSchematicId) && editorState.maskHover !== comp.id && subSchematicVisible) {
-                        let screenBb = mtx.mulBb(bb).shrinkInPlaceXY(20);
+                        let screenBb = mtx.mulBb(comp.bb).shrinkInPlaceXY(20);
                         if (screenBb.contains(mousePtScreen)) {
                             // need some test of whether we can click through to the sub-schematic,
                             // since still want to be able to select the component itself. Also should
@@ -548,9 +546,10 @@ export const CanvasEventHandler: React.FC<{
                             let def = editorState.compLibrary.getCompDef(comp.defId);
                             let subSchematic = getCompSubSchematic(editorState, comp)!;
                             if (subSchematic && def) {
-                                let subMtx = mtx.mul(computeSubLayoutMatrix(comp, subSchematic));
+                                let subMtx = computeSubLayoutMatrix(comp, subSchematic);
+                                let subCvs = constructSubCanvasState(cvsState, subMtx, comp);
 
-                                let subRef = getRefUnderCursor(editorState, ev, subSchematic, subMtx, idPrefix + comp.id + '|');
+                                let subRef = getRefUnderCursor(editorState, subCvs, ev, subSchematic, idPrefix + comp.id + '|');
 
                                 if (subRef) {
                                     refsUnderCursor.push(subRef);
@@ -655,7 +654,7 @@ export const CanvasEventHandler: React.FC<{
             return;
         }
 
-        let isect = getRefUnderCursor(editorState, ev);
+        let isect = getRefUnderCursor(editorState, cvsState, ev);
 
         setEditorState(a => assignImm(a, { hovered: assignImmFull(a.hovered, isect) }));
     }

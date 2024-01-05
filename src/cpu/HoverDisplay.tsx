@@ -22,7 +22,8 @@ export const HoverDisplay: React.FC<{
     if (hovered && exeModel) {
         let content: React.ReactNode = null;
 
-        if (hovered.ref.type === RefType.WireSeg || hovered.ref.type === RefType.WireNode) {
+        let type = hovered.ref.type;
+        if (type === RefType.WireSeg || type === RefType.WireNode) {
             let netIdx = exeModel.lookup.wireIdToNetIdx.get(hovered.ref.id);
             let net = exeModel.nets[netIdx ?? -1];
             if (net) {
@@ -65,14 +66,14 @@ export const HoverDisplay: React.FC<{
                 content = <div>net {hovered.ref.id} {"=>"} {netIdx} not found</div>;
             }
 
-        } else {
+        } else if (type === RefType.Comp || type === RefType.CompNode) {
             let compIdx = exeModel.lookup.compIdToIdx.get(hovered.ref.id);
             let idxFound = isNotNil(compIdx);
             let exeComp = exeModel.comps[compIdx ?? -1];
 
             let portElNode: React.ReactNode = null;
             let portIdStr: React.ReactNode = null;
-            if (hovered.ref.type === RefType.CompNode) {
+            if (type === RefType.CompNode) {
                 let portInfo = lookupPortInfo(exeModel, hovered.ref);
                 if (portInfo) {
                     let { portExe, port } = portInfo;

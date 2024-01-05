@@ -151,7 +151,6 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
     inAPort.ioEnabled = isEnabled;
     inBPort.ioEnabled = isEnabled;
     outPort.ioEnabled = isEnabled && !isBranch;
-    branchPort.ioEnabled = false;
     branchPort.value = 0;
 
     if (!isEnabled) {
@@ -171,7 +170,6 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
         // branch may need its own output port?
         outPort.value = 0;
         branchPort.value = (res ? 1 : 0) ^ isInverted;
-        branchPort.ioEnabled = true;
         // console.log('alu: branch res=' + res + ' isInverted=' + isInverted + ' branchPort=' + branchPort.value);
     } else {
         let funct3 = (ctrl >> 2) & 0b111;
