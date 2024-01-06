@@ -66,14 +66,14 @@ export interface IExeComp<T = any> {
 }
 
 export interface IExePhase<T = any> {
-    readPortIdxs: number[];
-    writePortIdxs: number[];
+    readPortIdxs: number[]; // into IExeComp.ports[i]
+    writePortIdxs: number[]; // into IExeComp.ports[i]
     func: (comp: IExeComp<T>, args: IExeRunArgs) => void;
     isLatch: boolean;
 }
 
 export interface IExePort {
-    portIdx: number; // into IComp.ports[i]
+    portIdx: number; // into IExeComp.ports[i]
     netIdx: number;
     width: number;
     type: PortType;
@@ -81,6 +81,7 @@ export interface IExePort {
     ioDir: IoDir; // for rendering. Only needed to be set when is a bidirectional port
     dataUsed: boolean; // for rendering, and involves back-propagation (but typically follows ioEnabled)
     value: number;
+    nestedPort?: IExePortRef; // for back-prop
 }
 
 export enum IoDir {

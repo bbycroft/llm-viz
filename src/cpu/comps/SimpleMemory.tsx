@@ -192,6 +192,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
 
                 data.ioDir = isRead ? IoDir.Out : IoDir.In;
                 data.ioEnabled = isRead || isWrite;
+                addr.ioEnabled = isRead || isWrite;
 
                 // misaligned reads are not supported
                 if (isRead) {
