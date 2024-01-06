@@ -189,6 +189,7 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
                         srcs.push(portRef);
                         bindOutPort = false;
                     }
+                    exePort.nestedPort = portRef;
                 }
             }
 
@@ -685,7 +686,12 @@ export function backpropagateUnusedSignals(exeSystem: IExeSystem) {
             if (allOutputsUnused) {
                 // console.log('marking net as unused', netToString(net, exeSystem.comps));
                 for (let portRef of net.outputs) {
-                    portRef.exePort.dataUsed = false;
+                    let exePort = portRef.exePort;
+                    exePort.dataUsed = false;
+                    let nestedPort = exePort.nestedPort;
+                    if (nestedPort) {
+                        nestedPort.exePort.dataUsed = false;
+                    }
                 }
             }
         }

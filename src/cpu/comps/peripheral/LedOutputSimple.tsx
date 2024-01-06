@@ -137,6 +137,7 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
                     }
                 }
                 busData.ioEnabled = isEnabled;
+                busAddr.ioEnabled = isEnabled;
             }, [], [data.busData]);
 
             builder.addLatchedPhase(({ data: { busCtrl, busAddr, busData } }) => {
