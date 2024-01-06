@@ -99,6 +99,7 @@ export function constructEditSnapshot(): IEditSnapshot {
             compPorts: [],
             compSize: new Vec3(0, 0),
             compBbox: new BoundingBox3d(),
+            innerDisplayBbox: undefined,
         },
         subSchematics: {},
     };

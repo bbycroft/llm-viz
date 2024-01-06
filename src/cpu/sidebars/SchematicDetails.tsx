@@ -17,6 +17,8 @@ export const SchematicDetails: React.FC<{
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
     let mainSchematic = snapshot.mainSchematic;
 
+    let hasInnerDisplayBbox = !!mainSchematic.innerDisplayBbox;
+
     function handleNameUpdate(end: boolean, value: string) {
         setEditorState(editMainSchematic(end, a => assignImm(a, { name: value })));
     }
@@ -30,6 +32,17 @@ export const SchematicDetails: React.FC<{
             let compBbox = computeModelBoundingBox(snapshot, { excludePorts: true });
             return assignImm(a, { compBbox });
         }));
+    }
+
+    function handleInnerDisplayBoundary() {
+        setEditorState(editMainSchematic(true, (a, _, snapshot) => {
+            let compBbox = computeModelBoundingBox(snapshot, { excludePorts: true }).shrinkInPlaceXY(4);
+            return assignImm(a, { innerDisplayBbox: compBbox });
+        }));
+    }
+
+    function handleRemoveInnerDisplayBoundary() {
+        setEditorState(editMainSchematic(true, a => assignImm(a, { innerDisplayBbox: undefined })));
     }
 
     function handleMoveWires() {
@@ -70,6 +83,10 @@ export const SchematicDetails: React.FC<{
 
                 <ButtonStandard onClick={handleRebindWiresToPorts} className="mx-2">
                     Rebind Ports
+                </ButtonStandard>
+
+                <ButtonStandard onClick={hasInnerDisplayBbox ? handleRemoveInnerDisplayBoundary : handleInnerDisplayBoundary} className="mx-2">
+                    {hasInnerDisplayBbox ? 'Remove' : 'Set'} Inner Display Boundary
                 </ButtonStandard>
             </div>
 

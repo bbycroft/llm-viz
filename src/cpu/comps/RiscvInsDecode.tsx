@@ -340,17 +340,30 @@ export function ensureUnsigned32Bit(x: number) {
     return u32Arr[0];
 }
 
-function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<ICompDataInsDecoder>) {
+function renderInsDecoder({ ctx, comp, exeComp, cvs, styles, bb }: ICompRenderArgs<ICompDataInsDecoder>) {
 
     if (!exeComp) {
         return;
     }
 
+    // Factor this out, and use somewhere else
+    let targetSize = new Vec3(28, 14);
+    let bbSize = bb.size();
     ctx.save();
-    ctx.translate(comp.pos.x, comp.pos.y);
-    ctx.scale(0.5, 0.5);
-    ctx.translate(-comp.pos.x, -comp.pos.y);
-    ctx.translate(3.5, 25);
+    ctx.translate(bb.min.x, bb.min.y);
+    let scale = Math.min(bbSize.x / targetSize.x, bbSize.y / targetSize.y);
+    ctx.scale(scale, scale);
+
+    if (bbSize.x < comp.bb.size().x) {
+        ctx.save();
+        ctx.filter = `blur(4px)`;
+        ctx.strokeStyle = styles.fillColor;
+        ctx.lineWidth = 8 * cvs.scale;
+        ctx.strokeRect(0, 0, targetSize.x, targetSize.y);
+        ctx.restore();
+        ctx.fillStyle = styles.fillColor;
+        ctx.fillRect(0, 0, targetSize.x, targetSize.y);
+    }
 
     let data = exeComp.data;
     let ins = data.ins.value;
@@ -359,8 +372,8 @@ function renderInsDecoder({ ctx, comp, exeComp, cvs, styles }: ICompRenderArgs<I
     let originalBitStr = ins.toString(2).padStart(32, '0');
     let width = ctx.measureText(originalBitStr).width;
 
-    let leftX = comp.pos.x + comp.size.x/2 - width/2;
-    let lineY = (a: number) => comp.pos.y + 1.0 + styles.lineHeight * (a + 2.0);
+    let leftX = targetSize.x/2 - width/2;
+    let lineY = (a: number) => 1.0 + styles.lineHeight * (a + 2.0);
 
     ctx.font = makeCanvasFont(styles.fontSize, FontType.Default | FontType.Italic);
     ctx.fillStyle = '#000';

@@ -1,23 +1,46 @@
-import React, { useState } from "react";
-import { IViewLayoutContext, editMainSchematic, editSnapshot, useEditorContext, useViewLayout } from "./Editor";
+import React, { SetStateAction, memo, useState } from "react";
+import { IViewLayoutContext, editMainSchematic, useEditorContext, useViewLayout } from "./Editor";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { RectCorner, RectSide } from "./comps/SchematicComp";
 import clsx from "clsx";
 import { IPointerEvent, useCombinedMouseTouchDrag } from "../utils/pointer";
-import { assignImm } from "../utils/data";
+import { applySetter, assignImm } from "../utils/data";
 import { CursorDragOverlay } from "../utils/CursorDragOverlay";
 
-export const CompBoundingBox: React.FC<{
-
-}> = () => {
+export const CompBoundingBox: React.FC = memo(function CompBoundingBox() {
     let [editorState, setEditorState] = useEditorContext();
-    let viewLayout = useViewLayout();
     let schematic = (editorState.snapshotTemp ?? editorState.snapshot).mainSchematic;
-    let compBb = schematic.compBbox;
+
+    function handleUpdate(end: boolean, updateBbox: SetStateAction<BoundingBox3d>) {
+        setEditorState(editMainSchematic(end, (layout) => {
+            return assignImm(layout, { compBbox: applySetter(updateBbox, layout.compBbox) });
+        }));
+    }
+
+    return <BoundingBoxEditor bbox={schematic.compBbox} handleUpdate={handleUpdate} />;
+});
+
+export const InnerDisplayBoundingBox: React.FC = memo(function InnerRegionBoundingBox() {
+    let [editorState, setEditorState] = useEditorContext();
+    let schematic = (editorState.snapshotTemp ?? editorState.snapshot).mainSchematic;
+
+    function handleUpdate(end: boolean, updateBbox: SetStateAction<BoundingBox3d>) {
+        setEditorState(editMainSchematic(end, (layout) => {
+            return assignImm(layout, { innerDisplayBbox: applySetter(updateBbox, layout.innerDisplayBbox ?? new BoundingBox3d(new Vec3(5, 5), new Vec3(15, 15))) });
+        }));
+    }
+
+    return schematic.innerDisplayBbox ? <BoundingBoxEditor bbox={schematic.innerDisplayBbox} handleUpdate={handleUpdate} /> : null;
+});
+
+export const BoundingBoxEditor: React.FC<{
+    bbox: BoundingBox3d;
+    handleUpdate: (end: boolean, bbox: SetStateAction<BoundingBox3d>) => void;
+}> = ({ bbox, handleUpdate }) => {
+    let viewLayout = useViewLayout();
 
     function handleEdgeDrag(end: boolean, side: RectSide, dest: Vec3) {
-        setEditorState(editMainSchematic(end, (layout) => {
-            let prev = layout.compBbox;
+        handleUpdate(end, (prev) => {
 
             let tl = prev.min.clone();
             let br = prev.max.clone();
@@ -33,15 +56,12 @@ export const CompBoundingBox: React.FC<{
             tl = roundToHalfway(tl);
             br = roundToHalfway(br);
 
-            return assignImm(layout, { compBbox: new BoundingBox3d(tl, br) });
-        }));
-
+            return new BoundingBox3d(tl, br);
+        });
     }
 
     function handleCornerDrag(end: boolean, corner: RectCorner, dest: Vec3) {
-        setEditorState(editMainSchematic(end, (layout) => {
-            let prev = layout.compBbox;
-
+        handleUpdate(end, (prev) => {
             let tl = prev.min.clone();
             let br = prev.max.clone();
 
@@ -51,8 +71,18 @@ export const CompBoundingBox: React.FC<{
             tl = roundToHalfway(tl);
             br = roundToHalfway(br);
 
-            return assignImm(layout, { compBbox: new BoundingBox3d(tl, br) });
-        }));
+            return new BoundingBox3d(tl, br);
+        });
+    }
+
+    function handleMoveDrag(end: boolean, delta: Vec3) {
+        handleUpdate(end, (prev) => {
+            let tl = prev.min.add(delta);
+            let br = prev.max.add(delta);
+            tl = roundToHalfway(tl);
+            br = roundToHalfway(br);
+            return new BoundingBox3d(tl, br);
+        });
     }
 
     let scale = viewLayout.mtx.a;
@@ -60,8 +90,8 @@ export const CompBoundingBox: React.FC<{
     let corners = [RectCorner.TopLeft, RectCorner.TopRight, RectCorner.BottomRight, RectCorner.BottomLeft];
 
     return <div style={{ position: 'absolute', transformOrigin: 'top left', transform: `scale(${1/scale})` }}>
-        {dirs.map(side => <EdgeHitTarget key={side} bb={compBb} side={side} viewLayout={viewLayout} onEdgeDrag={handleEdgeDrag} />)}
-        {corners.map(corner => <CornerHitTarget key={corner} bb={compBb} corner={corner} viewLayout={viewLayout} onCornerDrag={handleCornerDrag} />)}
+        {dirs.map(side => <EdgeHitTarget key={side} bb={bbox} side={side} viewLayout={viewLayout} onEdgeDrag={handleEdgeDrag} />)}
+        {corners.map(corner => <CornerHitTarget key={corner} bb={bbox} corner={corner} viewLayout={viewLayout} onCornerDrag={handleCornerDrag} />)}
     </div>;
 };
 

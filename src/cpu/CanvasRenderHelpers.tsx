@@ -81,7 +81,7 @@ export function shouldRenderComp(comp: IComp, cvs: ICanvasState): readonly [rend
     let pxPerGrid = 1 / cvs.scale;
 
     let renderPorts = pxPerGrid > 4 || area > 50 * 50;
-    let renderSubSchematic = pxPerGrid > 10 && area > 150 * 150;
+    let renderSubSchematic = pxPerGrid > 15 && area > 170 * 170;
 
     return [true, renderPorts, renderSubSchematic];
 }

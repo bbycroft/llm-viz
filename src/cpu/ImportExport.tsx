@@ -276,6 +276,7 @@ export interface ILSSchematic {
     parentComp?: ILSComp;
     compBbox?: ILSBbox;
     compArgs?: ILSCompArgs;
+    innerDisplayBbox?: ILSBbox;
 }
 
 export interface ILSModel {
@@ -333,7 +334,7 @@ export function lsSchematicToSchematicDef(lsSchematic: ILSSchematic, compLibrary
     let compArgs = compArgsFromLsState(lsSchematic.compArgs);
 
     let snapshot = constructEditSnapshot();
-    snapshot = wiresFromLsState(snapshot, lsSchematic.model, compLibrary);
+    snapshot = modelFromLsState(snapshot, lsSchematic.model, compLibrary);
 
 
     snapshot.mainSchematic = addCompArgsToSnapshot(snapshot.mainSchematic, compArgs);
@@ -343,9 +344,10 @@ export function lsSchematicToSchematicDef(lsSchematic: ILSSchematic, compLibrary
     schematic.name = lsSchematic.name;
     schematic.parentCompDefId = lsSchematic.parentCompDefId;
     schematic.compBbox = lsSchematic.compBbox ? bboxFromLs(lsSchematic.compBbox) : new BoundingBox3d();
+    schematic.innerDisplayBbox = lsSchematic.innerDisplayBbox ? bboxFromLs(lsSchematic.innerDisplayBbox) : undefined;
 
     if (lsSchematic.parentCompDefId) {
-        schematic.parentComp = compLibrary.create(lsSchematic.parentCompDefId);
+        schematic.parentComp = lsSchematic.parentComp ? compFromLs(compLibrary, lsSchematic.parentComp) : compLibrary.create(lsSchematic.parentCompDefId);
     }
 
     // if (snapshot.compBbox.empty) {
@@ -369,6 +371,7 @@ export function editSnapshotToLsSchematic(id: string, editSnapshot: IEditSnapsho
         name: schematic.name,
         parentCompDefId: schematic.parentCompDefId,
         parentComp: schematic.parentComp ? compToLs(schematic.parentComp) : undefined,
+        innerDisplayBbox: schematic.innerDisplayBbox ? bboxToLs(schematic.innerDisplayBbox) ?? undefined : undefined,
         compArgs: compArgsToLsState(schematic),
         compBbox: bboxToLs(schematic.compBbox) ?? undefined,
         model: schematicToLsState(schematic),
@@ -421,7 +424,7 @@ function addCompArgsToSnapshot(schematic: IEditSchematic, compArgs: ISchematicCo
     });
 }
 
-export function wiresFromLsState(layoutBase: IEditSnapshot, ls: ILSModel, compLibrary: CompLibrary): IEditSnapshot {
+export function modelFromLsState(layoutBase: IEditSnapshot, ls: ILSModel, compLibrary: CompLibrary): IEditSnapshot {
 
     let wireIdx = 0;
     let newWires: IWireGraph[] = ls.wires.map(w => ({
