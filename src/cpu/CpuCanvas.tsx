@@ -19,7 +19,7 @@ import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
 import { compIsVisible, computeModelBoundingBox, computeZoomExtentMatrix, createCpuEditorState } from "./ModelHelpers";
 import { MainToolbar } from "./toolbars/CpuToolbars";
 import { SharedContextContext, createSharedContext } from "./library/SharedContext";
-import { CompBoundingBox } from "./CompBoundingBox";
+import { CompBoundingBox, InnerDisplayBoundingBox } from "./CompBoundingBox";
 import { CompDetails } from "./sidebars/CompDetails";
 import { Resizer } from "../utils/Resizer";
 import { SchematicDetails } from "./sidebars/SchematicDetails";
@@ -289,6 +289,7 @@ export const CpuCanvas: React.FC<{
                         exeComp: exeModel.comps[exeModel.lookup.compIdToIdx.get(compFullId) ?? -1],
                         styles: null!,
                         isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === compFullId,
+                        bb: a.comp.bb,
                     }) ?? null}
                     {subLayoutDom}
                 </React.Fragment>;
@@ -323,6 +324,7 @@ export const CpuCanvas: React.FC<{
                                     style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
                                     {compDivs}
                                     <CompBoundingBox />
+                                    <InnerDisplayBoundingBox />
                                 </div>
                                 {editorState.transparentComps && <div className="absolute w-full h-full pointer-events-auto top-0 left-0" />}
                             </div>
@@ -439,10 +441,16 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
                 strokeColor: isHover ? "#a00" : "#000",
                 lineWidth: 1 * cvs.scale,
             },
+            bb: comp.bb,
             isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === compFullId,
         };
 
         let subSchematic = getCompSubSchematic(editorState, comp);
+
+        if (subSchematic && subSchematicVisible && subSchematic.innerDisplayBbox) {
+            let subMtx = computeSubLayoutMatrix(comp, subSchematic);
+            compRenderArgs.bb = subMtx.mulBb(subSchematic.innerDisplayBbox);
+        }
 
         function drawPath() {
             if (compDef?.renderCanvasPath) {
@@ -549,8 +557,8 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             ctx.font = makeCanvasFont(30 * cvs.scale);
             ctx.textAlign = 'center';
             ctx.textBaseline = "middle";
-            let px = comp.pos.x + (comp.size.x) / 2;
-            let py = comp.pos.y + (comp.size.y) / 2;
+            let px = comp.bb.center().x;
+            let py = comp.bb.center().y;
             // ctx.filter = "blur(1px)";
             ctx.strokeText(text, px, py);
             // ctx.filter = "none";
@@ -576,6 +584,7 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
 
     if (idPrefix === '') {
         renderComponentBoundingBox(cvs, editorState, snapshot, idPrefix);
+        renderInnerDisplayBoundingBox(cvs, editorState, snapshot, idPrefix);
     }
 
     if (snapshot.mainSchematic.parentComp && idPrefix === '') {
@@ -658,6 +667,7 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
             strokeColor: "#000",
             lineWidth: 1 * cvs.scale,
         },
+        bb: comp.bb,
         isActive: false,
     };
 
@@ -887,6 +897,27 @@ function renderComponentBoundingBox(cvs: ICanvasState, editorState: IEditorState
 
     ctx.lineWidth = 1 * cvs.scale;
     ctx.strokeStyle = "#000";
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+function renderInnerDisplayBoundingBox(cvs: ICanvasState, editorState: IEditorState, layout: IEditSnapshot, idPrefix: string) {
+    let ctx = cvs.ctx;
+    ctx.save();
+
+    let bb = layout.mainSchematic.innerDisplayBbox;
+
+    if (!bb) {
+        return;
+    }
+
+    let size = bb.size();
+    ctx.beginPath();
+    ctx.rect(bb.min.x, bb.min.y, size.x, size.y);
+
+    ctx.lineWidth = 1 * cvs.scale;
+    ctx.strokeStyle = "#77f";
     ctx.stroke();
 
     ctx.restore();

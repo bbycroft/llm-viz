@@ -284,6 +284,7 @@ export interface ICompRenderArgs<T, A = any> {
     exeComp: IExeComp<T>;
     styles: IRenderStyles;
     isActive: boolean;
+    bb: BoundingBox3d;
 }
 
 export interface ICompOptsRenderArgs<T, A = any> {
@@ -394,7 +395,6 @@ export interface IEditSchematic {
     name: string;
     comps: IComp[];
     wires: IWireGraph[];
-    compBbox: BoundingBox3d;
 
     nextCompId: number;
     nextWireId: number;
@@ -402,6 +402,9 @@ export interface IEditSchematic {
     // this schematic uses a component from the compLibrary as its parent component
     parentCompDefId?: string;
     parentComp?: IComp; // with some args
+
+    compBbox: BoundingBox3d;
+    innerDisplayBbox?: BoundingBox3d;
 
     // -- or --
 
