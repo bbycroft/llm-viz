@@ -152,7 +152,7 @@ export default function Page() {
         <Para>
             The instruction decode component outputs a whole suite of <em>control signals</em>, which are routed to the
             various other components, telling them what to do. This component is also considered "combinatorial", meaning
-            its outputs are wholy determined by its inputs, and don't depend on any internal state. In contrast,
+            its outputs are wholly determined by its inputs, and don't depend on any internal state. In contrast,
             the register file is considered "sequential", because it has internal state (the values of the registers), and
             also integrates with the clock signal.
         </Para>
