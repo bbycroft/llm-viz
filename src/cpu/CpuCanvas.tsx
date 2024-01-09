@@ -908,17 +908,15 @@ function renderInnerDisplayBoundingBox(cvs: ICanvasState, editorState: IEditorSt
 
     let bb = layout.mainSchematic.innerDisplayBbox;
 
-    if (!bb) {
-        return;
+    if (bb) {
+        let size = bb.size();
+        ctx.beginPath();
+        ctx.rect(bb.min.x, bb.min.y, size.x, size.y);
+
+        ctx.lineWidth = 1 * cvs.scale;
+        ctx.strokeStyle = "#77f";
+        ctx.stroke();
     }
-
-    let size = bb.size();
-    ctx.beginPath();
-    ctx.rect(bb.min.x, bb.min.y, size.x, size.y);
-
-    ctx.lineWidth = 1 * cvs.scale;
-    ctx.strokeStyle = "#77f";
-    ctx.stroke();
 
     ctx.restore();
 }
