@@ -6,7 +6,7 @@ import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { assignImm, getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { IViewLayoutContext, MyStoreContext, ViewLayoutContext, useCreateStoreState } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, IParentCompInfo, IWireRenderInfo, IWirePortBinding } from "./CpuModel";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, IParentCompInfo, IWireRenderInfo, IWirePortBinding, RectSide } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { HoverDisplay } from "./HoverDisplay";
 import { renderWire } from "./WireRender";
@@ -25,7 +25,7 @@ import { Resizer } from "../utils/Resizer";
 import { SchematicDetails } from "./sidebars/SchematicDetails";
 import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort";
 import { WireRenderCache } from "./WireRenderCache";
-import { rotateCompPortPos, rotatePos } from "./comps/CompHelpers";
+import { rotateCompPortPos, rotatePos, rotateRectSide } from "./comps/CompHelpers";
 import { LeftSidebar } from "./sidebars/LeftSidebar";
 import { SaveLoadHandler } from "./SaveLoadHandler";
 
@@ -807,19 +807,20 @@ function renderCompPort(cvs: ICanvasState, editorState: IEditorState, idPrefix: 
 
     let portPos = rotateCompPortPos(comp, port);
 
-    let x = comp.pos.x + port.pos.x;
-    let y = comp.pos.y + port.pos.y;
+    let x = portPos.x;
+    let y = portPos.y;
 
-    //
+    let side = port.pos.x === 0 ? RectSide.Left : port.pos.x === comp.size.x ? RectSide.Right : port.pos.y === 0 ? RectSide.Top : RectSide.Bottom;
+
     let innerOffset = 0.5;
     let innerPos = new Vec3(port.pos.x, port.pos.y);
-    if (port.pos.x === 0) {
+    if (side === RectSide.Left) {
         innerPos.x += innerOffset;
-    } else if (port.pos.x === comp.size.x) {
+    } else if (side === RectSide.Right) {
         innerPos.x -= innerOffset;
-    } else if (port.pos.y === 0) {
+    } else if (side === RectSide.Top) {
         innerPos.y += innerOffset;
-    } else if (port.pos.y === comp.size.y) {
+    } else if (side === RectSide.Bottom) {
         innerPos.y -= innerOffset;
     }
 
@@ -862,10 +863,13 @@ function renderCompPort(cvs: ICanvasState, editorState: IEditorState, idPrefix: 
 
     if (port.name) {
         // ALL BROKEN with rotation
-        let isTop = port.pos.y === 0;
-        let isBot = port.pos.y === comp.size.y;
-        let isLeft = port.pos.x === 0;
-        let isRight = port.pos.x === comp.size.x;
+        let sideRot = rotateRectSide(comp.rotation, side);
+
+        let isTop = sideRot === RectSide.Top;
+        let isBot = sideRot === RectSide.Bottom;
+        let isLeft = sideRot === RectSide.Left;
+        let isRight = sideRot === RectSide.Right;
+
         if (isTop || isBot) {
             let px = innerPos.x;
             let py = innerPos.y;

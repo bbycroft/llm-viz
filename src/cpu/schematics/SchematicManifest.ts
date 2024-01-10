@@ -10,6 +10,7 @@ import { aluInternalSimpleSchematic } from "./aluInternalSimpleSchematic";
 import { adder_RippleAdderSchematic } from "./adder_RippleAdderSchematic";
 import { singleBitAdderSchematic } from "./singleBitAdderSchematic";
 import { mux_2InternalSchematic } from "./mux_2InternalSchematic";
+import { riscvLoadStoreInternalSchematic } from "./riscvLoadStoreInternalSchematic";
 
 export const schematicManifest: ILSSchematic[] = [
     pcCounterSchematic,
@@ -23,5 +24,6 @@ export const schematicManifest: ILSSchematic[] = [
     adder_RippleAdderSchematic,
     singleBitAdderSchematic,
     mux_2InternalSchematic,
+    riscvLoadStoreInternalSchematic,
 ];
 

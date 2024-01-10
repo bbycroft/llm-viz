@@ -149,8 +149,10 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
             }
         }
 
+        // should only be one active src node! multiple imply some failure, and should probably be rendered specially in some way
+        // - what about no active src nodes? That's not helpful since this is about dataUsed rather than ioEnabled.
         let srcNodeIds: number[] = [];
-        let destNodeIds: number[] = []; // should only be one active input! multiple imply some failure, and should probably be rendered specially in some way
+        let destNodeIds: number[] = [];
 
         for (let binding of nodeIdToPortBinding.values()) {
             if (hasFlag(binding.port.type, PortType.In) && binding.exePort.ioDir !== IoDir.Out && binding.exePort.dataUsed) {
@@ -223,6 +225,7 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
     let isSelected = false;
     let selectedNodes = new Set<number>();
     let selectedSegs = new Set<string>();
+    let enabledCount = exeNet?.enabledCount ?? 1;
 
     for (let sel of editorState.snapshot.selected) {
         if (!(sel.type === RefType.WireNode || sel.type === RefType.WireSeg) || sel.id !== fullWireId) {
@@ -257,5 +260,7 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
         activeDestNodeCount,
         srcNodeCount,
         destNodeCount,
+        enabledCount,
+        exeNet,
     };
 }
