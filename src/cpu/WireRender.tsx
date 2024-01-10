@@ -1,4 +1,4 @@
-import { clamp, isNil } from "../utils/data";
+import { clamp, getOrAddToMap, isNil } from "../utils/data";
 import { Vec3 } from "../utils/vector";
 import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
 import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, RefType, IWireGraphNode, IParentCompInfo } from "./CpuModel";
@@ -9,6 +9,8 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
     let {
         width,
+        bitWidth,
+        wireValue,
         flowNodes,
         flowSegs,
         isHover,
@@ -116,26 +118,106 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     let nonZeroFlowColor = '#d95f0e';
     let flowColor = isNonZero ? nonZeroFlowColor : zeroFlowColor;
 
-    iterWireGraphSegments(wire, (node0, node1) => {
+    function genWireBitCanvas(cvs: ICanvasState, drawWidth: number, bitWidth: number, wireValue: number) {
+        let bitCvs = document.createElement('canvas');
+        let ctx = bitCvs.getContext('2d')!;
+
+        let nSegs = Math.ceil(bitWidth / drawWidth);
+        let segWidth = drawWidth * 2 + 3; // 2px per bit, 6px padding
+        let chunkWidth = segWidth * nSegs + 12; // 12px padding
+
+        // we're drawing a horizontal section of the wire
+        bitCvs.width = chunkWidth;
+        bitCvs.height = drawWidth + 2; // 1px padding top and bottom
+
+        ctx.lineCap = "square";
+        ctx.fillStyle = noFlowColor; // background color
+        ctx.fillRect(0, 0, bitCvs.width, bitCvs.height);
+        ctx.resetTransform();
+        ctx.translate(0.5, 1.5);
+
+        // we'll split bits into zeros and ones, and can draw them separately
+
+        ctx.lineWidth = 1;
+
+        // first iter zeros
         ctx.beginPath();
+        for (let i = 0; i < bitWidth; i++) {
+            let bitVal = (wireValue >> i) & 1;
+            if (bitVal === 1) {
+                continue;
+            }
+
+            let segIdx = nSegs - 1 - Math.floor(i / drawWidth);
+            let segOffset = drawWidth - 1 - (i % drawWidth);
+
+            let x = segIdx * segWidth + segOffset * 2;
+            ctx.moveTo(x + 0.0, segOffset);
+            ctx.lineTo(x + 4.0, segOffset);
+        }
+        ctx.strokeStyle = zeroFlowColor;
+        ctx.stroke();
+
+        // then iter ones
+        ctx.beginPath();
+        for (let i = 0; i < bitWidth; i++) {
+            let bitVal = (wireValue >> i) & 1;
+            if (bitVal === 0) {
+                continue;
+            }
+
+            let segIdx = nSegs - 1 - Math.floor(i / drawWidth);
+            let segOffset = drawWidth - 1 - (i % drawWidth);
+
+            let x = segIdx * segWidth + segOffset * 2;
+            ctx.moveTo(x, segOffset);
+            ctx.lineTo(x + 4.0, segOffset);
+        }
+        ctx.strokeStyle = nonZeroFlowColor;
+        ctx.stroke();
+        return bitCvs;
+    }
+
+    // let wireBitCanvas = getOrAddToMap(cvs.tileCanvases, `w_${width}_${bitWidth}_${wireValue}`, () => genWireBitCanvas(cvs, width, bitWidth, wireValue));
+    // let wireBitPattern = ctx.createPattern(wireBitCanvas, 'repeat')!;
+
+    // need to transform such that we're working in px coords again
+    // i.e. the lineWidth is width wide.
+    // also transform such that the wire starts at t,0 (for animation)
+    // ctx.save();
+    // ctx.scale(cvs.scale, cvs.scale);
+
+    iterWireGraphSegments(wire, (node0, node1) => {
+        // ctx.save();
+        ctx.beginPath();
+        // let offX = node0.pos.x / cvs.scale - width / 2 + cvs.t;
+        // let offY = node0.pos.y / cvs.scale - width / 2 - 1.0;
+        // ctx.translate(offX, offY);
 
         let isForwardFlow = flowSegs.has(segKey(node0.id, node1.id));
         let isBackwardFlow = flowSegs.has(segKey(node1.id, node0.id));
         let isFlow = isForwardFlow || isBackwardFlow || !anyDestNodes;
 
         // somehow will need to indicate flow direction (not yet)
+        ctx.strokeStyle = isFlow ? flowColor : noFlowColor;
 
-        ctx.strokeStyle = noFlowColor; //'#333';
+        // if (isFlow) {
+        //     // ctx.strokeStyle = wireBitPattern;
+        // } else {
+        //     ctx.strokeStyle = noFlowColor;
+        // }
 
-        if (isFlow) {
-            ctx.strokeStyle = flowColor;
-        }
-
+        // ctx.lineWidth = width; // * cvs.scale;
+        // ctx.moveTo(node0.pos.x / cvs.scale - offX, node0.pos.y / cvs.scale - offY);
+        // ctx.lineTo(node1.pos.x / cvs.scale - offX, node1.pos.y / cvs.scale - offY);
         ctx.lineWidth = width * cvs.scale;
         ctx.moveTo(node0.pos.x, node0.pos.y);
         ctx.lineTo(node1.pos.x, node1.pos.y);
         ctx.stroke();
+        // ctx.restore();
     });
+
+    // ctx.restore();
 
     if (parentCompInfo) {
         ctx.save();
