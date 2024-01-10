@@ -32,7 +32,7 @@ export function createAluComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             { id: 'rhs', name: 'RHS', pos: new Vec3(13, 0), type: PortType.In, width: 32 },
 
             { id: 'branch', name: 'Branch', pos: new Vec3(4, 12), type: PortType.Out, width: 1 },
-            { id: 'result', name: 'Result', pos: new Vec3(8, 12), type: PortType.OutTri, width: 32 },
+            { id: 'result', name: 'Result', pos: new Vec3(8, 12), type: PortType.Out, width: 32 },
         ],
         build: (builder) => {
             let data = builder.addData({
@@ -150,7 +150,6 @@ function aluPhase0({ data: { inCtrlPort, inAPort, inBPort, outPort, branchPort }
 
     inAPort.ioEnabled = isEnabled;
     inBPort.ioEnabled = isEnabled;
-    outPort.ioEnabled = isEnabled && !isBranch;
     branchPort.value = 0;
 
     if (!isEnabled) {

@@ -1,5 +1,5 @@
 import { Vec3 } from "@/src/utils/vector";
-import { CompDefFlags, IExePort, PortType } from "../CpuModel";
+import { CompDefFlags, IExePort, IoDir, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { createBitWidthMask, rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
 
@@ -317,7 +317,7 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
             ctx.lineTo(rightX, y + h / 2);
             ctx.lineTo(x, y + h);
             ctx.closePath();
-            ctx.moveTo(x + w - dx, y + h / 2);
+            ctx.moveTo(x + w - dx - 0.5, y + h / 2);
             ctx.arc(rightX + dx/2, y + h / 2, dx/2, 0, Math.PI * 2);
             ctx.moveTo(rightX + dx*0.9, y + h / 2)
             ctx.arc(rightX + dx/2, y + h / 2, dx * (0.5 - 0.1), 0, Math.PI * 2);
@@ -326,5 +326,80 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         },
     };
 
-    return [orGate, xorGate, andGate, notGate, andGateBCast];
+
+    let transmissionGate: ICompDef<IBinGateData, IBinGateConfig> = {
+        defId: 'gate/transmission',
+        name: "Transmission Gate",
+        size: new Vec3(wOrig, hOrig),
+        flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
+        ports: (args) => [
+            { id: 'a', name: '', pos: new Vec3(0, 2), type: PortType.In, width: args.bitWidth },
+            { id: 'b', name: '', pos: new Vec3(2, 0), type: PortType.In | PortType.Ctrl, width: 1 },
+            { id: 'o', name: '', pos: new Vec3(wOrig, 2), type: PortType.OutTri, width: args.bitWidth },
+        ],
+        initConfig: () => ({ rotate: 0, bitWidth: 1 }),
+        build: (builder) => {
+            let data = builder.addData({
+                inAPort: builder.getPort('a'),
+                inBPort: builder.getPort('b'),
+                outPort: builder.getPort('o'),
+            });
+
+            builder.addPhase(({ data: { inAPort, inBPort, outPort } }) => {
+                let isOn = !!inBPort.value;
+                outPort.value = isOn ? inAPort.value : 0;
+                outPort.ioEnabled = isOn;
+
+                inAPort.ioEnabled = isOn;
+            }, [data.inAPort, data.inBPort], [data.outPort]);
+
+            return builder.build();
+        },
+        renderCanvasPath: ({ comp, ctx, cvs, exeComp }) => {
+            ctx.save();
+            ctx.translate(comp.pos.x, comp.pos.y);
+
+            let mtx = rotateAboutAffineInt(comp.rotation, baseSize);
+            ctx.transform(...mtx.toTransformParams());
+
+            let x = 0.5;
+            let y = 0.5;
+            let w = wOrig - 1;
+            let h = hOrig - 1;
+
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + w/2, y + h/4);
+            ctx.lineTo(x + w, y);
+            ctx.lineTo(x + w, y + h);
+            ctx.lineTo(x + w/2, y + h*3/4);
+            ctx.lineTo(x, y + h);
+            ctx.closePath();
+
+            ctx.restore();
+        },
+        render: ({ ctx, comp }) => {
+            ctx.save();
+            ctx.translate(comp.pos.x, comp.pos.y);
+
+            let mtx = rotateAboutAffineInt(comp.rotation, baseSize);
+            ctx.transform(...mtx.toTransformParams());
+
+            let x = 0.5;
+            let y = 0.5;
+            let w = wOrig - 1;
+            let h = hOrig - 1;
+
+            ctx.beginPath();
+            ctx.moveTo(x + w/2, y + h/4);
+            ctx.lineTo(x + w, y + h/2);
+            ctx.lineTo(x + w/2, y + h*3/4);
+            ctx.lineTo(x, y + h/2);
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.restore();
+        },
+    };
+
+    return [orGate, xorGate, andGate, notGate, andGateBCast, transmissionGate];
 }

@@ -266,7 +266,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                 } else {
                     let textBin = allBits.slice(rangeStart, rangeEnd + 1).join('');
                     let text = '0x' + parseInt(textBin, 2).toString(16).padStart(Math.ceil(nBits / 4), '0');
-                    ctx.fillText(text, tl.x + rangeDrawOffset + rangeH / 2 + 0.5, comp.pos.y - 0.5 + comp.size.y - 0.1);
+                    ctx.fillText(text, tl.x + rangeDrawOffset + rangeH / 2 + 0.5, tl.y - 0.5 + comp.size.x - 0.1);
                 }
 
                 if (isVert) {

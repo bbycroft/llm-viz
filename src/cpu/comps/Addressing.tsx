@@ -86,13 +86,9 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                 let isMatch = addrUpperBits === data.addrOffset;
 
                 localCtrl.value = 0b00;
-                // localData.value = 0;
-                // localData.ioEnabled = false;
-                // localData.ioDir = isWrite ? IoDir.Output : IoDir.Input;
                 localAddr.value = 0;
-                // busData.ioEnabled = false;
-                localData.ioEnabled = isEnabled;
-                localData.ioDir = isWrite ? IoDir.Out : IoDir.In;
+                localData.ioEnabled = true;
+                localData.ioDir = isRead && isMatch ? IoDir.In : IoDir.Out;
                 busData.ioEnabled = isEnabled;
                 // console.log('setting busData.ioDir to', IoDir[busData.ioDir]);
 
@@ -101,7 +97,6 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                     localAddr.value = addrLowerBits;
                     if (isWrite) {
                         localData.value = busData.value;
-                        localData.ioEnabled = true;
                         localData.ioDir = IoDir.Out;
                     }
                 }

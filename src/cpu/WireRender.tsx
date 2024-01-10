@@ -4,7 +4,7 @@ import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
 import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, RefType, IWireGraphNode, IParentCompInfo } from "./CpuModel";
 import { iterWireGraphSegments } from "./Wire";
 
-export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet: IExeNet, exeSystem: IExeSystem, idPrefix: string, parentCompInfo?: IParentCompInfo) {
+export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet_: IExeNet, exeSystem: IExeSystem, idPrefix: string, parentCompInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;
 
     let {
@@ -21,6 +21,8 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         activeSrcNodeCount,
         srcNodeCount,
         destNodeCount,
+        enabledCount,
+        exeNet,
     } = editorState.wireRenderCache.lookupWire(editorState, idPrefix, wire);
 
     let fullWireId = idPrefix + wire.id;
@@ -113,7 +115,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         ctx.restore();
     }
 
-    let noFlowColor = '#D3D3D3';
+    let noFlowColor = '#d3d3d3';
     let zeroFlowColor = '#fec44f';
     let nonZeroFlowColor = '#d95f0e';
     let flowColor = isNonZero ? nonZeroFlowColor : zeroFlowColor;
@@ -187,6 +189,9 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     // ctx.save();
     // ctx.scale(cvs.scale, cvs.scale);
 
+    let isFloating = enabledCount === 0 && exeNet?.tristate === true && anyDestNodes;
+    ctx.save();
+
     iterWireGraphSegments(wire, (node0, node1) => {
         // ctx.save();
         ctx.beginPath();
@@ -198,8 +203,8 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         let isBackwardFlow = flowSegs.has(segKey(node1.id, node0.id));
         let isFlow = isForwardFlow || isBackwardFlow || !anyDestNodes;
 
+
         // somehow will need to indicate flow direction (not yet)
-        ctx.strokeStyle = isFlow ? flowColor : noFlowColor;
 
         // if (isFlow) {
         //     // ctx.strokeStyle = wireBitPattern;
@@ -210,12 +215,18 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         // ctx.lineWidth = width; // * cvs.scale;
         // ctx.moveTo(node0.pos.x / cvs.scale - offX, node0.pos.y / cvs.scale - offY);
         // ctx.lineTo(node1.pos.x / cvs.scale - offX, node1.pos.y / cvs.scale - offY);
-        ctx.lineWidth = width * cvs.scale;
         ctx.moveTo(node0.pos.x, node0.pos.y);
         ctx.lineTo(node1.pos.x, node1.pos.y);
+
+        ctx.filter = isFloating ? 'blur(2px)' : '';
+        ctx.strokeStyle = isFloating ? '#f00' : isFlow ? flowColor : noFlowColor;
+        ctx.lineWidth = width * cvs.scale;
+
         ctx.stroke();
         // ctx.restore();
     });
+
+    ctx.restore();
 
     // ctx.restore();
 
@@ -245,7 +256,6 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
             ctx.stroke();
         }
 
-        ctx.stroke();
         ctx.restore();
     }
 

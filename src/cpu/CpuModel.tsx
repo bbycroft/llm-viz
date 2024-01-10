@@ -204,6 +204,8 @@ export interface IWireRenderInfo {
     isData: boolean;
     isAddr: boolean;
 
+    exeNet: IExeNet | null;
+
     isNonZero: boolean;
     portBindings: Map<string, IWirePortBinding>; // key is the "compId:portId", matching the ref id on the node (ids local to the schematic)
     flowSegs: Set<string>; // the direction of flow is given by id0 -> id1 in "id0:id1"
@@ -224,6 +226,8 @@ export interface IWireRenderInfo {
 
     destNodeCount: number;
     srcNodeCount: number;
+
+    enabledCount: number;
 }
 
 export interface IWirePortBinding {
@@ -340,8 +344,12 @@ export interface ICompPort {
     width?: number;
 }
 
-
-
+export enum RectSide {
+    Right = 0,
+    Bottom = 1,
+    Left = 2,
+    Top = 3,
+}
 
 export enum PortType {
     None = 0,

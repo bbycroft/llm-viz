@@ -1,6 +1,6 @@
 import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { IComp, ICompPort } from "../CpuModel";
+import { IComp, ICompPort, RectSide } from "../CpuModel";
 
 
 export function rotateAffineInt(r: number) {
@@ -76,6 +76,10 @@ export function rotateCompPortPos(comp: IComp, port: ICompPort): Vec3 {
 export function rotateCompIsHoriz(comp: IComp, isHoriz: boolean): boolean {
     let r = comp.rotation;
     return r === 0 || r === 2;
+}
+
+export function rotateRectSide(r: number, side: RectSide) {
+    return (side + r) % 4;
 }
 
 export function rotateAboutAffineInt(r: number, size: Vec3) {
