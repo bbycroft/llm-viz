@@ -216,6 +216,7 @@ export const CpuCanvas: React.FC<{
 
         ctx.restore();
 
+        cvsState.t += 1;
         ctx.save();
         ctx.scale(pr, pr);
         let swCanvasRender = performance.now() - swCanvasRenderStart;

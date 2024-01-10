@@ -211,6 +211,9 @@ export interface IWireRenderInfo {
 
     width: number;
 
+    bitWidth: number;
+    wireValue: number;
+
     isHover: boolean;
     isSelected: boolean;
     selectedNodes: Set<number>; // key is node index

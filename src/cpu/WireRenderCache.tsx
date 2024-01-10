@@ -213,6 +213,8 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
         activeDestNodeCount = destNodeIds.length;
     }
 
+    let bitWidth = exeNet?.width || 1;
+    let wireValue = exeNet?.value || 0;
     let width = (isCtrl || exeNet?.width === 1) ? 1 : (exeNet && exeNet?.width < 32 ? 2 : 4);
 
     let hoverRef = editorState.hovered?.ref;
@@ -241,6 +243,8 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
         flowNodes,
         flowSegs,
         width,
+        bitWidth,
+        wireValue,
         isAddr,
         isCtrl,
         isData,
