@@ -116,19 +116,7 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
                     if (fn) {
                         fn(data, busData.value, true);
                     }
-                }
-
-                busData.ioEnabled = isEnabled;
-                busData.ioDir = isRead ? IoDir.Out : IoDir.In;
-
-            }, [data.busCtrl, data.busAddr, data.busData], []);
-
-            // read from local & write to bus
-            builder.addPhase(({ data: { busCtrl, busAddr, busData } }) => {
-                let ctrl = busCtrl.value;
-                let isEnabled = (ctrl & 0b1) === 0b1; // enabled
-                let isRead = (ctrl & 0b11) === 0b11; // read
-                if (isRead) {
+                } else if (isRead) {
                     let fn = ledOutputRegAccess.regs[busAddr.value];
                     if (fn) {
                         busData.value = fn(data, 0, false);
@@ -136,9 +124,28 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
                         busData.value = 0;
                     }
                 }
-                busData.ioEnabled = isEnabled;
                 busAddr.ioEnabled = isEnabled;
-            }, [], [data.busData]);
+                busData.ioEnabled = isEnabled;
+                busData.ioDir = isRead ? IoDir.Out : IoDir.In;
+
+            }, [data.busCtrl, data.busAddr, data.busData], [data.busData]);
+
+            // read from local & write to bus
+            // builder.addPhase(({ data: { busCtrl, busAddr, busData } }) => {
+            //     let ctrl = busCtrl.value;
+            //     let isEnabled = (ctrl & 0b1) === 0b1; // enabled
+            //     let isRead = (ctrl & 0b11) === 0b11; // read
+            //     if (isRead) {
+            //         let fn = ledOutputRegAccess.regs[busAddr.value];
+            //         if (fn) {
+            //             busData.value = fn(data, 0, false);
+            //         } else {
+            //             busData.value = 0;
+            //         }
+            //     }
+            //     busData.ioEnabled = isEnabled;
+            //     busAddr.ioEnabled = isEnabled;
+            // }, [], [data.busData]);
 
             builder.addLatchedPhase(({ data: { busCtrl, busAddr, busData } }) => {
                 if (data.newValue !== null) {

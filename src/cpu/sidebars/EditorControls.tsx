@@ -55,3 +55,9 @@ export const ButtonStandard: React.FC<ButtonHTMLAttributes<HTMLButtonElement>> =
         {children}
     </button>
 };
+
+export const ButtonRadio: React.FC<{ active: boolean } & ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, active, className, ...props }) => {
+    return <button className={clsx(className, "rounded border-gray-400 border border-solid py-1 px-3 hover:bg-slate-500", active && "bg-blue-400")} {...props}>
+        {children}
+    </button>
+};

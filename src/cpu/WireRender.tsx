@@ -313,16 +313,20 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
 
     if (editorState.showExeOrder) {
         let exeNetIdx = exeSystem.lookup.wireIdToNetIdx.get(fullWireId);
-        let order = exeSystem.executionSteps.findIndex(x => x.netIdx === exeNetIdx);
 
-        if (order >= 0) {
+        let orders = exeSystem.executionSteps
+            .map((x, i) => ({ order: i, netIdx: x.netIdx }))
+            .filter(x => x.netIdx === exeNetIdx)
+            .map(x => x.order);
+
+        if (orders.length) {
 
             for (let node of wire.nodes) {
                 ctx.fillStyle = '#666';
                 ctx.font = makeCanvasFont(18 * cvs.scale, FontType.Mono);
                 ctx.textBaseline = 'bottom';
                 ctx.textAlign = 'left';
-                ctx.fillText(order.toString(), node.pos.x + 0.1, node.pos.y - 0.1);
+                ctx.fillText(orders.join(', '), node.pos.x + 0.1, node.pos.y - 0.1);
             }
 
         }

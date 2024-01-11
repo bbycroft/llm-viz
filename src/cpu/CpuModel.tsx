@@ -81,6 +81,7 @@ export interface IExePort {
     ioDir: IoDir; // for rendering. Only needed to be set when is a bidirectional port
     dataUsed: boolean; // for rendering, and involves back-propagation (but typically follows ioEnabled)
     value: number;
+    floating: boolean; // no value has been set on a tristate wire. can either be a circuit error, or allow ports to later write a value to the net
     nestedPort?: IExePortRef; // for back-prop
 }
 
