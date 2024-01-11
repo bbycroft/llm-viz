@@ -6,7 +6,7 @@ import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { assignImm, getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { IViewLayoutContext, MyStoreContext, ViewLayoutContext, useCreateStoreState } from "./Editor";
-import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, IParentCompInfo, IWireRenderInfo, IWirePortBinding, RectSide } from "./CpuModel";
+import { RefType, IComp, PortType, ICompPort, ICanvasState, IEditorState, IExeSystem, ICompRenderArgs, ISchematic, ToolbarTypes, IEditSnapshot, IParentCompInfo, IWireRenderInfo, IWirePortBinding, RectSide, CompDefFlags, IWirePortInfo } from "./CpuModel";
 import { createExecutionModel, stepExecutionCombinatorial } from "./CpuExecution";
 import { HoverDisplay } from "./HoverDisplay";
 import { renderWire } from "./WireRender";
@@ -290,6 +290,7 @@ export const CpuCanvas: React.FC<{
                         exeComp: exeModel.comps[exeModel.lookup.compIdToIdx.get(compFullId) ?? -1],
                         styles: null!,
                         isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === compFullId,
+                        portBindingLookup: new Map(),
                         bb: a.comp.bb,
                     }) ?? null}
                     {subLayoutDom}
@@ -372,10 +373,6 @@ const innerOffset = 0.5;
 const fontSize = 1.1;
 const lineHeight = 1.4;
 
-interface IWirePortInfo {
-    wireInfo: IWireRenderInfo;
-    portInfo: IWirePortBinding;
-}
 
 function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix = '', parentInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;
@@ -423,11 +420,17 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
         }
 
         let isHover = editorState.hovered?.ref.type === RefType.Comp && editorState.hovered.ref.id === compFullId;
-
         let isValidExe = !!exeComp;
-        ctx.fillStyle = isValidExe ? palette.compBg : "#aaa";
-        ctx.strokeStyle = isHover ? "#444" : "#000";
-        ctx.lineWidth = (isHover ? 2 : 1) * cvs.scale;
+        let isWiresOnly = hasFlag(comp.flags, CompDefFlags.WiresOnly);
+        let isAtomic = hasFlag(comp.flags, CompDefFlags.IsAtomic);
+        let isCompPort = comp.defId === compPortDefId;
+
+
+        let fillColor = !isValidExe ? "#aaa"
+            : isCompPort ? palette.compPortBg
+            : isWiresOnly ? palette.compWireBg
+            : isAtomic ? palette.compAtomicBg
+            : palette.compBg;
 
         let compRenderArgs: ICompRenderArgs<any> = {
             comp,
@@ -438,13 +441,18 @@ function renderCpu(cvs: ICanvasState, editorState: IEditorState, layout: ISchema
             styles: {
                 fontSize: fontSize,
                 lineHeight: lineHeight,
-                fillColor: isValidExe ? palette.compBg : "#aaa",
-                strokeColor: isHover ? "#a00" : "#000",
+                fillColor: fillColor,
+                strokeColor: isHover ? "#aaa" : isWiresOnly ? "#999" : "#000",
                 lineWidth: 1 * cvs.scale,
             },
             bb: comp.bb,
+            portBindingLookup,
             isActive: !!singleElRef && singleElRef.type === RefType.Comp && singleElRef.id === compFullId,
         };
+
+        ctx.fillStyle = compRenderArgs.styles.fillColor;
+        ctx.strokeStyle = compRenderArgs.styles.strokeColor;
+        ctx.lineWidth = (isHover ? 2 : 1) * cvs.scale;
 
         let subSchematic = getCompSubSchematic(editorState, comp);
 
@@ -669,6 +677,7 @@ function renderParentComp(cvs: ICanvasState, editorState: IEditorState, comp: IC
             lineWidth: 1 * cvs.scale,
         },
         bb: comp.bb,
+        portBindingLookup: new Map(),
         isActive: false,
     };
 

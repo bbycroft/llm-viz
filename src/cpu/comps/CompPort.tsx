@@ -156,19 +156,21 @@ export function createCompIoComps(args: ICompBuilderArgs) {
 
             function addCopyOutPhase() {
                 builder.addPhase(({ data }) => {
-                    if (data.externalPortBound) {
-                        data.externalPort.value = data.value;
-                        if (isTristate) {
-                            data.externalPort.ioEnabled = true; // !data.port.floating;
-                            data.externalPort.ioDir = data.port.floating ? IoDir.In : IoDir.Out;
-                        }
-                    }
+
                     if (isTristate) {
                         data.port.ioDir = data.port.floating ? IoDir.Out : IoDir.In;
                         data.value = data.port.floating ? defaultValue : data.port.value;
                         data.port.ioEnabled = true;
                     } else {
                         data.value = data.port.value;
+                    }
+
+                    if (data.externalPortBound) {
+                        data.externalPort.value = data.value;
+                        if (isTristate) {
+                            data.externalPort.ioEnabled = true; // !data.port.floating;
+                            data.externalPort.ioDir = data.port.floating ? IoDir.In : IoDir.Out;
+                        }
                     }
                 }, [data.port], [data.externalPort]);
             }
@@ -356,6 +358,10 @@ const PortOptions: React.FC<{
         setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { inputValueOverride: clampToSignedWidth(value, a.bitWidth, a.signed), valueMode })));
     }
 
+    function editSigned(end: boolean, signed: boolean) {
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, { signed })));
+    }
+
     function editCompPortFlag(end: boolean, flag: CompPortFlags, value: boolean) {
         setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, {
             flags: value ? a.flags | flag : a.flags & ~flag,
@@ -464,6 +470,13 @@ const PortOptions: React.FC<{
                 maxBits={comp.args.bitWidth}
                 padBits={comp.args.bitWidth}
                 signed={comp.args.signed}
+            />
+        </EditKvp>
+        <EditKvp label={"Signed"}>
+            <BooleanEditor
+                className="bg-slate-100 rounded flex-1"
+                value={comp.args.signed}
+                update={editSigned}
             />
         </EditKvp>
         <div className="border-t mx-8" />

@@ -43,6 +43,12 @@
     },
     {
       "id": "shiftRightInternal"
+    },
+    {
+      "id": "comparitor_4Way"
+    },
+    {
+      "id": "comparitorInternal"
     }
   ]
 }

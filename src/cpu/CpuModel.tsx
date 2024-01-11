@@ -292,7 +292,13 @@ export interface ICompRenderArgs<T, A = any> {
     exeComp: IExeComp<T>;
     styles: IRenderStyles;
     isActive: boolean;
+    portBindingLookup: Map<string, IWirePortInfo>;
     bb: BoundingBox3d;
+}
+
+export interface IWirePortInfo {
+    wireInfo: IWireRenderInfo;
+    portInfo: IWirePortBinding;
 }
 
 export interface ICompOptsRenderArgs<T, A = any> {
@@ -313,11 +319,21 @@ export interface IRenderStyles {
     fillColor: string;
 }
 
+
 export enum CompDefFlags {
     None = 0,
+
+    // Actually all components must rotate now!
     CanRotate = 1 << 0,
+
+    // Has a well-defined bit-width, along with the bitWidth field in args
     HasBitWidth = 1 << 1,
-    IsAtomic = 1 << 2, // can't have any internal schematic (1 bit basic gates; comp-ports etc)
+
+    // Can't be broken down further into sub-components
+    IsAtomic = 1 << 2,
+
+    // doesn't contain any gates
+    WiresOnly = 1 << 3,
 }
 
 export interface IComp<A = any> {

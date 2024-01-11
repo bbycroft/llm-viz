@@ -67,11 +67,40 @@ export function invertRotation(r: number): number {
 export function rotateCompPortPos(comp: IComp, port: ICompPort): Vec3 {
     let x = comp.pos.x;
     let y = comp.pos.y;
+    let px = port.pos.x;
+    let py = port.pos.y;
     let r = comp.rotation;
-    if (r === 0) { x += port.pos.x; y += port.pos.y; }
-    if (r === 1) { x -= port.pos.y; y += port.pos.x; }
-    if (r === 2) { x -= port.pos.x; y -= port.pos.y; }
-    if (r === 3) { x += port.pos.y; y -= port.pos.x; }
+    if (r === 0) { x += px; y += py; }
+    if (r === 1) { x -= py; y += px; }
+    if (r === 2) { x -= px; y -= py; }
+    if (r === 3) { x += py; y -= px; }
+    return new Vec3(x, y);
+}
+
+export function rotateCompPortInnerPos(comp: IComp, port: ICompPort): Vec3 {
+    let x = comp.pos.x;
+    let y = comp.pos.y;
+    let px = port.pos.x;
+    let py = port.pos.y;
+
+    if (px === 0) {
+        px += 0.5;
+    }
+    if (py === 0) {
+        py += 0.5;
+    }
+    if (px === comp.size.x) {
+        px -= 0.5;
+    }
+    if (py === comp.size.y) {
+        py -= 0.5;
+    }
+
+    let r = comp.rotation;
+    if (r === 0) { x += px; y += py; }
+    if (r === 1) { x -= py; y += px; }
+    if (r === 2) { x -= px; y -= py; }
+    if (r === 3) { x += py; y -= px; }
     return new Vec3(x, y);
 }
 

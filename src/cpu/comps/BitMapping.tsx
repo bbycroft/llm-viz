@@ -22,7 +22,7 @@ export function createBitMappingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         defId: 'bits/expand',
         name: "Bit Expand",
         size: new Vec3(w, h),
-        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth,
+        flags: CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | CompDefFlags.WiresOnly,
         ports: (args) => {
             return [
                 { id: 'a', name: '', pos: new Vec3(0, 1), type: PortType.In, width: 1 },
