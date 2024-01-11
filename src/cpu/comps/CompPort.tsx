@@ -168,7 +168,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                         data.value = data.port.floating ? defaultValue : data.port.value;
                         data.port.ioEnabled = true;
                     } else {
-                        data.value
+                        data.value = data.port.value;
                     }
                 }, [data.port], [data.externalPort]);
             }
