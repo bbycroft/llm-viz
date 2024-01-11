@@ -595,6 +595,10 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
             }
         }
         */
+        let isFloating = enabledCount === 0;
+        for (let portRef of net.inputs) {
+            portRef.exePort.floating = isFloating;
+        }
     } else {
         // has exactly 1 input
         if (net.outputs.length !== 1) {

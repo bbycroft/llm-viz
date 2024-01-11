@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from "react";
 import { StateSetter, assignImm, hasFlag } from "@/src/utils/data";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { CompDefFlags, IComp, IEditContext, IEditorState, IExeComp, IExePort, PortType } from "../CpuModel";
+import { CompDefFlags, IComp, IEditContext, IEditorState, IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CheckboxMenuTitle, CompRectBase } from "./RenderHelpers";
 import { editComp, editCompConfig, useEditorContext, useViewLayout } from "../Editor";
@@ -19,6 +19,7 @@ import { SelectEditor } from "../displayTools/SelectEditor";
 import { BooleanEditor } from "../displayTools/BooleanEditor";
 import { RectCorner } from "./SchematicComp";
 import { invertRotation, rotateAffineInt, rotatePos, rotatedBbPivotPoint } from "./CompHelpers";
+import { ButtonRadio, ButtonStandard } from "../sidebars/EditorControls";
 
 export enum PortPlacement {
     Right = 0,
@@ -45,8 +46,15 @@ export interface ICompPortConfig extends IBaseCompConfig {
     type: PortType;
     bitWidth: number;
     signed: boolean;
+    tristateOrder: TristateOrder;
     inputValueOverride: number;
     valueMode: HexValueInputType;
+}
+
+export enum TristateOrder {
+    None = 0,
+    ReadThenWrite = 1,
+    WriteThenRead = 2,
 }
 
 export interface ICompPortData {
@@ -101,6 +109,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
             rotate: 0,
             bitWidth: 1,
             signed: false,
+            tristateOrder: TristateOrder.None,
             flags: CompPortFlags.None,
             valueMode: HexValueInputType.Dec,
             inputOverride: false,
@@ -114,29 +123,72 @@ export function createCompIoComps(args: ICompBuilderArgs) {
         build: (builder) => {
             let args = builder.comp.args;
             let isInput = hasFlag(args.type, PortType.In);
+            let isTristate = hasFlag(args.type, PortType.Tristate);
+            let readThenWrite = args.tristateOrder === TristateOrder.ReadThenWrite;
+            let writeThenRead = args.tristateOrder === TristateOrder.WriteThenRead;
+            let tristateOut = isTristate && !isInput;
+
+            let defaultValue = isInput ? args.inputValueOverride : 0;
 
             let data = builder.addData({
                 port: builder.getPort('a'),
                 externalPort: builder.getPort(compPortExternalPortId),
                 externalPortBound: false,
-                value: isInput ? args.inputValueOverride : 0,
+                value: defaultValue,
             });
 
-            if (isInput) {
+            function addCopyInPhase() {
                 builder.addPhase(({ data }) => {
                     if (data.externalPortBound) {
                         data.value = data.externalPort.value;
+                        if (isTristate) {
+                            data.port.ioEnabled = true; // data.externalPort.ioEnabled;
+                            // data.port.ioDir = data.port.floating ? IoDir.Out : IoDir.In;
+                            // data.port.ioDir = IoDir.In; // switchIoDir(data.externalPort.ioDir);
+                        }
+                    } else if (isTristate && writeThenRead && data.port.floating) {
+                        data.port.ioEnabled = true;
                     }
                     data.port.value = data.value;
                 }, [data.externalPort], [data.port]);
+            }
 
-            } else {
+            function addCopyOutPhase() {
                 builder.addPhase(({ data }) => {
-                    data.value = data.port.value;
                     if (data.externalPortBound) {
                         data.externalPort.value = data.value;
+                        if (isTristate) {
+                            data.externalPort.ioEnabled = true; // !data.port.floating;
+                            data.externalPort.ioDir = data.port.floating ? IoDir.In : IoDir.Out;
+                        }
+                    }
+                    if (isTristate) {
+                        data.port.ioDir = data.port.floating ? IoDir.Out : IoDir.In;
+                        data.value = data.port.floating ? defaultValue : data.port.value;
+                        data.port.ioEnabled = true;
+                    } else {
+                        data.value = data.port.value;
                     }
                 }, [data.port], [data.externalPort]);
+            }
+
+            if (hasFlag(args.type, PortType.Tristate)) {
+                if (!isInput) {
+                    addCopyOutPhase(); // out only; treat as a regular output
+
+                } else if (args.tristateOrder === TristateOrder.ReadThenWrite) {
+                    addCopyInPhase();
+                    addCopyOutPhase();
+                } else {
+                    addCopyOutPhase();
+                    addCopyInPhase();
+                }
+            } else {
+                if (isInput) {
+                    addCopyInPhase();
+                } else {
+                    addCopyOutPhase();
+                }
             }
 
             return builder.build();
@@ -208,6 +260,10 @@ export function switchPortDir(dir: PortType) {
     return newDir;
 }
 
+export function switchIoDir(dir: IoDir) {
+    return dir === IoDir.In ? IoDir.Out : dir === IoDir.Out ? IoDir.In : IoDir.None;
+}
+
 function makeEditFunction<T, A>(setEditorState: StateSetter<IEditorState>, editCtx: IEditContext, comp: IComp<T>, updateFn: (value: A, prev: T) => Partial<T>) {
     return (end: boolean, value: A) => {
         setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, updateFn(value, a))));
@@ -270,16 +326,29 @@ const PortOptions: React.FC<{
 
     let snapshot = editorState.snapshot;
 
-    let editPortType = makeEditFunction(setEditorState, editCtx, comp, (isInputPort: boolean, prev) => {
+    let editPortType = makeEditFunction(setEditorState, editCtx, comp, (portType: PortType, prev) => {
             let type = prev.type;
-            if (isInputPort) {
+            if (portType === PortType.In) {
                 type |= PortType.In;
-                type &= ~PortType.Out;
-            } else {
+                type &= ~(PortType.Out | PortType.Tristate);
+            } else if (portType === PortType.Out) {
                 type |= PortType.Out;
-                type &= ~PortType.In;
+                type &= ~(PortType.In | PortType.Tristate);
+            } else {
+                type |= PortType.Tristate | PortType.Out;
             }
             return { type };
+    });
+
+    let editTristateMode = makeEditFunction(setEditorState, editCtx, comp, (order: TristateOrder, prev) => {
+            let type = prev.type;
+            let tristateOrder = order;
+            if (order === TristateOrder.None) {
+                type &= ~PortType.In;
+            } else {
+                type |= PortType.In;
+            }
+            return { type, tristateOrder };
     });
 
     function editValueOverride(end: boolean, value: number, valueMode: HexValueInputType) {
@@ -291,8 +360,6 @@ const PortOptions: React.FC<{
             flags: value ? a.flags | flag : a.flags & ~flag,
         })));
     }
-
-    let isInput = hasFlag(comp.args.type, PortType.In);
 
     let parentComp = snapshot.mainSchematic.parentComp;
     let parentPorts = parentComp?.ports ?? snapshot.mainSchematic.compPorts;
@@ -320,6 +387,23 @@ const PortOptions: React.FC<{
         });
     }, [parentPorts, existingCompPorts, comp.args.portId]);
 
+    let isTristate = hasFlag(comp.args.type, PortType.Tristate);
+    let isInput = hasFlag(comp.args.type, PortType.In);
+    let IsOutput = hasFlag(comp.args.type, PortType.Out);
+
+    let modes = [
+        { label: 'Input', active: !isTristate && isInput, value: PortType.In },
+        { label: 'Output', active: !isTristate && IsOutput, value: PortType.Out },
+        { label: 'Tristate', active: isTristate, value: PortType.Tristate },
+    ];
+
+    let tristateModes = [
+        { label: 'Output only', value: TristateOrder.None + '' },
+        { label: 'Read then write', value: TristateOrder.ReadThenWrite + '' },
+        { label: 'Write then read', value: TristateOrder.WriteThenRead + '' },
+    ];
+
+    let tristateOrder = comp.args.tristateOrder ?? TristateOrder.None;
 
     return <>
         <div className="border-t mx-8" />
@@ -341,8 +425,34 @@ const PortOptions: React.FC<{
             <BooleanEditor value={hasFlag(comp.args.flags, CompPortFlags.NearParentPort)} update={(end, v) => editCompPortFlag(end, CompPortFlags.NearParentPort, v)}/>
         </EditKvp>
         <div className="border-t mx-8" />
-        <EditKvp label={"Is Input"}>
-            <CheckboxMenuTitle title="" value={isInput} update={editPortType} />
+        <EditKvp label={"Mode"}>
+            {/* <BooleanEditor value={isInput} update={(end, v) => editPortType(end, v)} /> */}
+            <div className="flex flex-col">
+
+                <div className="flex flex-row">
+                {modes.map((mode, i) => {
+                    return <ButtonRadio key={i} active={mode.active} onClick={() => editPortType(true, mode.value)}>{mode.label}</ButtonRadio>;
+                })}
+                </div>
+
+                {isTristate && <SelectEditor
+                    className="bg-slate-100 rounded flex-1"
+                    options={tristateModes}
+                    value={tristateOrder + ''}
+                    update={(end, v) => editTristateMode(end, parseInt(v, 10))}
+                />}
+
+            </div>
+            {/*
+                - Actually have a number of input/output states!
+                - Input
+                - Output
+                - Tristate
+                  - Output only
+                  - Input & output: copy-out then copy-in
+                  - Input & output: copy-in then copy-out
+             */}
+
         </EditKvp>
         <EditKvp label={"Default"}>
             <HexValueEditor

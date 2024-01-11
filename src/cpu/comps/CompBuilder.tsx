@@ -139,6 +139,7 @@ export class ExeCompBuilder<T, A=any> {
                 dataUsed: true,
                 type: node.type ?? PortType.In,
                 value: 0,
+                floating: false,
                 width: node.width ?? 1,
             };
         });
@@ -167,6 +168,7 @@ export class ExeCompBuilder<T, A=any> {
             ioEnabled: true,
             ioDir: IoDir.None,
             type: type,
+            floating: false,
             value: 0,
             width: width,
         };
