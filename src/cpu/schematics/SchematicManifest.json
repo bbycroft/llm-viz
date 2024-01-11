@@ -37,6 +37,12 @@
     },
     {
       "id": "riscvLoadStoreInternal"
+    },
+    {
+      "id": "shiftLeftInternal"
+    },
+    {
+      "id": "shiftRightInternal"
     }
   ]
 }
