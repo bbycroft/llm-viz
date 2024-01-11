@@ -6,6 +6,7 @@ import * as d3Color from 'd3-color';
 import { riscvRegNames } from "./Registers";
 import { isNotNil } from "@/src/utils/data";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
+import { signExtend12Bit, signExtend20Bit, ensureSigned32Bit } from "./CompHelpers";
 
 interface IRiscvInsDecodeConfig extends IBaseCompConfig {
 }
@@ -23,7 +24,7 @@ export function createRiscvInsDecodeComps(_args: ICompBuilderArgs): ICompDef<any
             { id: 'ins', name: 'Ins', pos: new Vec3(0, 1), type: PortType.In | PortType.Data, width: 32 },
 
             { id: 'regCtrl', name: 'Reg', pos: new Vec3(4, h), type: PortType.Out | PortType.Ctrl, width: 3 * 6 },
-            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(18, h), type: PortType.Out | PortType.Ctrl, width: 5 },
+            { id: 'aluCtrl', name: 'ALU', pos: new Vec3(18, h), type: PortType.Out | PortType.Ctrl, width: 6 },
             { id: 'pcRegMuxCtrl', name: 'Mux', pos: new Vec3(1, h), type: PortType.Out | PortType.Ctrl, width: 1 },
             { id: 'loadStoreCtrl', name: 'LS', pos: new Vec3(w, 1), type: PortType.Out | PortType.Ctrl, width: 5 },
 
@@ -303,41 +304,6 @@ function insDecoderPhase0({ data }: IExeComp<ICompDataInsDecoder>, runArgs: IExe
     // }
     // cpu.pc += pcOffset; // jump to location, or just move on to next instruction
     // cpu.x[0] = 0; // ensure x0 is always 0
-}
-
-
-
-export function signExtend8Bit(x: number) {
-    return ((x & 0x80) !== 0) ? x - 0x100 : x;
-}
-
-export function signExtend12Bit(x: number) {
-    return ((x & 0x800) !== 0) ? x - 0x1000 : x;
-}
-
-export function signExtend16Bit(x: number) {
-    return ((x & 0x8000) !== 0) ? x - 0x10000 : x;
-}
-
-export function signExtend20Bit(x: number) {
-    return (x & (1 << 19)) ? x - (1 << 20) : x;
-}
-
-export function signExtend32Bit(x: number) {
-    return ((x & 0x80000000) !== 0) ? x - 0x100000000 : x;
-}
-
-let u32Arr = new Uint32Array(1);
-let s32Arr = new Int32Array(1);
-
-export function ensureSigned32Bit(x: number) {
-    s32Arr[0] = x;
-    return s32Arr[0];
-}
-
-export function ensureUnsigned32Bit(x: number) {
-    u32Arr[0] = x;
-    return u32Arr[0];
 }
 
 function renderInsDecoder({ ctx, comp, exeComp, cvs, styles, bb }: ICompRenderArgs<ICompDataInsDecoder>) {
@@ -719,7 +685,7 @@ function regFormatted(reg: number) {
     return `x${reg}(${riscvRegNames[reg]})`;
 }
 
-let funct3BranchNames: Record<number, string> = {
+export const funct3BranchNames: Record<number, string> = {
     [Funct3Branch.BEQ]: 'equal',
     [Funct3Branch.BNE]: 'not equal',
     [Funct3Branch.BLT]: 'less than',
@@ -746,4 +712,15 @@ export const funct3OpIcon: Record<number, string> = {
     [Funct3Op.SRL]: '>>',
     [Funct3Op.OR]: '|',
     [Funct3Op.AND]: '&',
+};
+
+export const funct3OpText: Record<number, string | string[]> = {
+    [Funct3Op.ADD]: ['add', 'sub'],
+    [Funct3Op.SLL]: 'shift left logical',
+    [Funct3Op.SLT]: 'set less than (s)',
+    [Funct3Op.SLTU]: 'set less than (u)',
+    [Funct3Op.XOR]: 'exclusive-or',
+    [Funct3Op.SRL]: ['shift right (logical)', 'shift right (arith)'],
+    [Funct3Op.OR]: 'or',
+    [Funct3Op.AND]: 'and',
 };

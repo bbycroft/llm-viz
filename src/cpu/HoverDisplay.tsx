@@ -2,13 +2,13 @@ import React from "react";
 import { hasFlag, isNotNil } from "../utils/data";
 import { Popup, PopupPos } from "../utils/Portal";
 import { Vec3 } from "../utils/vector";
-import { ensureSigned32Bit, ensureUnsigned32Bit, signExtend32Bit } from "./comps/RiscvInsDecode";
 import { lookupPortInfo, netToString } from "./CpuExecution";
 import { ISchematic as IEditSchematic, IoDir, PortType, RefType } from "./CpuModel";
 import { useEditorContext } from "./Editor";
 import s from "./HoverDisplay.module.scss";
 import { computeSubLayoutMatrix, getCompSubSchematic } from "./SubSchematics";
 import { pluralize } from "../utils/text";
+import { ensureSigned32Bit, ensureUnsigned32Bit } from "./comps/CompHelpers";
 
 export const HoverDisplay: React.FC<{
     canvasEl: HTMLCanvasElement | null,

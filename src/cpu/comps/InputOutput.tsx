@@ -4,14 +4,15 @@ import { CompDefFlags, IComp, IEditContext, IExeComp, IExePort, PortType } from 
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { editCompConfig, useEditorContext } from '../Editor';
 import { assignImm } from '@/src/utils/data';
-import { CompRectBase, CompRectUnscaled, makeEditFunction, CheckboxMenuTitle, ConfigMenu, MenuRow } from './RenderHelpers';
+import { CompRectBase, CompRectUnscaled, CheckboxMenuTitle, ConfigMenu, MenuRow } from './RenderHelpers';
 import s from './CompStyles.module.scss';
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from '../displayTools/HexValueEditor';
 import { FontType, makeCanvasFont } from '../CanvasRenderHelpers';
-import { PortPlacement, PortResizer, portPlacementToPos } from './CompPort';
-import { ensureSigned32Bit } from './RiscvInsDecode';
+import { PortPlacement, portPlacementToPos } from './CompPort';
 import { EditKvp } from '../sidebars/CompDetails';
 import { BooleanEditor } from '../displayTools/BooleanEditor';
+import { ensureSigned32Bit, makeEditFunction } from './CompHelpers';
+import { PortResizer } from './CompResizing';
 
 interface IInputConfig extends IBaseCompConfig {
     value: number;

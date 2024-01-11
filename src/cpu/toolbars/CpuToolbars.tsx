@@ -20,9 +20,13 @@ export const MainToolbar: React.FC<{
     useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
         if (isKeyWithModifiers(ev, 'z', Modifiers.CtrlOrCmd)) {
             undo();
+            ev.stopPropagation();
+            ev.preventDefault();
         }
         if (isKeyWithModifiers(ev, 'y', Modifiers.CtrlOrCmd) || isKeyWithModifiers(ev, 'z', Modifiers.CtrlOrCmd | Modifiers.Shift)) {
             redo();
+            ev.stopPropagation();
+            ev.preventDefault();
         }
     });
 
@@ -170,9 +174,13 @@ export const StepperControls: React.FC<{
     useGlobalKeyboard(KeyboardOrder.MainPage, ev => {
         if (isKeyWithModifiers(ev, ' ', Modifiers.None)) {
             step();
+            ev.stopPropagation();
+            ev.preventDefault();
         }
         if (isKeyWithModifiers(ev, 'Backspace', Modifiers.None)) {
             resetSoft();
+            ev.stopPropagation();
+            ev.preventDefault();
         }
     });
 

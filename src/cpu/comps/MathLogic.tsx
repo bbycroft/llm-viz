@@ -6,7 +6,7 @@ import { editCompConfig, useEditorContext } from "../Editor";
 import { assignImm, isNotNil } from "@/src/utils/data";
 import { EditKvp } from "../sidebars/CompDetails";
 import { BooleanEditor } from "../displayTools/BooleanEditor";
-import { ensureSigned32Bit, ensureUnsigned32Bit } from "./RiscvInsDecode";
+import { ensureUnsigned32Bit, ensureSigned32Bit } from "./CompHelpers";
 
 interface IAdderData {
     inAPort: IExePort;

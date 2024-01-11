@@ -26,7 +26,7 @@ export default function Page() {
             Here's what we're going to build:
         </Para>
 
-            <CpuPortal schematicId={"riscv-basic"} caption={"Fig 1: The completed basic implementation of RISC-V"} height={40} width={60}>
+            <CpuPortal schematicId={"riscv-basic"} caption={"Fig 1: The completed basic implementation of RISC-V"} height={50} width={80}>
                 <AutoLoadCode fileName={'blinky2.elf'} />
             </CpuPortal>
 

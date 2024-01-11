@@ -1,8 +1,8 @@
 import { Vec3 } from "@/src/utils/vector";
 import { PortType, IExeComp, IExePort, ICompRenderArgs } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder"
-import { registerOpts, regValToStr } from "./RenderHelpers";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
+import { registerOpts, regValToStr } from "./CompHelpers";
 
 export interface ICompDataRegFile {
     inCtrlPort: IExePort;
