@@ -3,7 +3,7 @@ import React, { memo, useEffect, useLayoutEffect, useMemo, useReducer, useRef, u
 import { ViewLayoutContext, editSnapshot, editSnapshotDirect, useEditorContext, useViewLayout } from './Editor';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCaretRight, faPlus } from '@fortawesome/free-solid-svg-icons';
-import { SideGripper, ICompPortConfig, compPortDefId } from './comps/CompPort';
+import { ICompPortConfig, compPortDefId } from './comps/CompPort';
 import { pluralize } from '../utils/text';
 import { assignImm, clamp, hasFlag, isNotNil, makeArray } from '../utils/data';
 import { Vec3 } from '../utils/vector';
@@ -16,6 +16,7 @@ import { IPointerEvent, useCombinedMouseTouchDrag } from '../utils/pointer';
 import { drawGrid } from './CanvasRenderHelpers';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 import { useFunctionRef } from '../utils/hooks';
+import { SideGripper } from './comps/CompResizing';
 
 /*
 

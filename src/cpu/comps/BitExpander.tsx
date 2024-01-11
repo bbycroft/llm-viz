@@ -2,7 +2,7 @@ import React, { SetStateAction } from "react";
 import { Vec3 } from "@/src/utils/vector";
 import { CompDefFlags, IComp, IEditContext, IExePort, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { createBitWidthMask, rotateAboutAffineInt, rotatePortsInPlace } from "./CompHelpers";
+import { createBitWidthMask, ensureUnsigned32Bit, rotateAboutAffineInt } from "./CompHelpers";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { applySetter, assignImm, isNil, makeArrayRange } from "@/src/utils/data";
@@ -14,7 +14,6 @@ import { palleteColors } from "../palette";
 import clsx from "clsx";
 import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { EditKvp } from "../sidebars/CompDetails";
-import { ensureUnsigned32Bit } from "./RiscvInsDecode";
 
 interface IBitExpanderMultiConfig extends IBaseCompConfig {
     collapse: boolean; // (or expand)

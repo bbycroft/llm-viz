@@ -15,11 +15,12 @@ export function makeCanvasFont(fontSize: number, fontType: FontType = FontType.D
     let baseType = fontType & (FontType.Default | FontType.Mono);
     let str = hasFlag(fontType, FontType.Italic) ? 'italic ' : '';
     switch (baseType) {
-        case FontType.Default:
-            str += `${fontSize}px Arial`;
-            break;
         case FontType.Mono:
             str += `${fontSize}px monospace`;
+            break;
+        case FontType.Default:
+        default:
+            str += `${fontSize}px Arial`;
             break;
     }
     return str;

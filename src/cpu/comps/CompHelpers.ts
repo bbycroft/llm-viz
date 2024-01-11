@@ -1,7 +1,9 @@
 import { AffineMat2d } from "@/src/utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { IComp, ICompPort, RectSide } from "../CpuModel";
-
+import { ICanvasState, IComp, ICompPort, IEditContext, IEditorState, IRenderStyles, RectSide } from "../CpuModel";
+import { StateSetter, assignImm } from "@/src/utils/data";
+import { editCompConfig } from "../Editor";
+import { CSSProperties } from "react";
 
 export function rotateAffineInt(r: number) {
     switch (r) {
@@ -124,4 +126,106 @@ export function rotatePortsInPlace(comp: IComp<any>, r: number, baseSize: Vec3) 
 export function createBitWidthMask(width: number) {
     if (width === 32) return 0xffffffff;
     return (1 << width) - 1;
+}
+
+export function signExtend8Bit(x: number) {
+    return ((x & 0x80) !== 0) ? x - 0x100 : x;
+}
+
+export function signExtend12Bit(x: number) {
+    return ((x & 0x800) !== 0) ? x - 0x1000 : x;
+}
+
+export function signExtend16Bit(x: number) {
+    return ((x & 0x8000) !== 0) ? x - 0x10000 : x;
+}
+
+export function signExtend20Bit(x: number) {
+    return (x & (1 << 19)) ? x - (1 << 20) : x;
+}
+
+export function signExtend32Bit(x: number) {
+    return ((x & 0x80000000) !== 0) ? x - 0x100000000 : x;
+}
+
+let u32Arr = new Uint32Array(1);
+let s32Arr = new Int32Array(1);
+
+export function ensureSigned32Bit(x: number) {
+    s32Arr[0] = x;
+    return s32Arr[0];
+}
+
+export function ensureUnsigned32Bit(x: number) {
+    u32Arr[0] = x;
+    return u32Arr[0];
+}
+
+
+export function regValToStr(val: number, signed: boolean = true) {
+    let valU32 = ensureUnsigned32Bit(val);
+    let valS32 = signed ? ensureSigned32Bit(val) : valU32;
+    let pcHexStr = '0x' + valU32.toString(16).toUpperCase().padStart(8, "0");
+    if (Math.abs(valS32) < 100000) {
+        let pcValStr = valS32.toString().padStart(2, "0");
+        return pcValStr + ' ' + pcHexStr;
+    }
+    return pcHexStr;
+}
+
+export function aluValToStr(val: number, hexChars: number = 8, signed: boolean = true) {
+    let valU32 = ensureUnsigned32Bit(val);
+    let valS32 = signed ? ensureSigned32Bit(val) : valU32;
+    let pcHexStr = '0x' + valU32.toString(16).toUpperCase().padStart(hexChars, "0");
+    if (Math.abs(valS32) < 100000) {
+        let pcValStr = valS32.toString().padStart(2, "0");
+        return pcHexStr + ' (' + pcValStr + ')';
+    }
+    return pcHexStr;
+}
+
+export const registerOpts = {
+    innerPadX: 0.4,
+}
+
+const scalePerCell = 15;
+
+export function createCanvasDivStyle(comp: IComp): CSSProperties {
+
+    let scale = scalePerCell;
+    let pos = comp.bb.min;
+    let size = comp.bb.size();
+
+    return {
+        width: size.x * scale,
+        height: size.y * scale,
+        transform: `translate(${pos.x}px, ${pos.y}px) scale(${1/scale})`,
+    };
+}
+
+export function makeEditFunction<T, A>(setEditorState: StateSetter<IEditorState>, editCtx: IEditContext, comp: IComp<T>, updateFn: (value: A, prev: T) => Partial<T>) {
+    return (end: boolean, value: A) => {
+        setEditorState(editCompConfig(editCtx, end, comp, a => assignImm(a, updateFn(value, a))));
+    };
+}
+
+export function transformCanvasToRegion(cvs: ICanvasState, styles: IRenderStyles, comp: IComp, bb: BoundingBox3d) {
+    let ctx = cvs.ctx;
+
+    let targetSize = comp.size;
+    let bbSize = bb.size();
+    ctx.translate(bb.min.x, bb.min.y);
+    let scale = Math.min(bbSize.x / targetSize.x, bbSize.y / targetSize.y);
+    ctx.scale(scale, scale);
+
+    if (bbSize.x < comp.bb.size().x) {
+        ctx.save();
+        ctx.filter = `blur(4px)`;
+        ctx.strokeStyle = styles.fillColor;
+        ctx.lineWidth = 8 * cvs.scale;
+        ctx.strokeRect(0, 0, targetSize.x, targetSize.y);
+        ctx.restore();
+        ctx.fillStyle = styles.fillColor;
+        ctx.fillRect(0, 0, targetSize.x, targetSize.y);
+    }
 }
