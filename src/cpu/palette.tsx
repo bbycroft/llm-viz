@@ -47,6 +47,9 @@ type Values = '50'
 
 export const palette = {
     compBg: colors.cyan['500'],
+    compWireBg: colors.cyan['100'],
+    compPortBg: colors.fuchsia['300'],
+    compAtomicBg: colors.green['300'],
     portInputBg: 'rgb(45 212 191)',
     portOutputBg: 'rgb(251 146 60)',
 };

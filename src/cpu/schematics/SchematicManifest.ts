@@ -13,6 +13,8 @@ import { mux_2InternalSchematic } from "./mux_2InternalSchematic";
 import { riscvLoadStoreInternalSchematic } from "./riscvLoadStoreInternalSchematic";
 import { shiftLeftInternalSchematic } from "./shiftLeftInternalSchematic";
 import { shiftRightInternalSchematic } from "./shiftRightInternalSchematic";
+import { comparitor_4WaySchematic } from "./comparitor_4WaySchematic";
+import { comparitorInternalSchematic } from "./comparitorInternalSchematic";
 
 export const schematicManifest: ILSSchematic[] = [
     pcCounterSchematic,
@@ -29,5 +31,7 @@ export const schematicManifest: ILSSchematic[] = [
     riscvLoadStoreInternalSchematic,
     shiftLeftInternalSchematic,
     shiftRightInternalSchematic,
+    comparitor_4WaySchematic,
+    comparitorInternalSchematic,
 ];
 

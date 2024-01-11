@@ -2,7 +2,7 @@ import React, { SetStateAction } from "react";
 import { Vec3 } from "@/src/utils/vector";
 import { CompDefFlags, IComp, IEditContext, IExePort, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { createBitWidthMask, ensureUnsigned32Bit, rotateAboutAffineInt } from "./CompHelpers";
+import { createBitWidthMask, ensureUnsigned32Bit, rotateAboutAffineInt, rotateCompPortInnerPos, rotateCompPortPos } from "./CompHelpers";
 import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { applySetter, assignImm, isNil, makeArrayRange } from "@/src/utils/data";
@@ -67,7 +67,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
         defId: 'bits/expand-multi',
         name: "Bit Expand Multi",
         size: new Vec3(initialW, initialH),
-        flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate | CompDefFlags.IsAtomic,
+        flags: CompDefFlags.HasBitWidth | CompDefFlags.CanRotate | CompDefFlags.IsAtomic | CompDefFlags.WiresOnly,
         ports: (args) => {
             let fullHeight = computeHeight(args);
 
@@ -202,7 +202,42 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
         renderOptions({ editCtx, comp }) {
             return <BitExpandMultiOptions editCtx={editCtx} comp={comp} />;
         },
-        render({ ctx, comp, exeComp, cvs, styles }) {
+        render({ ctx, comp, exeComp, cvs, styles, portBindingLookup }) {
+
+            let singleExePort = exeComp?.data.singlePort ?? null;
+            let multiExePorts = exeComp?.data.multiPorts ?? [];
+
+            if (singleExePort) {
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                let singlePort = comp.ports[singleExePort.portIdx];
+                let singlePortPos = rotateCompPortInnerPos(comp, singlePort);
+
+                for (let exePort of multiExePorts) {
+                    let port = comp.ports[exePort.portIdx];
+                    let info = portBindingLookup.get(comp.id + ":" + port.id)!;
+
+                    if (info) {
+                        let portPos = rotateCompPortInnerPos(comp, port);
+
+                        let noFlowColor = '#D3D3D3';
+                        let zeroFlowColor = '#fec44f';
+                        let nonZeroFlowColor = '#d95f0e';
+                        let flowColor = info.wireInfo.isNonZero ? nonZeroFlowColor : zeroFlowColor;
+
+                        ctx.beginPath();
+                        ctx.moveTo(singlePortPos.x, singlePortPos.y);
+                        ctx.lineTo(portPos.x, portPos.y);
+
+                        ctx.lineCap = "round";
+                        ctx.lineWidth = info.wireInfo.width * cvs.scale;
+                        let isFlow = info.wireInfo.flowNodes.has(info.portInfo.nodeId);
+                        ctx.strokeStyle = isFlow ? flowColor : noFlowColor;
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
 
             ctx.font = makeCanvasFont(1, FontType.Mono);
             let singleW = ctx.measureText('0 ').width;
@@ -217,7 +252,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
             let isReversed = comp.args.reverse !== (comp.rotation === 1 || comp.rotation === 2);
             let tl = comp.bb.min.sub(new Vec3(0.5, 0.5));
 
-            let fullValue = exeComp?.data.singlePort.value ?? 0x00;
+            let fullValue = ensureUnsigned32Bit(exeComp?.data.singlePort.value ?? 0x00);
             let allBits = [...fullValue.toString(2).padStart(comp.args.bitWidth, '0')];
 
             let ranges = [...comp.args.bitRange];
@@ -239,7 +274,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                 ctx.textAlign = isVert ? 'right' : 'center';
                 ctx.textBaseline = isVert ? 'middle' : 'bottom';
 
-                if (rangeH === nBits) {
+                if (rangeH >= nBits) {
                     // split into groups of 4, so the amount of drift is minimized (text sizing is intended to put a digit
                     // above each line, but it's not perfect, so this approach helps)
                     let groupSize = isVert ? 1 : 4;
@@ -249,7 +284,7 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                         let startIdx = rangeStart + gIdx * groupSize;
                         let endIdx = Math.min(startIdx + groupSize, rangeEnd + 1);
                         let groupBits = allBits.slice(startIdx, endIdx);
-                        let centerOffset = gIdx * groupSize + (endIdx - startIdx) / 2 + 0.5;
+                        let centerOffset = gIdx * groupSize * (range.stepsPerBit ?? 1) + (endIdx - startIdx) / 2 + 0.5;
                         if (isReversed) {
                             groupBits.reverse();
                             centerOffset = rangeH + 1 - centerOffset;
@@ -265,7 +300,18 @@ export function createBitExpanderComps(_args: ICompBuilderArgs): ICompDef<any>[]
                 } else {
                     let textBin = allBits.slice(rangeStart, rangeEnd + 1).join('');
                     let text = '0x' + parseInt(textBin, 2).toString(16).padStart(Math.ceil(nBits / 4), '0');
-                    ctx.fillText(text, tl.x + rangeDrawOffset + rangeH / 2 + 0.5, tl.y - 0.5 + comp.size.x - 0.1);
+
+                    if (isVert) {
+                        ctx.save();
+                        ctx.translate(tl.x + comp.size.x - 1.3, tl.y + rangeDrawOffset + rangeH / 2 + 0.5);
+                        ctx.rotate(Math.PI / 2);
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(text, 0, 0);
+                        ctx.restore();
+                    } else {
+                        ctx.fillText(text, tl.x + rangeDrawOffset + rangeH / 2 + 0.5, tl.y - 0.5 + comp.size.x - 0.1);
+                    }
                 }
 
                 if (isVert) {
