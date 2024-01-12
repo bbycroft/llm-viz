@@ -1,6 +1,6 @@
 import { getOrAddToMap, hasFlag, isNotNil } from "../utils/data";
 import { IResetOptions } from "./comps/CompBuilder";
-import { compPortDefId, ICompPortConfig, ICompPortData } from "./comps/CompPort";
+import { compPortDefId, ICompPortConfig, ICompPortData, TristateOrder } from "./comps/CompPort";
 import { PortType, IEditSnapshot, IExeComp, IExeNet, IExePortRef, IExeSystem, IExeStep, IElRef, IoDir, IExePort, ISchematic, IComp } from "./CpuModel";
 import { ISharedContext } from "./library/SharedContext";
 import { getCompSubSchematicForSnapshot } from "./SubSchematics";
@@ -283,18 +283,25 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
     }
 
     // usually have 1 phase per net, but can have more if a net is bidirectional (a port has both in and out)
-    let netNumPhases = new Map<number, number>();
+    let netNumPhases = new Map<number, { numPhases: number, writePhase: number, readPhase: number }>();
 
     // calc num phases for each net
     for (let netIdx = 0; netIdx < nets.length; netIdx++) {
         let net = nets[netIdx];
         let numPhases = 1;
+        let writePhase = 0;
+        let readPhase = 0;
         for (let input of net.inputs) {
-            if ((input.exePort.type & PortType.InOutTri) === PortType.InOutTri) {
+            if (hasFlag(input.exePort.type, PortType.InOutTri)) {
                 numPhases = 2;
+                if (input.comp.defId === compPortDefId) {
+                    let isWriteThenRead = (input.comp.args as ICompPortConfig).tristateOrder === TristateOrder.WriteThenRead;
+                    writePhase = isWriteThenRead ? 1 : 0;
+                    readPhase = isWriteThenRead ? 0 : 1;
+                }
             }
         }
-        netNumPhases.set(netIdx, numPhases);
+        netNumPhases.set(netIdx, { numPhases, writePhase, readPhase });
     }
 
     let topoNodeOrder: number[] = [];
@@ -325,10 +332,15 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                     // console.log('comp', comp, 'port', port, 'has no net');
                     continue;
                 }
-                let netPhaseCount = netNumPhases.get(port.netIdx)!;
+                let netPhaseInfo = netNumPhases.get(port.netIdx)!;
                 let netPhaseId = 0;
-                if (netPhaseCount > 1 && hasFlag(port.type, PortType.InOutTri)) {
-                    netPhaseId = calculatePhaseId(port, comp, pIdx);
+                if (netPhaseInfo.numPhases > 1) {
+
+                    if (hasFlag(port.type, PortType.InOutTri)) { // based on whether we've mapped to this net in another comp phase
+                        netPhaseId = calculatePhaseId(port, comp, pIdx);
+                    } else {
+                        netPhaseId = netPhaseInfo.readPhase;
+                    }
                 }
                 let netNodeId = netToNodeId(port.netIdx, netPhaseId);
                 nodeEdges.push(netNodeId);
@@ -343,6 +355,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                 return 1;
             }
         }
+
         return 0;
     }
 
@@ -350,32 +363,51 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
 
     for (let nId = 0; nId < nets.length; nId++) {
         let net = nets[nId];
-        let numPhases = netNumPhases.get(nId)!;
+        let { numPhases, writePhase: netWritePhaseIdx } = netNumPhases.get(nId)!;
 
+        let phaseToNodeInfo: any[] = [];
+        // a wire has multiple phases, and we need to output appropriately to each of them
         for (let nPId = 0; nPId < numPhases; nPId++) {
 
-            let netNodeId = netToNodeId(nId, nPId);
-            inDegree.set(netNodeId, 0);
-            let nodeEdges = getOrAddToMap(edges, netNodeId, () => []);
+            let netPhaseNodeId = netToNodeId(nId, nPId);
+            inDegree.set(netPhaseNodeId, 0);
+            let nodeEdges = getOrAddToMap(edges, netPhaseNodeId, () => []);
 
+            // iterate through all the destination components ports, and we'll add an edge from the net to the component's appropriate phase
             for (let input of net.inputs) {
 
                 let destComp = input.exeComp;
-                let readPhaseIdx = destComp.phases.findIndex(p => p.readPortIdxs.includes(input.portIdx));
-                let writePortIdx = destComp.phases.findIndex(p => p.writePortIdxs.includes(input.portIdx));
-                if (readPhaseIdx < 0) {
+                let compReadPhaseIdx = destComp.phases.findIndex(p => p.readPortIdxs.includes(input.portIdx));
+                let compWritePhaseIdx = destComp.phases.findIndex(p => p.writePortIdxs.includes(input.portIdx));
+                if (compReadPhaseIdx < 0) {
                     continue;
                 }
 
-                if (numPhases > 0 && writePortIdx >= 0) {
-                    let includeInPhase = (nPId > 0) !== (writePortIdx >= readPhaseIdx);
+                // for a bidirectional port, ensure we read/write according to the comp's phase ordering
+                if (compWritePhaseIdx >= 0) {
+                    let includeInPhase = (nPId > 0) !== (compWritePhaseIdx >= compReadPhaseIdx);
                     if (!includeInPhase) {
                         continue;
                     }
                 }
 
-                let outputNodeId = compPhaseToNodeId(input.exeComp.idx, readPhaseIdx);
+                // just a plain output should be included in the write-phase
+                if (compWritePhaseIdx < 0 && nPId !== netWritePhaseIdx) {
+                    continue;
+                }
+
+                let outputNodeId = compPhaseToNodeId(input.exeComp.idx, compReadPhaseIdx);
                 nodeEdges.push(outputNodeId);
+
+                let port = destComp.comp.ports[input.portIdx];
+                phaseToNodeInfo.push({ nPId, compId: input.comp.defId, portId: port.id, phaseIdx: compReadPhaseIdx });
+            }
+        }
+
+        if (numPhases > 1) {
+            console.log('net', net.wireFullId, 'has multiple phases', numPhases, 'with writePhase', netWritePhaseIdx, 'and phaseToNodeInfo:');
+            for (let info of phaseToNodeInfo) {
+                console.log(` - net phase ${info.nPId} (comp ${info.compId}:${info.portId} comp phase ${info.phaseIdx})`);
             }
         }
     }
@@ -440,12 +472,21 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
         }
     }
 
-    // console.log('----- edges:');
-    // for (let [srcNodeId, destNodeIds] of edges) {
-    //     let srcStr = nodeIdToStr(srcNodeId);
-    //     let destStrs = destNodeIds.map(nodeIdToStr);
-    //     console.log(`${srcStr}: ${destStrs.join(', ')}`);
-    // }
+    let relevantNetIdx = nets.find(a => a.wire.id === '0')?.idx ?? -1;
+
+    function isRelevantNode(nodeId: number) {
+        let netPhase = nodeIdToNetIdx(nodeId);
+        return netPhase && netPhase.netIdx === relevantNetIdx;
+    }
+
+    console.log('----- edges:');
+    for (let [srcNodeId, destNodeIds] of edges) {
+        if (isRelevantNode(srcNodeId) || destNodeIds.some(a => isRelevantNode(a))) {
+            let srcStr = nodeIdToStr(srcNodeId);
+            let destStrs = destNodeIds.map(nodeIdToStr);
+            console.log(`${srcStr}: ${destStrs.join(', ')}`);
+        }
+    }
     // console.log('-----');
     // console.log('------ execution order ------');
 
@@ -573,15 +614,28 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         // need to ensure exactly 1 output is enabled
         let enabledCount = 0;
         let enabledPortValue = 0;
+        let floatingPortValue = 0;
+        let hasFloatingValue = false;
         for (let portRef of net.outputs) {
             let port = portRef.exePort;
             if (portRef.valid && port.ioEnabled && (!hasFlag(port.type, PortType.InOutTri) || port.ioDir === IoDir.Out)) {
-                enabledCount++;
-                enabledPortValue = port.value;
+                if (port.hasFloatingValue) {
+                    hasFloatingValue = true;
+                    floatingPortValue = port.value;
+                } else {
+                    enabledCount++;
+                    enabledPortValue = port.value;
+                }
             }
         }
+
+        if (enabledCount === 0 && hasFloatingValue) {
+            enabledCount = 1;
+            enabledPortValue = floatingPortValue;
+        }
+
         net.enabledCount = enabledCount;
-        net.value = enabledCount === 1 ? enabledPortValue : 0;
+        net.value = enabledCount === 1 ? enabledPortValue : net.value;
         /*
         if (enabledCount > 1) {
             // console.log('tristate', netToString(net, comps), 'has', enabledCount, 'enabled outputs:');
@@ -595,10 +649,15 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
             }
         }
         */
-        let isFloating = enabledCount === 0;
+       let isFloating = enabledCount === 0;
         for (let portRef of net.inputs) {
             portRef.exePort.floating = isFloating;
         }
+
+        if (net.wire.id === '0') {
+            console.log("net value is", net.value.toString(16), net.value, 'and enabledCount is', enabledCount);
+        }
+
     } else {
         // has exactly 1 input
         if (net.outputs.length !== 1) {
@@ -616,7 +675,6 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
     for (let portRef of net.inputs) {
         portRef.exePort.value = net.value;
     }
-
     // if (isPortLinkedNet) {
     //     console.log('running net', netToString(net, comps), 'with value', net.value.toString(16), net.value);
     // }

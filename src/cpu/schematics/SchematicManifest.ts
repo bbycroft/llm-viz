@@ -15,6 +15,7 @@ import { shiftLeftInternalSchematic } from "./shiftLeftInternalSchematic";
 import { shiftRightInternalSchematic } from "./shiftRightInternalSchematic";
 import { comparitor_4WaySchematic } from "./comparitor_4WaySchematic";
 import { comparitorInternalSchematic } from "./comparitorInternalSchematic";
+import { addrMapInternalSchematic } from "./addrMapInternalSchematic";
 
 export const schematicManifest: ILSSchematic[] = [
     pcCounterSchematic,
@@ -33,5 +34,6 @@ export const schematicManifest: ILSSchematic[] = [
     shiftRightInternalSchematic,
     comparitor_4WaySchematic,
     comparitorInternalSchematic,
+    addrMapInternalSchematic,
 ];
 
