@@ -49,6 +49,9 @@
     },
     {
       "id": "comparitorInternal"
+    },
+    {
+      "id": "addrMapInternal"
     }
   ]
 }

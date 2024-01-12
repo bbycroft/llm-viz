@@ -146,9 +146,17 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                             data.port.ioEnabled = true; // data.externalPort.ioEnabled;
                             // data.port.ioDir = data.port.floating ? IoDir.Out : IoDir.In;
                             // data.port.ioDir = IoDir.In; // switchIoDir(data.externalPort.ioDir);
+                            if (readThenWrite) {
+                                data.port.ioEnabled = true;
+                                data.port.ioDir = IoDir.Out;
+                            }
                         }
                     } else if (isTristate && writeThenRead && data.port.floating) {
                         data.port.ioEnabled = true;
+                    } else if (isTristate && readThenWrite) {
+                        data.port.ioEnabled = true;
+                        data.port.ioDir = IoDir.Out;
+                        data.port.hasFloatingValue = true;
                     }
                     data.port.value = data.value;
                 }, [data.externalPort], [data.port]);
@@ -158,7 +166,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                 builder.addPhase(({ data }) => {
 
                     if (isTristate) {
-                        data.port.ioDir = data.port.floating ? IoDir.Out : IoDir.In;
+                        data.port.ioDir = data.port.floating && writeThenRead ? IoDir.Out : IoDir.In;
                         data.value = data.port.floating ? defaultValue : data.port.value;
                         data.port.ioEnabled = true;
                     } else {
