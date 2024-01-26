@@ -1,9 +1,10 @@
 import { assignImm } from "../utils/data";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { CompLibrary } from "./library/CompLibrary";
-import { CompDefFlags, IComp, IEditSchematic, IEditSnapshot, IElRef, ISchematic, ISchematicCompArgs, ISchematicDef, IWireGraph, IWireGraphNode, PortType, RefType } from "./CpuModel";
+import { CompDefFlags, IComp, IEditSchematic, IEditSnapshot, IElRef, ISchematic, ISchematicCompArgs, ISchematicDef, IWireGraph, IWireGraphNode, IWireLabel, NumberRenderFlags, PortType, RefType } from "./CpuModel";
 import { constructEditSnapshot } from "./ModelHelpers";
 import { checkWires, fixWire } from "./Wire";
+import { arrayMax } from "../utils/array";
 
 // what's our format?
 // plain text format, with # comments
@@ -247,7 +248,7 @@ export function importData(str: string): IImportResult {
 
     }
 
-    let schematic: ISchematic = { comps, wires, compBbox: new BoundingBox3d() };
+    let schematic: ISchematic = { comps, wires, wireLabels: [], compBbox: new BoundingBox3d() };
 
     let outStr = exportData(schematic);
 
@@ -282,6 +283,7 @@ export interface ILSSchematic {
 export interface ILSModel {
     wires: ILSGraphWire[];
     comps: ILSComp[];
+    wireLabels: ILSWireLabel[];
 }
 
 export interface ILSCompArgs {
@@ -328,6 +330,15 @@ export interface ILSGraphWireNode {
     ref?: IElRef;
 }
 
+export interface ILSWireLabel {
+    id: string;
+    wireId: string;
+    anchorPos: [number, number];
+    rectRelPos: [number, number];
+    rectSize: [number, number];
+    text: string;
+    numRenderFlags: NumberRenderFlags;
+}
 
 
 export function lsSchematicToSchematicDef(lsSchematic: ILSSchematic, compLibrary: CompLibrary): ISchematicDef {
@@ -350,10 +361,6 @@ export function lsSchematicToSchematicDef(lsSchematic: ILSSchematic, compLibrary
         schematic.parentComp = lsSchematic.parentComp ? compFromLs(compLibrary, lsSchematic.parentComp) : compLibrary.create(lsSchematic.parentCompDefId);
     }
 
-    // if (snapshot.compBbox.empty) {
-    //     snapshot.compBbox = computeModelBoundingBox(snapshot, { excludePorts: true });
-    // }
-
     return {
         id: lsSchematic.id,
         name: lsSchematic.name,
@@ -374,7 +381,19 @@ export function editSnapshotToLsSchematic(id: string, editSnapshot: IEditSnapsho
         innerDisplayBbox: schematic.innerDisplayBbox ? bboxToLs(schematic.innerDisplayBbox) ?? undefined : undefined,
         compArgs: compArgsToLsState(schematic),
         compBbox: bboxToLs(schematic.compBbox) ?? undefined,
-        model: schematicToLsState(schematic),
+        model: schematicToLsModel(schematic),
+    };
+}
+
+export function schematicToLsModel(layout: ISchematic): ILSModel {
+    return {
+        wires: layout.wires
+            .filter(w => w.nodes.length > 0)
+            .map(w => ({
+                nodes: w.nodes.map(n => ({ id: n.id, x: n.pos.x, y: n.pos.y, edges: n.edges, ref: n.ref })),
+            })),
+        comps: layout.comps.map(c => compToLs(c)),
+        wireLabels: layout.wireLabels.map(wl => wireLabelToLs(wl)),
     };
 }
 
@@ -427,7 +446,7 @@ function addCompArgsToSnapshot(schematic: IEditSchematic, compArgs: ISchematicCo
 export function modelFromLsState(layoutBase: IEditSnapshot, ls: ILSModel, compLibrary: CompLibrary): IEditSnapshot {
 
     let wireIdx = 0;
-    let newWires: IWireGraph[] = ls.wires.map(w => ({
+    let wires: IWireGraph[] = ls.wires.map(w => ({
         id: '' + wireIdx++,
         nodes: w.nodes.map(n => ({
             id: n.id,
@@ -437,14 +456,11 @@ export function modelFromLsState(layoutBase: IEditSnapshot, ls: ILSModel, compLi
         })),
     }));
 
-    let maxWireId = 0;
-    for (let w of newWires) {
-        maxWireId = Math.max(maxWireId, parseInt(w.id));
-    }
+    let nextWireId = arrayMax(wires, w => parseInt(w.id), 0) + 1;
 
-    newWires = newWires.map(w => fixWire(w)).filter(a => a.nodes.length > 0);
+    wires = wires.map(w => fixWire(w)).filter(a => a.nodes.length > 0);
 
-    checkWires(newWires, 'wiresFromLsState');
+    checkWires(wires, 'wiresFromLsState');
 
     let lsCompLookup = new Map<string, ILSComp>();
     for (let c of ls.comps) {
@@ -453,19 +469,46 @@ export function modelFromLsState(layoutBase: IEditSnapshot, ls: ILSModel, compLi
 
     let comps: IComp[] = ls.comps.map(c => compFromLs(compLibrary, c));
 
-    let maxCompId = 0;
-    for (let c of comps) {
-        maxCompId = Math.max(maxCompId, parseInt(c.id));
-    }
+    let nextCompId = arrayMax(comps, c => parseInt(c.id), 0) + 1;
+
+    let wireLabels = ls.wireLabels?.map(wl => wireLabelFromLs(wl)) ?? [];
+
+    let nextWireLabelId = arrayMax(wireLabels, wl => parseInt(wl.id), 0) + 1;
 
     return assignImm(layoutBase, {
         mainSchematic: assignImm(layoutBase.mainSchematic, {
-            nextWireId: maxWireId + 1,
-            nextCompId: maxCompId + 1,
-            wires: newWires,
-            comps: comps,
+            nextWireId,
+            nextCompId,
+            nextWireLabelId,
+            wires,
+            comps,
+            wireLabels,
         }),
     });
+}
+
+function wireLabelFromLs(wl: ILSWireLabel): IWireLabel {
+    return {
+        id: wl.id,
+        wireId: wl.wireId,
+        text: wl.text,
+        numRenderFlags: wl.numRenderFlags,
+        anchorPos: new Vec3(wl.anchorPos[0], wl.anchorPos[1]),
+        rectRelPos: new Vec3(wl.rectRelPos[0], wl.rectRelPos[1]),
+        rectSize: new Vec3(wl.rectSize[0], wl.rectSize[1]),
+    };
+}
+
+function wireLabelToLs(wl: IWireLabel): ILSWireLabel {
+    return {
+        id: wl.id,
+        wireId: wl.wireId,
+        text: wl.text,
+        numRenderFlags: wl.numRenderFlags,
+        anchorPos: [wl.anchorPos.x, wl.anchorPos.y],
+        rectRelPos: [wl.rectRelPos.x, wl.rectRelPos.y],
+        rectSize: [wl.rectSize.x, wl.rectSize.y],
+    };
 }
 
 function compFromLs(compLibrary: CompLibrary, c: ILSComp): IComp {
@@ -511,17 +554,3 @@ function bboxToLs(bb: BoundingBox3d): ILSBbox | null {
         maxY: bb.max.y,
     };
 }
-
-export function schematicToLsState(layout: ISchematic): ILSModel {
-
-
-    return {
-        wires: layout.wires
-            .filter(w => w.nodes.length > 0)
-            .map(w => ({
-                nodes: w.nodes.map(n => ({ id: n.id, x: n.pos.x, y: n.pos.y, edges: n.edges, ref: n.ref })),
-            })),
-        comps: layout.comps.map(c => compToLs(c)),
-    };
-}
-

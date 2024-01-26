@@ -13,7 +13,7 @@ import clsx from "clsx";
 import { IPointerEvent, useCombinedMouseTouchDrag } from "@/src/utils/pointer";
 import { StringEditor } from "../displayTools/StringEditor";
 import { CursorDragOverlay } from "@/src/utils/CursorDragOverlay";
-import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
+import { FontType, makeCanvasFont } from "../render/CanvasRenderHelpers";
 import { EditKvp } from "../sidebars/CompDetails";
 import { SelectEditor } from "../displayTools/SelectEditor";
 import { BooleanEditor } from "../displayTools/BooleanEditor";

@@ -5,6 +5,7 @@ import { updateWiresForComp } from './Wire';
 import { AffineMat2d } from '../utils/AffineMat2d';
 import { Subscriptions, useSubscriptions } from '../utils/hooks';
 import { getCompSubSchematicForPrefix } from './SubSchematics';
+import { arrayMax } from '../utils/array';
 
 export enum PortHandling {
     Detach, // e.g. for rotating a component, the wire will need to be manually re-attached
@@ -117,8 +118,9 @@ export function ensureEditSchematic(schematic: ISchematic | IEditSchematic): IEd
         return schematic;
     }
     return assignImm(schematic as IEditSchematic, {
-        nextCompId: schematic.comps.reduce((max, c) => Math.max(max, parseInt(c.id)), 0) + 1,
-        nextWireId: schematic.wires.reduce((max, c) => Math.max(max, parseInt(c.id)), 0) + 1,
+        nextCompId: arrayMax(schematic.comps, c => parseInt(c.id), 0) + 1,
+        nextWireId: arrayMax(schematic.wires, c => parseInt(c.id), 0) + 1,
+        nextWireLabelId: arrayMax(schematic.wires, c => parseInt(c.id), 0) + 1,
     });
 }
 

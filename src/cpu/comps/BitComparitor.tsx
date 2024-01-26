@@ -2,7 +2,7 @@ import React from "react";
 import { Vec3 } from "@/src/utils/vector";
 import { CompDefFlags, IComp, IEditContext, IExePort, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
+import { FontType, makeCanvasFont } from "../render/CanvasRenderHelpers";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { assignImm } from "@/src/utils/data";
 import { EditKvp } from "../sidebars/CompDetails";

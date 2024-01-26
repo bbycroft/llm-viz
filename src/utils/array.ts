@@ -17,3 +17,11 @@ export function multiSortStableAsc<T>(arr: T[], sorters: ((a: T) => any)[]) {
 
     return args.map(a => arr[a[numSorters - 1]]);
 }
+
+export function arrayMax<T>(arr: T[], getter: (a: T) => number, defaultValue: number = -Infinity) {
+    let max = defaultValue;
+    for (let a of arr) {
+        max = Math.max(max, getter(a));
+    }
+    return max;
+}

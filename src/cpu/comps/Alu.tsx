@@ -4,7 +4,7 @@ import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { funct3BranchIcon, funct3BranchNames, funct3OpIcon, funct3OpText } from "./RiscvInsDecode";
 import { Funct3Branch, Funct3Op } from "../RiscvIsa";
 import { aluValToStr, ensureSigned32Bit, ensureUnsigned32Bit, regValToStr, transformCanvasToRegion } from "./CompHelpers";
-import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
+import { FontType, makeCanvasFont } from "../render/CanvasRenderHelpers";
 import { drawLineRect } from "@/src/llm/components/ModelCard";
 import { info } from "console";
 

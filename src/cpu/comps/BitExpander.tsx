@@ -3,7 +3,7 @@ import { Vec3 } from "@/src/utils/vector";
 import { CompDefFlags, IComp, IEditContext, IExePort, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { createBitWidthMask, ensureUnsigned32Bit, rotateAboutAffineInt, rotateCompPortInnerPos, rotateCompPortPos } from "./CompHelpers";
-import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
+import { FontType, makeCanvasFont } from "../render/CanvasRenderHelpers";
 import { editCompConfig, useEditorContext } from "../Editor";
 import { applySetter, assignImm, isNil, makeArrayRange } from "@/src/utils/data";
 import { HexValueEditor, HexValueInputType } from "../displayTools/HexValueEditor";

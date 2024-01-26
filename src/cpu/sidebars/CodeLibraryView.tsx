@@ -1,23 +1,20 @@
 import React, { memo, useContext, useEffect, useState } from "react";
 import { notifyExeModelUpdated, useEditorContext } from "../Editor";
-import s from "./CompExampleView.module.scss";
 import { IRomExeData } from "../comps/SimpleMemory";
 import { IExeComp } from "../CpuModel";
 import { ICompDataRegFile, ICompDataSingleReg } from "../comps/Registers";
 import { resetExeModel, stepExecutionCombinatorial } from "../CpuExecution";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileImport, faRotate } from "@fortawesome/free-solid-svg-icons";
+import { faFileImport } from "@fortawesome/free-solid-svg-icons";
 import { ICodeEntry } from "../library/CodeSuiteManager";
 import { SharedContextContext } from "../library/SharedContext";
 import { useSubscriptions } from "../../utils/hooks";
 import clsx from "clsx";
 
-export const CompExampleView: React.FC = memo(function CompExampleView() {
+export const CodeLibraryView: React.FC = memo(function CompExampleView() {
     let { codeLibrary } = useContext(SharedContextContext)!;
     let [{ exeModel }, setEditorState] = useEditorContext();
     useSubscriptions(codeLibrary.subs);
-
-    let [reloadCntr, setReloadCntr] = useState(0);
 
     useEffect(() => {
         for (let suite of codeLibrary.suites.values()) {

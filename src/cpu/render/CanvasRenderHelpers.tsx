@@ -1,7 +1,7 @@
-import { AffineMat2d } from "../utils/AffineMat2d";
-import { getOrAddToMap, hasFlag } from "../utils/data";
-import { BoundingBox3d, Vec3 } from "../utils/vector";
-import { ICanvasState, IComp } from "./CpuModel";
+import { AffineMat2d } from "../../utils/AffineMat2d";
+import { getOrAddToMap, hasFlag } from "../../utils/data";
+import { BoundingBox3d, Vec3 } from "../../utils/vector";
+import { ICanvasState, IComp } from "../CpuModel";
 
 
 export enum FontType {

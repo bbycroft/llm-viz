@@ -2,7 +2,7 @@ import { Vec3 } from "@/src/utils/vector";
 import { IExePort, IoDir, PortType } from "../CpuModel";
 import { Funct3LoadStore } from "../RiscvIsa";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
+import { FontType, makeCanvasFont } from "../render/CanvasRenderHelpers";
 import { signExtend8Bit, signExtend16Bit, aluValToStr, transformCanvasToRegion } from "./CompHelpers";
 import { info } from "console";
 

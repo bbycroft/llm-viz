@@ -472,21 +472,21 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
         }
     }
 
-    let relevantNetIdx = nets.find(a => a.wire.id === '0')?.idx ?? -1;
+    // let relevantNetIdx = nets.find(a => a.wire.id === '0')?.idx ?? -1;
 
-    function isRelevantNode(nodeId: number) {
-        let netPhase = nodeIdToNetIdx(nodeId);
-        return netPhase && netPhase.netIdx === relevantNetIdx;
-    }
+    // function isRelevantNode(nodeId: number) {
+    //     let netPhase = nodeIdToNetIdx(nodeId);
+    //     return netPhase && netPhase.netIdx === relevantNetIdx;
+    // }
 
-    console.log('----- edges:');
-    for (let [srcNodeId, destNodeIds] of edges) {
-        if (isRelevantNode(srcNodeId) || destNodeIds.some(a => isRelevantNode(a))) {
-            let srcStr = nodeIdToStr(srcNodeId);
-            let destStrs = destNodeIds.map(nodeIdToStr);
-            console.log(`${srcStr}: ${destStrs.join(', ')}`);
-        }
-    }
+    // console.log('----- edges:');
+    // for (let [srcNodeId, destNodeIds] of edges) {
+    //     if (isRelevantNode(srcNodeId) || destNodeIds.some(a => isRelevantNode(a))) {
+    //         let srcStr = nodeIdToStr(srcNodeId);
+    //         let destStrs = destNodeIds.map(nodeIdToStr);
+    //         console.log(`${srcStr}: ${destStrs.join(', ')}`);
+    //     }
+    // }
     // console.log('-----');
     // console.log('------ execution order ------');
 

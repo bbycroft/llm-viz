@@ -5,7 +5,7 @@ import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import * as d3Color from 'd3-color';
 import { riscvRegNames } from "./Registers";
 import { isNotNil } from "@/src/utils/data";
-import { FontType, makeCanvasFont } from "../CanvasRenderHelpers";
+import { FontType, makeCanvasFont } from "../render/CanvasRenderHelpers";
 import { signExtend12Bit, signExtend20Bit, ensureSigned32Bit } from "./CompHelpers";
 
 interface IRiscvInsDecodeConfig extends IBaseCompConfig {
