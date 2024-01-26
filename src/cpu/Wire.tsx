@@ -1,6 +1,6 @@
 import { assignImm, getOrAddToMap, hasFlag, isNil } from "../utils/data";
 import { projectOntoVector, segmentNearestPoint, segmentNearestT, Vec3 } from "../utils/vector";
-import { IWire, ISegment, IWireGraph, IWireGraphNode, IElRef, RefType, IComp, IEditSchematic, PortType, IEditorState } from "./CpuModel";
+import { IWireGraph, IWireGraphNode, IElRef, RefType, IComp, IEditSchematic, PortType, IEditorState } from "./CpuModel";
 import { PortHandling } from "./Editor";
 import { rotateCompPortPos } from "./comps/CompHelpers";
 
@@ -245,6 +245,8 @@ export function refToString(ref: IElRef): string {
             return `WN|${ref.id}|${ref.wireNode0Id!}`;
         case RefType.WireSeg:
             return `W|${ref.id}|${ref.wireNode0Id!}|${ref.wireNode1Id!}`;
+        default:
+            return '';
     }
 }
 
@@ -713,7 +715,19 @@ export function repackGraphIds(wire: IWireGraph): IWireGraph {
     return assignImm(wire, { nodes: newNodes });
 }
 
-export function wireToGraph(wire: IWire): IWireGraph {
+export interface IWireSegs {
+    id: string;
+    segments: ISegment[];
+}
+
+export interface ISegment {
+    p0: Vec3;
+    p1: Vec3;
+    comp0Ref?: IElRef;
+    comp1Ref?: IElRef;
+}
+
+export function wireToGraph(wire: IWireSegs): IWireGraph {
     let isects = new Map<string, IWireGraphNode>();
 
     function getNode(pos: Vec3, ref?: IElRef) {
@@ -765,7 +779,7 @@ export function wireToGraph(wire: IWire): IWireGraph {
     };
 }
 
-export function graphToWire(graph: IWireGraph): IWire {
+export function graphToWire(graph: IWireGraph): IWireSegs {
 
     let segments: ISegment[] = [];
 

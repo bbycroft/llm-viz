@@ -2,7 +2,7 @@ import { AffineMat2d } from "../utils/AffineMat2d";
 import { hasFlag } from "../utils/data";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
 import { IComp, IEditSnapshot, IEditorState } from "./CpuModel";
-import { WireRenderCache } from "./WireRenderCache";
+import { WireRenderCache } from "./render/WireRenderCache";
 import { CompPortFlags, ICompPortConfig, compPortDefId } from "./comps/CompPort";
 import { ISharedContext, createSharedContext } from "./library/SharedContext";
 
@@ -93,8 +93,10 @@ export function constructEditSnapshot(): IEditSnapshot {
 
             nextWireId: 0,
             nextCompId: 0,
+            nextWireLabelId: 0,
             wires: [],
             comps: [],
+            wireLabels: [],
 
             compPorts: [],
             compSize: new Vec3(0, 0),

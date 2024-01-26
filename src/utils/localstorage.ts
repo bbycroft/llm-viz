@@ -66,11 +66,22 @@ export function writeToLocalStorageWithNotifyOnChange<T>(key: string, value: T) 
     }
 }
 
-export function useBindLocalStorageState<T, V>(key: string, value: V, lsUpdated: (a: Partial<T>) => void, updateLsFromValue: (a: Partial<T>, v: V) => Partial<T>) {
+export interface BindLocalStorageOpts {
+     updateOnNotify?: boolean; // defaults to true
+}
+
+export function useBindLocalStorageState<T, V>(key: string, value: V, lsUpdated: (a: Partial<T>) => void, updateLsFromValue: (a: Partial<T>, v: V) => Partial<T>, opts?: BindLocalStorageOpts) {
     let lsUpdatedRef = useFunctionRef(lsUpdated);
     let updateLsFromValueRef = useFunctionRef(updateLsFromValue);
+    let updateOnNotify = opts?.updateOnNotify ?? true;
 
     useEffect(() => {
+        readAndNotify();
+
+        if (!updateOnNotify) {
+            return;
+        }
+
         let bcast = new BroadcastChannel('localstorage');
 
         function readAndNotify() {
@@ -85,13 +96,12 @@ export function useBindLocalStorageState<T, V>(key: string, value: V, lsUpdated:
         }
 
         bcast.addEventListener('message', handleMessage);
-        readAndNotify();
 
         return () => {
             bcast.removeEventListener('message', handleMessage);
             bcast.close();
         };
-    }, [key, lsUpdatedRef]);
+    }, [key, updateOnNotify, lsUpdatedRef]);
 
     useEffect(() => {
         let existing = readFromLocalStorage<Partial<T>>(key);

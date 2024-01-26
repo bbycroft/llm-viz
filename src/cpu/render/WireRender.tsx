@@ -1,8 +1,8 @@
-import { clamp, getOrAddToMap, isNil } from "../utils/data";
-import { Vec3 } from "../utils/vector";
+import { clamp, getOrAddToMap, isNil } from "../../utils/data";
+import { Vec3 } from "../../utils/vector";
 import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
-import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, RefType, IWireGraphNode, IParentCompInfo } from "./CpuModel";
-import { iterWireGraphSegments } from "./Wire";
+import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, RefType, IWireGraphNode, IParentCompInfo } from "../CpuModel";
+import { iterWireGraphSegments } from "../Wire";
 
 export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: IWireGraph, exeNet_: IExeNet, exeSystem: IExeSystem, idPrefix: string, parentCompInfo?: IParentCompInfo) {
     let ctx = cvs.ctx;

@@ -3,7 +3,9 @@ import React, { memo, useState } from "react";
 import { ButtonStandard } from "./EditorControls";
 import { SchematicLibraryView } from "./SchematicLibraryView";
 import { CompLibraryView } from "./CompLibraryView";
-import { CompExampleView } from "./CompExampleView";
+import { CodeLibraryView } from "./CodeLibraryView";
+import { useBindLocalStorageState } from "@/src/utils/localstorage";
+import { assignImm } from "@/src/utils/data";
 
 enum LeftSidebarView {
     Schematics,
@@ -11,9 +13,18 @@ enum LeftSidebarView {
     Code,
 }
 
+interface ICpuViewLs {
+    leftSideBar: LeftSidebarView;
+}
+
 export const LeftSidebar: React.FC = memo(function LeftSidebar({  }) {
 
     let [activeView, setActiveView] = useState(LeftSidebarView.Schematics);
+
+    useBindLocalStorageState<ICpuViewLs, LeftSidebarView>('cpu-editor-view', activeView,
+        v => setActiveView(v.leftSideBar ?? LeftSidebarView.Schematics),
+        (v, a) => assignImm(v, { leftSideBar: a }),
+        { updateOnNotify: false }); // last-one-wins
 
     function selectorButton(text: string, view: LeftSidebarView, icon?: React.ReactNode) {
         let isActive = activeView === view;
@@ -28,6 +39,6 @@ export const LeftSidebar: React.FC = memo(function LeftSidebar({  }) {
         </div>
             {activeView === LeftSidebarView.Schematics && <SchematicLibraryView />}
             {activeView === LeftSidebarView.Comps && <CompLibraryView />}
-            {activeView === LeftSidebarView.Code && <CompExampleView />}
+            {activeView === LeftSidebarView.Code && <CodeLibraryView />}
     </div>;
 });

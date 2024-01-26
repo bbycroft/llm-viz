@@ -1,6 +1,6 @@
-import { hasFlag } from "../utils/data";
-import { IComp, ICompPort, IEditorState, IElRef, IExeNet, IExePort, IExeSystem, IHitTest, IWireGraph, IWirePortBinding, IWireRenderCache, IWireRenderInfo, IoDir, PortType, RefType  } from "./CpuModel";
-import { compPortDefId, compPortExternalPortId, ICompPortConfig } from "./comps/CompPort";
+import { hasFlag } from "../../utils/data";
+import { IComp, ICompPort, IEditorState, IElRef, IExeNet, IExePort, IExeSystem, IHitTest, IWireGraph, IWirePortBinding, IWireRenderCache, IWireRenderInfo, IoDir, PortType, RefType  } from "../CpuModel";
+import { compPortDefId, compPortExternalPortId, ICompPortConfig } from "../comps/CompPort";
 
 export class WireRenderCache implements IWireRenderCache {
     selected: IElRef[] = [];

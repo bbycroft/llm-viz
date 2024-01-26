@@ -6,7 +6,7 @@ import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
 import clsx from 'clsx';
 import { isNotNil } from '@/src/utils/data';
-import { FontType, makeCanvasFont } from '../CanvasRenderHelpers';
+import { FontType, makeCanvasFont } from '../render/CanvasRenderHelpers';
 
 export interface IRomExeData {
     addr: IExePort;

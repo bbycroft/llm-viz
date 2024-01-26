@@ -13,7 +13,7 @@ import { multiSortStableAsc } from '../utils/array';
 import { paletteTw } from './palette';
 import { AffineMat2d } from '../utils/AffineMat2d';
 import { IPointerEvent, useCombinedMouseTouchDrag } from '../utils/pointer';
-import { drawGrid } from './CanvasRenderHelpers';
+import { drawGrid } from './render/CanvasRenderHelpers';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 import { useFunctionRef } from '../utils/hooks';
 import { SideGripper } from './comps/CompResizing';

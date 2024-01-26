@@ -168,7 +168,9 @@ export interface ISelectRegion {
 }
 
 export interface IDragCreateComp {
-    compOrig: IComp;
+    compOrig?: IComp;
+    wireLabel?: IWireLabel;
+
     applyFunc?: (a : IEditSnapshot) => IEditSnapshot;
 }
 
@@ -252,19 +254,16 @@ export interface IElRef {
     wireNode1Id?: number;
 }
 
+
 export enum RefType {
     Comp,
     WireSeg,
     WireNode,
     CompNode,
+    WireLabelAnchor
 }
 
 export type IElement = IComp | ICompPort;
-
-export interface IWire {
-    id: string;
-    segments: ISegment[];
-}
 
 export interface IWireGraph {
     id: string;
@@ -278,11 +277,25 @@ export interface IWireGraphNode {
     ref?: IElRef;
 }
 
-export interface ISegment {
-    p0: Vec3;
-    p1: Vec3;
-    comp0Ref?: IElRef;
-    comp1Ref?: IElRef;
+export enum NumberRenderFlags {
+    None = 0,
+    Dec = 1 << 0,
+    Hex = 1 << 1,
+    Bin = 1 << 2,
+
+    Signed = 1 << 3,
+    Pad = 1 << 4, // pad with zeros, based on the wire bit-width
+}
+
+export interface IWireLabel {
+    id: string;
+    wireId: string;
+    anchorPos: Vec3;
+    rectRelPos: Vec3;
+    rectSize: Vec3;
+
+    text: string;
+    numRenderFlags: NumberRenderFlags;
 }
 
 export interface ICompRenderArgs<T, A = any> {
@@ -389,6 +402,7 @@ export enum PortType {
 export interface ISchematic {
     comps: IComp[];
     wires: IWireGraph[];
+    wireLabels: IWireLabel[];
     compBbox: BoundingBox3d;
     parentCompDefId?: string;
     parentComp?: IComp;
@@ -424,9 +438,11 @@ export interface IEditSchematic {
     name: string;
     comps: IComp[];
     wires: IWireGraph[];
+    wireLabels: IWireLabel[];
 
     nextCompId: number;
     nextWireId: number;
+    nextWireLabelId: number;
 
     // this schematic uses a component from the compLibrary as its parent component
     parentCompDefId?: string;

@@ -7,7 +7,7 @@ import { assignImm } from '@/src/utils/data';
 import { CompRectBase, CompRectUnscaled, CheckboxMenuTitle, ConfigMenu, MenuRow } from './RenderHelpers';
 import s from './CompStyles.module.scss';
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from '../displayTools/HexValueEditor';
-import { FontType, makeCanvasFont } from '../CanvasRenderHelpers';
+import { FontType, makeCanvasFont } from '../render/CanvasRenderHelpers';
 import { PortPlacement, portPlacementToPos } from './CompPort';
 import { EditKvp } from '../sidebars/CompDetails';
 import { BooleanEditor } from '../displayTools/BooleanEditor';
