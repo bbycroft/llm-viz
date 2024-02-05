@@ -207,7 +207,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
                     data.ioEnabled = false;
                 }
 
-            }, [data.ctrl, data.addr, data.data], [data.data]);
+            }, [data.ctrl, data.addr], [data.data]);
 
             /*
             builder.addPhase(function ramWritePhase({ data: { ctrl, data: dataPort, ram32View, addr } }) {
@@ -250,7 +250,7 @@ export function createSimpleMemoryComps(_args: ICompBuilderArgs): ICompDef<any>[
                     ram32View[addr.value >> 2] = wordVal;
                     data.updateCntr += 1;
                 }
-            }, [data.ctrl], []);
+            }, [data.ctrl, data.data], []);
 
             return builder.build();
         },

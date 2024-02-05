@@ -110,6 +110,8 @@ export function getSchematicForRef(editorState: IEditorState, ref: IElRef): [IEl
 }
 
 export function getCompSubSchematicForSnapshot(sharedContext: ISharedContext, snapshot: IEditSnapshot, comp: IComp): IEditSchematic | null {
+    return null;
+
     if (!comp.hasSubSchematic && !comp.subSchematicId) {
         return null;
     }

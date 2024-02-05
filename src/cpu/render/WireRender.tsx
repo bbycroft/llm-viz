@@ -1,4 +1,4 @@
-import { clamp, getOrAddToMap, isNil } from "../../utils/data";
+import { clamp, isNil } from "../../utils/data";
 import { Vec3 } from "../../utils/vector";
 import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
 import { ICanvasState, IEditorState, IWireGraph, IExeNet, IExeSystem, RefType, IWireGraphNode, IParentCompInfo } from "../CpuModel";
@@ -311,24 +311,24 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         drawEndCircle(node.pos, isHover && isNil(hoverRef?.wireNode1Id) && hoverRef?.wireNode0Id === node.id);
     }
 
+    // TODO: fix once exe order model has changed
     if (editorState.showExeOrder) {
-        let exeNetIdx = exeSystem.lookup.wireIdToNetIdx.get(fullWireId);
+        let exeNetIdx = exeSystem.lookup.wireIdToNetIdx.get(fullWireId) ?? -1;
+        let exeNet = exeSystem.nets[exeNetIdx];
 
-        let orders = exeSystem.executionSteps
-            .map((x, i) => ({ order: i, netIdx: x.netIdx }))
-            .filter(x => x.netIdx === exeNetIdx)
-            .map(x => x.order);
+        let blockIdx = exeNet?.exeBlockIdx ?? -1;
 
-        if (orders.length) {
+        let stepIdx = exeSystem.executionBlocks[blockIdx]?.executionSteps.findIndex(a => a.netIdx === exeNetIdx) ?? -1;
+
+        if (stepIdx !== -1) {
 
             for (let node of wire.nodes) {
                 ctx.fillStyle = '#666';
                 ctx.font = makeCanvasFont(18 * cvs.scale, FontType.Mono);
                 ctx.textBaseline = 'bottom';
                 ctx.textAlign = 'left';
-                ctx.fillText(orders.join(', '), node.pos.x + 0.1, node.pos.y - 0.1);
+                ctx.fillText([blockIdx, stepIdx].join(':'), node.pos.x + 0.1, node.pos.y - 0.1);
             }
-
         }
     }
 

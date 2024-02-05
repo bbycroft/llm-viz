@@ -102,21 +102,13 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             builder.addPhase(({ data: { busCtrl, busAddr, busData } }) => {
                 let ctrl = busCtrl.value;
                 let isEnabled = (ctrl & 0b1) === 0b1; // enabled
-                let isWrite = (ctrl & 0b11) === 0b01; // write
                 let isRead = (ctrl & 0b11) === 0b11; // read
-                let addr = busAddr.value;
                 data.bitsOn = 0;
                 data.bitsOff = 0;
                 data.bitsToggle = 0;
                 data.newValue = null;
 
-                if (isWrite) {
-                    // write to local with addr
-                    let fn = ledOutputRegAccess.regs[addr];
-                    if (fn) {
-                        fn(data, busData.value, true);
-                    }
-                } else if (isRead) {
+                if (isRead) {
                     let fn = ledOutputRegAccess.regs[busAddr.value];
                     if (fn) {
                         busData.value = fn(data, 0, false);
@@ -148,9 +140,27 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
             // }, [], [data.busData]);
 
             builder.addLatchedPhase(({ data: { busCtrl, busAddr, busData } }) => {
-                if (data.newValue !== null) {
-                    data.value = data.newValue;
+                let ctrl = busCtrl.value;
+                let isEnabled = (ctrl & 0b1) === 0b1; // enabled
+                let isWrite = (ctrl & 0b11) === 0b01; // write
+                data.bitsOn = 0;
+                data.bitsOff = 0;
+                data.bitsToggle = 0;
+                data.newValue = null;
+
+                if (isWrite) {
+                    // write to local with addr
+                    let fn = ledOutputRegAccess.regs[busAddr.value];
+                    if (fn) {
+                        fn(data, busData.value, true);
+                    }
+                    if (data.newValue !== null) {
+                        data.value = data.newValue;
+                    }
+                    busData.ioDir = IoDir.In;
                 }
+                busAddr.ioEnabled = isEnabled;
+                busData.ioEnabled = isEnabled;
             }, [data.busCtrl], []);
 
             return builder.build();

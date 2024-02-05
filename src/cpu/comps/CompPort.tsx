@@ -1,25 +1,16 @@
 import React, { memo, useMemo } from "react";
 import { StateSetter, assignImm, hasFlag } from "@/src/utils/data";
-import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
+import { Vec3 } from "@/src/utils/vector";
 import { CompDefFlags, IComp, IEditContext, IEditorState, IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
-import { CheckboxMenuTitle, CompRectBase } from "./RenderHelpers";
-import { editComp, editCompConfig, useEditorContext, useViewLayout } from "../Editor";
+import { editCompConfig, useEditorContext } from "../Editor";
 import { HexValueEditor, HexValueInputType, clampToSignedWidth } from "../displayTools/HexValueEditor";
-import { KeyboardOrder, isKeyWithModifiers, useGlobalKeyboard } from "@/src/utils/keyboard";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEllipsis, faEllipsisVertical } from "@fortawesome/free-solid-svg-icons";
-import clsx from "clsx";
-import { IPointerEvent, useCombinedMouseTouchDrag } from "@/src/utils/pointer";
-import { StringEditor } from "../displayTools/StringEditor";
-import { CursorDragOverlay } from "@/src/utils/CursorDragOverlay";
 import { FontType, makeCanvasFont } from "../render/CanvasRenderHelpers";
 import { EditKvp } from "../sidebars/CompDetails";
 import { SelectEditor } from "../displayTools/SelectEditor";
 import { BooleanEditor } from "../displayTools/BooleanEditor";
-import { RectCorner } from "./SchematicComp";
-import { invertRotation, rotateAffineInt, rotatePos, rotatedBbPivotPoint } from "./CompHelpers";
-import { ButtonRadio, ButtonStandard } from "../sidebars/EditorControls";
+import { rotateAffineInt } from "./CompHelpers";
+import { ButtonRadio } from "../sidebars/EditorControls";
 import { PortResizer } from "./CompResizing";
 
 export enum PortPlacement {
@@ -183,17 +174,55 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                 }, [data.port], [data.externalPort]);
             }
 
+            function addCopyInOutPhase() {
+                builder.addPhase(({ data }) => {
+
+                    if (!data.externalPortBound) {
+                        data.externalPort.value = defaultValue;
+                    }
+
+                    let srcPort = data.externalPort.resolved ? data.externalPort : data.port;
+                    let destPort = data.externalPort.resolved ? data.port : data.externalPort;
+
+                    srcPort.ioEnabled = true;
+                    destPort.value = srcPort.value;
+                    data.value = srcPort.value;
+                    srcPort.ioDir = IoDir.In;
+                    destPort.ioDir = IoDir.Out;
+
+                    // if (isTristate) {
+                    //     data.port.ioDir = data.port.floating && writeThenRead ? IoDir.Out : IoDir.In;
+                    //     data.value = data.port.floating ? defaultValue : data.port.value;
+                    //     data.port.ioEnabled = true;
+                    // } else {
+                    //     data.value = data.port.value;
+                    // }
+
+                    // if (data.externalPortBound) {
+                    //     data.externalPort.value = data.value;
+                    //     if (isTristate) {
+                    //         data.externalPort.ioEnabled = true; // !data.port.floating;
+                    //         data.externalPort.ioDir = data.port.floating ? IoDir.In : IoDir.Out;
+                    //     }
+                    // }
+                }, [data.port, data.externalPort], [data.externalPort, data.port], { atLeastOneResolved: [data.externalPort, data.port] });
+            }
+
             if (hasFlag(args.type, PortType.Tristate)) {
                 if (!isInput) {
                     addCopyOutPhase(); // out only; treat as a regular output
-
-                } else if (args.tristateOrder === TristateOrder.ReadThenWrite) {
-                    addCopyInPhase();
-                    addCopyOutPhase();
                 } else {
-                    addCopyOutPhase();
-                    addCopyInPhase();
+                    addCopyInOutPhase();
                 }
+
+                // } else if (args.tristateOrder === TristateOrder.ReadThenWrite) {
+
+                //     addCopyInPhase();
+                //     addCopyOutPhase();
+                // } else {
+                //     addCopyOutPhase();
+                //     addCopyInPhase();
+                // }
             } else {
                 if (isInput) {
                     addCopyInPhase();

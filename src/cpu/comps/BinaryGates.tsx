@@ -333,9 +333,9 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         size: new Vec3(wOrig, hOrig),
         flags: (args) => CompDefFlags.CanRotate | CompDefFlags.HasBitWidth | (args.bitWidth === 1 ? CompDefFlags.IsAtomic : 0),
         ports: (args) => [
-            { id: 'a', name: '', pos: new Vec3(0, 2), type: PortType.In, width: args.bitWidth },
+            { id: 'a', name: '', pos: new Vec3(0, 2), type: PortType.InOutTri, width: args.bitWidth },
             { id: 'b', name: '', pos: new Vec3(2, 0), type: PortType.In | PortType.Ctrl, width: 1 },
-            { id: 'o', name: '', pos: new Vec3(wOrig, 2), type: PortType.OutTri, width: args.bitWidth },
+            { id: 'o', name: '', pos: new Vec3(wOrig, 2), type: PortType.InOutTri, width: args.bitWidth },
         ],
         initConfig: () => ({ rotate: 0, bitWidth: 1 }),
         build: (builder) => {
@@ -347,11 +347,16 @@ export function createBinaryGateComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
             builder.addPhase(({ data: { inAPort, inBPort, outPort } }) => {
                 let isOn = !!inBPort.value;
-                outPort.value = isOn ? inAPort.value : 0;
-                outPort.ioEnabled = isOn;
 
-                inAPort.ioEnabled = isOn;
-            }, [data.inAPort, data.inBPort], [data.outPort]);
+                let srcPort = inAPort.resolved ? inAPort : outPort;
+                let destPort = inAPort.resolved ? outPort : inAPort;
+
+                destPort.value = isOn ? srcPort.value : 0;
+                destPort.ioEnabled = isOn;
+                srcPort.ioEnabled = isOn;
+                srcPort.ioDir = isOn ? IoDir.In : IoDir.None;
+                destPort.ioDir = isOn ? IoDir.Out : IoDir.None;
+            }, [data.inAPort, data.inBPort, data.outPort], [data.inAPort, data.outPort], { atLeastOneResolved: [data.inAPort, data.outPort] });
 
             return builder.build();
         },

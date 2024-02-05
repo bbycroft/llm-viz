@@ -95,7 +95,7 @@ function createWireRenderInfo(editorState: IEditorState, wire: IWireGraph, fullW
     if (exeNet) {
         isNonZero = exeNet.value !== 0;
 
-        for (let exePortRef of [...exeNet.inputs, ...exeNet.outputs]) {
+        for (let exePortRef of [...exeNet.dests, ...exeNet.srcs]) {
             let exeComp = exePortRef.exeComp;
             let exePort = exePortRef.exePort;
             let comp = exeComp.comp;
