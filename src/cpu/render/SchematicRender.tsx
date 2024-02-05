@@ -36,10 +36,16 @@ export function renderSchematic(cvs: ICanvasState, editorState: IEditorState, la
         renderWire(cvs, editorState, wire, exeNet, exeSystem, idPrefix, parentInfo);
     }
 
-    let compIdxToExeOrder = new Map<number, number[]>();
-    let idx = 0;
-    for (let step of exeSystem.executionSteps) {
-        getOrAddToMap(compIdxToExeOrder, step.compIdx, () => []).push(idx++);
+    let compIdxToBlockExeOrder = new Map<number, [number, number][]>();
+
+    let blockIdx = 0;
+    for (let exeBlock of exeSystem.executionBlocks) {
+        let stepIdx = 0;
+        for (let step of exeBlock.executionSteps) {
+            getOrAddToMap(compIdxToBlockExeOrder, step.compIdx, () => []).push([blockIdx, stepIdx]);
+            stepIdx++;
+        }
+        blockIdx++;
     }
 
     let singleElRef = editorState.snapshot.selected.length === 1 ? editorState.snapshot.selected[0] : null;
@@ -200,8 +206,8 @@ export function renderSchematic(cvs: ICanvasState, editorState: IEditorState, la
         }
 
         if (editorState.showExeOrder) {
-            let orders = compIdxToExeOrder.get(exeCompIdx) ?? [];
-            let text = orders.join(', ');
+            let orders = compIdxToBlockExeOrder.get(exeCompIdx) ?? [];
+            let text = orders.map(a => `${a[0]}:${a[1]}`).join(', ') || '??';
             ctx.save();
             ctx.fillStyle = "#a3a";
             ctx.strokeStyle = "#000";

@@ -19,6 +19,8 @@ interface ICompAddressMapper {
 
     addrOffset: number;
     addrMask: number;
+
+    isMatch: boolean;
 }
 
 interface IAddressMapperConfig extends IBaseCompConfig {
@@ -55,6 +57,7 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                 localAddr: builder.getPort('localAddr'),
                 addrOffset: builder.comp.args!.addrOffset,
                 addrMask: builder.comp.args!.addrMask,
+                isMatch: false,
             });
 
             // addresser phases:
@@ -83,13 +86,15 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                 let addr = busAddr.value;
                 let addrUpperBits = addr & ~data.addrMask;
                 let addrLowerBits = addr & data.addrMask;
-                let isMatch = addrUpperBits === data.addrOffset;
+                let isMatch = addrUpperBits === addrOffset;
 
                 localCtrl.value = 0b00;
                 localAddr.value = 0;
-                localData.ioEnabled = true;
+                localData.ioEnabled = true; // the only time we don't write to localData is if we're reading
                 localData.ioDir = isRead && isMatch ? IoDir.In : IoDir.Out;
-                busData.ioEnabled = isEnabled;
+
+                busData.ioEnabled = isEnabled && isMatch;
+                busData.ioDir = !isEnabled ? IoDir.None : isWrite ? IoDir.In : IoDir.Out;
                 // console.log('setting busData.ioDir to', IoDir[busData.ioDir]);
 
                 if (isMatch && isEnabled) {
@@ -101,20 +106,24 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
                     }
                 }
 
-            }, [data.busCtrl, data.busAddr, data.busData], [data.localCtrl, data.localAddr, data.localData]);
+                data.isMatch = isMatch && isEnabled;
+
+            }, [data.busCtrl, data.busAddr], [data.localCtrl, data.localAddr]);
 
             // read from local & write to bus: ctrl, addr, data
             builder.addPhase(({ data: { localCtrl, localData, busData } }) => {
                 busData.ioDir = IoDir.In;
                 let ctrl = localCtrl.value;
-                let isEnabled = (ctrl & 0b1) === 0b1; // enabled
+                let isEnabled = data.isMatch && (ctrl & 0b1) === 0b1; // enabled
                 let isRead = (ctrl & 0b11) === 0b11; // read
                 if (isRead) {
                     busData.value = localData.value;
                     busData.ioDir = isRead ? IoDir.Out : IoDir.In;
+                } else if (isEnabled) {
+                    localData.value = busData.value;
                 }
                 busData.ioEnabled = isEnabled; // isRead;
-            }, [data.localData, data.busCtrl], [data.busData]);
+            }, [data.localData, data.busData, data.busCtrl], [data.localData, data.busData], { atLeastOneResolved: [data.busData, data.localData] });
 
             return builder.build();
         },

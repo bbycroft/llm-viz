@@ -36,6 +36,7 @@ export interface IExeRunArgs {
 export interface IExeSystem {
     comps: IExeComp[];
     nets: IExeNet[];
+    executionBlocks: IExeBlock[];
     executionSteps: IExeStep[];
     latchSteps: IExeStep[]; // latches are done just prior to the next round of execution steps (it's useful to pause prior to latching)
     lookup: IExeSystemLookup;
@@ -43,9 +44,28 @@ export interface IExeSystem {
     compLibrary: CompLibrary;
 }
 
+/* map full ids (e.g. "compA|innerCompB") to indexes into IExeSystem.comps & IExeSystem.nets */
 export interface IExeSystemLookup {
     compIdToIdx: Map<string, number>;
     wireIdToNetIdx: Map<string, number>;
+}
+
+export interface IExeBlock {
+    enabled: boolean;
+
+    resolvedInitial: number[];
+    decrBlockTargets: IDecrBlockTarget[];
+
+    executionSteps: IExeStep[];
+
+    executed: boolean;
+    resolvedRemaining: number[];
+    // include latchSteps here??
+}
+
+export interface IDecrBlockTarget {
+    blockIdx: number;
+    counterIdx: number;
 }
 
 export interface IExeStep {
@@ -66,10 +86,14 @@ export interface IExeComp<T = any> {
 }
 
 export interface IExePhase<T = any> {
-    readPortIdxs: number[]; // into IExeComp.ports[i]
-    writePortIdxs: number[]; // into IExeComp.ports[i]
+    exeBlockIdx: number;
+    readPortIdxs: number[]; // index into IExeComp.ports[i] (the comp phase will read from these ports)
+    writePortIdxs: number[]; // index into IExeComp.ports[i] (the comp phase will write to these ports)
+    requiresOnePortIdxs: number[] | null; // index into IExeComp.ports[i] (at least one of these ports must be resolved)
     func: (comp: IExeComp<T>, args: IExeRunArgs) => void;
     isLatch: boolean;
+
+    portsHaveDecrBlockTargets: boolean;
 }
 
 export interface IExePort {
@@ -83,7 +107,12 @@ export interface IExePort {
     value: number;
     hasFloatingValue: boolean;
     floating: boolean; // no value has been set on a tristate wire. can either be a circuit error, or allow ports to later write a value to the net
+    resolved: boolean;
     nestedPort?: IExePortRef; // for back-prop
+
+    // as this port is resolved (via the comp), we'll decrement the remaining count on the block at index waitingCounterId. When they all hit zero, we can execute the block
+    waitingBlockIdx: number;
+    waitingCounterIdx: number;
 }
 
 export enum IoDir {
@@ -93,11 +122,31 @@ export enum IoDir {
 }
 
 export interface IExeNet {
+    exeBlockIdx: number;
     idx: number;
     wire: IWireGraph; // a (maybe) rendered wire
+
+    /** The full wire id including a nested path.
+     *
+     * The IExeNet.wire ref above may be shared among a number of IExeNet's (such as a duplicated
+     * component), but the wireFullId is unique across IExeNet's. */
     wireFullId: string;
-    inputs: IExePortRef[]; // will have multiple inputs for buses (inputs with tristate)
-    outputs: IExePortRef[];
+
+    /** Ports that write to the net ("src" is from the net's PoV).
+     *
+     * Should only have multiple srcs if:
+     *   - it's a tristate net, and
+     *   - all the inputs are tristate (& only 1 may be enabled at runtime). */
+    srcs: IExePortRef[];
+
+    /** Ports that read from the net ("dest" is from the net's PoV).
+     *
+     * There can be many dests in the common case.
+     *
+     * For tristate nets, a dest can also be a src (for InOutTri ports).
+    */
+    dests: IExePortRef[];
+
     tristate: boolean;
     width: number;
     type: PortType;

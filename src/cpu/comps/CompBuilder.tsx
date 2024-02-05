@@ -130,18 +130,21 @@ export class ExeCompBuilder<T, A=any> {
     constructor(
         public comp: IComp<A>,
     ) {
-        this.ports = comp.ports.map<IExePort>((node, i) => {
+        this.ports = comp.ports.map<IExePort>((port, i) => {
             return {
                 portIdx: i,
                 netIdx: -1,
                 ioEnabled: true,
                 ioDir: IoDir.None,
                 dataUsed: true,
-                type: node.type ?? PortType.In,
+                type: port.type ?? PortType.In,
                 value: 0,
                 floating: false,
                 hasFloatingValue: false,
-                width: node.width ?? 1,
+                width: port.width ?? 1,
+                resolved: false,
+                waitingBlockIdx: -1,
+                waitingCounterIdx: -1,
             };
         });
 
@@ -173,6 +176,9 @@ export class ExeCompBuilder<T, A=any> {
             hasFloatingValue: false,
             value: 0,
             width: width,
+            resolved: false,
+            waitingBlockIdx: -1,
+            waitingCounterIdx: -1,
         };
         this.ports.push(newPort);
         return newPort;
@@ -184,19 +190,25 @@ export class ExeCompBuilder<T, A=any> {
     }
 
     public addLatchedPhase(func: (comp: IExeComp<T>, args: IExeRunArgs) => void, inPorts: IExePort[], outPorts: IExePort[]): ExeCompBuilder<T> {
-        return this.addPhase(func, inPorts, outPorts, true);
+        return this.addPhase(func, inPorts, outPorts, { isLatch: true });
     }
 
-    public addPhase(func: (comp: IExeComp<T>, args: IExeRunArgs) => void, inPorts: IExePort[], outPorts: IExePort[], isLatch: boolean = false): ExeCompBuilder<T> {
+    public addPhase(func: (comp: IExeComp<T>, args: IExeRunArgs) => void, inPorts: IExePort[], outPorts: IExePort[], args?: IPhaseArgs): ExeCompBuilder<T> {
         if (this.seenLatch) {
             throw new Error(`Cannot add phase after latch phase`);
         }
+
+        let isLatch = args?.isLatch ?? false;
+
         if (isLatch) {
             this.seenLatch = true;
         }
         this.phases.push({
             readPortIdxs: inPorts.map(a => a.portIdx),
             writePortIdxs: outPorts.map(a => a.portIdx),
+            requiresOnePortIdxs: args?.atLeastOneResolved?.map(a => a.portIdx) ?? null,
+            exeBlockIdx: -1,
+            portsHaveDecrBlockTargets: false,
             func,
             isLatch,
         });
@@ -215,6 +227,10 @@ export class ExeCompBuilder<T, A=any> {
     }
 }
 
+interface IPhaseArgs {
+    isLatch?: boolean;
+    atLeastOneResolved?: IExePort[];
+}
 
 export function buildDefault(comp: IComp): IExeComp<{}> {
     let builder = new ExeCompBuilder<{}>(comp);

@@ -104,6 +104,6 @@ export const CompLibraryView: React.FC = () => {
                     </div>
                 </div>;
             })}
-        d</div>
+        </div>
     </div>;
 };
