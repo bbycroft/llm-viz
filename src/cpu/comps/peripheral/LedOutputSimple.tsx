@@ -169,7 +169,7 @@ export function createLedOutputComps(_args: ICompBuilderArgs): ICompDef<any>[] {
         render: ({ comp, ctx, cvs, exeComp }) => {
         },
         renderDom: ({ comp, exeComp }) => {
-            return <LedOutputSimple comp={comp} exeComp={exeComp} value={exeComp.data.value} />;
+            return exeComp && <LedOutputSimple comp={comp} exeComp={exeComp} value={exeComp.data.value} />;
         },
     };
 

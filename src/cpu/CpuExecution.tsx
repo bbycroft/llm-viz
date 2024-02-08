@@ -1,7 +1,7 @@
 import { hasFlag, isNil, isNotNil, makeArray } from "../utils/data";
 import { IResetOptions } from "./comps/CompBuilder";
 import { compPortDefId, ICompPortConfig, ICompPortData } from "./comps/CompPort";
-import { PortType, IEditSnapshot, IExeComp, IExeNet, IExePortRef, IExeSystem, IExeStep, IElRef, IoDir, ISchematic, IComp, IExeBlock, IDecrBlockTarget } from "./CpuModel";
+import { PortType, IEditSnapshot, IExeComp, IExeNet, IExePortRef, IExeSystem, IExeStep, IElRef, IoDir, ISchematic, IComp, IExeBlock, IDecrBlockTarget, IExePort, ICompPort } from "./CpuModel";
 import { ISharedContext } from "./library/SharedContext";
 import { getCompSubSchematicForSnapshot } from "./SubSchematics";
 
@@ -26,7 +26,7 @@ would need to store the IExeSystem somewhere.
 
 Let's stick with the flat-list for now.
 
-
+----
 
 Having real trouble passing data between external & internal ports.
 
@@ -96,6 +96,18 @@ the maybe-write boundary issue.
 
 We pick one, and start resolving it.
 
+---
+
+Sub-schematics are a bit of a pain, especially when they're code-backed. We probably need to mark
+the linkage between internal port-comps and the exterior with a "must-come-after-block" field.
+
+That way the external port will be resolved before all internal ports, which makes dealing with
+tri-state ports a bit easier.
+
+Importantly, this allows the block as a whole to be disabled when we don't want its computation.
+
+This should resolve correctly in the current logic, since we remove all OUT pathways from the
+internal ports to the external wires.
 
 */
 
@@ -105,7 +117,6 @@ export function createExecutionModel(sharedContext: ISharedContext, displayModel
         compLibrary: sharedContext.compLibrary,
         comps: [],
         nets: [],
-        executionSteps: [],
         latchSteps: [],
         executionBlocks: [],
         lookup: { compIdToIdx: new Map(), wireIdToNetIdx: new Map() },
@@ -236,8 +247,11 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
                 let nestedExeComp = nestedPortComps[portIdx];
                 if (nestedExeComp) {
                     nestedExeComp.data.externalPortBound = true;
+                    nestedExeComp.data.parentCompPort = exePort;
 
                     var compDef = exeSystem.compLibrary.getCompDef(exeComp.comp.defId)!;
+
+                    // we bind out-ports only if we have to (the sub-schematic has no code)
                     let bindSubSchematicOutPort = !!compDef.subLayout;
 
                     let nestedExternalPort = nestedExeComp.ports[1];
@@ -299,6 +313,7 @@ export function populateExecutionModel(sharedContext: ISharedContext, editSnapsh
             value: 0,
             enabledCount: 0,
             exeBlockIdx: -1,
+            resolved: false,
             type,
         };
 
@@ -323,16 +338,15 @@ export function lookupPortInfo(system: IExeSystem, ref: IElRef) {
     return { compIdx, portIdx, compExe, portExe, comp, port };
 }
 
-export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { exeBlocks: IExeBlock[], latchSteps: IExeStep[] } {
+export function calcCompExecutionOrder(exeComps: IExeComp[], nets: IExeNet[]): { exeBlocks: IExeBlock[], latchSteps: IExeStep[] } {
 
     // nodes are [...nets, ...compsPhase0, ...compsPhase1, ...compPhase2], where the phase groups are of equal length
-    let compStride = comps.length;
+    let compStride = exeComps.length;
     let compOffset = nets.length;
     let netOffset = 0;
-    let maxCompPhases = Math.max(...comps.map(a => a.phases.length), 0);
+    let maxCompPhases = Math.max(...exeComps.map(a => a.phases.length), 0);
 
-    let realNodeCount = nets.length + comps.reduce((a, b) => a + b.phases.length, 0);
-    let nodeArrayLength = nets.length + comps.length * maxCompPhases;
+    let nodeArrayLength = nets.length + exeComps.length * maxCompPhases;
 
     let compPhaseToNodeId = (compIdx: number, phaseIdx: number) => {
         return compOffset + compIdx + phaseIdx * compStride;
@@ -367,8 +381,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
     // however, for all of its dests, maybeEnabled should be false (they may or may not have hasReverseEdge).
     interface IEdge {
         destNodeId: number;
-        hasReverseEdge: boolean;
-        maybeEnabled: boolean;
+        hasReverseEdge: boolean; // not sure if we need this. The inability to resolve the order is enough.
         decrTarget?: IDecrBlockTarget;
         portIdx?: number;
     }
@@ -409,8 +422,8 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
 
     // 1) Look at each component phase:
     //    - phases have a list of ports they write to
-    for (let cId = 0; cId < comps.length; cId++) {
-        let comp = comps[cId];
+    for (let cId = 0; cId < exeComps.length; cId++) {
+        let comp = exeComps[cId];
         for (let pIdx = 0; pIdx < comp.phases.length; pIdx++) {
             let phase = comp.phases[pIdx];
             let nodeId = compPhaseToNodeId(cId, pIdx);
@@ -422,7 +435,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
 
             if (hasNextPhase) {
                 let nextNodeId = compPhaseToNodeId(cId, pIdx + 1);
-                node.edges.push({ destNodeId: nextNodeId, hasReverseEdge: false, maybeEnabled: false });
+                node.edges.push({ destNodeId: nextNodeId, hasReverseEdge: false });
             }
             numExeNodes += 1;
             for (let portIdx of phase.writePortIdxs) { // write means the component is writing to the port (i.e. an output) [read0, read1] => [write0, write1]
@@ -436,7 +449,6 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                 node.edges.push({
                     destNodeId: netNodeId,
                     hasReverseEdge: phase.readPortIdxs.includes(portIdx),
-                    maybeEnabled: false, // comps can always read from nets
                     portIdx,
                 });
             }
@@ -466,7 +478,6 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                 node.edges.push({
                     destNodeId: outputNodeId,
                     hasReverseEdge: hasWrite,
-                    maybeEnabled: hasWrite,
                  });
             }
         }
@@ -514,6 +525,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
 
     */
 
+    let touchedNodes = new Set<number>();
     let crossGroupNodes = new Set<number>();
     let notVisited = new Set<number>();
     let queue: number[] = [];
@@ -550,15 +562,15 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
     while (notVisited.size > 0) {
 
         if (queue.length === 0) {
-            if (crossGroupNodes.size > 0) {
-                let firstValue = crossGroupNodes.values().next().value;
-                // console.log(`[adding first cross-group node] ${blocks.length}`, nodeIdToStr(firstValue));
-                queue.push(firstValue);
-            } else {
-                let firstValue = notVisited.values().next().value;
-                // console.log(`[adding first non-visited node] ${blocks.length}`, nodeIdToStr(firstValue));
-                queue.push(firstValue);
+            let nodeSet = crossGroupNodes.size > 0 ? crossGroupNodes : touchedNodes.size > 0 ? touchedNodes : notVisited;
+            let lowestInDegreeNode: INode | null = null;
+            for (let nodeId of nodeSet) {
+                if (!lowestInDegreeNode || nodes[nodeId].inDegree < lowestInDegreeNode.inDegree) {
+                    lowestInDegreeNode = nodes[nodeId];
+                }
             }
+
+            queue.push(lowestInDegreeNode!.nodeId);
 
             // could in theory use any node, but that's not great. Want to maximize the size of blocks,
             // and minimize the number of blocks.
@@ -579,6 +591,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
             }
             let node = nodes[nodeId];
             crossGroupNodes.delete(nodeId);
+            touchedNodes.delete(nodeId);
             currBlock.nodeOrder.push(nodeId);
             node.blockIdx = currBlockIdx;
 
@@ -624,6 +637,8 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                         crossGroupNodes.add(edge.destNodeId);
                     } else if (degree === 0) {
                         queue.push(edge.destNodeId);
+                    } else {
+                        touchedNodes.add(edge.destNodeId);
                     }
                 }
 
@@ -713,7 +728,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
         }
     }
 
-    let numPhasesRun: number[] = comps.map(_ => 0);
+    let numPhasesRun: number[] = exeComps.map(_ => 0);
 
     // console.log('--- topoNodeOrder ---');
     // console.log('comps:', comps.map((c, i) => `${compPhaseToNodeId(i, 0)}: ${c.comp.name}`).join(', '));
@@ -725,7 +740,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
         let compPhase = nodeIdToCompPhaseIdx(nodeId);
         if (compPhase) {
             let { compIdx, phaseIdx } = compPhase;
-            let comp = comps[compIdx];
+            let comp = exeComps[compIdx];
             let name = comp.comp.id;
             let defId = comp.comp.defId;
             return `C:${name}(${defId})/${phaseIdx}`;
@@ -769,8 +784,8 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
             let compPhase = nodeIdToCompPhaseIdx(nodeId);
             if (compPhase) {
                 let { compIdx, phaseIdx } = compPhase;
-                let comp = comps[compIdx];
-                let phase = comp.phases[phaseIdx];
+                let exeComp = exeComps[compIdx];
+                let phase = exeComp.phases[phaseIdx];
                 let step: IExeStep = { compIdx, phaseIdx, netIdx: -1 };
                 if (phase.isLatch) {
                     latchSteps.push(step);
@@ -783,7 +798,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                 if (hasDecrTargets) {
                     for (let edge of node.edges) {
                         if (edge.decrTarget) {
-                            let port = comp.ports[edge.portIdx!];
+                            let port = exeComp.ports[edge.portIdx!];
                             port.waitingBlockIdx = edge.decrTarget.blockIdx;
                             port.waitingCounterIdx = edge.decrTarget.counterIdx;
                             // console.log('port of block', exeBlockIdx, 'will decr', edge.decrTarget.blockIdx + ':' + edge.decrTarget.counterIdx);
@@ -802,6 +817,7 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
         allLatchSteps.push(...latchSteps);
         let blockIdx = exeBlocks.length;
         exeBlocks.push({
+            blockIdx,
             enabled: true,
             executionSteps,
             resolvedInitial: block.initialResolves.slice(),
@@ -811,11 +827,13 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
                 ...block.decrBlockTargets,
             ],
             executed: false,
+            executionOrder: -1,
         });
         let exeBlock = exeBlocks[blockIdx];
         // console.log('exeBlock', blockIdx, 'has', exeBlock.resolvedInitial, 'initial counts, and will decr', exeBlock.decrBlockTargets.map(a => `${a.blockIdx}:${a.counterIdx}`));
     }
 
+    // checkBlockDepOrder(exeBlocks);
     // if (phaseStepCount !== numExeNodes) {
     //     console.log('detected a cycle; execution order may be incorrect: expected exe nodes', numExeNodes, 'got', phaseStepCount);
     //     console.log(comps, nets);
@@ -829,6 +847,46 @@ export function calcCompExecutionOrder(comps: IExeComp[], nets: IExeNet[]): { ex
     return { exeBlocks, latchSteps: allLatchSteps };
 }
 
+function checkBlockDepOrder(exeBlocks: IExeBlock[]) {
+    // the first index of each block's resolved list are ones that are required for the
+    // block to proceed.
+    // this means we can look at these and detect if there's a cycle in the block deps
+
+    let visited = new Set<number>();
+
+    function detectCycle(blockIdx: number, stack: number[]) {
+        let block = exeBlocks[blockIdx];
+
+        if (stack.includes(blockIdx)) {
+            let prevIdx = stack.indexOf(blockIdx);
+            let cycle = stack.slice(prevIdx).concat(blockIdx);
+            console.log('cycle detected in block deps', cycle);
+            return;
+        }
+
+        if (visited.has(blockIdx)) {
+            return;
+        }
+
+        visited.add(blockIdx);
+
+        stack = stack.concat(blockIdx);
+
+        for (let dep of block.decrBlockTargets) {
+            if (dep.counterIdx === 0) {
+                detectCycle(dep.blockIdx, stack);
+            }
+        }
+
+    }
+
+    while (visited.size < exeBlocks.length) {
+        let unVisited = makeArray(exeBlocks.length, 0).map((_, i) => i).filter(i => !visited.has(i));
+
+        detectCycle(unVisited[0], []);
+    }
+}
+
 export function stepExecutionCombinatorial(exeModel: IExeSystem, disableBackProp = false) {
     // console.log('--- stepExecutionCombinatorial ---');
     exeModel.runArgs.halt = false;
@@ -837,8 +895,13 @@ export function stepExecutionCombinatorial(exeModel: IExeSystem, disableBackProp
         for (let port of comp.ports) {
             if (hasFlag(port.type, PortType.Tristate)) {
                 port.ioEnabled = false;
+                port.resolved = false;
             }
         }
+    }
+
+    for (let net of exeModel.nets) {
+        net.resolved = false;
     }
 
     // We now have a new strategy for running the model:
@@ -856,14 +919,13 @@ export function stepExecutionCombinatorial(exeModel: IExeSystem, disableBackProp
     let blocks = exeModel.executionBlocks;
     let blockStack: number[] = [];
 
-    for (let i = 0; i < blocks.length; i++) {
-        let block = blocks[i];
-        for (let j = 0; j < block.resolvedInitial.length; j++) {
-            block.resolvedRemaining[j] = block.resolvedInitial[j];
+    for (let block of blocks) {
+        for (let i = 0; i < block.resolvedInitial.length; i++) {
+            block.resolvedRemaining[i] = block.resolvedInitial[i];
         }
         block.executed = false;
 
-        addBlockIfReady(i);
+        addBlockIfReady(block.blockIdx);
     }
 
     // console.log('found blocks to execute:', blockStack);
@@ -877,6 +939,7 @@ export function stepExecutionCombinatorial(exeModel: IExeSystem, disableBackProp
     }
 
     let blockOrder: number[] = [];
+    let blockExeCntr = 0;
 
     while (blockStack.length > 0) {
         let blockIdx = blockStack.splice(0, 1)[0];
@@ -884,6 +947,8 @@ export function stepExecutionCombinatorial(exeModel: IExeSystem, disableBackProp
         if (block.executed) {
             continue;
         }
+        block.executed = true;
+        block.executionOrder = blockExeCntr++;
         if (!disableBackProp) {
             blockOrder.push(blockIdx);
         }
@@ -930,6 +995,74 @@ export function stepExecutionCombinatorial(exeModel: IExeSystem, disableBackProp
             }
         }
     }
+
+    /*
+    let nonExecutedBlockIds = blocks.filter(a => !a.executed).map(a => a.blockIdx);
+
+    console.log('nonExecutedBlocks:', nonExecutedBlockIds);
+
+    for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i].executed) {
+            continue;
+        }
+        if (i !== 23 && i !== 19) {
+            continue;
+        }
+        // investigating why it's not running! Need to find all of the things that could go into it, and see which of them have been resolved (and which haven't)
+        // do we build a full reverse-lookup index? or just find the relevant one? Let's just find the relevant one
+
+        interface IResolveTarget {
+            initial: number;
+            remaining: number;
+            sources: IDecrSource[];
+        }
+
+        interface IDecrSource {
+            didDecr: boolean;
+            block?: IExeBlock;
+            exeComp?: IExeComp;
+            exePort?: IExePort;
+            port?: ICompPort;
+        }
+
+        let targets: IResolveTarget[] = blocks[i].resolvedInitial.map((a, j) => {
+            return {
+                initial: a,
+                remaining: blocks[i].resolvedRemaining[j],
+                sources: [],
+            };
+        });
+
+        for (let b of blocks) {
+            for (let t of b.decrBlockTargets) {
+                if (t.blockIdx === i) {
+                    targets[t.counterIdx].sources.push({ block: b, didDecr: b.executed });
+                }
+            }
+            for (let step of b.executionSteps) {
+                if (step.compIdx >= 0) {
+                    let exeComp = exeModel.comps[step.compIdx];
+                    let phase = exeComp.phases[step.phaseIdx];
+                    if (phase.portsHaveDecrBlockTargets) {
+                        for (let exePort of phase.writePortIdxs.map(a => exeComp.ports[a])) {
+                            if (exePort.waitingBlockIdx === i) {
+                                let port = exeComp.comp.ports[exePort.portIdx];
+                                targets[exePort.waitingCounterIdx].sources.push({
+                                    exeComp,
+                                    exePort,
+                                    port,
+                                    didDecr: exePort.ioEnabled && exePort.ioDir === IoDir.Out,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        console.log('block', i, blocks[i], 'was not executed, and has', targets);
+    }
+    */
 
     // console.log('block order:', blockOrder);
 
@@ -1032,6 +1165,7 @@ export function runNet(comps: IExeComp[], net: IExeNet) {
         }
     }
 
+    net.resolved = true;
     // if (isIoNet) {
     //     console.log('reading from io net', netToString(net, comps), 'with value', net.value.toString(16), net.value);
     // }

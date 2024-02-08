@@ -1,12 +1,15 @@
 import React from 'react';
 import { Vec3 } from "@/src/utils/vector";
-import { ICanvasState, IComp, IEditContext, IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
+import { IComp, IEditContext, IExeComp, IExePort, IoDir, PortType } from "../CpuModel";
 import { IBaseCompConfig, ICompBuilderArgs, ICompDef } from "./CompBuilder";
 import { CompRectBase } from "./RenderHelpers";
 import s from './CompStyles.module.scss';
 import { editCompConfig, useEditorContext } from '../Editor';
 import { assignImm } from '@/src/utils/data';
 import { HexValueEditor, HexValueInputType } from '../displayTools/HexValueEditor';
+import { IBitExpanderMultiConfig } from './BitExpander';
+import { IBitComparitorConfig } from './BitComparitor';
+import { EditKvp } from '../sidebars/CompDetails';
 
 interface ICompAddressMapper {
     busCtrl: IExePort;
@@ -27,6 +30,20 @@ interface IAddressMapperConfig extends IBaseCompConfig {
     addrOffset: number;
     addrMask: number;
 }
+
+/*
+We have a needed feature here, where the internal schematic parts take their
+values from our component config.
+
+A couple ways we could do this:
+
+1) The internal schematic has named comps, and we find and set the config of those comps
+   - We'll do this when necessary, such as when we update this config, or on first load
+
+2) Each variable in comps in the internal schematic can be set from a variable in the parent config
+   - In some ways this is nicer (less code, more data), but it is way more complicated!
+   - It also works better with custom-built components, but those are a can of worms
+*/
 
 export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] {
 
@@ -127,6 +144,43 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
 
             return builder.build();
         },
+        updateSubSchematicCompArgs: ({ comp, schematic, issues }) => {
+
+            let splitter = schematic.comps.find(c => c.extId === 'splitter') as IComp<IBitExpanderMultiConfig>;
+            let upperBitsMatch = schematic.comps.find(c => c.extId === 'upper_bits_match') as IComp<IBitComparitorConfig>;
+
+            if (!splitter || !upperBitsMatch) {
+                issues.push(`Missing required components 'splitter' or 'upper_bits_match' in sub-schematic`);
+                return schematic;
+            }
+
+            let maskStr = comp.args.addrMask.toString(2).padStart(33, '0').split('').reverse().join('');
+            let firstZeroIdx = maskStr.indexOf('0');
+
+            let addrOffsetShifted = comp.args.addrOffset >>> firstZeroIdx;
+            let matchStr = addrOffsetShifted.toString(2).padStart(32 - firstZeroIdx, '0');
+
+            splitter = assignImm(splitter, {
+                args: assignImm(splitter.args, {
+                    bitRange: [
+                        { id: 0, end: 31, start: firstZeroIdx, individual: false, showBits: false },
+                        { id: 1, end: firstZeroIdx - 1, start: 0, individual: false, showBits: false },
+                    ],
+                }),
+            });
+
+            upperBitsMatch = assignImm(upperBitsMatch, {
+                args: assignImm(upperBitsMatch.args, {
+                    match: matchStr,
+                }),
+            });
+
+            schematic = assignImm(schematic, {
+                comps: schematic.comps.map(c => c.id === splitter.id ? splitter : c.id === upperBitsMatch.id ? upperBitsMatch : c),
+            });
+
+            return schematic;
+        },
         // renderAll: true,
         render: ({ comp, ctx, cvs, exeComp }) => {
             /*
@@ -159,10 +213,55 @@ export function createAddressingComps(_args: ICompBuilderArgs): ICompDef<any>[] 
         renderDom: ({ comp, exeComp, editCtx, isActive }) => {
             return isActive ? <Addressing editCtx={editCtx} comp={comp} exeComp={exeComp} /> : null;
         },
+        renderOptions: ({ editCtx, comp }) => {
+            return <AddressingOptions editCtx={editCtx} comp={comp} />;
+        },
     };
 
     return [addrMapper];
 }
+
+export const AddressingOptions: React.FC<{
+    editCtx: IEditContext,
+    comp: IComp<IAddressMapperConfig>,
+}> = ({ editCtx, comp }) => {
+
+    let [, setEditorState] = useEditorContext();
+
+    return <>
+        <EditKvp label="Addr Mask">
+            <HexValueEditor
+                className='bg-slate-100 rounded'
+                inputClassName='bg-slate-100'
+                inputType={HexValueInputType.Hex}
+                signed={false}
+                hidePrefix={false}
+                fixedInputType
+                padBits={32}
+                maxBits={32}
+                value={comp.args.addrMask}
+                update={(end, v) => setEditorState(editCompConfig(editCtx, end, comp, a => {
+                    return assignImm(a, { addrMask: v });
+                }))} />
+        </EditKvp>
+
+        <EditKvp label="Addr Match">
+            <HexValueEditor
+                className='bg-slate-100 rounded'
+                inputClassName='bg-slate-100'
+                inputType={HexValueInputType.Hex}
+                signed={false}
+                hidePrefix={false}
+                fixedInputType
+                padBits={32}
+                maxBits={32}
+                value={comp.args.addrOffset}
+                update={(end, v) => setEditorState(editCompConfig(editCtx, end, comp, a => {
+                    return assignImm(a, { addrOffset: v });
+                }))} />
+        </EditKvp>
+    </>;
+};
 
 export const Addressing: React.FC<{
     editCtx: IEditContext,

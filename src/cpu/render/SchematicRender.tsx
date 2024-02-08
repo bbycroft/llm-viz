@@ -42,7 +42,9 @@ export function renderSchematic(cvs: ICanvasState, editorState: IEditorState, la
     for (let exeBlock of exeSystem.executionBlocks) {
         let stepIdx = 0;
         for (let step of exeBlock.executionSteps) {
-            getOrAddToMap(compIdxToBlockExeOrder, step.compIdx, () => []).push([blockIdx, stepIdx]);
+            if (step.compIdx >= 0) {
+                getOrAddToMap(compIdxToBlockExeOrder, step.compIdx, () => []).push([blockIdx, stepIdx]);
+            }
             stepIdx++;
         }
         blockIdx++;
@@ -207,7 +209,11 @@ export function renderSchematic(cvs: ICanvasState, editorState: IEditorState, la
 
         if (editorState.showExeOrder) {
             let orders = compIdxToBlockExeOrder.get(exeCompIdx) ?? [];
-            let text = orders.map(a => `${a[0]}:${a[1]}`).join(', ') || '??';
+            let text = orders.map(a => {
+                let block = exeSystem.executionBlocks[a[0]];
+                let value = block.executed ? block.executionOrder : -a[0];
+                return `${value}:${a[1]}`;
+            }).join(', ') || '??';;
             ctx.save();
             ctx.fillStyle = "#a3a";
             ctx.strokeStyle = "#000";

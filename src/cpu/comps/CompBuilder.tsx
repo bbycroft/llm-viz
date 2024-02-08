@@ -1,6 +1,6 @@
-import { isNil, hasFlag } from "@/src/utils/data";
+import { isNil, hasFlag, StateSetter } from "@/src/utils/data";
 import { BoundingBox3d, Vec3 } from "@/src/utils/vector";
-import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, ISchematic, ISubLayoutPort, ICompOptsRenderArgs, CompDefFlags } from "../CpuModel";
+import { PortType, IComp, ICompPort, ICompRenderArgs, IExeComp, IExePhase, IExePort, IExeRunArgs, IoDir, ISchematic, ISubLayoutPort, ICompOptsRenderArgs, CompDefFlags, IEditorState } from "../CpuModel";
 
 export interface ICompBuilderArgs {
 
@@ -88,6 +88,8 @@ export interface ICompDef<T, A extends IBaseCompConfig = any> {
     // copy things like memory & registers (not ports) between IExeComp data's (during a regen of the exe model)
     copyStatefulData?: (src: T, dest: T) => void;
 
+    updateSubSchematicCompArgs?: (args: ICompSubSchematicArgs<A>) => ISchematic;
+
     // action to reset stateful components, typically to 0x00. Option for hard or soft reset. Soft reset is typically
     // equivalent to a power-down/restart (leaving ROM untouched), while a hard reset includes things like ROMs.
     reset?: (exeComp: IExeComp<T>, resetOpts: IResetOptions) => void;
@@ -101,6 +103,12 @@ export interface IBaseCompConfig {
 export enum CompDefType {
     Builtin,
     UserDefined,
+}
+
+export interface ICompSubSchematicArgs<A> {
+    comp: IComp<A>;
+    schematic: ISchematic;
+    issues: string[];
 }
 
 export interface ISubLayoutArgs {
