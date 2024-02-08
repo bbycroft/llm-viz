@@ -189,6 +189,7 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
     // ctx.save();
     // ctx.scale(cvs.scale, cvs.scale);
 
+    let isResolved = exeNet?.resolved === true;
     let isFloating = enabledCount === 0 && exeNet?.tristate === true && anyDestNodes;
     ctx.save();
 
@@ -221,6 +222,8 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         ctx.filter = isFloating ? 'blur(2px)' : '';
         ctx.strokeStyle = isFloating ? '#f00' : isFlow ? flowColor : noFlowColor;
         ctx.lineWidth = width * cvs.scale;
+
+        ctx.globalAlpha = isResolved ? 1.0 : 0.2;
 
         ctx.stroke();
         // ctx.restore();
@@ -317,17 +320,19 @@ export function renderWire(cvs: ICanvasState, editorState: IEditorState, wire: I
         let exeNet = exeSystem.nets[exeNetIdx];
 
         let blockIdx = exeNet?.exeBlockIdx ?? -1;
+        let block = exeSystem.executionBlocks[blockIdx];
 
-        let stepIdx = exeSystem.executionBlocks[blockIdx]?.executionSteps.findIndex(a => a.netIdx === exeNetIdx) ?? -1;
+        let stepIdx = block?.executionSteps.findIndex(a => a.netIdx === exeNetIdx) ?? -1;
 
-        if (stepIdx !== -1) {
+        if (block && stepIdx !== -1) {
+            let value = block.executed ? block.executionOrder : -blockIdx;
 
             for (let node of wire.nodes) {
                 ctx.fillStyle = '#666';
-                ctx.font = makeCanvasFont(18 * cvs.scale, FontType.Mono);
+                ctx.font = makeCanvasFont(18 * cvs.scale, block.executed ? FontType.Mono : FontType.Mono | FontType.Italic);
                 ctx.textBaseline = 'bottom';
                 ctx.textAlign = 'left';
-                ctx.fillText([blockIdx, stepIdx].join(':'), node.pos.x + 0.1, node.pos.y - 0.1);
+                ctx.fillText([value, stepIdx].join(':'), node.pos.x + 0.1, node.pos.y - 0.1);
             }
         }
     }

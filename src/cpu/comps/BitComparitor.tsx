@@ -9,7 +9,7 @@ import { EditKvp } from "../sidebars/CompDetails";
 import { StringEditor } from "../displayTools/StringEditor";
 import { palleteColors } from "../palette";
 
-interface IBitComparitorConfig extends IBaseCompConfig {
+export interface IBitComparitorConfig extends IBaseCompConfig {
     bitWidth: number; // input bit width
     match: string; // '0' or '1' or 'x' (where x is don't care)
 }

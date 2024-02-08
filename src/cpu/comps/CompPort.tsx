@@ -52,6 +52,7 @@ export enum TristateOrder {
 export interface ICompPortData {
     port: IExePort;
     externalPort: IExePort;
+    parentCompPort: IExePort | null;
     externalPortBound: boolean;
     value: number;
 }
@@ -126,6 +127,7 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                 port: builder.getPort('a'),
                 externalPort: builder.getPort(compPortExternalPortId),
                 externalPortBound: false,
+                parentCompPort: null,
                 value: defaultValue,
             });
 
@@ -184,7 +186,17 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                     let srcPort = data.externalPort.resolved ? data.externalPort : data.port;
                     let destPort = data.externalPort.resolved ? data.port : data.externalPort;
 
+                    if (isTristate && data.parentCompPort && data.parentCompPort.resolved) {
+                        if (data.parentCompPort.ioEnabled && data.parentCompPort.ioDir === IoDir.Out) {
+                            data.port.ioEnabled = true;
+                            data.port.ioDir = IoDir.In;
+                            data.value = data.parentCompPort.value;
+                            return;
+                        }
+                    }
+
                     srcPort.ioEnabled = true;
+                    destPort.ioEnabled = true;
                     destPort.value = srcPort.value;
                     data.value = srcPort.value;
                     srcPort.ioDir = IoDir.In;
@@ -214,15 +226,6 @@ export function createCompIoComps(args: ICompBuilderArgs) {
                 } else {
                     addCopyInOutPhase();
                 }
-
-                // } else if (args.tristateOrder === TristateOrder.ReadThenWrite) {
-
-                //     addCopyInPhase();
-                //     addCopyOutPhase();
-                // } else {
-                //     addCopyOutPhase();
-                //     addCopyInPhase();
-                // }
             } else {
                 if (isInput) {
                     addCopyInPhase();

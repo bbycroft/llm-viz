@@ -15,7 +15,7 @@ import clsx from "clsx";
 import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { EditKvp } from "../sidebars/CompDetails";
 
-interface IBitExpanderMultiConfig extends IBaseCompConfig {
+export interface IBitExpanderMultiConfig extends IBaseCompConfig {
     collapse: boolean; // (or expand)
     bitWidth: number; // input bit width
     bitRange: IBitRange[];

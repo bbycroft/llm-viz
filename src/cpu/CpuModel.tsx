@@ -37,7 +37,6 @@ export interface IExeSystem {
     comps: IExeComp[];
     nets: IExeNet[];
     executionBlocks: IExeBlock[];
-    executionSteps: IExeStep[];
     latchSteps: IExeStep[]; // latches are done just prior to the next round of execution steps (it's useful to pause prior to latching)
     lookup: IExeSystemLookup;
     runArgs: IExeRunArgs;
@@ -51,6 +50,7 @@ export interface IExeSystemLookup {
 }
 
 export interface IExeBlock {
+    blockIdx: number;
     enabled: boolean;
 
     resolvedInitial: number[];
@@ -59,6 +59,8 @@ export interface IExeBlock {
     executionSteps: IExeStep[];
 
     executed: boolean;
+    executionOrder: number;
+
     resolvedRemaining: number[];
     // include latchSteps here??
 }
@@ -152,6 +154,7 @@ export interface IExeNet {
     type: PortType;
     value: number;
     enabledCount: number;
+    resolved: boolean;
 }
 
 // in our execution data model, we use indexes rather than ids for perf (?)
