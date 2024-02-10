@@ -1,5 +1,5 @@
 import { Vec3 } from "@/src/utils/vector";
-import { ICanvasState, IEditorState, IExeSystem, ISchematic, RefType } from "../CpuModel";
+import { ICanvasState, IEditorState, IExeSystem, ISchematic, IWireLabel, RefType } from "../CpuModel";
 import { FontType, makeCanvasFont } from "./CanvasRenderHelpers";
 
 export function renderWireLabels(cvs: ICanvasState, editorState: IEditorState, layout: ISchematic, exeSystem: IExeSystem, idPrefix: string) {
@@ -54,19 +54,14 @@ export function renderWireLabels(cvs: ICanvasState, editorState: IEditorState, l
         let rectPos = label.anchorPos.add(label.rectRelPos);
         let rectSize = label.rectSize;
 
-        let yMid = rectPos.y + rectSize.y / 2;
-        let leftPos = new Vec3(rectPos.x, yMid);
-        let rightPos = new Vec3(rectPos.x + rectSize.x, yMid);
-        let triangleOffset = 1.0;
-
-        let leftIsNearest = leftPos.distSq(label.anchorPos) < rightPos.distSq(label.anchorPos);
+        let [leftIsNearest, trianglePoint] = wireLabelTriangle(label);
 
         ctx.save();
         ctx.lineWidth = 1 * cvs.scale;
         ctx.strokeStyle = '#888';
         ctx.beginPath();
         ctx.moveTo(label.anchorPos.x, label.anchorPos.y);
-        ctx.lineTo(leftIsNearest ? rectPos.x - triangleOffset : rectPos.x + rectSize.x + triangleOffset, yMid);
+        ctx.lineTo(trianglePoint.x, trianglePoint.y);
         ctx.setLineDash([4 * cvs.scale, 4 * cvs.scale]);
         ctx.stroke();
 
@@ -94,12 +89,12 @@ export function renderWireLabels(cvs: ICanvasState, editorState: IEditorState, l
         ctx.moveTo(rectPos.x, rectPos.y);
         ctx.lineTo(rectPos.x + rectSize.x, rectPos.y);
         if (!leftIsNearest) {
-            ctx.lineTo(rectPos.x + rectSize.x + triangleOffset, yMid);
+            ctx.lineTo(trianglePoint.x, trianglePoint.y);
         }
         ctx.lineTo(rectPos.x + rectSize.x, rectPos.y + rectSize.y);
         ctx.lineTo(rectPos.x, rectPos.y + rectSize.y);
         if (leftIsNearest) {
-            ctx.lineTo(rectPos.x - triangleOffset, yMid);
+            ctx.lineTo(trianglePoint.x, trianglePoint.y);
         }
         ctx.closePath();
 
@@ -148,4 +143,18 @@ export function renderWireLabels(cvs: ICanvasState, editorState: IEditorState, l
     }
 
     ctx.restore();
+}
+
+export function wireLabelTriangle(label: IWireLabel): [leftSide: boolean, trianglePoint: Vec3] {
+    let rectPos = label.anchorPos.add(label.rectRelPos);
+    let rectSize = label.rectSize;
+
+    let yMid = rectPos.y + rectSize.y / 2;
+    let leftPos = new Vec3(rectPos.x, yMid);
+    let rightPos = new Vec3(rectPos.x + rectSize.x, yMid);
+    let triangleOffset = 1.0;
+
+    let leftIsNearest = leftPos.distSq(label.anchorPos) < rightPos.distSq(label.anchorPos);
+
+    return [leftIsNearest, new Vec3(leftIsNearest ? rectPos.x - triangleOffset : rectPos.x + rectSize.x + triangleOffset, yMid)];
 }

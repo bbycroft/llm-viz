@@ -3,9 +3,9 @@ import { AffineMat2d } from '../utils/AffineMat2d';
 import { assignImm, assignImmFull, clamp, isNil, isNotNil } from '../utils/data';
 import { hasModifiers, isKeyWithModifiers, KeyboardOrder, Modifiers, useGlobalKeyboard } from '../utils/keyboard';
 import { useCombinedMouseTouchDrag, useTouchEvents } from '../utils/pointer';
-import { BoundingBox3d, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
+import { BoundingBox3d, pointInTriangle, projectOntoVector, segmentNearestPoint, Vec3 } from '../utils/vector';
 import { ICanvasState, IEditSnapshot, IEditorState, IElRef, IHitTest, ISchematic, IWireGraph, RefSubType, RefType } from './CpuModel';
-import { editMainSchematic, editSnapshot, editSubSchematic, useEditorContext } from './Editor';
+import { canvasEvToModel, canvasEvToScreen, editMainSchematic, editSnapshot, editSubSchematic, modelToScreen, screenToModel, useEditorContext } from './Editor';
 import { fixWire, wireToGraph, applyWires, checkWires, copyWireGraph, EPSILON, dragSegment, moveSelectedComponents, iterWireGraphSegments, ISegment } from './Wire';
 import { CursorDragOverlay } from '../utils/CursorDragOverlay';
 import { computeSubLayoutMatrix, editCtxFromRefId as editCtxFromElRef, getActiveSubSchematic, getCompSubSchematic, getMatrixForEditContext, getSchematicForRef, globalRefToLocal, globalRefToLocalIfMatch } from './SubSchematics';
@@ -16,6 +16,7 @@ import { compIsVisible } from './ModelHelpers';
 import { constructSubCanvasState, shouldRenderComp } from './render/CanvasRenderHelpers';
 import { multiSortStableAsc } from '../utils/array';
 import { rotateCompIsHoriz, rotateCompPortPos } from './comps/CompHelpers';
+import { wireLabelTriangle } from './render/WireLabelRender';
 
 export const CanvasEventHandler: React.FC<{
     embedded?: boolean;
@@ -550,7 +551,7 @@ export const CanvasEventHandler: React.FC<{
 
     function getRefUnderCursor(editorState: IEditorState, cvsState: ICanvasState, ev: React.MouseEvent, schematic?: ISchematic, idPrefix: string = ''): IHitTest | null {
         let mtx = cvsState.mtx;
-        schematic ??= editorState.snapshot.mainSchematic;
+        schematic ??= (editorState.snapshotTemp ?? editorState.snapshot).mainSchematic;
 
         let mousePtModel = evToModel(ev, mtx);
         let mousePtScreen = evToScreen(ev);
@@ -683,6 +684,13 @@ export const CanvasEventHandler: React.FC<{
             let labelTl = wireLabel.anchorPos.add(wireLabel.rectRelPos);
             let labelBb = new BoundingBox3d(labelTl, labelTl.add(wireLabel.rectSize));
             let cursorInLabel = labelBb.contains(mousePtModel);
+
+            if (singleSelectedRef?.type === RefType.WireLabel && singleSelectedRef.id === wireLabel.id) {
+                // the triangle is now part of the label hit region
+                let [leftIsNearest, trianglePoint] = wireLabelTriangle(wireLabel);
+                let inTriangle = pointInTriangle(mousePtModel, trianglePoint, leftIsNearest ? labelBb.tl() : labelBb.br(), leftIsNearest ? labelBb.bl() : labelBb.tr());
+                cursorInLabel = cursorInLabel || inTriangle;
+            }
 
             if (cursorInLabel) {
                 refsUnderCursor.push({
@@ -821,22 +829,8 @@ export const CanvasEventHandler: React.FC<{
         return pt.round();
     }
 
-    function evToModel(ev: { clientX: number, clientY: number }, mtx: AffineMat2d) {
-        return mtx.mulVec3Inv(evToScreen(ev));
-    }
-
-    function evToScreen(ev: { clientX: number, clientY: number }) {
-        let bcr = cvsState?.canvas.getBoundingClientRect();
-        return new Vec3(ev.clientX - (bcr?.x ?? 0), ev.clientY - (bcr?.y ?? 0));
-    }
-
-    function modelToScreen(pt: Vec3, mtx: AffineMat2d) {
-        return mtx.mulVec3(pt);
-    }
-
-    function screenToModel(pt: Vec3, mtx: AffineMat2d) {
-        return mtx.mulVec3Inv(pt);
-    }
+    let evToScreen = (ev: { clientX: number, clientY: number }) => canvasEvToScreen(cvsState.canvas, ev);
+    let evToModel = (ev: { clientX: number, clientY: number }, mtx: AffineMat2d) => canvasEvToModel(cvsState.canvas, ev, mtx);
 
     return <div
         className={"pointer-events-auto w-full h-full absolute cursor-grab"}

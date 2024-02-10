@@ -18,8 +18,6 @@ export const SelectionDetails: React.FC<{
     let singleCompRef = singleRef?.type === RefType.Comp ? singleRef : null;
     let singleWireLabelRef = singleRef?.type === RefType.WireLabel ? singleRef : null;
 
-    console.log('singleRef', singleRef);
-
     if (singleCompRef) {
         return <CompDetails compRef={singleCompRef} />;
     } else if (singleWireLabelRef) {
