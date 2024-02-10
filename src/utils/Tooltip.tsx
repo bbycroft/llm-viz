@@ -1,3 +1,4 @@
+'use client';
 import React, { CSSProperties, useMemo, useState } from "react";
 import { Portal } from "./Portal";
 import clsx from "clsx";
@@ -7,7 +8,7 @@ import { assignImm, clamp } from "./data";
 const PosStart = 16;
 const PosEnd = 32;
 
-enum TipPos {
+export enum TipPos {
     Top = 1,
     Right = 2,
     Left = 4,
@@ -100,9 +101,10 @@ export const Tooltip: React.FC<{
                 )} style={tooltipStyle}>
                 {tip}
                 {arrow && <div className={clsx(
-                    "absolute w-0 h-0 top-0 left-0 origin-center border-8 z-[1] shadow-lg",
+                    "absolute w-0 h-0 left-0 origin-center border-8 z-[1] shadow-lg",
                     tipStyle === TipStyle.Gray && "border-gray-600",
-                    (pos & TipPos.Bottom) && "border-t-transparent border-l-transparent border-r-transparent",
+                    (pos & TipPos.Bottom) && "border-t-transparent border-l-transparent border-r-transparent top-0",
+                    (pos & TipPos.Top) && "border-b-transparent border-l-transparent border-r-transparent bottom-0",
                 )}
                 style={arrowStyle}>
 

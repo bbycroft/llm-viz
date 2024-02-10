@@ -324,7 +324,7 @@ export const CpuCanvas: React.FC<{
             <Resizer className="flex-1 flex flex-row" id={"cpu-tools-right"} defaultAmt={250} fixedWidthRight>
                 <Resizer className="flex-1 flex flex-row" id={"cpu-tools-left"} defaultAmt={280} fixedWidthLeft>
                     {!embedded && <LeftSidebar />}
-                    <div className="relative touch-none flex-1 overflow-hidden shadow-inner-lg">
+                    <div className="relative flex-1 overflow-hidden shadow-inner-lg">
                         <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
                         {cvsState && <CanvasEventHandler cvsState={cvsState} embedded={embedded}>
                             <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>

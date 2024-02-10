@@ -128,6 +128,7 @@ export function readFromClipboard(): Promise<string> {
 export function selectionToSchematic(editorState: IEditorState): ISchematic {
     let selected = editorState.snapshot.selected;
 
+    let selectedWireLabelIds = new Set(selected.filter(a => a.type === RefType.WireLabel).map(a => a.id));
     let selectedCompIds = new Set(selected.filter(a => a.type === RefType.Comp).map(a => a.id));
     let selectedWireIds = new Map<string, IElRef[]>();
 
@@ -174,6 +175,7 @@ export function selectionToSchematic(editorState: IEditorState): ISchematic {
         compBbox: editorState.snapshot.mainSchematic.compBbox,
         comps: editorState.snapshot.mainSchematic.comps.filter(c => selectedCompIds.has(c.id)),
         wires: wires,
+        wireLabels: editorState.snapshot.mainSchematic.wireLabels.filter(l => selectedWireLabelIds.has(l.id)),
     };
 
     return snapshotPartial;

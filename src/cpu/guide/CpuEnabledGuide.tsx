@@ -19,13 +19,13 @@ export const CpuEnabledGuide: React.FC<{
     return <main className='flex flex-col min-h-screen'>
         <Header title={entry.name} />
         <div className='flex flex-grow items-start'>
-            <NavSidebar className='w-3/12 bg-slate-100 min-h-full' activeEntry={dir} />
-            <div className='guide-style w-9/12 flex flex-col py-2 mb-[10rem]'>
+            <NavSidebar className='w-3/12 bg-slate-100 min-h-full max-sm:hidden' activeEntry={dir} />
+            <div className='guide-style w-9/12 max-sm:w-full flex flex-col py-2 mb-[10rem]'>
                 <SharedContextContext.Provider value={sharedContext}>
                     {children}
                 </SharedContextContext.Provider>
             </div>
-            <div className='w-3/12 bg-slate-100 min-h-full'>
+            <div className='w-3/12 bg-slate-100 min-h-full max-sm:hidden'>
                 &nbsp;
             </div>
         </div>

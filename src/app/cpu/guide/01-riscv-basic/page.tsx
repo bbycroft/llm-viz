@@ -157,6 +157,7 @@ export default function Page() {
         </Para>
 
         <InstructionTable>
+            <InstructionDetail name={'add'} isHeader />
             <InstructionDetail name={'add'} />
         </InstructionTable>
 
@@ -206,6 +207,7 @@ export default function Page() {
         </Para>
 
         <InstructionTable>
+            <InstructionDetail name='add' isHeader />
             <InstructionDetail name={'add'} />
             <InstructionDetail name={'sub'} />
             <InstructionDetail name={'sll'} />
@@ -259,12 +261,14 @@ export default function Page() {
         </Para>
 
         <InstructionTable>
+            <InstructionDetail name='addi' isHeader />
             <InstructionDetail name={'addi'} />
             <InstructionDetail name={'slti'} />
             <InstructionDetail name={'sltiu'} />
             <InstructionDetail name={'xori'} />
             <InstructionDetail name={'ori'} />
             <InstructionDetail name={'andi'} />
+            <InstructionDetail name='slli' isHeader />
             <InstructionDetail name={'slli'} />
             <InstructionDetail name={'srli'} />
             <InstructionDetail name={'srai'} />
@@ -319,6 +323,7 @@ export default function Page() {
         </Para>
 
         <InstructionTable>
+            <InstructionDetail name={'beq'} isHeader />
             <InstructionDetail name={'beq'} />
             <InstructionDetail name={'bne'} />
             <InstructionDetail name={'blt'} />
@@ -356,7 +361,9 @@ export default function Page() {
         </Para>
 
         <InstructionTable>
+            <InstructionDetail name={'jal'} isHeader />
             <InstructionDetail name={'jal'} />
+            <InstructionDetail name={'jalr'} isHeader />
             <InstructionDetail name={'jalr'} />
         </InstructionTable>
 
@@ -401,6 +408,7 @@ export default function Page() {
         </Para>
 
         <InstructionTable>
+            <InstructionDetail name={'lui'} isHeader />
             <InstructionDetail name={'lui'} />
             <InstructionDetail name={'auipc'} />
         </InstructionTable>
@@ -440,12 +448,14 @@ export default function Page() {
         </Para>
 
         <InstructionTable>
+            <InstructionDetail name={'lb'} isHeader />
             <InstructionDetail name={'lb'} />
             <InstructionDetail name={'lh'} />
             <InstructionDetail name={'lw'} />
             <InstructionDetail name={'lbu'} />
             <InstructionDetail name={'lhu'} />
 
+            <InstructionDetail name={'sb'} isHeader />
             <InstructionDetail name={'sb'} />
             <InstructionDetail name={'sh'} />
             <InstructionDetail name={'sw'} />
