@@ -25,6 +25,7 @@ import { LeftSidebar } from "./sidebars/LeftSidebar";
 import { SaveLoadHandler } from "./SaveLoadHandler";
 import { renderSchematic } from "./render/SchematicRender";
 import { SelectionDetails } from "./sidebars/SelectionDetails";
+import { WireLabelEdit } from "./render/WireLabelEdit";
 
 export const CpuCanvas: React.FC<{
     embedded?: boolean;
@@ -249,7 +250,7 @@ export const CpuCanvas: React.FC<{
 
     let numEls = 0;
 
-    function getCompDomElements(schematic: ISchematic, idPrefix: string) {
+    function getSchematicDomElements(schematic: ISchematic, idPrefix: string) {
         let comps = schematic.comps
             .map(comp => {
                 let def = editorState.compLibrary.getCompDef(comp.defId)!;
@@ -274,7 +275,7 @@ export const CpuCanvas: React.FC<{
                         className={"absolute origin-top-left"}
                         style={{ transform: `matrix(${subMtx.toTransformParams().join(',')})` }}
                     >
-                        {getCompDomElements(subSchematic, idPrefix + a.comp.id + '|')}
+                        {getSchematicDomElements(subSchematic, idPrefix + a.comp.id + '|')}
                     </div>;
                 }
 
@@ -292,15 +293,24 @@ export const CpuCanvas: React.FC<{
                     }) ?? null}
                     {subLayoutDom}
                 </React.Fragment>;
-
         });
+
+        let wireLabelEl: React.ReactNode = null;
+
+        if (singleElRef?.type === RefType.WireLabel) {
+            let wireLabel = schematic.wireLabels.find(a => idPrefix + a.id === singleElRef!.id);
+            if (wireLabel) {
+                wireLabelEl = <WireLabelEdit cvs={cvsState!} editCtx={{ idPrefix }} wireLabel={wireLabel} />;
+            }
+        }
 
         return <>
             {comps}
+            {wireLabelEl}
         </>;
     }
 
-    let compDivs = getCompDomElements((editorState.snapshotTemp ?? editorState.snapshot).mainSchematic, '');
+    let schematicDomEls = getSchematicDomElements((editorState.snapshotTemp ?? editorState.snapshot).mainSchematic, '');
 
     // console.log('numEls = ', numEls);
 
@@ -321,7 +331,7 @@ export const CpuCanvas: React.FC<{
                                 <div
                                     className={"absolute origin-top-left"}
                                     style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
-                                    {compDivs}
+                                    {schematicDomEls}
                                     <CompBoundingBox />
                                     <InnerDisplayBoundingBox />
                                 </div>

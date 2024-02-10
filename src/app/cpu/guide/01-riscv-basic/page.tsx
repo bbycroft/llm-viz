@@ -385,7 +385,7 @@ export default function Page() {
 
         <Para>
             These instructions can seem a bit odd at first, but they're rather powerful. Their basic use is to call into and return from functions.
-            How we do this is: executa a <code>jal</code> instruction with it's imm value set to an offset that is the start of the function, and set the dest
+            How we do this is: execute a <code>jal</code> instruction with it's imm value set to an offset that is the start of the function, and set the dest
             register of <code>PC + 4</code> to be the <code>ra</code>, or "return address" register (index = 1). The PC then starts executing the instructions.
             When we want to
             return to the calling code, we simply execute <code>jalr 0, ra, 0</code>, which jumps to the address stored in <code>ra</code>. Since <code>ra</code>

@@ -288,6 +288,11 @@ export class BoundingBox3d {
         return this;
     }
 
+    tl(): Vec3 { return new Vec3(this.min.x, this.min.y, this.min.z); }
+    tr(): Vec3 { return new Vec3(this.max.x, this.min.y, this.min.z); }
+    br(): Vec3 { return new Vec3(this.max.x, this.max.y, this.min.z); }
+    bl(): Vec3 { return new Vec3(this.min.x, this.max.y, this.min.z); }
+
     clone(): BoundingBox3d {
         let b = new BoundingBox3d();
         b.min = this.min.clone();
@@ -370,4 +375,19 @@ export function segmentNearestT(p0: Vec3, p1: Vec3, x: Vec3) {
 // project x onto v
 export function projectOntoVector(x: Vec3, v: Vec3) {
     return v.mul(x.dot(v) / v.dot(v));
+}
+
+export function pointInTriangle(x: Vec3, p0: Vec3, p1: Vec3, p2: Vec3) {
+    let v0 = p2.sub(p0);
+    let v1 = p1.sub(p0);
+    let v2 = x.sub(p0);
+    let dot00 = v0.dot(v0);
+    let dot01 = v0.dot(v1);
+    let dot02 = v0.dot(v2);
+    let dot11 = v1.dot(v1);
+    let dot12 = v1.dot(v2);
+    let invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
+    let u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+    let v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+    return u >= 0 && v >= 0 && u + v < 1;
 }

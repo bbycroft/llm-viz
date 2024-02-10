@@ -6,6 +6,7 @@ import { AffineMat2d } from '../utils/AffineMat2d';
 import { Subscriptions, useSubscriptions } from '../utils/hooks';
 import { getCompSubSchematicForPrefix } from './SubSchematics';
 import { arrayMax } from '../utils/array';
+import { Vec3 } from '../utils/vector';
 
 export enum PortHandling {
     Detach, // e.g. for rotating a component, the wire will need to be manually re-attached
@@ -316,4 +317,21 @@ export function useEditorContext(subSplitOverride?: ObjSubSplit<IEditorState> | 
     let proxyObj = makeProxyObject(srcValue, visitedItemsRef.current, subSplits);
 
     return [proxyObj, storeCtx.setValue, storeCtx] as const;
+}
+
+export function canvasEvToModel(canvas: HTMLElement, ev: { clientX: number, clientY: number }, mtx: AffineMat2d) {
+    return mtx.mulVec3Inv(canvasEvToScreen(canvas, ev));
+}
+
+export function canvasEvToScreen(canvas: HTMLElement, ev: { clientX: number, clientY: number }) {
+    let bcr = canvas.getBoundingClientRect();
+    return new Vec3(ev.clientX - (bcr?.x ?? 0), ev.clientY - (bcr?.y ?? 0));
+}
+
+export function modelToScreen(pt: Vec3, mtx: AffineMat2d) {
+    return mtx.mulVec3(pt);
+}
+
+export function screenToModel(pt: Vec3, mtx: AffineMat2d) {
+    return mtx.mulVec3Inv(pt);
 }
