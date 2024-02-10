@@ -18,13 +18,13 @@ import { compIsVisible, computeModelBoundingBox, computeZoomExtentMatrix, create
 import { MainToolbar } from "./toolbars/CpuToolbars";
 import { SharedContextContext, createSharedContext } from "./library/SharedContext";
 import { CompBoundingBox, InnerDisplayBoundingBox } from "./CompBoundingBox";
-import { CompDetails } from "./sidebars/CompDetails";
 import { Resizer } from "../utils/Resizer";
 import { SchematicDetails } from "./sidebars/SchematicDetails";
 import { WireRenderCache } from "./render/WireRenderCache";
 import { LeftSidebar } from "./sidebars/LeftSidebar";
 import { SaveLoadHandler } from "./SaveLoadHandler";
 import { renderSchematic } from "./render/SchematicRender";
+import { SelectionDetails } from "./sidebars/SelectionDetails";
 
 export const CpuCanvas: React.FC<{
     embedded?: boolean;
@@ -341,7 +341,7 @@ export const CpuCanvas: React.FC<{
                 </Resizer>
                 {!readonly && <div className="flex-1 flex flex-col border-t">
                     <SchematicDetails />
-                    <CompDetails />
+                    <SelectionDetails />
                 </div>}
             </Resizer>
         </ViewLayoutContext.Provider>

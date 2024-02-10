@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assignImm, isNotNil, StateSetter } from '../utils/data';
-import { IComp, IEditContext, IEditSchematic, IEditSnapshot, IEditorState, IExeSystem, ISchematic } from './CpuModel';
+import { IComp, IEditContext, IEditSchematic, IEditSnapshot, IEditorState, IExeSystem, ISchematic, IWireLabel } from './CpuModel';
 import { updateWiresForComp } from './Wire';
 import { AffineMat2d } from '../utils/AffineMat2d';
 import { Subscriptions, useSubscriptions } from '../utils/hooks';
@@ -51,6 +51,26 @@ export function editComp<A>(editCtx: IEditContext, end: boolean, comp: IComp<A>,
         state.compLibrary.updateCompFromDef(comp3);
 
         schematic = updateWiresForComp(schematic, comp3, compEditArgs?.portHandling ?? PortHandling.Move);
+
+        return schematic;
+    });
+}
+
+export function editWireLabel(editCtx: IEditContext, end: boolean, labelId: string, updateWireLabel: (wireLabel: IWireLabel) => IWireLabel) {
+    return editSubSchematic(editCtx, end, (schematic, state) => {
+
+        let comp2 = schematic.wireLabels.find(a => a.id === labelId)
+        if (!comp2) {
+            console.log('unable to edit labelId!!');
+            return schematic;
+        }
+
+        let comp3 = updateWireLabel(comp2);
+        if (comp3 === comp2) {
+            return schematic;
+        }
+
+        schematic = assignImm(schematic, { wireLabels: schematic.wireLabels.map(a => a.id === labelId ? comp3! : a) });
 
         return schematic;
     });

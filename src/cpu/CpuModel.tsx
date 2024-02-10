@@ -300,10 +300,12 @@ export enum ToolbarTypes {
 
 export interface IElRef {
     type: RefType;
+    /** This is a fullId, so includes the comp-tree prefix. */
     id: string;
     compNodeId?: string;
     wireNode0Id?: number;
     wireNode1Id?: number;
+    subType?: RefSubType;
 }
 
 
@@ -312,7 +314,12 @@ export enum RefType {
     WireSeg,
     WireNode,
     CompNode,
-    WireLabelAnchor
+    WireLabel
+}
+
+export enum RefSubType {
+    WireLabelAnchor,
+    WireLabelRect,
 }
 
 export type IElement = IComp | ICompPort;

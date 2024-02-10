@@ -122,30 +122,32 @@ export const HoverDisplay: React.FC<{
             }
         }
 
-        let mtx = editorState.mtx;
-        let schematic: IEditSchematic = editorState.snapshot.mainSchematic;
+        if (content) {
+            let mtx = editorState.mtx;
+            let schematic: IEditSchematic = editorState.snapshot.mainSchematic;
 
-        let subParts = hovered.ref.id.split('|');
-        for (let i = 0; i < subParts.length - 1; i++) {
-            let comp = schematic.comps.find(c => c.id === subParts[i]);
-            let def = editorState.compLibrary.getCompDef(comp?.defId ?? '');
-            if (!comp || !def) {
-                break;
+            let subParts = hovered.ref.id.split('|');
+            for (let i = 0; i < subParts.length - 1; i++) {
+                let comp = schematic.comps.find(c => c.id === subParts[i]);
+                let def = editorState.compLibrary.getCompDef(comp?.defId ?? '');
+                if (!comp || !def) {
+                    break;
+                }
+                let subSchematic = getCompSubSchematic(editorState, comp);
+                if (!subSchematic) {
+                    break;
+                }
+                let subMtx = computeSubLayoutMatrix(comp, subSchematic);
+                mtx = mtx.mul(subMtx);
+                schematic = subSchematic;
             }
-            let subSchematic = getCompSubSchematic(editorState, comp);
-            if (!subSchematic) {
-                break;
-            }
-            let subMtx = computeSubLayoutMatrix(comp, subSchematic);
-            mtx = mtx.mul(subMtx);
-            schematic = subSchematic;
+
+            let offset = new Vec3(20, 20);
+            let pos = mtx.mulVec3(hovered.modelPt).add(offset);
+            x = <Popup placement={PopupPos.TopLeft} targetEl={canvasEl} className={s.hoverDisplay} offsetX={pos.x} offsetY={pos.y}>
+                <div>{content}</div>
+            </Popup>;
         }
-
-        let offset = new Vec3(20, 20);
-        let pos = mtx.mulVec3(hovered.modelPt).add(offset);
-        x = <Popup placement={PopupPos.TopLeft} targetEl={canvasEl} className={s.hoverDisplay} offsetX={pos.x} offsetY={pos.y}>
-            <div>{content}</div>
-        </Popup>
     }
 
     return <>
