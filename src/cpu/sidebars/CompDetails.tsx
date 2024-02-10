@@ -18,16 +18,16 @@ function getExeComp(exeModel: IExeSystem, compRef: IElRef): IExeComp | null {
 }
 
 export const CompDetails: React.FC<{
-}> = ({  }) => {
+    compRef: IElRef;
+}> = ({ compRef }) => {
     let [editorState, setEditorState] = useEditorContext();
 
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
     let numSelected = snapshot.selected.length;
 
-    let singleCompRef = numSelected === 1 && snapshot.selected[0].type === RefType.Comp ? snapshot.selected[0] : null;
-    let singleComp = singleCompRef ? getCompFromRef(editorState, singleCompRef.id) : null;
+    let singleComp = compRef ? getCompFromRef(editorState, compRef) : null;
     let compDef = singleComp ? editorState.compLibrary.getCompDef(singleComp.defId) : null;
-    let exeComp = singleCompRef && editorState.exeModel ? getExeComp(editorState.exeModel, singleCompRef) : null;
+    let exeComp = compRef && editorState.exeModel ? getExeComp(editorState.exeModel, compRef) : null;
 
     function handleNameUpdate(end: boolean, value: string) {
         setEditorState(editCompConfig({ idPrefix: "" }, end, singleComp!, comp => assignImm(comp, { name: value })));
@@ -146,7 +146,6 @@ export const CompDetails: React.FC<{
     let isAtomic = singleComp && hasFlag(singleComp.flags, CompDefFlags.IsAtomic);
 
     return <div className="flex flex-col flex-1">
-        {numSelected === 0 && <div className="my-2 mx-2">No component selected</div>}
         {numSelected === 1 && singleComp && compDef && <div>
             <div className="my-2 mx-2">Selected Component: <b>{singleComp.name}</b></div>
             <div className="mx-2">

@@ -1,7 +1,7 @@
 import { assert } from "console";
 import { AffineMat2d } from "../utils/AffineMat2d";
 import { BoundingBox3d, Vec3 } from "../utils/vector";
-import { IComp, IEditContext, IEditSchematic, IEditSnapshot, IEditorState, IElRef, ISchematic } from "./CpuModel";
+import { IComp, IEditContext, IEditSchematic, IEditSnapshot, IEditorState, IElRef, ISchematic, IWireLabel } from "./CpuModel";
 import { IBaseCompConfig, ICompDef } from "./comps/CompBuilder";
 import { ISharedContext } from "./library/SharedContext";
 import { assignImm } from "../utils/data";
@@ -14,6 +14,12 @@ export function editCtxFromRefId(ref: IElRef): IEditContext {
 export function globalRefToLocal(ref: IElRef): IElRef {
     let prefixIdx = ref.id.lastIndexOf('|');
     return assignImm(ref, { id: ref.id.substring(prefixIdx + 1) });
+}
+
+export function globalRefToLocalIfMatch(ref: IElRef, idPrefix: string): IElRef | null {
+    let prefixIdx = ref.id.lastIndexOf('|');
+    let prefix = prefixIdx >= 0 ? ref.id.substring(0, prefixIdx + 1) : '';
+    return prefix === idPrefix ? assignImm(ref, { id: ref.id.substring(prefixIdx + 1) }) : null;
 }
 
 export function localRefToGlobal(ref: IElRef, editCtx: IEditContext): IElRef {
@@ -191,8 +197,19 @@ export function getParentCompsFromId(editorState: IEditorState, refId: string): 
     return parentComps;
 }
 
-export function getCompFromRef(editorState: IEditorState, refId: string): IComp<IBaseCompConfig> | null {
-    let parts = refId.split('|');
+export function getCompFromRef(editorState: IEditorState, ref: IElRef): IComp<IBaseCompConfig> | null {
+    let [schematic, id] = getSchematicAndIdFromRef(editorState, ref);
+    return schematic?.comps.find(c => c.id === id) ?? null;
+}
+
+export function getWireLabelFromRef(editorState: IEditorState, ref: IElRef): IWireLabel | null {
+    let [schematic, id] = getSchematicAndIdFromRef(editorState, ref);
+    return schematic?.wireLabels.find(a => a.id === id) ?? null;
+}
+
+export function getSchematicAndIdFromRef(editorState: IEditorState, ref: IElRef): [IEditSchematic | null, string] {
+
+    let parts = ref.id.split('|');
     let snapshot = editorState.snapshotTemp ?? editorState.snapshot;
     let schematic: IEditSchematic = snapshot.mainSchematic;
 
@@ -202,18 +219,18 @@ export function getCompFromRef(editorState: IEditorState, refId: string): IComp<
         let comp = schematic.comps.find(c => c.id === part);
 
         if (!comp) {
-            return null;
+            return [null, ''];
         }
 
         let subSchematic = getCompSubSchematic(editorState, comp);
 
         if (!subSchematic) {
-            return null;
+            return [null, ''];
         }
 
         schematic = subSchematic;
     }
 
     let lastPartId = parts[parts.length - 1];
-    return schematic.comps.find(c => c.id === lastPartId) ?? null;
+    return [schematic, lastPartId];
 }
