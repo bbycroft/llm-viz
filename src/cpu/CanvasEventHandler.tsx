@@ -74,9 +74,13 @@ export const CanvasEventHandler: React.FC<{
         }
     }, [canvasWrapEl, handleWheelFuncRef, embedded, keyboardManager]);
 
-
     useTouchEvents(canvasWrapEl, { mtx: editorState.mtx }, { alwaysSendDragEvent: true },
         function handle1PointDrag(ev, ds) {
+            if (embedded) {
+                // could show that "drag with 2 fingers" thing, nahhh
+                return;
+            }
+
             let aPt0 = new Vec3(ds.touches[0].clientX, ds.touches[0].clientY);
             let bPt0 = new Vec3(ev.touches[0].clientX, ev.touches[0].clientY);
             let delta = bPt0.sub(aPt0);
@@ -185,6 +189,12 @@ export const CanvasEventHandler: React.FC<{
             }));
 
         } else if (!ds.data.hovered) {
+
+            console.log('dragging, ev.type is ' + ev.type);
+            if (ev.type.startsWith("touch")) {
+                return;
+            }
+
             let delta = new Vec3(ev.clientX - ds.clientX, ev.clientY - ds.clientY);
             let newMtx = AffineMat2d.multiply(AffineMat2d.translateVec(delta), ds.data.baseMtx);
             setEditorState(a => assignImm(a, {
