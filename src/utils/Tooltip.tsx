@@ -92,19 +92,29 @@ export const Tooltip: React.FC<{
 
     }, [tooltipInfo, isVisible, pos]);
 
+    let child = React.Children.only(children) as React.ReactElement;
+
+    let childCloned = React.cloneElement(child, {
+        onMouseEnter: () => { setIsVisible(true); child?.props?.onMouseEnter?.() },
+        onMouseLeave: () => { setIsVisible(false); child?.props?.onMouseLeave?.() },
+        ref: setTargetEl,
+    });
+
     return <>
-        {React.cloneElement(React.Children.only(children) as React.ReactElement, { onMouseEnter: () => setIsVisible(true), onMouseLeave: () => setIsVisible(false), ref: setTargetEl })}
-        {isVisible && <Portal>
+        {childCloned}
+        {isVisible && tip && <Portal>
             <div ref={setTooltipEl} className={clsx(className,
                     "invisible absolute pointer-events-auto flex justify-center items-center z-0 min-h-[2.5rem] rounded px-3 py-1 min-w-[2.5rem] shadow-lg",
                     tipStyle === TipStyle.Gray && "bg-gray-600 text-white",
                 )} style={tooltipStyle}>
                 {tip}
                 {arrow && <div className={clsx(
-                    "absolute w-0 h-0 left-0 origin-center border-8 z-[1] shadow-lg",
+                    "absolute w-0 h-0 origin-center border-8 z-[1] shadow-lg",
                     tipStyle === TipStyle.Gray && "border-gray-600",
-                    (pos & TipPos.Bottom) && "border-t-transparent border-l-transparent border-r-transparent top-0",
-                    (pos & TipPos.Top) && "border-b-transparent border-l-transparent border-r-transparent bottom-0",
+                    (pos & TipPos.Bottom) && "border-t-transparent border-l-transparent border-r-transparent left-0 top-0",
+                    (pos & TipPos.Top) && "border-b-transparent border-l-transparent border-r-transparent left-0 bottom-0",
+                    // (pos & TipPos.Left) && "border-t-transparent border-b-transparent border-r-transparent top-0 right-0",
+                    // (pos & TipPos.Right) && "border-t-transparent border-b-transparent border-l-transparent top-0 left-0",
                 )}
                 style={arrowStyle}>
 
