@@ -1,8 +1,8 @@
 'use client';
-import { TipPos, Tooltip } from '@/src/utils/Tooltip';
+import { Tooltip } from '@/src/utils/Tooltip';
 import { isNil, isNotNil } from '@/src/utils/data';
 import clsx from 'clsx';
-import React, { CSSProperties, DOMAttributes, HTMLAttributes, useMemo, useState } from 'react';
+import React, { HTMLAttributes, useMemo, useState } from 'react';
 
 // Want a nice html view of an instruction, showing the bit encoding, the nmemonic, and the description.
 
