@@ -189,8 +189,6 @@ export const CanvasEventHandler: React.FC<{
             }));
 
         } else if (!ds.data.hovered) {
-
-            console.log('dragging, ev.type is ' + ev.type);
             if (ev.type.startsWith("touch")) {
                 return;
             }
