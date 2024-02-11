@@ -283,7 +283,7 @@ export interface ILSSchematic {
 export interface ILSModel {
     wires: ILSGraphWire[];
     comps: ILSComp[];
-    wireLabels: ILSWireLabel[];
+    wireLabels?: ILSWireLabel[];
 }
 
 export interface ILSCompArgs {
@@ -337,7 +337,7 @@ export interface ILSWireLabel {
     rectRelPos: [number, number];
     rectSize: [number, number];
     text: string;
-    numRenderFlags: NumberRenderFlags;
+    numRenderFlags: number; // NumberRenderFlags;
 }
 
 
