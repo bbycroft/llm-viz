@@ -48,7 +48,6 @@ export const InstructionDetail: React.FC<{
 
     if (isHeader) {
         bitNodes = joinSameBitRanges(bitNodes);
-        console.log(bitNodes.map(n => n.section?.name));
     }
 
     return <div className={clsx('flex font-mono', wrap && 'bg-slate-200 px-4 py-2 m-4')}>

@@ -168,6 +168,7 @@ export default function Page() {
             address we've selected.
         </Para>
 
+        {/* Not sure I like this one. seems like a waste! */}
         <CpuPortal schematicId={"c-pwhp6e2e"} caption={"Instruction Decoder hooked up to ROM"} width={60} height={30} />
 
         <Para>
