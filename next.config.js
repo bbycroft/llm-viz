@@ -7,18 +7,10 @@ let withBundleAnalyzer = require("@next/bundle-analyzer")({
 const nextConfig = {
   reactStrictMode: false, // Recommended for the `pages` directory, default in `app`.
   productionBrowserSourceMaps: true,
+  output: 'export',
   experimental: {
     appDir: true,
   },
-  redirects: async () => {
-    return [
-      {
-        source: "/llm-viz",
-        destination: "/llm",
-        permanent: true,
-      },
-    ];
-  }
 };
 
 module.exports = withBundleAnalyzer(nextConfig);
