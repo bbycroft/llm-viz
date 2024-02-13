@@ -57,7 +57,9 @@
             "next",
             "plugin:react/recommended"
         ],
-        "plugins": ["react-refresh"],
+        "plugins": [
+            "react-refresh"
+        ],
         "rules": {
             "react/prop-types": "off",
             "react-hooks/exhaustive-deps": "error",
@@ -66,5 +68,6 @@
             "@next/next/no-page-custom-font": "off",
             "react-refresh/only-export-components": "off"
         }
-    }
+    },
+    "packageManager": "yarn@4.1.0"
 }
