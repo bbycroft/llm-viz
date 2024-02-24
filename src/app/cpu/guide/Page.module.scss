@@ -1,0 +1,15 @@
+
+.list ul {
+
+    list-style: none;
+    padding: 0;
+    margin: 0.5em 1.5em;
+
+    li {
+        &::before {
+            content: '•';
+            margin-right: 0.5em;
+        }
+    }
+
+}
