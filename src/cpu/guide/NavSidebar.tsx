@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { CPUDirectory, IGuideEntry, guideEntries } from "./GuideIndex";
 import Link from "next/link";
 import clsx from "clsx";
@@ -10,7 +10,7 @@ export const NavSidebar: React.FC<{
 }> = ({ className, activeEntry }) => {
 
     // we want to turn the guideEntries into a tree, based on their paths
-    let tree = guideEntriesToTree(guideEntries);
+    let tree = useMemo(() => guideEntriesToTree(guideEntries), []);
 
     function renderTree(tree: NavTreeEntry, depth: number, idx: number) {
         if (!tree) {
@@ -25,12 +25,12 @@ export const NavSidebar: React.FC<{
 
     return <div className={clsx("", className)}>
         <div>
-            {renderTree(tree, 0, 0)}
+            {tree && renderTree(tree, 0, 0)}
         </div>
     </div>;
 };
 
-function guideEntriesToTree(entries: IGuideEntry[]): NavTreeEntry {
+function guideEntriesToTree(entries: IGuideEntry[]): NavTreeEntry | null {
     // should end up with one entry here, just easier to work with an array
     let rootChildren: NavTreeEntry[] = [];
 
@@ -60,7 +60,8 @@ function guideEntriesToTree(entries: IGuideEntry[]): NavTreeEntry {
         }
     }
 
-    return rootChildren[0];
+    // required because a bug in the minifier??
+    return rootChildren.length >= 1 ? rootChildren[0] : null;
 }
 
 interface NavTreeEntry {
