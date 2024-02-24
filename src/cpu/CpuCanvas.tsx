@@ -324,28 +324,30 @@ export const CpuCanvas: React.FC<{
             <Resizer className="flex-1 flex flex-row" id={"cpu-tools-right"} defaultAmt={250} fixedWidthRight>
                 <Resizer className="flex-1 flex flex-row" id={"cpu-tools-left"} defaultAmt={280} fixedWidthLeft>
                     {!embedded && <LeftSidebar />}
-                    <div className="relative flex-1 overflow-hidden shadow-inner-lg">
-                        <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
-                        {cvsState && <CanvasEventHandler cvsState={cvsState} embedded={embedded}>
-                            <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
-                                <div
-                                    className={"absolute origin-top-left"}
-                                    style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
-                                    {schematicDomEls}
-                                    <CompBoundingBox />
-                                    <InnerDisplayBoundingBox />
+                    <div className="relative flex-1 overflow-hidden shadow-inner-lg flex flex-col">
+                        <div className="flex-1 relative overflow-hidden">
+                            <canvas className="absolute touch-none w-full h-full" ref={setCanvasEl} />
+                            {cvsState && <CanvasEventHandler cvsState={cvsState} embedded={embedded}>
+                                <div className={"overflow-hidden absolute left-0 top-0 w-full h-full pointer-events-none"}>
+                                    <div
+                                        className={"absolute origin-top-left"}
+                                        style={{ transform: `matrix(${editorState.mtx.toTransformParams().join(',')})` }}>
+                                        {schematicDomEls}
+                                        <CompBoundingBox />
+                                        <InnerDisplayBoundingBox />
+                                    </div>
+                                    {editorState.transparentComps && <div className="absolute w-full h-full pointer-events-auto top-0 left-0" />}
                                 </div>
-                                {editorState.transparentComps && <div className="absolute w-full h-full pointer-events-auto top-0 left-0" />}
+                            </CanvasEventHandler>}
+                            {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
+                            {embedded && <div className="absolute left-2 top-2 pointer-events-auto shadow">
+                                <MainToolbar readonly={readonly} toolbars={toolbars} />
+                            </div>}
+                            <div className="cls_toolsTopRight absolute top-0 right-0">
+                                {!readonly && <CompLayoutToolbar />}
                             </div>
-                        </CanvasEventHandler>}
-                        {!editorState.snapshotTemp && !editorState.maskHover && <HoverDisplay canvasEl={cvsState?.canvas ?? null} />}
-                        {embedded && <div className="absolute left-2 top-2 pointer-events-auto shadow">
-                            <MainToolbar readonly={readonly} toolbars={toolbars} />
-                        </div>}
-                        <div className="cls_toolsTopRight absolute top-0 right-0">
-                            {!readonly && <CompLayoutToolbar />}
+                            {editorState.compLibraryVisible && <LibraryBrowser />}
                         </div>
-                        {editorState.compLibraryVisible && <LibraryBrowser />}
                         {children}
                     </div>
                 </Resizer>

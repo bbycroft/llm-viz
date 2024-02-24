@@ -28,6 +28,18 @@ export default function Page() {
 
             <CpuPortal schematicId={"riscv-basic"} caption={"Fig 1: The completed basic implementation of RISC-V"} height={50} width={80}>
                 <AutoLoadCode fileName={'blinky2.elf'} />
+                <div className='bg-gray-100 h-10 w-full'>
+                    {/* What do we want here... we want a sequence of actions
+
+                        For example:
+
+                        1) Load a particular set of code, and execute it at some particular speed
+                        2) Zoom into some particular views while it's running, but pause sometimes
+
+                        Each one will have a duration, and a timer
+
+                    */}
+                </div>
             </CpuPortal>
 
         <Para>

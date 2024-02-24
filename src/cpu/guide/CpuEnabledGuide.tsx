@@ -10,16 +10,18 @@ import { SharedContextContext, useCreateSharedContext } from '../library/SharedC
 export const CpuEnabledGuide: React.FC<{
     dir: CPUDirectory;
     children?: React.ReactNode;
-}> = ({ dir, children }) => {
+    title?: React.ReactNode;
+    hideNav?: boolean;
+}> = ({ dir, title, hideNav, children }) => {
     useCreateGlobalKeyboardDocumentListener();
     let sharedContext = useCreateSharedContext();
 
     let entry = useMemo(() => guideEntries.find(x => x.id === dir)!, [dir]);
 
     return <main className='flex flex-col min-h-screen'>
-        <Header title={entry.name} />
+        <Header title={entry?.name ?? title} />
         <div className='flex flex-grow items-start'>
-            <NavSidebar className='w-3/12 bg-slate-100 min-h-full max-sm:hidden' activeEntry={dir} />
+            {!hideNav && <NavSidebar className='w-3/12 bg-slate-100 min-h-full max-sm:hidden' activeEntry={dir} />}
             <div className='guide-style w-9/12 max-sm:w-full flex flex-col py-2 mb-[10rem]'>
                 <SharedContextContext.Provider value={sharedContext}>
                     {children}
