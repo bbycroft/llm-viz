@@ -13,6 +13,10 @@ export const NavSidebar: React.FC<{
     let tree = guideEntriesToTree(guideEntries);
 
     function renderTree(tree: NavTreeEntry, depth: number, idx: number) {
+        if (!tree) {
+            return null;
+        }
+
         return <div key={idx} className='pl-2'>
             {tree.entry && <IndexEntry entry={tree.entry} isActive={tree.entry.id === activeEntry} />}
             {tree.children.map((x, i) => renderTree(x, depth + 1, i))}
