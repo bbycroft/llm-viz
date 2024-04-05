@@ -1,0 +1,296 @@
+! infgen 3.2 output
+!
+gzip
+!
+last                    ! 1
+dynamic                 ! 10
+count 269 15 16         ! 1100 01110 01100
+code 17 3               ! 011 000
+code 18 4               ! 100
+code 0 3                ! 011
+code 7 3                ! 011 000
+code 6 3                ! 011 000
+code 5 2                ! 010 000
+code 4 3                ! 011 000
+code 3 5                ! 101 000
+code 2 5                ! 101 000
+zeros 10                ! 111 011
+lens 5                  ! 00
+zeros 21                ! 0001010 0111
+lens 3                  ! 11111
+zeros 6                 ! 011 011
+lens 7                  ! 101
+zeros 4                 ! 001 011
+lens 6                  ! 001
+lens 0                  ! 010
+lens 5                  ! 00
+zeros 16                ! 0000101 0111
+lens 6                  ! 001
+zeros 4                 ! 001 011
+lens 7                  ! 101
+zeros 3                 ! 000 011
+lens 6                  ! 001
+lens 6                  ! 001
+zeros 9                 ! 110 011
+lens 7                  ! 101
+zeros 3                 ! 000 011
+lens 7                  ! 101
+zeros 9                 ! 110 011
+lens 5                  ! 00
+lens 7                  ! 101
+lens 5                  ! 00
+lens 5                  ! 00
+lens 4                  ! 110
+lens 7                  ! 101
+lens 6                  ! 001
+lens 6                  ! 001
+lens 5                  ! 00
+lens 0                  ! 010
+lens 7                  ! 101
+lens 5                  ! 00
+lens 5                  ! 00
+lens 5                  ! 00
+lens 4                  ! 110
+lens 7                  ! 101
+lens 0                  ! 010
+lens 5                  ! 00
+lens 5                  ! 00
+lens 4                  ! 110
+lens 7                  ! 101
+lens 0                  ! 010
+lens 5                  ! 00
+lens 7                  ! 101
+lens 6                  ! 001
+zeros 134               ! 1111011 0111
+lens 7                  ! 101
+lens 4                  ! 110
+lens 6                  ! 001
+lens 6                  ! 001
+lens 0                  ! 010
+lens 0                  ! 010
+lens 6                  ! 001
+zeros 5                 ! 010 011
+lens 7                  ! 101
+zeros 7                 ! 100 011
+lens 2                  ! 01111
+lens 0                  ! 010
+lens 4                  ! 110
+lens 2                  ! 01111
+lens 0                  ! 010
+lens 2                  ! 01111
+lens 4                  ! 110
+lens 3                  ! 11111
+! litlen 10 5
+! litlen 32 3
+! litlen 39 7
+! litlen 44 6
+! litlen 46 5
+! litlen 63 6
+! litlen 68 7
+! litlen 72 6
+! litlen 73 6
+! litlen 83 7
+! litlen 87 7
+! litlen 97 5
+! litlen 98 7
+! litlen 99 5
+! litlen 100 5
+! litlen 101 4
+! litlen 102 7
+! litlen 103 6
+! litlen 104 6
+! litlen 105 5
+! litlen 107 7
+! litlen 108 5
+! litlen 109 5
+! litlen 110 5
+! litlen 111 4
+! litlen 112 7
+! litlen 114 5
+! litlen 115 5
+! litlen 116 4
+! litlen 117 7
+! litlen 119 5
+! litlen 120 7
+! litlen 121 6
+! litlen 256 7
+! litlen 257 4
+! litlen 258 6
+! litlen 259 6
+! litlen 262 6
+! litlen 268 7
+! dist 7 2
+! dist 9 4
+! dist 10 2
+! dist 12 2
+! dist 13 4
+! dist 14 3
+literal 'H              ! 010011
+literal 'e              ! 0100
+literal 'l              ! 01001
+literal 'l              ! 01001
+literal 'o              ! 1100
+literal '               ! 000
+literal 'W              ! 1110111
+literal 'o              ! 1100
+literal 'r              ! 10101
+literal 'l              ! 01001
+literal 'd              ! 00001
+literal ',              ! 000011
+literal '               ! 000
+literal 'I              ! 110011
+literal ''              ! 0010111
+literal 'm              ! 11001
+literal '               ! 000
+literal 'g              ! 001011
+literal 'o              ! 1100
+literal 'i              ! 10001
+literal 'n              ! 00101
+literal 'g              ! 001011
+literal '               ! 000
+literal 't              ! 0010
+literal 'o              ! 1100
+literal '               ! 000
+literal 'b              ! 0001111
+literal 'e              ! 0100
+literal '               ! 000
+literal 'c              ! 11110
+literal 'o              ! 1100
+literal 'm              ! 11001
+literal 'p              ! 1101111
+literal 'r              ! 10101
+literal 'e              ! 0100
+literal 's              ! 01101
+literal 's              ! 01101
+literal 'e              ! 0100
+literal 'd              ! 00001
+literal '               ! 000
+literal 'H              ! 010011
+match 4 40              ! 0111 10 111011
+literal '.              ! 10110
+literal 10              ! 00110
+literal 10              ! 00110
+literal 'S              ! 0110111
+literal 'o              ! 1100
+literal 'm              ! 11001
+literal 'e              ! 0100
+literal '               ! 000
+literal 'm              ! 11001
+literal 'o              ! 1100
+literal 'r              ! 10101
+literal 'e              ! 0100
+literal '               ! 000
+literal 't              ! 0010
+literal 'e              ! 0100
+literal 'x              ! 1011111
+literal 't              ! 0010
+match 17 40             ! 0111 10 0 1111111
+literal '.              ! 10110
+literal '               ! 000
+literal 'H              ! 010011
+literal 'o              ! 1100
+literal 'w              ! 11101
+literal '               ! 000
+literal 'd              ! 00001
+literal 'o              ! 1100
+literal 'e              ! 0100
+literal 's              ! 01101
+literal '               ! 000
+literal 't              ! 0010
+literal 'h              ! 101011
+literal 'i              ! 10001
+literal 's              ! 01101
+literal '               ! 000
+literal 'w              ! 11101
+literal 'o              ! 1100
+literal 'r              ! 10101
+literal 'k              ! 0101111
+literal '?              ! 100011
+literal '               ! 000
+literal 'D              ! 1010111
+match 4 16              ! 11 00 111011
+literal 'i              ! 10001
+literal 't              ! 0010
+match 5 14              ! 01 00 000111
+match 3 45              ! 1100 10 1010
+literal 'r              ! 10101
+literal 'r              ! 10101
+literal 'e              ! 0100
+literal 'c              ! 11110
+literal 't              ! 0010
+literal 'l              ! 01001
+literal 'y              ! 011011
+literal '?              ! 100011
+literal '               ! 000
+literal 'I              ! 110011
+literal '               ! 000
+literal 'w              ! 11101
+literal 'a              ! 01110
+literal 'n              ! 00101
+literal 't              ! 0010
+match 4 26              ! 001 0111 111011
+match 3 72              ! 00111 01 1010
+literal 'a              ! 01110
+literal 'c              ! 11110
+literal 't              ! 0010
+literal 'u              ! 0011111
+literal 'a              ! 01110
+literal 'l              ! 01001
+literal 'l              ! 01001
+literal 'y              ! 011011
+literal 10              ! 00110
+match 8 78              ! 01101 01 100111
+match 3 66              ! 00001 01 1010
+literal 'e              ! 0100
+literal '               ! 000
+literal 'd              ! 00001
+literal 'a              ! 01110
+literal 't              ! 0010
+literal 'a              ! 01110
+literal ',              ! 000011
+literal '               ! 000
+literal 'a              ! 01110
+literal 'n              ! 00101
+literal 'd              ! 00001
+literal '               ! 000
+literal 'u              ! 0011111
+literal 's              ! 01101
+match 3 14              ! 01 00 1010
+literal 'y              ! 011011
+literal 'n              ! 00101
+literal 'a              ! 01110
+literal 'm              ! 11001
+literal 'i              ! 10001
+literal 'c              ! 11110
+match 3 129             ! 000000 011 1010
+literal 'd              ! 00001
+literal 'e              ! 0100
+literal '               ! 000
+literal 'f              ! 1001111
+literal 'o              ! 1100
+literal 'r              ! 10101
+match 5 35              ! 0010 10 000111
+match 8 48              ! 1111 10 100111
+literal 'i              ! 10001
+literal 'o              ! 1100
+literal 'n              ! 00101
+literal '.              ! 10110
+match 8 83              ! 10010 01 100111
+match 3 80              ! 01111 01 1010
+literal 's              ! 01101
+literal 'e              ! 0100
+literal 'e              ! 0100
+literal '               ! 000
+literal 'h              ! 101011
+match 3 141             ! 001100 011 1010
+literal 'w              ! 11101
+match 3 186             ! 111001 011 1010
+match 8 125             ! 11100 1111 100111
+literal 's              ! 01101
+literal '.              ! 10110
+literal 10              ! 00110
+end                     ! 0111111
+                        ! 0000
+!
+crc
+length

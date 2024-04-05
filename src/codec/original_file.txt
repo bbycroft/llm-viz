@@ -1,0 +1,4 @@
+Hello World, I'm going to be compressed Hello.
+
+Some more text to be compressed. How does this work? Does it work correctly? I want it to actually
+compress the data, and use dynamic mode for the compression. I want to see how well it works.

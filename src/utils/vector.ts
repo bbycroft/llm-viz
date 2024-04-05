@@ -1,5 +1,5 @@
 
-/* Design decisions for Vec3/Vec4
+/* Design decisions for Vec2/Vec3/Vec4
 
 Methods have immutable behavior (rather than in-place) for less error-prone usage, but that naturally
 means a drop in perf. Happy with this trade.
@@ -21,12 +21,87 @@ V8 shows Vec3 & Vec4 as having an 24 byte overhead, which... isn't toooo bad
 
 */
 
-import { clamp } from "./data";
-
 export enum Dim {
     X = 0,
     Y = 1,
     Z = 2,
+}
+
+export class Vec2 {
+    x: number;
+    y: number;
+    constructor(x: number = 0.0, y: number = 0.0) {
+        this.x = +x;
+        this.y = +y;
+    }
+
+    add(a: Vec2): Vec2 { return new Vec2(this.x + a.x, this.y + a.y); }
+    sub(a: Vec2): Vec2 { return new Vec2(this.x - a.x, this.y - a.y); }
+    dot(a: Vec2): number { return this.x * a.x + this.y * a.y; }
+    mul(a: number): Vec2 { return new Vec2(this.x * a, this.y * a); }
+    mulAdd(a: Vec2, b: number): Vec2 { return new Vec2(this.x + a.x * b, this.y + a.y * b); }
+    lenSq(): number { return this.x * this.x + this.y * this.y; }
+    distSq(a: Vec2): number {
+        let dx = this.x - a.x;
+        let dy = this.y - a.y;
+        return dx * dx + dy * dy;
+    }
+    len(): number { return Math.sqrt(this.lenSq()); }
+    dist(a: Vec2): number { return Math.sqrt(this.distSq(a)); }
+    normalize(): Vec2 { return this.mul(1.0 / Math.sqrt(this.lenSq())); }
+    mid(a: Vec2): Vec2 { return new Vec2((this.x + a.x) * 0.5, (this.y + a.y) * 0.5); }
+    abs() { return new Vec2(Math.abs(this.x), Math.abs(this.y)); }
+    clone(): Vec2 { return new Vec2(this.x, this.y); }
+    toVec3(): Vec3 { return new Vec3(this.x, this.y, 1.0); }
+    round(): Vec2 { return new Vec2(Math.round(this.x), Math.round(this.y)); }
+    floor(): Vec2 { return new Vec2(Math.floor(this.x), Math.floor(this.y)); }
+    round_(): Vec2 { this.x = Math.round(this.x); this.y = Math.round(this.y); return this; }
+    copy_(a: Vec2) { this.x = a.x; this.y = a.y; }
+    writeToBuf(buf: Float32Array, offset: number) {
+        buf[offset + 0] = this.x;
+        buf[offset + 1] = this.y;
+    }
+    static fromArray(a: ArrayLike<number>, offset: number = 0): Vec2 {
+        return new Vec2(a[offset + 0], a[offset + 1]);
+    }
+    setAt(i: number, v: number) {
+        switch (i) {
+        case 0: this.x = v; break;
+        case 1: this.y = v; break;
+        }
+        return this;
+    }
+    addAt(i: number, v: number) {
+        switch (i) {
+        case 0: this.x += v; break;
+        case 1: this.y += v; break;
+        }
+        return this;
+    }
+    getAt(i: number): number {
+        return i === 0 ? this.x : i === 1 ? this.y : 0.0;
+    }
+    withSetAt(i: number, v: number): Vec2 { return this.clone().setAt(i, v); }
+    withAddAt(i: number, v: number): Vec2 { return this.clone().addAt(i, v); }
+    toString(dp: number = 3): string {
+        return `Vec2(${numMaxDp(this.x, dp)}, ${numMaxDp(this.y, dp)})`;
+    }
+    rotate(thetaRad: number) {
+        // https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+        // k must have unit length
+        let c = Math.cos(thetaRad);
+        let s = Math.sin(thetaRad);
+        let kCrossV = new Vec2(-this.y, this.x);
+        return this.mul(c).add(kCrossV.mul(s));
+    }
+    lerp(a: Vec2, t: number): Vec2 {
+         return new Vec2(
+            a.x * t + this.x * (1 - t),
+            a.y * t + this.y * (1 - t),
+         );
+    }
+    static zero = new Vec2(0, 0);
+    static one = new Vec2(1, 1);
 }
 
 export class Vec3 {
@@ -390,4 +465,8 @@ export function pointInTriangle(x: Vec3, p0: Vec3, p1: Vec3, p2: Vec3) {
     let u = (dot11 * dot02 - dot01 * dot12) * invDenom;
     let v = (dot00 * dot12 - dot01 * dot02) * invDenom;
     return u >= 0 && v >= 0 && u + v < 1;
+}
+
+function clamp(num: number, min: number, max: number) {
+    return num < min ? min : num > max ? max : num;
 }
