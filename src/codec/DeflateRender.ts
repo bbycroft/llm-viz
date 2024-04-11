@@ -1,8 +1,10 @@
 
 
+import next from "next";
 import { Vec2 } from "../utils/vector";
 import { bitsToBinStr, distBitOffsets, distBitsExtra, lengthBitOffsets, lengthBitsExtra, reverseBits } from "./DeflateDecoder";
 import { IDeflateBlock, IPrefixCoding, IPrefixTree } from "./DeflateRenderModel";
+import { lerp } from "../utils/math";
 
 function readBits(data: Uint8Array, bitOffset: number, nBits: number) {
     let byteOffset = bitOffset >> 3;
@@ -58,28 +60,40 @@ We'll trawl through that list for len/dist pairs, and render the rects distinctl
 */
 
 enum SymType {
-    LitLen,
+    Literal,
+    Length,
+    EOB,
     Dist,
     CodeLen,
+    Unknown,
 }
 
 interface ISymAndExtra {
     tl: Vec2;
     size: Vec2;
     type: SymType;
+    startBit: number;
     symColor: string;
     extraColor: string;
-    codeLen: number;
-    codeExtraLen: number;
-    symLen: number;
-    symExtraLen: number;
+    codeWidth: number;
+    codeExtraWidth: number;
+    symWidth: number;
+    symExtraWidth: number;
     codeStr: string;
     codeExtraStr: string;
     symStr: string;
     symExtraStr: string;
 }
 
-export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, block: IDeflateBlock) {
+interface ICellRange {
+    rangeIdx: number; // ranges share the same index if they cross a line (& exactly one of them has isStart, and one has isEnd)
+    firstCellIdx: number;
+    lastCellIdx: number;
+    isStart: boolean; // if false, wraps from prev line
+    isEnd: boolean; // if false, wraps to next line
+}
+
+export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, block: IDeflateBlock, symPos: number) {
     let renderCtx = baseRenderCtx;
 
     let style = renderCtx.style;
@@ -88,7 +102,7 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
     let colsPerLine = 500;
 
     let lineHeight = 16;
-    let gapWidth = 6;
+    let gapWidth = 8;
 
     let bitStreamFont = makeCanvasFont(style.bitsFontSize);
     let symFont = makeCanvasFont(style.symFontSize);
@@ -108,9 +122,9 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
         }
     }
 
-    let distIdx = 0;
+    let symAndExtras: ISymAndExtra[] = [];
 
-    function renderCode(coding: IPrefixCoding, i: number, extraInfo: (symbol: number, extraBits: number) => [symStr: string, color: string, extraBitsStr: string, extraBitsColor: string]): number {
+    function renderCode(coding: IPrefixCoding, i: number, extraInfo: (symbol: number, extraBits: number) => [symStr: string, color: string, extraBitsStr: string, extraBitsColor: string, symType: SymType]): number {
         let symbol = coding.symbolValue[i];
         let bitOffset = coding.symbolStartBit[i];
         let numBits = coding.symbolBitLength[i];
@@ -127,8 +141,26 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
             let bitStrRev = bitsToBinStr(reverseBits(bits, nBits), nBits);
             let strLen = ctx.measureText(bitStrRev).width;
 
-            ctx.fillStyle = "purple";
-            ctx.fillText(bitStrRev, colPos + strLen / 2, lineIdx * lineHeight);
+            // ctx.fillStyle = "purple";
+            // ctx.fillText(bitStrRev, colPos + strLen / 2, lineIdx * lineHeight);
+
+            symAndExtras.push({
+                tl: new Vec2(colPos, lineIdx * lineHeight),
+                size: new Vec2(strLen, lineHeight),
+                type: SymType.Unknown,
+                startBit: bitCntr - nBits,
+                symColor: "purple",
+                extraColor: "black",
+                codeWidth: nBits,
+                codeExtraWidth: 0,
+                symWidth: 0,
+                symExtraWidth: 0,
+                codeStr: bitStrRev,
+                codeExtraStr: '',
+                symStr: '',
+                symExtraStr: '',
+            });
+
             colPos += strLen;
 
             maybeBumpLine();
@@ -143,7 +175,7 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
         let codeStr = bitsToBinStr(code, numBits);
         let extraBitsRevStr = numExtraBits === 0 ? '' : bitsToBinStr(reverseBits(extraBits, numExtraBits), numExtraBits);
 
-        let [symStr, color, extraBitsStr, extraBitsColor] = extraInfo(symbol, extraBits);
+        let [symStr, color, extraBitsStr, extraBitsColor, symType] = extraInfo(symbol, extraBits);
 
         let hasGapBefore = colPos > 0;
 
@@ -160,52 +192,224 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
         let fullCodeWidth = codeWidth + extraBitsWidth;
         let fullSymWidth = symStrWidth + extraBitsStrWidth;
 
-        let center = colPos + Math.max(fullCodeWidth, fullSymWidth) / 2;
-        let codeStart = center - fullCodeWidth / 2;
-        let strStart = center - fullSymWidth / 2;
+        let fullWidth = Math.max(fullCodeWidth, fullSymWidth);
 
-        ctx.fillStyle = color;
-        ctx.font = bitStreamFont;
-        ctx.fillText(codeStr, codeStart, lineIdx * lineHeight);
-        ctx.fillStyle = "black";
-        ctx.fillText(extraBitsRevStr, codeStart + codeWidth, lineIdx * lineHeight);
-
-        ctx.fillStyle = color;
-        ctx.font = symFont;
-        ctx.fillText(symStr, strStart, lineIdx * lineHeight + 11);
-        ctx.fillStyle = extraBitsColor;
-        ctx.fillText(extraBitsStr, strStart + symStrWidth, lineIdx * lineHeight + 11);
+        symAndExtras.push({
+            tl: new Vec2(colPos, lineIdx * lineHeight),
+            size: new Vec2(fullWidth, 1.6 * lineHeight),
+            type: symType,
+            startBit: bitOffset,
+            symColor: color,
+            extraColor: "black",
+            codeWidth: codeWidth,
+            codeExtraWidth: extraBitsWidth,
+            symWidth: symStrWidth,
+            symExtraWidth: extraBitsStrWidth,
+            codeStr: codeStr,
+            codeExtraStr: extraBitsRevStr,
+            symStr: symStr,
+            symExtraStr: extraBitsStr,
+        });
 
         colPos += Math.max(fullCodeWidth, fullSymWidth);
 
         return symbol;
     }
 
-    for (let i = 0; i < nSymbols; i++) {
-        let symbol = renderCode(coding, i, (symbol, extraBits) => {
-            let [color] = litLenStyle(style, symbol);
-            let [symStr, extraBitsStr] = litLenResString(symbol, extraBits);
+    let symIdx = Math.ceil(symPos);
+    let symPosFrac = symPos - symIdx + 1;
 
-            return [symStr, color, extraBitsStr, 'black'];
-        });
+    let distIdx = 0;
+    let litLenIdx = 0;
+    let maxSymIdx = Math.min(symIdx, coding.symbolCode.length + distCoding.symbolCode.length - 1);
+    let prevWasLen = false;
 
-        maybeBumpLine();
+    for (let i = 0; i < maxSymIdx; i++) {
+        if (!prevWasLen) {
+            let symbol = renderCode(coding, litLenIdx++, (symbol, extraBits) => {
+                let [color] = litLenStyle(style, symbol);
+                let [symStr, extraBitsStr] = litLenResString(symbol, extraBits);
 
-        if (symbol > 256) {
-            renderCode(distCoding, distIdx, (symbol, extraBits) => {
+                return [symStr, color, extraBitsStr, 'black', symbol === 256 ? SymType.EOB : symbol > 256 ? SymType.Length : SymType.Literal];
+            });
+            prevWasLen = symbol > 256;
+        } else {
+            renderCode(distCoding, distIdx++, (symbol, extraBits) => {
                 let [color] = distStyle(style, symbol);
                 let [symStr, extraBitsStr] = distResString(symbol, extraBits);
-                return [symStr, color, extraBitsStr, 'black'];
+                return [symStr, color, extraBitsStr, 'black', SymType.Dist];
             });
-
-            distIdx++;
+            prevWasLen = false;
         }
 
         maybeBumpLine();
     }
+;
+    let rectRanges: ICellRange[] = [];
+
+    let nextRangeIdx = 0;
+    let lastYPos = 0;
+    for (let i = 0; i < symAndExtras.length; i++) {
+        let { tl, type } = symAndExtras[i];
+        // we'll render the rects here:
+        let isNextLine = tl.y !== lastYPos;
+        lastYPos = tl.y;
+        let lastRange = rectRanges[rectRanges.length - 1];
+
+        if (type === SymType.Dist) {
+            if (isNextLine) {
+                lastRange.isEnd = false;
+                rectRanges.push({ firstCellIdx: i, lastCellIdx: i, rangeIdx: lastRange.rangeIdx, isStart: false, isEnd: true });
+            } else {
+                lastRange.lastCellIdx = i;
+            }
+        } else {
+            rectRanges.push({ firstCellIdx: i, lastCellIdx: i, rangeIdx: nextRangeIdx++, isStart: true, isEnd: true });
+        }
+    }
+
+    ctx.globalAlpha = 0.1;
+    for (let range of rectRanges) {
+        let { firstCellIdx, lastCellIdx, rangeIdx, isStart, isEnd } = range;
+        let { tl } = symAndExtras[firstCellIdx];
+        let { tl: lastTl, size: lastSize } = symAndExtras[lastCellIdx];
+
+        let rectWidth = lastTl.x + lastSize.x - tl.x;
+        let rectHeight = lastTl.y + lastSize.y - tl.y;
+
+        let rectX = tl.x - 2;
+        let rectY = tl.y - 2;
+
+        let radius = [0, 0, 0, 0];
+
+        if (isStart) {
+            radius[0] = radius[3] = 4;
+        }
+
+        if (isEnd) {
+            radius[1] = radius[2] = 4;
+        }
+
+        ctx.fillStyle = symAndExtras[firstCellIdx].symColor;
+        ctx.beginPath();
+        ctx.roundRect(rectX, rectY, rectWidth + 4, rectHeight, radius);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    let extraGapWidth = 0;
+
+    for (let i = 0; i < symAndExtras.length; i++) {
+        let { tl, size, type, symColor, extraColor, codeWidth, codeExtraWidth, symWidth, symExtraWidth, codeStr, codeExtraStr, symStr, symExtraStr, startBit } = symAndExtras[i];
+
+        let centerX = tl.x + size.x / 2;
+        let fullCodeWidth = codeWidth + codeExtraWidth;
+        let fullSymWidth = symWidth + symExtraWidth;
+        let codeStart = centerX - fullCodeWidth / 2;
+        let symStart = centerX - fullSymWidth / 2;
+
+        let isLast = i === symAndExtras.length - 1 && symPosFrac !== 1.0;
+
+        if (!isLast) {
+            ctx.fillStyle = symColor;
+            ctx.font = bitStreamFont;
+            ctx.fillText(codeStr, codeStart, tl.y);
+
+            ctx.fillStyle = extraColor;
+            ctx.font = bitStreamFont;
+            ctx.fillText(codeExtraStr, codeStart + codeWidth, tl.y);
+
+            ctx.fillStyle = symColor;
+            ctx.font = symFont;
+            ctx.fillText(symStr, symStart, tl.y + 11);
+
+            ctx.fillStyle = extraColor;
+            ctx.font = symFont;
+            ctx.fillText(symExtraStr, symStart + symWidth, tl.y + 11);
+        } else {
+            // we want to animate the bitStream going from its previous form to the new form
+            // so we need to split the codeStr & codeExtraStr into their 8-bit chunks to determine
+            // their original positions in the bitstream, and then lerp to their new positions
+            // for this we need to know the bitstream position of the symbol
+            let fullStr = codeStr + codeExtraStr;
+
+            let finalStartPos = codeStart;
+            let initStartPos = tl.x;
+            ctx.font = bitStreamFont;
+            let bitLen = ctx.measureText(fullStr[0]).width;
+            for (let i = 0; i < fullStr.length; i++) {
+                // rendering char by char, as that's easiest for splitting/joining
+                let c = fullStr[i];
+                ctx.fillStyle = i < codeStr.length ? symColor : extraColor;
+                ctx.fillText(c, lerp(initStartPos, finalStartPos, symPosFrac), tl.y);
+
+                let hasGap = (startBit + i) % 8 === 7;
+
+                initStartPos += bitLen + (hasGap ? gapWidth : 0);
+                finalStartPos += bitLen;
+                extraGapWidth += hasGap ? gapWidth : 0;
+            }
+
+            extraGapWidth -= gapWidth;
+            extraGapWidth += tl.x - codeStart;
+
+            // let finalStartPos = codeStart;
+            // let initStartPos = codeStart;
+            // for (let i = 0; i < codeRanges.length + codeExtraRanges.length; i++) {
+            //     let range = i < codeRanges.length ? codeRanges[i] : codeExtraRanges[i - codeRanges.length];
+            //     ctx.fillStyle = i < codeRanges.length ? symColor : extraColor;
+            //     ctx.font = bitStreamFont;
+            //     let strLen = ctx.measureText(range).width;
+            //     ctx.fillText(range, lerp(initStartPos, finalStartPos, symPosFrac), tl.y);
+
+            //     initStartPos += strLen + gapWidth;
+            //     finalStartPos += strLen;
+            // }
+        }
+    }
+
+    colPos += extraGapWidth  * (1 - symPosFrac);
+
+    function getBoundaryBitRanges(startBit: number, bitStr: string): string[] {
+        let ranges: string[] = [];
+        let bitCntr = startBit;
+        for (let i = 0; i < bitStr.length;) {
+            let nextBoundary = (bitCntr + 7) & ~7;
+            let nBits = nextBoundary - bitCntr;
+            nBits = Math.min(nBits === 0 ? 8 : nBits, bitStr.length - i);
+            bitCntr += nBits;
+            ranges.push(bitStr.slice(i, i + nBits));
+            i += nBits;
+        }
+
+        return ranges;
+    }
+
+    // after the last symbol, render the remaining bits, but only for a couple line's worth
+    // we'll split them into 8-bit chunks, aligned to 8-bit boundaries
+    for (let i = 0; i < 10; i++) {
+        let nextBoundary = (bitCntr + 7) & ~7;
+        let nBits = nextBoundary - bitCntr;
+        nBits = nBits === 0 ? 8 : nBits;
+        nBits = Math.min(nBits, data.length * 8 - bitCntr);
+
+        let bits = readBits(data, bitCntr, nBits);
+        bitCntr += nBits;
+        let bitsRevStr = bitsToBinStr(reverseBits(bits, nBits), nBits);
+
+        ctx.font = bitStreamFont;
+        let strLen = ctx.measureText(bitsRevStr).width;
+        colPos += colPos === 0 ? 0 : gapWidth;
+
+        ctx.fillStyle = "purple";
+        ctx.fillText(bitsRevStr, colPos, lineIdx * lineHeight);
+
+        colPos += strLen;
+        maybeBumpLine();
+    }
 
     ctx.save();
-    ctx.translate(colsPerLine + 56, 0);
+    ctx.translate(colsPerLine + 80, 0);
 
     renderCodingTree(ctx, coding.tree, {
         renderSymbol: (symbol) => {
@@ -238,7 +442,7 @@ function litLenDefString(symbol: number) {
     if (symbol === 256) {
         return "EOB";
     }
-    if (symbol >= 256) {
+    if (symbol > 256) {
         let idx = symbol - 265;
         let nBits = idx >= 0 ? lengthBitsExtra[idx] : 0;
         let base = idx >= 0 ? lengthBitOffsets[idx] : symbol - 257 + 3;
@@ -249,7 +453,7 @@ function litLenDefString(symbol: number) {
 }
 
 function litLenResString(symbol: number, extraBitsVal: number): [base: string, extra: string] {
-    if (symbol < 256) {
+    if (symbol <= 256) {
         return [litLenDefString(symbol), ''];
     } else {
         let idx = symbol - 265;
@@ -306,12 +510,12 @@ function renderCodingTree(ctx: CanvasRenderingContext2D, tree: IPrefixTree, args
         let bits = tree.codes[sym];
 
         let bitStr = bitsToBinStr(bits, bitLength);
+        let [color, symStr] = args.renderSymbol(sym);
 
         ctx.font = "10px monospace";
-        ctx.fillStyle = "black";
+        ctx.fillStyle = color;
         ctx.fillText(bitStr, xPos, yPos);
 
-        let [color, symStr] = args.renderSymbol(sym);
         ctx.font = "12px monospace";
         ctx.fillStyle = color;
         ctx.fillText(sym.toString().padStart(3, ' ') + ' ' + symStr, xPos + codeWidth, yPos);

@@ -1,12 +1,35 @@
 'use client';
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { testGzipFile } from "./DeflateDecoder";
 import { IDeflateData } from "./DeflateRenderModel";
 import { renderDeflate } from "./DeflateRender";
+import { KeyboardOrder, isArrowKeyWithModifiers, useCreateGlobalKeyboardDocumentListener, useGlobalKeyboard } from "../utils/keyboard";
+import { clamp, isNil, isNotNil } from "../utils/data";
+import { useRequestAnimationFrame } from "../utils/hooks";
+import { lerp } from "../utils/math";
 
 export const CodecMain: React.FC<{}> = ({ }) => {
     let [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
     let [block, setBlock] = useState<IDeflateData | null>(null);
+    let [symPos, setSymPos] = useState<number>(43);
+    let [targetSymPos, setTargetSymPos] = useState<number | null>(null);
+    useCreateGlobalKeyboardDocumentListener();
+
+    useGlobalKeyboard(KeyboardOrder.MainPage, (ev) => {
+        let newSymPos = Math.round(symPos);
+        if (isArrowKeyWithModifiers(ev, 'left')) {
+            newSymPos -= 1;
+        } else if (isArrowKeyWithModifiers(ev, 'right')) {
+            newSymPos += 1;
+        }
+
+        newSymPos = clamp(newSymPos, 0, 255);
+
+        setTargetSymPos(newSymPos);
+        // if (newSymPos !== symPos) {
+        //     setSymPos(newSymPos);
+        // }
+    });
 
     useEffect(() => {
         let firstBlock = testGzipFile();
@@ -54,7 +77,7 @@ export const CodecMain: React.FC<{}> = ({ }) => {
 
             if (block) {
                 let now = performance.now();
-                renderDeflate(ctx, block.src, block.blocks[0]);
+                renderDeflate(ctx, block.src, block.blocks[0], symPos);
                 console.log(`Render time: ${(performance.now() - now).toFixed(1)}ms`);
             }
 
@@ -68,7 +91,47 @@ export const CodecMain: React.FC<{}> = ({ }) => {
             return () => { resizeObserver.disconnect(); };
         }
 
-    }, [canvasEl, block]);
+    }, [canvasEl, block, symPos]);
+
+
+    let zoomBitsRef = useRef({
+        initial: null as (number | null),
+        target: null as (number | null),
+        t: 0,
+     });
+
+    useRequestAnimationFrame(isNotNil(targetSymPos), (dtSeconds) => {
+        if (isNil(targetSymPos)) {
+            return;
+        }
+        let bits = zoomBitsRef.current;
+        let target = targetSymPos;
+        if (bits.target !== target) {
+            bits.initial = symPos;
+            bits.target = target;
+            bits.t = 0;
+        }
+
+        let ms = 200;
+        bits.t += dtSeconds / (ms / 1000); // t goes from 0 to 1 in 80ms
+
+        let initial = bits.initial!;
+
+        let isComplete = bits.t >= 1.0;
+        if (isComplete) {
+            bits.initial = null;
+            bits.target = null;
+            bits.t = 0;
+        }
+
+        // target = initial * Math.pow(scalePowerBase, someValue)
+        // someValue = log(target / initial) / log(scalePowerBase)
+
+        let symIdxInterp = isComplete ? target : lerp(initial, target, bits.t);
+
+        setSymPos(symIdxInterp);
+        setTargetSymPos(isComplete ? null : target);
+    });
 
     return <div>
         <div className="pl-3">
