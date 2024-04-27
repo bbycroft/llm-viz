@@ -16,7 +16,7 @@ export const CodecMain: React.FC<{}> = ({ }) => {
     useCreateGlobalKeyboardDocumentListener();
 
     useGlobalKeyboard(KeyboardOrder.MainPage, (ev) => {
-        let newSymPos = Math.round(symPos);
+        let newSymPos = targetSymPos ?? Math.round(symPos);
         if (isArrowKeyWithModifiers(ev, 'left')) {
             newSymPos -= 1;
         } else if (isArrowKeyWithModifiers(ev, 'right')) {
@@ -112,8 +112,8 @@ export const CodecMain: React.FC<{}> = ({ }) => {
             bits.t = 0;
         }
 
-        let ms = 200;
-        bits.t += dtSeconds / (ms / 1000); // t goes from 0 to 1 in 80ms
+        let ms = 600;
+        bits.t += dtSeconds / (ms / 1000);
 
         let initial = bits.initial!;
 

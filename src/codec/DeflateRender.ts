@@ -1,10 +1,10 @@
 
 
-import next from "next";
 import { Vec2 } from "../utils/vector";
 import { bitsToBinStr, distBitOffsets, distBitsExtra, lengthBitOffsets, lengthBitsExtra, reverseBits } from "./DeflateDecoder";
 import { IDeflateBlock, IPrefixCoding, IPrefixTree } from "./DeflateRenderModel";
 import { lerp } from "../utils/math";
+import { inverseLerp } from "../llm/walkthrough/Walkthrough04_SelfAttention";
 
 function readBits(data: Uint8Array, bitOffset: number, nBits: number) {
     let byteOffset = bitOffset >> 3;
@@ -72,6 +72,7 @@ interface ISymAndExtra {
     tl: Vec2;
     size: Vec2;
     type: SymType;
+    sym: number;
     startBit: number;
     symColor: string;
     extraColor: string;
@@ -104,6 +105,7 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
     let lineHeight = 16;
     let gapWidth = 8;
 
+    let bitStreamFontBold = makeCanvasFont(style.bitsFontSize, true);
     let bitStreamFont = makeCanvasFont(style.bitsFontSize);
     let symFont = makeCanvasFont(style.symFontSize);
 
@@ -148,6 +150,7 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
                 tl: new Vec2(colPos, lineIdx * lineHeight),
                 size: new Vec2(strLen, lineHeight),
                 type: SymType.Unknown,
+                sym: -1,
                 startBit: bitCntr - nBits,
                 symColor: "purple",
                 extraColor: "black",
@@ -198,6 +201,7 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
             tl: new Vec2(colPos, lineIdx * lineHeight),
             size: new Vec2(fullWidth, 1.6 * lineHeight),
             type: symType,
+            sym: symbol,
             startBit: bitOffset,
             symColor: color,
             extraColor: "black",
@@ -217,7 +221,10 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
     }
 
     let symIdx = Math.ceil(symPos);
-    let symPosFrac = symPos - symIdx + 1;
+    let sym_t = symPos - symIdx + 1;
+
+    let highlight_t = inverseLerp(0.0, 0.6, sym_t);
+    let moveSym_t = inverseLerp(0.6, 1.0, sym_t);
 
     let distIdx = 0;
     let litLenIdx = 0;
@@ -268,8 +275,10 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
         }
     }
 
+    // render the rectangles around each symbol
     ctx.globalAlpha = 0.1;
-    for (let range of rectRanges) {
+    for (let i = 0; i < rectRanges.length; i++) {
+        let range = rectRanges[i];
         let { firstCellIdx, lastCellIdx, rangeIdx, isStart, isEnd } = range;
         let { tl } = symAndExtras[firstCellIdx];
         let { tl: lastTl, size: lastSize } = symAndExtras[lastCellIdx];
@@ -290,6 +299,13 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
             radius[1] = radius[2] = 4;
         }
 
+        let isLast = i === rectRanges.length - 1 && sym_t !== 1.0;
+        if (isLast) {
+            if (moveSym_t < 0.2) {
+                continue;
+            }
+        }
+
         ctx.fillStyle = symAndExtras[firstCellIdx].symColor;
         ctx.beginPath();
         ctx.roundRect(rectX, rectY, rectWidth + 4, rectHeight, radius);
@@ -299,6 +315,7 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
 
     let extraGapWidth = 0;
 
+    // render the text (bits & text) in the rectangles, with special attention on the final symbol
     for (let i = 0; i < symAndExtras.length; i++) {
         let { tl, size, type, symColor, extraColor, codeWidth, codeExtraWidth, symWidth, symExtraWidth, codeStr, codeExtraStr, symStr, symExtraStr, startBit } = symAndExtras[i];
 
@@ -308,7 +325,7 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
         let codeStart = centerX - fullCodeWidth / 2;
         let symStart = centerX - fullSymWidth / 2;
 
-        let isLast = i === symAndExtras.length - 1 && symPosFrac !== 1.0;
+        let isLast = i === symAndExtras.length - 1 && sym_t !== 1.0;
 
         if (!isLast) {
             ctx.fillStyle = symColor;
@@ -328,11 +345,12 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
             ctx.fillText(symExtraStr, symStart + symWidth, tl.y + 11);
         } else {
             // we want to animate the bitStream going from its previous form to the new form
-            // so we need to split the codeStr & codeExtraStr into their 8-bit chunks to determine
-            // their original positions in the bitstream, and then lerp to their new positions
-            // for this we need to know the bitstream position of the symbol
+            // so we need to walk through codeStr & codeExtraStr bit-by-bit and add gaps at the
+            // 8-bit chunks. This determines their original positions in the bitstream, and then we
+            // lerp to their new positions.
             let fullStr = codeStr + codeExtraStr;
 
+            ctx.save();
             let finalStartPos = codeStart;
             let initStartPos = tl.x;
             ctx.font = bitStreamFont;
@@ -340,8 +358,21 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
             for (let i = 0; i < fullStr.length; i++) {
                 // rendering char by char, as that's easiest for splitting/joining
                 let c = fullStr[i];
+                let bitPos = lerp(initStartPos, finalStartPos, moveSym_t);
+
                 ctx.fillStyle = i < codeStr.length ? symColor : extraColor;
-                ctx.fillText(c, lerp(initStartPos, finalStartPos, symPosFrac), tl.y);
+
+                if (highlight_t < 1.0) {
+                    ctx.globalAlpha = lerp(0, 4, highlight_t);
+                    // ctx.fillStyle = "black";
+                    // ctx.filter = `blur(1px)`;
+                    ctx.font = bitStreamFont;
+                    ctx.fillText(c, bitPos, tl.y);
+                    ctx.filter = '';
+                    ctx.globalAlpha = 1;
+                }
+
+                ctx.fillText(c, bitPos, tl.y);
 
                 let hasGap = (startBit + i) % 8 === 7;
 
@@ -350,25 +381,12 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
                 extraGapWidth += hasGap ? gapWidth : 0;
             }
 
-            extraGapWidth -= gapWidth;
-            extraGapWidth += tl.x - codeStart;
-
-            // let finalStartPos = codeStart;
-            // let initStartPos = codeStart;
-            // for (let i = 0; i < codeRanges.length + codeExtraRanges.length; i++) {
-            //     let range = i < codeRanges.length ? codeRanges[i] : codeExtraRanges[i - codeRanges.length];
-            //     ctx.fillStyle = i < codeRanges.length ? symColor : extraColor;
-            //     ctx.font = bitStreamFont;
-            //     let strLen = ctx.measureText(range).width;
-            //     ctx.fillText(range, lerp(initStartPos, finalStartPos, symPosFrac), tl.y);
-
-            //     initStartPos += strLen + gapWidth;
-            //     finalStartPos += strLen;
-            // }
+            extraGapWidth += tl.x - codeStart - gapWidth;
+            ctx.restore();
         }
     }
 
-    colPos += extraGapWidth  * (1 - symPosFrac);
+    colPos += extraGapWidth  * (1 - moveSym_t);
 
     function getBoundaryBitRanges(startBit: number, bitStr: string): string[] {
         let ranges: string[] = [];
@@ -401,7 +419,7 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
         let strLen = ctx.measureText(bitsRevStr).width;
         colPos += colPos === 0 ? 0 : gapWidth;
 
-        ctx.fillStyle = "purple";
+        ctx.fillStyle = "rgb(120, 120, 120)";
         ctx.fillText(bitsRevStr, colPos, lineIdx * lineHeight);
 
         colPos += strLen;
@@ -411,13 +429,15 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
     ctx.save();
     ctx.translate(colsPerLine + 80, 0);
 
+    let lastSym = symAndExtras[symAndExtras.length - 1];
+
     renderCodingTree(ctx, coding.tree, {
         renderSymbol: (symbol) => {
             let [color] = litLenStyle(style, symbol);
             let defStr = litLenDefString(symbol);
             return [color, defStr];
         },
-    });
+    }, lastSym.type === SymType.Literal || lastSym.type === SymType.Length ? lastSym.sym : -1);
 
     ctx.translate(0, 360);
     renderCodingTree(ctx, distCoding.tree, {
@@ -426,8 +446,7 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
             let defStr = distDefString(symbol);
             return [color, defStr];
         },
-    });
-
+    }, lastSym.type === SymType.Dist ? lastSym.sym : -1);
 
     ctx.restore();
 }
@@ -490,7 +509,7 @@ interface ICodingTreeArgs {
     renderSymbol: (symbol: number) => [color: string, symStr: string];
 }
 
-function renderCodingTree(ctx: CanvasRenderingContext2D, tree: IPrefixTree, args: ICodingTreeArgs) {
+function renderCodingTree(ctx: CanvasRenderingContext2D, tree: IPrefixTree, args: ICodingTreeArgs, active: number = -1) {
     let maxBits = tree.maxBits;
 
     let codeWidth = 50;
@@ -511,14 +530,15 @@ function renderCodingTree(ctx: CanvasRenderingContext2D, tree: IPrefixTree, args
 
         let bitStr = bitsToBinStr(bits, bitLength);
         let [color, symStr] = args.renderSymbol(sym);
+        let glowColor = 'rgb(128, 128, 128)';
 
-        ctx.font = "10px monospace";
-        ctx.fillStyle = color;
-        ctx.fillText(bitStr, xPos, yPos);
+        let isActive = sym === active;
 
-        ctx.font = "12px monospace";
-        ctx.fillStyle = color;
-        ctx.fillText(sym.toString().padStart(3, ' ') + ' ' + symStr, xPos + codeWidth, yPos);
+        ctx.font = makeCanvasFont(10);
+        fillTextGlow(ctx, bitStr, xPos, yPos, color, glowColor, isActive ? 1 : 0);
+
+        ctx.font = makeCanvasFont(12);
+        fillTextGlow(ctx, sym.toString().padStart(3, ' ') + ' ' + symStr, xPos + codeWidth, yPos, color, glowColor, isActive ? 1 : 0);
 
         yPos += lineHeight;
 
@@ -529,6 +549,17 @@ function renderCodingTree(ctx: CanvasRenderingContext2D, tree: IPrefixTree, args
             yPos = topYPos;
         }
     }
+}
+
+function fillTextGlow(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, glowColor: string, glowSize: number) {
+    if (glowSize > 0) {
+        ctx.fillStyle = glowColor;
+        ctx.filter = `blur(${glowSize}px)`;
+        ctx.fillText(text, x, y);
+        ctx.filter = 'none';
+    }
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
 }
 
 function literalSymbolString(sym: number) {
@@ -552,6 +583,6 @@ function distSymbolString(sym: number) {
     return sym.toString();
 }
 
-function makeCanvasFont(size: number) {
-    return `${size}px monospace`;
+function makeCanvasFont(size: number, bold: boolean = false) {
+    return `${size}px monospace ${bold ? 'bold' : ''}`;
 }
