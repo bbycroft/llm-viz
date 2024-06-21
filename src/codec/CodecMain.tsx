@@ -1,22 +1,24 @@
 'use client';
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { testGzipFile } from "./DeflateDecoder";
-import { IDeflateData } from "./DeflateRenderModel";
+import { AnimStepType, IDeflateRenderState } from "./DeflateRenderModel";
 import { renderDeflate } from "./DeflateRender";
 import { KeyboardOrder, isArrowKeyWithModifiers, useCreateGlobalKeyboardDocumentListener, useGlobalKeyboard } from "../utils/keyboard";
-import { clamp, isNil, isNotNil } from "../utils/data";
+import { assignImm, clamp, isNil, isNotNil } from "../utils/data";
 import { useRequestAnimationFrame } from "../utils/hooks";
 import { lerp } from "../utils/math";
+import { createDeflateBlockInfo, initDeflateRenderData } from "./renderDeflateBlock";
+import { createRenderOutputArray, renderOutputArray } from "./renderOutputArray";
+import { Vec2 } from "../utils/vector";
 
 export const CodecMain: React.FC<{}> = ({ }) => {
     let [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
-    let [block, setBlock] = useState<IDeflateData | null>(null);
-    let [symPos, setSymPos] = useState<number>(43);
+    let [renderState, setRenderState] = useState<IDeflateRenderState | null>(null);
     let [targetSymPos, setTargetSymPos] = useState<number | null>(null);
     useCreateGlobalKeyboardDocumentListener();
 
     useGlobalKeyboard(KeyboardOrder.MainPage, (ev) => {
-        let newSymPos = targetSymPos ?? Math.round(symPos);
+        let newSymPos = targetSymPos ?? Math.round(renderState?.symPos ?? 0);
         if (isArrowKeyWithModifiers(ev, 'left')) {
             newSymPos -= 1;
         } else if (isArrowKeyWithModifiers(ev, 'right')) {
@@ -26,14 +28,28 @@ export const CodecMain: React.FC<{}> = ({ }) => {
         newSymPos = clamp(newSymPos, 0, 255);
 
         setTargetSymPos(newSymPos);
-        // if (newSymPos !== symPos) {
-        //     setSymPos(newSymPos);
-        // }
     });
 
     useEffect(() => {
-        let firstBlock = testGzipFile();
-        firstBlock && setBlock(firstBlock);
+        let deflateData = testGzipFile();
+        if (deflateData) {
+            initDeflateRenderData(deflateData);
+
+            setRenderState({
+                ctx: null!,
+                symPos: 43 + 84,
+                data: deflateData,
+                outputArrayState: {
+                    offset: new Vec2(0, 500),
+                    scrollPos: 0,
+                    blockIdx: 0,
+                },
+                deflateBlockState: {},
+
+                outputArrayInfo: null!,
+                deflateBlockInfo: null!,
+            })
+        }
     }, []);
 
     useLayoutEffect(() => {
@@ -75,10 +91,26 @@ export const CodecMain: React.FC<{}> = ({ }) => {
             // ctx.fillStyle = "#f0f0f0";
             // ctx.fill();
 
-            if (block) {
-                let now = performance.now();
-                renderDeflate(ctx, block.src, block.blocks[0], symPos);
-                console.log(`Render time: ${(performance.now() - now).toFixed(1)}ms`);
+            if (renderState) {
+                renderState.ctx = ctx;
+                renderState.outputArrayInfo = createRenderOutputArray(renderState, renderState.outputArrayState);
+                renderState.deflateBlockInfo = createDeflateBlockInfo(renderState, renderState.deflateBlockState);
+                // let now = performance.now();
+
+                let data = renderState.data;
+
+                // we'll adjust the symPos to point to the start of the litlen array for now
+
+                let firstBlock = data.blocks[0];
+                let firstLitLenIdx = firstBlock.animSteps.arrType.findIndex(t => t === AnimStepType.LitLen);
+
+                renderDeflate(ctx, data.src, firstBlock, renderState.symPos - firstLitLenIdx);
+
+                ctx.save();
+                renderOutputArray(ctx, renderState.outputArrayInfo);
+                ctx.restore();
+
+                // console.log(`Render time: ${(performance.now() - now).toFixed(1)}ms`);
             }
 
             ctx.restore();
@@ -91,7 +123,7 @@ export const CodecMain: React.FC<{}> = ({ }) => {
             return () => { resizeObserver.disconnect(); };
         }
 
-    }, [canvasEl, block, symPos]);
+    }, [canvasEl, renderState]);
 
 
     let zoomBitsRef = useRef({
@@ -107,7 +139,7 @@ export const CodecMain: React.FC<{}> = ({ }) => {
         let bits = zoomBitsRef.current;
         let target = targetSymPos;
         if (bits.target !== target) {
-            bits.initial = symPos;
+            bits.initial = renderState?.symPos ?? 0;
             bits.target = target;
             bits.t = 0;
         }
@@ -129,7 +161,7 @@ export const CodecMain: React.FC<{}> = ({ }) => {
 
         let symIdxInterp = isComplete ? target : lerp(initial, target, bits.t);
 
-        setSymPos(symIdxInterp);
+        setRenderState(a => assignImm(a, { symPos: symIdxInterp }));
         setTargetSymPos(isComplete ? null : target);
     });
 

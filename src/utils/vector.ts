@@ -262,6 +262,16 @@ export class Vec4 {
         let z = hexVal & 0xFF;
         return new Vec4(x / 255.0 * alpha, y / 255.0 * alpha, z / 255.0 * alpha, alpha);
     }
+    static fromRgbaColor(s: string) {
+        let isrgba = s.startsWith('rgba(');
+        let isrgb = s.startsWith('rgb(');
+        if (!isrgba && !isrgb || !s.endsWith(')')) throw new Error(`Invalid color string '${s}'. Should be of the form 'rgb(r, g, b)' or 'rgba(r, g, b, a)'`);
+        s = s.slice(isrgba ? 5 : 4, -1);
+        let vs = s.split(',').map(v => parseFloat(v.trim()));
+        let a = isrgba ? vs[3] : 1.0;
+        let rgb = vs.slice(0, 3).map(v => v / 255.0 * a);
+        return new Vec4(rgb[0], rgb[1], rgb[2], a);
+    }
     toHexColor(): string {
         let toPair = (v: number) => Math.floor(v * 255).toString(16).padStart(2, '0');
         return `#${toPair(this.x)}${toPair(this.y)}${toPair(this.z)}${toPair(this.w)}`;

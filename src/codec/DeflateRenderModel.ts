@@ -1,7 +1,42 @@
-import { BoundingBox3d, Vec2, Vec3 } from "../utils/vector";
+
+/*
+We need to identify where in the process we're up to, ideally with an integer that we can index into.
+(And it'll be a float to allow for transitions between states).
+
+Our current idea of 1 index per symbol seems good, at least for the litLen & dist arrays, but note
+that these two arrays are interleaved, which makes it difficult to do this precisely.
+
+The codeLength array is small enough that we don't need to worry about it so much, and can just
+evaluate it fully each render.
+
+In general, we want to make these indexes bin-searchable, so we can figure out which block we're in,
+how many blocks have been completed etc.
+
+So there's a one-off post-process step, where we walk through the blocks and prefix codings, and set
+start/length values for each block & symbol. We also create an array for each symbol, which maps to
+an index in a particular prefix coding array.
+
+So for a given dynamic block we might have:
+
+1 step for the mode, 1 step for (hlit, hdist, hclen), 1 step for each of the codeLengths, 1 step
+for each of the litLen & dist arrays.
+
+It would work to put these in their own array, with type, idx, outputIdx, outputCount.
+Might overload outputIdx/Count for the codeLengths as well, say? Based on type.
+
+We'll need to decide what to render exactly. E.g. do we render a block opened, or collapsed, or many
+blocks in a row?
+
+Within a block, do we have a scrollbar? We'll have to do layout for the whole block processed so far
+for this, but this can obviously be cached.
+*/
+
+import type { IOutputArrayState, IOutputArrayInfo } from "./renderOutputArray";
+import type { IDeflateBlockState, IDeflateBlockInfo } from "./renderDeflateBlock";
 
 export interface IDeflateData {
     src: Uint8Array;
+    dest: Uint8Array;
     blocks: IDeflateBlock[];
 }
 
@@ -16,6 +51,41 @@ export interface IDeflateBlock {
     codeLengthCoding: IPrefixCoding;
     litLenCoding: IPrefixCoding;
     distCoding: IPrefixCoding; // interleaved with litLenCoding, i.e. after dist symbols
+
+    animSteps: IAnimationSteps;
+}
+
+export interface IDeflateRenderState {
+    ctx: CanvasRenderingContext2D;
+    symPos: number;
+    data: IDeflateData;
+
+    outputArrayState: IOutputArrayState;
+    deflateBlockState: IDeflateBlockState;
+
+    outputArrayInfo: IOutputArrayInfo;
+    deflateBlockInfo: IDeflateBlockInfo;
+}
+
+export enum AnimStepType {
+    DeflateHeaderBits,
+    HeaderLengths,
+    CodeLength,
+    LitLenDistArray,
+    LitLen,
+    Dist,
+}
+
+export interface IAnimationSteps {
+    stepOffset: number;
+    outputByteOffset: number;
+    stepCount: number;
+    outputByteCount: number;
+
+    // arrays for each anim step
+    arrType: Uint8Array;
+    arrOutputIdx: Uint32Array;
+    arrOutputCount: Uint32Array;
 }
 
 export enum DeflateBlockMode {
@@ -49,18 +119,3 @@ export interface IPrefixTree {
     usedSymbols: Uint16Array; // the list of symbols actually used in the tree
 }
 
-
-
-// export interface ICode {
-//     tl: Vec2;
-//     size: Vec2;
-//     code: number;
-//     text: string;
-//     nBits: number;
-//     color: string;
-
-//     extraBits: number;
-//     nExtraBits: number;
-
-
-// }

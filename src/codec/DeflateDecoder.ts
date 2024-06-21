@@ -1,7 +1,8 @@
 
 // each bit goes left or right in the tree
 // so have to look at each bit in the data, and follow the tree
-import { DeflateBlockMode, IDeflateBlock, IDeflateData, IPrefixCoding } from "./DeflateRenderModel";
+import { AnimStepType, DeflateBlockMode, IAnimationSteps, IDeflateBlock, IDeflateData, IPrefixCoding } from "./DeflateRenderModel";
+import { distBitOffsets, distBitsExtra, lengthBitOffsets, lengthBitsExtra } from "./deflateRenderHelpers";
 
 // does this lend itself to some neat data structure?
 // could just flatten it out?
@@ -344,6 +345,7 @@ function readDynamicHuffmanBlock(stream: IBitStream, inflateOutput: IOutputBuffe
             codeLengthCoding: toRenderCoding(codeLengthsSymbolOutput!, codeLengthTree),
             distCoding: toRenderCoding(distSymbolOutput!, distanceTree),
             litLenCoding: toRenderCoding(symbolOutput!, literalAndLengthTree),
+            animSteps: null!,
         };
         renderData.blocks.push(blockRenderData);
     }
@@ -423,16 +425,6 @@ function toRenderCoding(symbolBuffer: IOutputBuffer, tree: IPrefixTree): IPrefix
     };
 }
 
-// starting with code 265, as that's the first one with extra bits
-export let lengthBitsExtra = new Uint8Array([
-    1, 1, 1, 1,
-    2, 2, 2, 2,
-    3, 3, 3, 3,
-    4, 4, 4, 4,
-    5, 5, 5, 5,
-    0, 0, 0,
-]);
-export let lengthBitOffsets = new Uint16Array([11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 259, 260]);
 
 function lengthSymbolToLength(symbol: number, stream: IBitStream) {
     if (symbol <= 264) {
@@ -442,28 +434,14 @@ function lengthSymbolToLength(symbol: number, stream: IBitStream) {
     return lengthBitOffsets[idx] + stream.readBits(lengthBitsExtra[idx]);
 }
 
-export let distBitsExtra = new Uint8Array([
-    0, 0, 0, 0,
-    1, 1, 2, 2,
-    3, 3, 4, 4,
-    5, 5, 6, 6,
-    7, 7, 8, 8,
-    9, 9, 10, 10,
-    11, 11, 12, 12,
-    13, 13,
-]);
-
-export let distBitOffsets = makeOffsetsFromBitsExtra(distBitsExtra, 1);
-
-function makeOffsetsFromBitsExtra(bitsExtra: Uint8Array, offset = 0) {
-    let arr = new Uint16Array(bitsExtra.length);
-    for (let i = 0; i < bitsExtra.length; i++) {
-        let nBits = bitsExtra[i];
-        arr[i] = offset;
-        offset += 1 << nBits;
+export function lengthSymbolToLengthFromNumber(symbol: number, extraBits: number) {
+    if (symbol <= 264) {
+        return symbol - 257 + 3;
     }
-    return arr;
+    let idx = symbol - 265;
+    return lengthBitOffsets[idx] + (extraBits & ((1 << lengthBitsExtra[idx]) - 1));
 }
+
 
 function distSymbolToDistance(symbol: number, stream: IBitStream) {
     return distBitOffsets[symbol] + stream.readBits(distBitsExtra[symbol]);
@@ -780,6 +758,7 @@ export function testGzipFile() {
     let deflateRenderInfo: IDeflateData = {
         src: data,
         blocks: [],
+        dest: new Uint8Array(0),
     };
 
     let stream = createBitStream(data);
@@ -789,6 +768,10 @@ export function testGzipFile() {
         console.log(res.error);
         return;
     }
+
+    deflateRenderInfo.dest = res.data;
+
+
 
     console.log('fname: ', res.fname, 'comment:', res.comment);
     console.log(`data:' ${new TextDecoder().decode(res.data)}'`);

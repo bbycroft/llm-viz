@@ -1,31 +1,11 @@
 
 
 import { Vec2 } from "../utils/vector";
-import { bitsToBinStr, distBitOffsets, distBitsExtra, lengthBitOffsets, lengthBitsExtra, reverseBits } from "./DeflateDecoder";
+import { bitsToBinStr, reverseBits } from "./DeflateDecoder";
 import { IDeflateBlock, IPrefixCoding, IPrefixTree } from "./DeflateRenderModel";
 import { lerp } from "../utils/math";
 import { inverseLerp } from "../llm/walkthrough/Walkthrough04_SelfAttention";
-
-function readBits(data: Uint8Array, bitOffset: number, nBits: number) {
-    let byteOffset = bitOffset >> 3;
-    let bitShift = bitOffset & 7;
-    let bitMask = (1 << nBits) - 1;
-
-    let lowBits = data[byteOffset] >>> bitShift;
-    let highBits = data[byteOffset + 1] << (8 - bitShift);
-    let bits = lowBits | highBits;
-
-    if (nBits > 8) {
-        let highBits2 = data[byteOffset + 2] << (16 - bitShift);
-        bits |= highBits2;
-    }
-    if (nBits > 16) {
-        let highBits3 = data[byteOffset + 3] << (24 - bitShift);
-        bits |= highBits3;
-    }
-
-    return bits & bitMask;
-}
+import { distBitOffsets, distBitsExtra, lengthBitOffsets, lengthBitsExtra, readBits } from "./deflateRenderHelpers";
 
 interface IRenderCtx {
 
@@ -431,22 +411,24 @@ export function renderDeflate(ctx: CanvasRenderingContext2D, data: Uint8Array, b
 
     let lastSym = symAndExtras[symAndExtras.length - 1];
 
-    renderCodingTree(ctx, coding.tree, {
-        renderSymbol: (symbol) => {
-            let [color] = litLenStyle(style, symbol);
-            let defStr = litLenDefString(symbol);
-            return [color, defStr];
-        },
-    }, lastSym.type === SymType.Literal || lastSym.type === SymType.Length ? lastSym.sym : -1);
+    if (lastSym) {
+        renderCodingTree(ctx, coding.tree, {
+            renderSymbol: (symbol) => {
+                let [color] = litLenStyle(style, symbol);
+                let defStr = litLenDefString(symbol);
+                return [color, defStr];
+            },
+        }, lastSym.type === SymType.Literal || lastSym.type === SymType.Length ? lastSym.sym : -1);
 
-    ctx.translate(0, 360);
-    renderCodingTree(ctx, distCoding.tree, {
-        renderSymbol: (symbol) => {
-            let [color] = distStyle(style, symbol);
-            let defStr = distDefString(symbol);
-            return [color, defStr];
-        },
-    }, lastSym.type === SymType.Dist ? lastSym.sym : -1);
+        ctx.translate(0, 360);
+        renderCodingTree(ctx, distCoding.tree, {
+            renderSymbol: (symbol) => {
+                let [color] = distStyle(style, symbol);
+                let defStr = distDefString(symbol);
+                return [color, defStr];
+            },
+        }, lastSym.type === SymType.Dist ? lastSym.sym : -1);
+    }
 
     ctx.restore();
 }
