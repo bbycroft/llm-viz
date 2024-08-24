@@ -33,6 +33,7 @@ for this, but this can obviously be cached.
 
 import type { IOutputArrayState, IOutputArrayInfo } from "./renderOutputArray";
 import type { IDeflateBlockState, IDeflateBlockInfo } from "./renderDeflateBlock";
+import type { ICodeTreeInfo } from "./renderCodeTree";
 
 export interface IDeflateData {
     src: Uint8Array;
@@ -65,6 +66,9 @@ export interface IDeflateRenderState {
 
     outputArrayInfo: IOutputArrayInfo;
     deflateBlockInfo: IDeflateBlockInfo;
+
+    litLenTreeInfo: ICodeTreeInfo;
+    distTreeInfo: ICodeTreeInfo;
 }
 
 export enum AnimStepType {

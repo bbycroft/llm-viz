@@ -1,4 +1,4 @@
-import { inverseLerp } from "../utils/math";
+import { inverseLerp, lerp } from "../utils/math";
 import { Vec2 } from "../utils/vector";
 import { bitsToBinStr, lengthSymbolToLengthFromNumber, reverseBits } from "./DeflateDecoder";
 import { AnimStepType, IAnimationSteps, IDeflateBlock, IDeflateData, IDeflateRenderState, IPrefixCoding } from "./DeflateRenderModel";
@@ -20,6 +20,13 @@ export interface IDeflateBlockState {
 export interface IDeflateBlockInfo {
     symAndExtras: ISymAndExtra[];
     rectRanges: ICellRange[];
+    gapWidth: number;
+}
+
+export interface IDeflateBlockArgs {
+    x: number;
+    y: number;
+    w: number;
 }
 
 export interface ISymAndExtra {
@@ -141,7 +148,7 @@ function populateDeflateBlockAnimSteps(data: IDeflateData, block: IDeflateBlock)
     return steps;
 }
 
-export function createDeflateBlockInfo(renderState: IDeflateRenderState, blockState: IDeflateBlockState): IDeflateBlockInfo {
+export function createDeflateBlockInfo(renderState: IDeflateRenderState, args: IDeflateBlockArgs): IDeflateBlockInfo {
     let ctx = renderState.ctx;
 
     let data = renderState.data.src;
@@ -153,7 +160,7 @@ export function createDeflateBlockInfo(renderState: IDeflateRenderState, blockSt
     let style = renderCtx.style;
     let lineIdx = 0;
     let colPos = 0;
-    let colsPerLine = 500;
+    let colsPerLine = args.w;
 
     let lineHeight = 16;
     let gapWidth = 8;
@@ -200,7 +207,7 @@ export function createDeflateBlockInfo(renderState: IDeflateRenderState, blockSt
             // ctx.fillText(bitStrRev, colPos + strLen / 2, lineIdx * lineHeight);
 
             symAndExtras.push({
-                tl: new Vec2(colPos, lineIdx * lineHeight),
+                tl: new Vec2(colPos + args.x, lineIdx * lineHeight + args.y),
                 size: new Vec2(strLen, lineHeight),
                 type: SymType.Unknown,
                 sym: -1,
@@ -251,7 +258,7 @@ export function createDeflateBlockInfo(renderState: IDeflateRenderState, blockSt
         let fullWidth = Math.max(fullCodeWidth, fullSymWidth);
 
         symAndExtras.push({
-            tl: new Vec2(colPos, lineIdx * lineHeight),
+            tl: new Vec2(colPos + args.x, lineIdx * lineHeight + args.y),
             size: new Vec2(fullWidth, 1.6 * lineHeight),
             type: symType,
             sym: symbol,
@@ -328,6 +335,163 @@ export function createDeflateBlockInfo(renderState: IDeflateRenderState, blockSt
         }
     }
 
-    return { symAndExtras, rectRanges };
+    return { symAndExtras, rectRanges, gapWidth };
 }
 
+
+export function renderDeflateBlock(renderState: IDeflateRenderState, blockInfo: IDeflateBlockInfo) {
+    let ctx = renderState.ctx;
+    let { symAndExtras, rectRanges, gapWidth } = blockInfo;
+
+    ctx.textAlign = "start";
+    ctx.textBaseline = "top";
+    let bitStreamFontBold = makeCanvasFont(baseRenderStyle.bitsFontSize, true);
+    let bitStreamFont = makeCanvasFont(baseRenderStyle.bitsFontSize);
+    let symFont = makeCanvasFont(baseRenderStyle.symFontSize);
+
+    // @TODO: not the right symPos! This one is block-local I think?
+    let symPos = renderState.symPos;
+    let symIdx = Math.ceil(symPos);
+    let sym_t = symPos - symIdx + 1;
+
+    let highlight_t = inverseLerp(0.0, 0.6, sym_t);
+    let moveSym_t = inverseLerp(0.6, 1.0, sym_t);
+
+    // render the rectangles around each symbol
+    ctx.globalAlpha = 0.1;
+    for (let i = 0; i < rectRanges.length; i++) {
+        let range = rectRanges[i];
+        let { firstCellIdx, lastCellIdx, rangeIdx, isStart, isEnd } = range;
+        let { tl } = symAndExtras[firstCellIdx];
+        let { tl: lastTl, size: lastSize } = symAndExtras[lastCellIdx];
+
+        let rectWidth = lastTl.x + lastSize.x - tl.x;
+        let rectHeight = lastTl.y + lastSize.y - tl.y;
+
+        let rectX = tl.x - 2;
+        let rectY = tl.y - 2;
+
+        let radius = [0, 0, 0, 0];
+
+        if (isStart) {
+            radius[0] = radius[3] = 4;
+        }
+
+        if (isEnd) {
+            radius[1] = radius[2] = 4;
+        }
+
+        let isLast = i === rectRanges.length - 1 && sym_t !== 1.0;
+        if (isLast) {
+            if (moveSym_t < 0.2) {
+                continue;
+            }
+        }
+
+        ctx.fillStyle = symAndExtras[firstCellIdx].symColor;
+        ctx.beginPath();
+        ctx.roundRect(rectX, rectY, rectWidth + 4, rectHeight, radius);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    let extraGapWidth = 0;
+
+    // render the text (bits & text) in the rectangles, with special attention on the final symbol
+    for (let i = 0; i < symAndExtras.length; i++) {
+        let { tl, size, type, symColor, extraColor, codeWidth, codeExtraWidth, symWidth, symExtraWidth, codeStr, codeExtraStr, symStr, symExtraStr, startBit } = symAndExtras[i];
+
+        let centerX = tl.x + size.x / 2;
+        let fullCodeWidth = codeWidth + codeExtraWidth;
+        let fullSymWidth = symWidth + symExtraWidth;
+        let codeStart = centerX - fullCodeWidth / 2;
+        let symStart = centerX - fullSymWidth / 2;
+
+        let isLast = i === symAndExtras.length - 1 && sym_t !== 1.0;
+
+        if (!isLast) {
+            ctx.fillStyle = symColor;
+            ctx.font = bitStreamFont;
+            ctx.fillText(codeStr, codeStart, tl.y);
+
+            ctx.fillStyle = extraColor;
+            ctx.font = bitStreamFont;
+            ctx.fillText(codeExtraStr, codeStart + codeWidth, tl.y);
+
+            ctx.fillStyle = symColor;
+            ctx.font = symFont;
+            ctx.fillText(symStr, symStart, tl.y + 11);
+
+            ctx.fillStyle = extraColor;
+            ctx.font = symFont;
+            ctx.fillText(symExtraStr, symStart + symWidth, tl.y + 11);
+        } else {
+            // we want to animate the bitStream going from its previous form to the new form
+            // so we need to walk through codeStr & codeExtraStr bit-by-bit and add gaps at the
+            // 8-bit chunks. This determines their original positions in the bitstream, and then we
+            // lerp to their new positions.
+            let fullStr = codeStr + codeExtraStr;
+
+            ctx.save();
+            let finalStartPos = codeStart;
+            let initStartPos = tl.x;
+            ctx.font = bitStreamFont;
+            let bitLen = ctx.measureText(fullStr[0]).width;
+            for (let i = 0; i < fullStr.length; i++) {
+                // rendering char by char, as that's easiest for splitting/joining
+                let c = fullStr[i];
+                let bitPos = lerp(initStartPos, finalStartPos, moveSym_t);
+
+                ctx.fillStyle = i < codeStr.length ? symColor : extraColor;
+
+                if (highlight_t < 1.0) {
+                    ctx.globalAlpha = lerp(0, 4, highlight_t);
+                    // ctx.fillStyle = "black";
+                    // ctx.filter = `blur(1px)`;
+                    ctx.font = bitStreamFont;
+                    ctx.fillText(c, bitPos, tl.y);
+                    ctx.filter = '';
+                    ctx.globalAlpha = 1;
+                }
+
+                ctx.fillText(c, bitPos, tl.y);
+
+                let hasGap = (startBit + i) % 8 === 7;
+
+                initStartPos += bitLen + (hasGap ? gapWidth : 0);
+                finalStartPos += bitLen;
+                extraGapWidth += hasGap ? gapWidth : 0;
+            }
+
+            extraGapWidth += tl.x - codeStart - gapWidth;
+            ctx.restore();
+        }
+    }
+
+    /*
+    colPos += extraGapWidth  * (1 - moveSym_t);
+
+    // after the last symbol, render the remaining bits, but only for a couple line's worth
+    // we'll split them into 8-bit chunks, aligned to 8-bit boundaries
+    for (let i = 0; i < 10; i++) {
+        let nextBoundary = (bitCntr + 7) & ~7;
+        let nBits = nextBoundary - bitCntr;
+        nBits = nBits === 0 ? 8 : nBits;
+        nBits = Math.min(nBits, data.length * 8 - bitCntr);
+
+        let bits = readBits(data, bitCntr, nBits);
+        bitCntr += nBits;
+        let bitsRevStr = bitsToBinStr(reverseBits(bits, nBits), nBits);
+
+        ctx.font = bitStreamFont;
+        let strLen = ctx.measureText(bitsRevStr).width;
+        colPos += colPos === 0 ? 0 : gapWidth;
+
+        ctx.fillStyle = "rgb(120, 120, 120)";
+        ctx.fillText(bitsRevStr, colPos, lineIdx * lineHeight);
+
+        colPos += strLen;
+        maybeBumpLine();
+    }
+    */
+}

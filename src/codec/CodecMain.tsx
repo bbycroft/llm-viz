@@ -7,9 +7,11 @@ import { KeyboardOrder, isArrowKeyWithModifiers, useCreateGlobalKeyboardDocument
 import { assignImm, clamp, isNil, isNotNil } from "../utils/data";
 import { useRequestAnimationFrame } from "../utils/hooks";
 import { lerp } from "../utils/math";
-import { createDeflateBlockInfo, initDeflateRenderData } from "./renderDeflateBlock";
+import { createDeflateBlockInfo, initDeflateRenderData, renderDeflateBlock } from "./renderDeflateBlock";
 import { createRenderOutputArray, renderOutputArray } from "./renderOutputArray";
 import { Vec2 } from "../utils/vector";
+import { createCodeTreeInfo, renderCodingTree } from "./renderCodeTree";
+import { baseRenderStyle, distDefString, distStyle, litLenDefString, litLenStyle } from "./deflateRenderHelpers";
 
 export const CodecMain: React.FC<{}> = ({ }) => {
     let [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
@@ -48,6 +50,8 @@ export const CodecMain: React.FC<{}> = ({ }) => {
 
                 outputArrayInfo: null!,
                 deflateBlockInfo: null!,
+                distTreeInfo: null!,
+                litLenTreeInfo: null!,
             })
         }
     }, []);
@@ -83,7 +87,7 @@ export const CodecMain: React.FC<{}> = ({ }) => {
 
             ctx.save();
             ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-            ctx.translate(12, 20);
+            // ctx.translate(12, 20);
 
             // ctx.beginPath();
             // let pad = 10;
@@ -92,22 +96,53 @@ export const CodecMain: React.FC<{}> = ({ }) => {
             // ctx.fill();
 
             if (renderState) {
+                let data = renderState.data;
+                let block = renderState.data.blocks[0];
+                let firstLitLenIdx = block.animSteps.arrType.findIndex(t => t === AnimStepType.LitLen);
+
                 renderState.ctx = ctx;
                 renderState.outputArrayInfo = createRenderOutputArray(renderState, renderState.outputArrayState);
-                renderState.deflateBlockInfo = createDeflateBlockInfo(renderState, renderState.deflateBlockState);
+                renderState.deflateBlockInfo = createDeflateBlockInfo(renderState, {
+                    x: 10,
+                    y: 8,
+                    w: 750,
+                });
+
+                renderState.litLenTreeInfo = createCodeTreeInfo(renderState, block.litLenCoding.tree, {
+                    renderSymbol: (sym) => {
+                        let [color] = litLenStyle(baseRenderStyle, sym);
+                        let defStr = litLenDefString(sym);
+                        return [color, defStr];
+                    },
+                    x: 800,
+                    y: 8,
+                    h: 380,
+                });
+
+                renderState.distTreeInfo = createCodeTreeInfo(renderState, block.distCoding.tree, {
+                    renderSymbol: (sym) => {
+                        let [color] = distStyle(baseRenderStyle, sym);
+                        let defStr = distDefString(sym);
+                        return [color, defStr];
+                    },
+                    x: 800,
+                    y: 390,
+                    h: 200,
+                });
+
                 // let now = performance.now();
 
-                let data = renderState.data;
 
                 // we'll adjust the symPos to point to the start of the litlen array for now
 
-                let firstBlock = data.blocks[0];
-                let firstLitLenIdx = firstBlock.animSteps.arrType.findIndex(t => t === AnimStepType.LitLen);
 
-                renderDeflate(ctx, data.src, firstBlock, renderState.symPos - firstLitLenIdx);
+                // renderDeflate(ctx, data.src, firstBlock, renderState.symPos - firstLitLenIdx);
 
                 ctx.save();
-                renderOutputArray(ctx, renderState.outputArrayInfo);
+                renderDeflateBlock(renderState, renderState.deflateBlockInfo);
+                renderCodingTree(renderState, renderState.litLenTreeInfo);
+                renderCodingTree(renderState, renderState.distTreeInfo);
+                renderOutputArray(renderState, renderState.outputArrayInfo);
                 ctx.restore();
 
                 // console.log(`Render time: ${(performance.now() - now).toFixed(1)}ms`);

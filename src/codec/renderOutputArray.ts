@@ -137,7 +137,9 @@ export function createRenderOutputArray(renderState: IDeflateRenderState, oaStat
     };
 }
 
-export function renderOutputArray(ctx: CanvasRenderingContext2D, oa: IOutputArrayInfo) {
+export function renderOutputArray(renderState: IDeflateRenderState, oa: IOutputArrayInfo) {
+    let ctx = renderState.ctx;
+
     for (let cell of oa.cells) {
         if (!cell.visible) {
             continue;

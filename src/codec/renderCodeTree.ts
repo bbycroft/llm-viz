@@ -1,20 +1,23 @@
-import { makeCanvasFont } from "../cpu/render/CanvasRenderHelpers";
 import { bitsToBinStr } from "./DeflateDecoder";
 import { IDeflateRenderState, IPrefixTree } from "./DeflateRenderModel";
+import { makeCanvasFont } from "./deflateRenderHelpers";
 
 interface ICodingTreeArgs {
     renderSymbol: (symbol: number) => [color: string, symStr: string];
+    x: number;
+    y: number;
+    h: number;
 }
 
 // the layout of the various parts of the coding tree, to render from.
 // allows us to draw arrows to specific parts of the tree, and to highlight elements.
-interface ICodeTreeInfo {
+export interface ICodeTreeInfo {
     codeWidth: number;
     args: ICodingTreeArgs;
     cells: ICodeTreeCell[];
 }
 
-interface ICodeTreeCell {
+export interface ICodeTreeCell {
     x: number;
     y: number;
     width: number;
@@ -25,7 +28,7 @@ interface ICodeTreeCell {
     active?: boolean;
 }
 
-function createCodeTreeInfo(state: IDeflateRenderState, tree: IPrefixTree, args: ICodingTreeArgs): ICodeTreeInfo {
+export function createCodeTreeInfo(state: IDeflateRenderState, tree: IPrefixTree, args: ICodingTreeArgs): ICodeTreeInfo {
     let ctx = state.ctx;
 
     let codeWidth = 50;
@@ -34,7 +37,7 @@ function createCodeTreeInfo(state: IDeflateRenderState, tree: IPrefixTree, args:
     let lineHeight = 16;
     let numRows = 0;
 
-    let topYPos = lineHeight / 2 - 3;
+    let topYPos = 0; // lineHeight / 2 - 3;
 
     let xPos = 0;
     let yPos = topYPos;
@@ -47,8 +50,8 @@ function createCodeTreeInfo(state: IDeflateRenderState, tree: IPrefixTree, args:
         let bits = tree.codes[sym];
 
         cells.push({
-            x: xPos,
-            y: yPos,
+            x: xPos + args.x,
+            y: yPos + args.y,
             width: codeWidth,
             height: lineHeight,
             symbol: sym,
@@ -59,7 +62,7 @@ function createCodeTreeInfo(state: IDeflateRenderState, tree: IPrefixTree, args:
         yPos += lineHeight;
 
         numRows++;
-        if (numRows > 20) {
+        if (yPos > args.h - lineHeight) {
             numRows = 0;
             xPos += codeWidth + 90;
             yPos = topYPos;
@@ -73,8 +76,9 @@ function createCodeTreeInfo(state: IDeflateRenderState, tree: IPrefixTree, args:
     };
 }
 
-function renderCodingTree(state: IDeflateRenderState, treeInfo: ICodeTreeInfo) {
+export function renderCodingTree(state: IDeflateRenderState, treeInfo: ICodeTreeInfo) {
     let ctx = state.ctx;
+
 
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
