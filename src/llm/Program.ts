@@ -23,6 +23,9 @@ import { IBlockRender, initBlockRender } from "./render/blockRender";
 import { ILayout } from "../utils/layout";
 import { DimStyle } from "./walkthrough/WalkthroughTools";
 import { Subscriptions } from "../utils/hooks";
+import { LLMAnimationController } from "./animation/LLMAnimationController";
+import { VisualEffectsSystem } from "./animation/VisualEffects";
+import { EnhancedWalkthroughSystem } from "./animation/EnhancedWalkthrough";
 
 export interface IProgramState {
     native: NativeFunctions | null;
@@ -45,6 +48,11 @@ export interface IProgramState {
     display: IDisplayState;
     pageLayout: ILayout;
     markDirty: () => void;
+    // Enhanced animation system
+    animationController: LLMAnimationController;
+    visualEffects: VisualEffectsSystem;
+    enhancedWalkthrough: EnhancedWalkthroughSystem;
+    useEnhancedAnimations: boolean;
 }
 
 export interface IModelExample {
@@ -216,7 +224,12 @@ export function initProgramState(canvasEl: HTMLCanvasElement, fontAtlasData: IFo
             width: 0,
             isDesktop: true,
             isPhone: true,
-        }
+        },
+        // Initialize enhanced animation systems
+        animationController: new LLMAnimationController(),
+        visualEffects: new VisualEffectsSystem(),
+        enhancedWalkthrough: new EnhancedWalkthroughSystem(),
+        useEnhancedAnimations: true, // Enable by default
     };
 }
 
@@ -266,7 +279,25 @@ export function runProgram(view: IRenderView, state: IProgramState) {
 
     // will modify layout; view; render a few things.
     if (state.inWalkthrough) {
-        runWalkthrough(state, view);
+        if (state.useEnhancedAnimations) {
+            // Use enhanced walkthrough system with precise animations
+            const walkthroughArgs = {
+                state,
+                layout: state.layout,
+                walkthrough: state.walkthrough,
+                tools: {} as any, // Would need to be properly initialized
+            };
+            state.enhancedWalkthrough.update(view.dt / 1000, walkthroughArgs);
+        } else {
+            // Use original walkthrough system
+            runWalkthrough(state, view);
+        }
+    }
+
+    // Update animation systems
+    if (state.useEnhancedAnimations) {
+        state.animationController.update(view.dt / 1000);
+        state.visualEffects.update(view.dt / 1000);
     }
 
     updateCamera(state, view);

@@ -6,10 +6,11 @@ import { drawDependences } from "../Interaction";
 import { IProgramState } from "../Program";
 import { drawText, IFontOpts, measureText } from "../render/fontRender";
 import { clamp, makeArray } from "@/src/utils/data";
-import { lerp, lerpSmoothstep } from "@/src/utils/math";
+import { lerp, lerpSmoothstep, EasingType, lerpEased } from "@/src/utils/math";
 import { Mat4f } from "@/src/utils/matrix";
 import { Dim, Vec3, Vec4 } from "@/src/utils/vector";
 import { Phase } from "./Walkthrough";
+import { lerpWithEasing, lerpVec3WithEasing, createTimedAnimation } from "./WalkthroughTools";
 import { processUpTo, startProcessBefore } from "./Walkthrough00_Intro";
 import { embedInline } from "./Walkthrough01_Prelim";
 import { Colors, commentary, DimStyle, dimStyleColor, IWalkthroughArgs, moveCameraTo, setInitialCamera } from "./WalkthroughTools";
@@ -322,9 +323,10 @@ that it can only look in the past.
                     qFinal = inFinal = new Vec3(targetTop.x + layout.cell, targetTop.y - layout.cell * 12, qFinal.z);
                 }
 
-                // animate the cells from the initial grid position to be lined up next to each other
-                setBlkPosition(qCells[c], qInitial.tl.lerp(qFinal, cellMoveT));
-                setBlkPosition(inCells[c], inInitial.tl.lerp(inFinal, cellMoveT));
+                // Enhanced animation with precise easing for cell movement
+                const enhancedCellMoveT = lerpEased(0, 1, cellMoveT, EasingType.EaseOutBack);
+                setBlkPosition(qCells[c], qInitial.tl.lerp(qFinal, enhancedCellMoveT));
+                setBlkPosition(inCells[c], inInitial.tl.lerp(inFinal, enhancedCellMoveT));
 
                 let transitionPt = 0.15;
                 let collapsDotCellsT = lerp(0.0, transitionPt, t_collapseDotCellsA.t) + lerp(0, 1-transitionPt, t_collapseDotCellsB.t);
