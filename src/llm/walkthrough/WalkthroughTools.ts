@@ -6,6 +6,7 @@ import { Vec3, Vec4 } from "@/src/utils/vector";
 import { IWalkthrough, Phase, PhaseGroup } from "./Walkthrough";
 import { IProgramState } from "../Program";
 import { ICameraPos } from "../Camera";
+import { EasingType, lerpEased } from "@/src/utils/math";
 
 export interface IWalkthroughArgs {
     state: IProgramState;
@@ -263,6 +264,43 @@ export interface ITimeInfo {
     active: boolean;
 
     isBreak?: boolean;
+    easing?: EasingType; // Enhanced with easing support
+}
+
+// Enhanced timing functions with easing support
+export function createTimedAnimation(
+    start: number,
+    duration: number,
+    easing: EasingType = EasingType.Linear,
+    wait: number = 0
+): ITimeInfo {
+    return {
+        name: '',
+        start,
+        duration,
+        wait,
+        t: 0,
+        active: false,
+        easing,
+    };
+}
+
+export function lerpWithEasing(a: number, b: number, timeInfo: ITimeInfo): number {
+    return lerpEased(a, b, timeInfo.t, timeInfo.easing ?? EasingType.Linear);
+}
+
+export function lerpVec3WithEasing(a: Vec3, b: Vec3, timeInfo: ITimeInfo): Vec3 {
+    const t = timeInfo.easing ?
+        require("@/src/utils/math").easeValue(timeInfo.t, timeInfo.easing) :
+        timeInfo.t;
+    return a.lerp(b, t);
+}
+
+export function lerpVec4WithEasing(a: Vec4, b: Vec4, timeInfo: ITimeInfo): Vec4 {
+    const t = timeInfo.easing ?
+        require("@/src/utils/math").easeValue(timeInfo.t, timeInfo.easing) :
+        timeInfo.t;
+    return a.lerp(b, t);
 }
 
 function getPhaseTransitiveData(wt: IWalkthrough) {
