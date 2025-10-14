@@ -1,0 +1,6 @@
+[submodule "minGPT"]
+	path = minGPT
+	url = https://github.com/karpathy/minGPT.git
+[submodule "emsdk"]
+	path = emsdk
+	url = https://github.com/emscripten-core/emsdk.git
