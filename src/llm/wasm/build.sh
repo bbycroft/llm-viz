@@ -17,5 +17,5 @@ LINKER_FLAGS=" \
 set -x
 
 # odin build . -out:./main-native -o:speed
-odin build . -no-entry-point -target:js_wasm32 -o:speed -no-bounds-check -extra-linker-flags:"$LINKER_FLAGS" -out:../../public/native.wasm
+odin build . -no-entry-point -target:js_wasm32 -o:speed -no-bounds-check -extra-linker-flags:"$LINKER_FLAGS" -out:../../../public/native.wasm
 # wasm2wat ../../public/native.wasm > native.wat

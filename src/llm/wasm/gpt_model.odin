@@ -594,8 +594,8 @@ run_attention :: proc(model: ^GptModel, attention: ^GptAttention, layerIdx: int,
 
                 attnSmAggStride := b * n_heads * T + h * T + t
 
-                attnSmAgg[attnSmAggStride + 0] = maxDot
-                attnSmAgg[attnSmAggStride + 1] = sumExp
+                attnSmAgg[attnSmAggStride + 0] = sumExp
+                attnSmAgg[attnSmAggStride + 1] = maxDot
 
                 for t2 := 0; t2 <= t; t2 += 1 {
                     attnSm[attnStride + t2] = fast_exp(attn[attnStride + t2] - maxDot) * sumExpInv
@@ -758,8 +758,8 @@ run_softmax :: proc(model: ^GptModel, input: ^Tensor, output: ^Tensor, agg: ^Ten
             }
             sumExpInv: f32 = 1.0 / sumExp
 
-            aggData[b * T + t * 2 + 0] = max
-            aggData[b * T + t * 2 + 1] = sumExp
+            aggData[b * T + t * 2 + 0] = sumExp
+            aggData[b * T + t * 2 + 1] = max
 
             for c := 0; c < C; c += 1 {
                 outputData[cStride + c] = fast_exp(inputData[cStride + c] - max) * sumExpInv
