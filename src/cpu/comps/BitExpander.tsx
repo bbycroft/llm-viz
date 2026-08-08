@@ -384,7 +384,7 @@ function getNextRangeId(ranges: IBitRange[]) {
     let maxId = Math.max(...ranges.map(r => r.id ?? 0), 0) + 1;
     let potentialIds = new Set(makeArrayRange(maxId + 1, 0, maxId));
     ranges.forEach(r => potentialIds.delete(r.id));
-    return potentialIds.values().next().value;
+    return potentialIds.values().next().value!;
 }
 
 const BitExpandMultiOptions: React.FC<{

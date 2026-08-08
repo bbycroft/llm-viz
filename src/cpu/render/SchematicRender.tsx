@@ -11,7 +11,6 @@ import { drawGrid, shouldRenderComp, scaleFromMtx, makeCanvasFont } from "./Canv
 import { renderWire } from "./WireRender";
 import { renderWireLabels } from "./WireLabelRender";
 
-
 const innerOffset = 0.5;
 const fontSize = 1.1;
 const lineHeight = 1.4;
@@ -60,7 +59,7 @@ export function renderSchematic(cvs: ICanvasState, editorState: IEditorState, la
         let exeComp = exeSystem.comps[exeCompIdx];
         let compDef = editorState.compLibrary.getCompDef(comp.defId);
 
-        if (!compIsVisible(comp, idPrefix)) {
+        if (!compIsVisible(comp, idPrefix) || !exeComp) {
             continue;
         }
 

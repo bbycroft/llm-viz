@@ -1,0 +1,16 @@
+
+riscv_basic.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text_add_example:
+
+00000000 <_start_add_example>:
+   0:	00208833          	add	a6,ra,sp
+   4:	00000013          	nop
+   8:	005208b3          	add	a7,tp,t0
+   c:	00000013          	nop
+  10:	00838933          	add	s2,t2,s0
+  14:	00000013          	nop
+  18:	01180a33          	add	s4,a6,a7
+  1c:	012a0a33          	add	s4,s4,s2
+  20:	00000073          	ecall

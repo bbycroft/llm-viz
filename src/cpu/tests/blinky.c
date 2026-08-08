@@ -28,17 +28,12 @@ void sleep() {
 }
 
 int main() {
-    //  void (*sleep_ptr)() = &sleep;
-
     for (int j = 0; j < ITER_COUNT; j++) {
         *GPIO_VAL = BLINK_MODE_0;
-        // asm("jal sleep");
         sleep();
         *GPIO_VAL = BLINK_MODE_1;
-        // asm("jal sleep");
         sleep();
     }
     *GPIO_VAL = iter_counter;
     return 0;
 }
-

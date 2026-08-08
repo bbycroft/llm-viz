@@ -178,13 +178,13 @@ export function createBinaryGateMultiComps(_args: ICompBuilderArgs): ICompDef<an
             let rightX = x + wOrig - 1;
             let w = wOrig + dx - 1;
             let h = height - 1;
-            let frontRad = Math.min(2.0, height > 5 ? h * 0.5 : h * 0.9);
+            let frontRad = w/2;
             let rightYOff = 0; // height > 5 ? h / 8 : 0;
             ctx.moveTo(x, y);
-            ctx.arcTo(rightX - 1, y + rightYOff, x + w, y + h / 2, frontRad);
-            ctx.lineTo(x + w, y + h / 2);
+            ctx.arcTo(x + w, y, x + w, y + w, frontRad);
+            ctx.lineTo(x + w, y + w/2);
 
-            ctx.arcTo(rightX - 1, y + h - rightYOff, x, y + h, frontRad);
+            ctx.arcTo(x + w, y + h, x, y + h, frontRad);
             ctx.lineTo(x, y + h);
 
             ctx.closePath();
