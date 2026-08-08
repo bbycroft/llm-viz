@@ -1,6 +1,7 @@
 import React from 'react';
 import { FluidSimView } from '@/src/fluidsim/FluidSimView';
 import Link from 'next/link';
+import { requireFeature } from '@/src/config/requireFeature';
 
 export const metadata = {
   title: 'Fluid Simulation',
@@ -10,6 +11,7 @@ export const metadata = {
 import s from './page.module.scss';
 
 export default function Page() {
+    requireFeature('fluidSim');
 
     return <>
         <div className={s.header}>

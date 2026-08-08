@@ -1,6 +1,7 @@
 import React from 'react';
 import { CodecMain } from '@/src/codec/CodecMain';
 import { Header } from '@/src/homepage/Header';
+import { requireFeature } from '@/src/config/requireFeature';
 
 export const metadata = {
   title: 'Codecs',
@@ -8,6 +9,7 @@ export const metadata = {
 };
 
 export default function Page() {
+    requireFeature('codec');
 
     return <>
         <Header title="Image Codecs">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { CPUMain } from '@/src/cpu/CpuMain';
-import { Header } from '@/src/homepage/Header';
+import { requireFeature } from '@/src/config/requireFeature';
 
 export const metadata = {
   title: 'CPU Simulation',
@@ -8,6 +8,8 @@ export const metadata = {
 };
 
 export default function Page() {
+    requireFeature('cpu');
+
     return <>
         <CPUMain />
         <div id="portal-container"></div>
