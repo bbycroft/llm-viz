@@ -214,13 +214,25 @@ export const ${nameToCamel}Schematic: ILSSchematic = ${lsStr};
 export const ${nameToCamel}SchematicStr = \`${dataStr}\`;
 `;
 
-        await fetch(`/cpu/api/save-schematic-to-file?filename=${nameToCamel}`, {
+        // Dev-only: writes into src/cpu/schematics for commit. Served by
+        // scripts/dev-schematic-api.mjs (started via `yarn dev`), not the static export.
+        if (process.env.NODE_ENV !== 'development') {
+            console.warn('saveToFile is only available in development');
+            return;
+        }
+
+        const res = await fetch(`cpu/api/save-schematic-to-file?filename=${nameToCamel}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'text/plain',
             },
             body: body,
         });
+
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            console.error(`saveToFile failed (${res.status}): ${text}`);
+        }
     }
 
     private schematicLocalStorageKey(id: string) {

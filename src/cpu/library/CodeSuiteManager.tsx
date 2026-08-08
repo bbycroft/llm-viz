@@ -48,6 +48,11 @@ export class CodeSuiteManager {
     }
 
     private async loadSuite(suite: ICodeSuite) {
+        // Static assets are only available in the browser; skip during SSG/prerender.
+        if (typeof window === 'undefined') {
+            return;
+        }
+
         let basePath = (process.env.BASE_URL ?? '') + '/riscv/examples/';
         let resp = await fetch(basePath + suite.fileName);
 
