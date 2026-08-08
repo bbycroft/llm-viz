@@ -157,7 +157,7 @@ export function useTouchEvents<T>(
     let alwaysSendDragEvent = options.alwaysSendDragEvent ?? false;
     let sendDragEnd = options.sendDragEnd ?? false;
     let initialData = useRef<T>(data);
-    let initialTouches = useRef<TouchSimple[]>();
+    let initialTouches = useRef<TouchSimple[]>(undefined);
     let lastTouch = useRef<{ time: number, velocity: number, touch: TouchSimple } | null>(null);
     let isDrag = useRef<boolean>(false);
     let latestData = useRef<T>(data);

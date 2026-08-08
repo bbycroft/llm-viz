@@ -16,8 +16,8 @@ export const Resizer: React.FC<{
     let [parentEl, setParentEl] = useState<HTMLElement | null>(null);
     let [sliderHitEl, setSliderHitEl] = useState<HTMLElement | null>(null);
     let childrenArr = React.Children.toArray(children).filter(a => a);
-    let firstChild = childrenArr[0] as React.ReactElement;
-    let scndChild = childrenArr[1] as React.ReactElement;
+    let firstChild = childrenArr[0] as React.ReactElement<any>;
+    let scndChild = childrenArr[1] as React.ReactElement<any>;
 
     let [amt, setAmt] = useState(defaultAmt ?? 0.4);
 
