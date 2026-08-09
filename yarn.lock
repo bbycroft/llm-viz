@@ -1537,13 +1537,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vercel/analytics@npm:1.0.2":
-  version: 1.0.2
-  resolution: "@vercel/analytics@npm:1.0.2"
-  checksum: 10c0/e73b07cec987067d70449eddd312c28cd2ec83807ed8ac6ddf3540f8ccd63f0de8ec57aac5a6d2616f7c3910573def4d05860796c88e9f83e452e660be933c77
-  languageName: node
-  linkType: hard
-
 "@webgpu/types@npm:0.1.32":
   version: 0.1.32
   resolution: "@webgpu/types@npm:0.1.32"
@@ -4863,7 +4856,6 @@ __metadata:
     "@types/node": "npm:20.1.0"
     "@types/react": "npm:19.2.18"
     "@types/react-dom": "npm:19.2.4"
-    "@vercel/analytics": "npm:1.0.2"
     "@webgpu/types": "npm:0.1.32"
     add: "npm:2.0.6"
     autoprefixer: "npm:10.4.15"
