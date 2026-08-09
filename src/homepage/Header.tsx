@@ -6,9 +6,9 @@ export const Header: React.FC<{
     children?: React.ReactNode;
 }> = ({ title, children }) => {
 
-    return <div className="flex justify-between items-center px-2 py-1 bg-blue-950 text-white h-[2.5rem] flex-shrink-0">
+    return <div className="flex justify-between items-center px-2 py-1 bg-blue-950 text-white h-[2.0rem] flex-shrink-0">
         <div className="flex items-center">{children}</div>
-        {title && <div className="text-2xl">{title}</div>}
+        {title && <div className="text-xl">{title}</div>}
         <div className="hover:underline">
             <Link href={"/"}>Home</Link>
         </div>

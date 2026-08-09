@@ -26,7 +26,7 @@ export const ModelSelectorToolbar: React.FC<{
             progState.markDirty();
         }
 
-        return <div className={clsx('m-2 p-2 rounded shadow cursor-pointer hover:bg-blue-300', isActive ? 'bg-blue-200' : 'bg-white')} onClick={handleClick}>
+        return <div className={clsx('m-2 px-2 py-1 rounded shadow cursor-pointer hover:bg-blue-300', isActive ? 'bg-blue-200' : 'bg-white')} onClick={handleClick}>
             {example.name}
         </div>;
     }
