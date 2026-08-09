@@ -51,3 +51,4 @@ styles/dist.css
 *.wat
 src/cpu/tests/*_.s
 *.o
+*.ll

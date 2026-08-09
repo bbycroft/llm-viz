@@ -194,11 +194,22 @@ export function getBlockValueAtIdx(blk: IBlkDef, blkIdx: Vec3) {
     }
     let bufferTex = blk.access.src;
 
-    let bufferPos = blk.access.mat.mulVec4(new Vec4(blkIdx.x, blkIdx.y, blkIdx.z, 1));
+    // access.mat is packed as a row-major mat4x2 (see IBlkAccess / blockRender u_accessMtx):
+    //   texX = m[0]*x + m[1]*y + m[2]*z + m[3]
+    //   texY = m[4]*x + m[5]*y + m[6]*z + m[7]
+    // Do not use mulVec4 — that treats mat as a column-major 4x4 and drops z/constant terms.
+    let m = blk.access.mat;
+    let bx = blkIdx.x, by = blkIdx.y, bz = blkIdx.z;
+    let texX = Math.round(m[0] * bx + m[1] * by + m[2] * bz + m[3]);
+    let texY = Math.round(m[4] * bx + m[5] * by + m[6] * bz + m[7]);
 
     let channelIdx = blk.access.channel === 'r' ? 0 : blk.access.channel === 'g' ? 1 : blk.access.channel === 'b' ? 2 : 3;
 
-    let idx = bufferPos.y * bufferTex.width * bufferTex.channels + bufferPos.x * bufferTex.channels + channelIdx;
+    let idx = texY * bufferTex.width * bufferTex.channels + texX * bufferTex.channels + channelIdx;
+
+    if (idx < 0 || idx >= localBuffer.length) {
+        return null;
+    }
 
     return localBuffer[idx];
 }

@@ -128,7 +128,9 @@ export interface IBlkAccess {
     src: IBufferTex;
     channel: 'r' | 'g' | 'b';
     scale: number;
-    mat: Mat4f; // actually using the first two columns for a 3x2 matrix: mapping (x, y, z) integer cell coord to (x, y) src tex coord
+    // Packed as GPU row-major mat4x2: first 4 floats = texX row (coeffs of cell x,y,z,1),
+    // next 4 floats = texY row. See getBlockValueAtIdx / blockRender u_accessMtx.
+    mat: Mat4f;
     disable?: boolean;
 }
 
@@ -136,6 +138,9 @@ interface IBlkAccessDefArgs {
     src?: IBufferTex;
     channel?: 'r' | 'g' | 'b';
     scale?: number;
+    // texX = x[0]*cellX + x[1]*cellY + x[2]*cellZ + x[3]
+    // texY = y[0]*cellX + y[1]*cellY + y[2]*cellZ + y[3]
+    // (missing trailing coeffs are treated as 0)
     x: number[];
     y: number[];
 }
@@ -492,7 +497,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             let attnMtxAgg1 = mk({
                 t: 'a', cx: 1, cz: B, cy: T, y: attn1Y,
                 xR: attnLeftX - T * cell - margin - cell, zM: headZMid,
-                access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, 1, nHeads * T, T * i], channel: 'r' },
+                access: { src: attnTarget?.attnMatrixAgg, x: [0, 0, 0, 0], y: [0, 1, nHeads * T, T * i], channel: 'r' },
                 deps: { add: [[attnMtx, 'iy']], special: BlKDepSpecial.SoftmaxAggExp },
                 dimX: DimStyle.None, dimY: DimStyle.T, small: true,
                 name: '',
@@ -501,7 +506,7 @@ export function genGptModelLayout(shape: IModelShape, gptGpuModel: IGptModelLink
             let attnMtxAgg2 = mk({
                 t: 'a', cx: 1, cz: B, cy: T, y: attn1Y,
                 xR: attnLeftX - T * cell - margin, zM: headZMid,
-                access: { src: attnTarget?.attnMatrixSoftmax, x: [0, 0, 0, 1], y: [0, 1, nHeads * T, T * i], channel: 'g' },
+                access: { src: attnTarget?.attnMatrixAgg, x: [0, 0, 0, 0], y: [0, 1, nHeads * T, T * i], channel: 'g' },
                 deps: { add: [[attnMtx, 'iy']], special: BlKDepSpecial.SoftmaxAggMax },
                 dimX: DimStyle.None, dimY: DimStyle.T, small: true,
                 name: '',
