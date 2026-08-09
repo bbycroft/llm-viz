@@ -1,8 +1,8 @@
-//+build js wasm32
+#+build js wasm32
 
 package main
 
-import "core:runtime"
+import "base:runtime"
 import "core:mem"
 // import "core:fmt"
 
@@ -18,12 +18,17 @@ main_context: runtime.Context
 
     me_malloc_init(&meMallocMaster)
     meMallocMaster.pageAllocator = page_alloc
+    // pageMap must NOT use MeMalloc itself — first insert would recurse forever.
+    meMallocMaster.pageMap = make(map[uintptr]^MeMallocPage, page_alloc)
 
     my_allocator := me_malloc_allocator(&meMallocMaster)
 
-    mem.dynamic_pool_init(&meMallocMaster.dynamicPool, page_alloc, my_allocator, mem.DEFAULT_PAGE_SIZE);
+    // Large allocs → Dynamic_Arena. Both block storage and its internal dynamic
+    // arrays go through page_alloc (never my_allocator) to avoid recursion.
+    mem.dynamic_arena_init(&meMallocMaster.dynamicPool, page_alloc, page_alloc, PAGE_SIZE)
 
-    data, ok := mem.alloc_bytes(PAGE_SIZE, 0, page_alloc)
+    // alignment must be a power of two (0 used to mean "default" in older Odin)
+    data, ok := mem.alloc_bytes(PAGE_SIZE, PAGE_SIZE, page_alloc)
     arena := mem.Arena{}
     mem.arena_init(&arena, data)
     arenaAlloc := mem.arena_allocator(&arena)
@@ -99,7 +104,8 @@ wasm_tensor_res := WasmTensorResult{}
 
     tensor := get_model_tensor(model, target, index)
 
-    wasm_tensor_res := WasmTensorResult {
+    // Use package-level storage: returning &local is illegal (stack frame dies).
+    wasm_tensor_res = WasmTensorResult {
         data = &tensor.data[0],
         shapeArrPtr = &tensor.shape[0],
         strideArrPtr = &tensor.stride[0],

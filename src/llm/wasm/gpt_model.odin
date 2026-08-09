@@ -1,7 +1,7 @@
 package main
 
 import "core:math"
-import "core:runtime"
+import "base:runtime"
 import "core:fmt"
 import "core:time"
 // import "core:debug"
@@ -592,10 +592,11 @@ run_attention :: proc(model: ^GptModel, attention: ^GptAttention, layerIdx: int,
 
                 sumExpInv: f32 = 1.0 / sumExp
 
-                attnSmAggStride := b * n_heads * T + h * T + t
+                // Layout matches GPU attnMatrixAgg: channels (r=expSumInv, g=max), flat index (b,h,t)*2
+                attnSmAggBase := (b * n_heads * T + h * T + t) * 2
 
-                attnSmAgg[attnSmAggStride + 0] = maxDot
-                attnSmAgg[attnSmAggStride + 1] = sumExp
+                attnSmAgg[attnSmAggBase + 0] = sumExpInv
+                attnSmAgg[attnSmAggBase + 1] = maxDot
 
                 for t2 := 0; t2 <= t; t2 += 1 {
                     attnSm[attnStride + t2] = fast_exp(attn[attnStride + t2] - maxDot) * sumExpInv

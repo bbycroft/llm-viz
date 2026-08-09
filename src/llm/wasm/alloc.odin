@@ -1,8 +1,8 @@
 package main
 
 import "core:mem"
-import "core:runtime"
-import "core:intrinsics"
+import "base:runtime"
+import "base:intrinsics"
 import "core:container/intrusive/list"
 
 PAGE_SIZE :: 64 * 1024
@@ -24,22 +24,36 @@ page_alloc :: proc(page_count: int) -> (data: []byte, err: mem.Allocator_Error) 
     return ptr[:page_count * PAGE_SIZE], nil
 }
 
+// Bump-only page allocator (wasm memory.grow). Used for:
+//   - MeMalloc slab pages
+//   - MeMalloc internal metadata (pageMap, Dynamic_Arena block lists)
+// Small requests are rounded up to a whole page so maps/arrays can use it
+// without recursing into MeMalloc (which would infinite-loop).
 page_allocator :: proc() -> mem.Allocator {
 	procedure :: proc(allocator_data: rawptr, mode: mem.Allocator_Mode,
 	                  size, alignment: int,
 	                  old_memory: rawptr, old_size: int,
 	                  location := #caller_location) -> ([]byte, mem.Allocator_Error) {
-		switch mode {
+		#partial switch mode {
 		case .Alloc, .Alloc_Non_Zeroed:
-			assert(size % PAGE_SIZE == 0)
-			return page_alloc(size/PAGE_SIZE)
-		case .Resize, .Free, .Free_All, .Query_Info:
-			runtime.print_string(".Resize NOT IMPLEMENTED\n")
+			if size <= 0 {
+				return nil, nil
+			}
+			// Always hand back whole wasm pages (64KiB). Wasteful for tiny
+			// metadata, but keeps MeMalloc off its own call stack.
+			n_pages := (size + PAGE_SIZE - 1) / PAGE_SIZE
+			if n_pages < 1 {
+				n_pages = 1
+			}
+			return page_alloc(n_pages)
+		case .Resize, .Resize_Non_Zeroed, .Free, .Free_All, .Query_Info:
+			// No shrink/free — wasm memory can't be given back. Leak is fine
+			// for rare pageMap growth / arena bookkeeping.
 			return nil, .Mode_Not_Implemented
 		case .Query_Features:
 			set := (^mem.Allocator_Mode_Set)(old_memory)
 			if set != nil {
-				set^ = {.Alloc, .Query_Features}
+				set^ = {.Alloc, .Alloc_Non_Zeroed, .Query_Features}
 			}
 		}
 

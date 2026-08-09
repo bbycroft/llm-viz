@@ -1,16 +1,14 @@
 
 package main
 
-ME_DEBUG :: false && ODIN_ARCH != .wasm32 && ODIN_ARCH != .wasm64
+// Debug logging for the custom allocator (off for wasm builds).
+ME_DEBUG :: false
 
 import "core:mem"
-when ME_DEBUG {
 import "core:fmt"
-}
-
 import "core:math"
-import "core:runtime"
-import "core:intrinsics"
+import "base:runtime"
+import "base:intrinsics"
 import "core:container/intrusive/list"
 
 // Time to build! We have __heap_base supplied and so can allocate from there
@@ -33,7 +31,7 @@ MeMallocMaster :: struct {
 	freePageList: ^MeMallocPage, // singly linked list of all pages with free segments
     pageMap: map[uintptr]^MeMallocPage, // map of page start addresses to page metadata
 
-    dynamicPool: mem.Dynamic_Pool,
+    dynamicPool: mem.Dynamic_Arena, // large allocations fall through here
 }
 
 ME_MALLOC_PAGE_SIZE :: 64 * 1024 // 64KiB, to match wasm page size
@@ -49,19 +47,25 @@ me_malloc_allocator :: proc(master: ^MeMallocMaster) -> mem.Allocator {
         
         master := (^MeMallocMaster)(allocator_data)
 
-		switch mode {
+		#partial switch mode {
 		case .Alloc, .Alloc_Non_Zeroed:
+			if size <= 0 {
+				return nil, nil
+			}
 			res := me_malloc_alloc(master, uint(size))
-            return mem.slice_ptr((^byte)(res), size), nil
-        case .Free:
-            me_malloc_free(master, old_memory)
-            return nil, nil
-		case .Resize, .Free_All, .Query_Info:
+			if res == nil {
+				return nil, .Out_Of_Memory
+			}
+			return mem.slice_ptr((^byte)(res), size), nil
+		case .Free:
+			me_malloc_free(master, old_memory)
+			return nil, nil
+		case .Resize, .Resize_Non_Zeroed, .Free_All, .Query_Info:
 			return nil, .Mode_Not_Implemented
 		case .Query_Features:
 			set := (^mem.Allocator_Mode_Set)(old_memory)
 			if set != nil {
-				set^ = {.Alloc, .Query_Features}
+				set^ = {.Alloc, .Alloc_Non_Zeroed, .Free, .Query_Features}
 			}
 		}
 
@@ -118,7 +122,7 @@ me_malloc_alloc_page :: proc(master: ^MeMallocMaster) -> ^MeMallocPage {
         fmt.printf("me_malloc_alloc_page trying to allocate page\n")
     }
 
-	pagePtr := mem.alloc(ME_MALLOC_PAGE_SIZE, ME_MALLOC_PAGE_SIZE, master.pageAllocator)
+	pagePtr, _ := mem.alloc(ME_MALLOC_PAGE_SIZE, ME_MALLOC_PAGE_SIZE, master.pageAllocator)
 
 	page: ^MeMallocPage = (^MeMallocPage)(pagePtr)
 
@@ -175,7 +179,8 @@ me_malloc_alloc :: proc(master: ^MeMallocMaster, size: uint) -> rawptr {
             return me_malloc_alloc_block_from_segment(master, seg)
         }
     } else {
-        return mem.dynamic_pool_alloc(&master.dynamicPool, int(size))
+        ptr, _ := mem.dynamic_arena_alloc(&master.dynamicPool, int(size))
+        return ptr
     }
 
     _, blockSize := me_malloc_to_block_idx_size(size)
@@ -192,8 +197,7 @@ me_malloc_alloc :: proc(master: ^MeMallocMaster, size: uint) -> rawptr {
     }
 
     if (page_alloced) {
-        // need to ensure we do this after setting up the page, since it calls into the allocator
-        // itself...
+        // pageMap is backed by pageAllocator (not MeMalloc), so this is safe.
         master.pageMap[uintptr(page)] = page
     }
 
@@ -390,7 +394,7 @@ when ME_DEBUG {
 
     my_allocator := me_malloc_allocator(&my_master)
 
-    mem.dynamic_pool_init(&my_master.dynamicPool, page_allocator, my_allocator, PAGE_SIZE)
+    mem.dynamic_arena_init(&my_master.dynamicPool, page_allocator, my_allocator, PAGE_SIZE)
 
     track := mem.Tracking_Allocator{}
     mem.tracking_allocator_init(&track, my_allocator)

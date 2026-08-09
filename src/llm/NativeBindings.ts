@@ -9,6 +9,7 @@ export async function loadNativeBindings() {
 
     let memory = new WebAssembly.Memory({ initial: 1, maximum: 256 });
 
+    // Imports expected by Odin's js/wasm runtime (see core/sys/wasm/js/odin.js).
     let importObject = {
         env: {
             memory,
@@ -24,8 +25,15 @@ export async function loadNativeBindings() {
                 }
                 lineStr += lines[lines.length - 1];
             },
-            time_now: () => {
-                return BigInt(Date.now()) * BigInt(1e6);
+            // Odin multiplies by 1e6 itself (time_js.odin); JS should return ms.
+            time_now: () => BigInt(Date.now()),
+            tick_now: () => performance.now(),
+            time_sleep: (_duration_ms: number) => {},
+            trap: () => { throw new Error('odin trap'); },
+            // Odin passes []byte as (ptr, len); fill with CSPRNG bytes.
+            rand_bytes: (ptr: number, len: number) => {
+                let view = new Uint8Array(importObject.env.memory.buffer, ptr, len);
+                crypto.getRandomValues(view);
             },
         },
         odin_dom: {
