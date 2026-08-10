@@ -6,6 +6,9 @@ This repository contains my (Brendan's) homepage, as well as a number of non-tri
 They are kept in a single repository for ease of deployment, as well as sharing a bunch of js utils
 which are otherwise a pain to share around.
 
+**License:** MIT (see [`LICENSE`](LICENSE)), except the personal homepage (`src/homepage/`, `public/me.jpeg`)
+and third-party assets (fonts, RISC-V tests, etc.), which retain their original rights/licenses.
+
 ## Projects
 
 The main projects are:
