@@ -8,6 +8,7 @@ import { addLine2, drawLineSegs, makeLineOpts } from "../render/lineRender";
 import { IRenderState } from "../render/modelRender";
 import { RenderPhase } from "../render/sharedRender";
 import { addPrimitiveRestart, addQuad, addVert } from "../render/triRender";
+import { bezierCubic } from "@/src/utils/bezier";
 import { isNotNil } from "@/src/utils/data";
 import { lerp } from "@/src/utils/math";
 import { Mat4f } from "@/src/utils/matrix";
@@ -814,7 +815,8 @@ function drawDepArrows(args: IDataFlowArgs, bb: BoundingBox3d) {
         let source = projectToScreen(state, cellPos);
 
         let center = bb.center();
-        let dir = source.sub(center).normalize();
+        let dir = source.sub(center);
+        dir = dir.lenSq() > 0 ? dir.normalize() : new Vec3(0,-1,0);
         let tVals = [
             (bb.min.x - center.x) / dir.x,
             (bb.max.x - center.x) / dir.x,
@@ -838,7 +840,7 @@ function drawDepArrows(args: IDataFlowArgs, bb: BoundingBox3d) {
                 source = actualTarget;
                 actualTarget = tmp;
             }
-            drawArc(state, source, actualTarget, color, mtx, 1.0);
+            drawArc(state, source, actualTarget, color, mtx, 1.0, bb, reverse);
             // addLine2(state.render.lineRender, source, actualTarget, lineOpts);
         }
     }
@@ -862,11 +864,13 @@ function drawDepArrows(args: IDataFlowArgs, bb: BoundingBox3d) {
 // scale bisection by distance
 // this now marks the center of the circle
 // grab radius (easy), and then figure out start/end angles
+// detour outside the formula box if it would cover the connection
 
-function drawArc(state: IProgramState, a: Vec3, b: Vec3, color: Vec4, mtx: Mat4f, thick: number) {
-    let dir = b.sub(a).normalize();
+function drawArc(state: IProgramState, a: Vec3, b: Vec3, color: Vec4, mtx: Mat4f, thick: number, bb: BoundingBox3d, reverse = false) {
+    const distance = a.dist(b);
+    let dir = distance > 0 ? b.sub(a).normalize() : new Vec3(1,0,0);
     let bisect = Vec3.cross(dir, new Vec3(0,0,1)).normalize();
-    let center = a.lerp(b, 0.5).add(bisect.mul(a.dist(b) * -2.0));
+    let center = a.lerp(b, 0.5).add(bisect.mul(distance * -2.0));
 
     let radius = a.dist(center);
     let endAngle = Math.atan2(b.y - center.y, b.x - center.x);
@@ -893,14 +897,62 @@ function drawArc(state: IProgramState, a: Vec3, b: Vec3, color: Vec4, mtx: Mat4f
         pts[i * 3 + 1] = y;
     }
 
-    drawLineSegs(state.render.lineRender, pts, lineOpts);
-
     let tangent = new Vec3(Math.sin(endAngle), -Math.cos(endAngle));
-
-    let dirA = tangent.rotateAbout(new Vec3(0,0,1), -Math.PI * 0.25);
-    let dirB = tangent.rotateAbout(new Vec3(0,0,1), Math.PI * 0.25);
-
     let arrowLen = 10;
-    addLine2(state.render.lineRender, b, b.mulAdd(dirA, arrowLen), lineOpts);
-    addLine2(state.render.lineRender, b, b.mulAdd(dirB, arrowLen), lineOpts);
+    let headA = b.mulAdd(tangent.rotateAbout(new Vec3(0,0,1), -Math.PI * 0.25), arrowLen);
+    let headB = b.mulAdd(tangent.rotateAbout(new Vec3(0,0,1), Math.PI * 0.25), arrowLen);
+
+    function intersectsBox(p: Vec3, q: Vec3) {
+        let tMin = 0;
+        let tMax = 1;
+        for (const dim of [Dim.X, Dim.Y]) {
+            const start = p.getAt(dim);
+            const delta = q.getAt(dim) - start;
+            const min = bb.min.getAt(dim);
+            const max = bb.max.getAt(dim);
+            if (delta === 0) {
+                if (start < min || start > max) return false;
+            } else {
+                const t0 = (min - start) / delta;
+                const t1 = (max - start) / delta;
+                tMin = Math.max(tMin, Math.min(t0, t1));
+                tMax = Math.min(tMax, Math.max(t0, t1));
+                if (tMin > tMax) return false;
+            }
+        }
+        return true;
+    }
+
+    let obscured = intersectsBox(b, headA) || intersectsBox(b, headB);
+    for (let i = 1; i < nPts && !obscured; i++) {
+        obscured = intersectsBox(Vec3.fromArray(pts, (i - 1) * 3), Vec3.fromArray(pts, i * 3));
+    }
+
+    if (obscured || distance === 0) {
+        const anchor = reverse ? a : b;
+        const dataPoint = reverse ? b : a;
+        const offset = anchor.sub(bb.center());
+        const size = bb.size();
+        const normal = Math.abs(offset.x) * size.y >= Math.abs(offset.y) * size.x
+            ? new Vec3(Math.sign(offset.x), 0, 0) : new Vec3(0, Math.sign(offset.y), 0);
+        const side = Vec3.cross(normal, new Vec3(0,0,1));
+        const detour = 24;
+        // Put both control points outside the attachment edge, including when the data point is covered.
+        const reach = Math.max(detour * 2, anchor.sub(dataPoint).dot(normal) + detour * 2);
+        const bend = dataPoint.sub(anchor).dot(side) < 0 ? -1 : 1;
+        const dataControl = dataPoint.mulAdd(normal, reach).mulAdd(side, bend * detour * 2);
+        const boxControl = anchor.mulAdd(normal, detour);
+        const p1 = reverse ? boxControl : dataControl;
+        const p2 = reverse ? dataControl : boxControl;
+        for (let i = 0; i < nPts; i++) {
+            bezierCubic(a, p1, p2, b, i / (nPts - 1)).writeToBuf(pts, i * 3);
+        }
+        tangent = p2.sub(b).normalize();
+        headA = b.mulAdd(tangent.rotateAbout(new Vec3(0,0,1), -Math.PI * 0.25), arrowLen);
+        headB = b.mulAdd(tangent.rotateAbout(new Vec3(0,0,1), Math.PI * 0.25), arrowLen);
+    }
+
+    drawLineSegs(state.render.lineRender, pts, lineOpts);
+    addLine2(state.render.lineRender, b, headA, lineOpts);
+    addLine2(state.render.lineRender, b, headB, lineOpts);
 }
