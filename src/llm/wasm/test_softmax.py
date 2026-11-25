@@ -30,7 +30,7 @@ def test_output_softmax(values):
     linker.define_func("odin_env", "write", wasmtime.FuncType([i32, i32, i32], []), write)
     wasm = linker.instantiate(store, module).exports(store)
     wasm["init_allocator"](store, wasm["__heap_base"].value(store))
-    model = wasm["wasm_create_model"](store, 1, 1, 1, 1, 1, 2)
+    model = wasm["wasm_create_model"](store, 2, 1, 1, 1, 1, 2)
 
     def tensor(target):
         descriptor = wasm["wasm_get_model_tensor"](store, model, target, 0)
@@ -44,7 +44,10 @@ def test_output_softmax(values):
     tensor(16)[0] = 1  # LnFBeta
     tensor(2)[:] = values  # LmHeadW
     wasm["wasm_run_model"](store, model)
-    logits = torch.tensor(list(tensor(37)))
-    torch.testing.assert_close(logits, torch.tensor(values))
-    probabilities = torch.tensor(list(tensor(39)))
+    logits = torch.tensor(list(tensor(37))).reshape(2, 2)
+    torch.testing.assert_close(logits, torch.tensor([values, values]))
+    probabilities = torch.tensor(list(tensor(39))).reshape(2, 2)
     torch.testing.assert_close(probabilities, torch.softmax(logits, dim=-1))
+    # Identical batches must expose identical normalization statistics.
+    aggregates = torch.tensor(list(tensor(38))).reshape(2, 2)
+    torch.testing.assert_close(aggregates[0], aggregates[1])
