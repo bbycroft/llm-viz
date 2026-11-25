@@ -748,7 +748,7 @@ run_softmax :: proc(model: ^GptModel, input: ^Tensor, output: ^Tensor, agg: ^Ten
         for t := 0; t < T; t += 1 {
             cStride := b * T * C + t * C
 
-            max: f32 = 0.0
+            max: f32 = math.inf_f32(-1)
             for c := 0; c < C; c += 1 {
                 max = math.max(max, inputData[cStride + c])
             }
@@ -759,8 +759,9 @@ run_softmax :: proc(model: ^GptModel, input: ^Tensor, output: ^Tensor, agg: ^Ten
             }
             sumExpInv: f32 = 1.0 / sumExp
 
-            aggData[b * T + t * 2 + 0] = max
-            aggData[b * T + t * 2 + 1] = sumExp
+            aggBase := (b * T + t) * 2
+            aggData[aggBase + 0] = max
+            aggData[aggBase + 1] = sumExp
 
             for c := 0; c < C; c += 1 {
                 outputData[cStride + c] = fast_exp(inputData[cStride + c] - max) * sumExpInv
