@@ -748,7 +748,7 @@ run_softmax :: proc(model: ^GptModel, input: ^Tensor, output: ^Tensor, agg: ^Ten
         for t := 0; t < T; t += 1 {
             cStride := b * T * C + t * C
 
-            max: f32 = 0.0
+            max: f32 = math.inf_f32(-1)
             for c := 0; c < C; c += 1 {
                 max = math.max(max, inputData[cStride + c])
             }
